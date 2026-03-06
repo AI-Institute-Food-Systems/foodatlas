@@ -1,6 +1,6 @@
 """Example test file."""
 
-from mypackage import __version__
+from src import __version__
 
 
 def test_version() -> None:

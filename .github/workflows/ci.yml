@@ -1,0 +1,123 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - dev
+    paths:
+      - "backend/**"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Detect which backend sub-projects have changes
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      api: ${{ steps.filter.outputs.api }}
+      db: ${{ steps.filter.outputs.db }}
+      ie: ${{ steps.filter.outputs.ie }}
+      kgc: ${{ steps.filter.outputs.kgc }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            api:
+              - "backend/api/**"
+            db:
+              - "backend/db/**"
+            ie:
+              - "backend/ie/**"
+            kgc:
+              - "backend/kgc/**"
+
+  lint:
+    needs: changes
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.db == 'true' || needs.changes.outputs.ie == 'true' || needs.changes.outputs.kgc == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ruff lint
+        uses: astral-sh/ruff-action@v3
+        with:
+          src: backend/
+          args: check
+
+      - name: Ruff format check
+        uses: astral-sh/ruff-action@v3
+        with:
+          src: backend/
+          args: format --check
+
+  security:
+    needs: changes
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.db == 'true' || needs.changes.outputs.ie == 'true' || needs.changes.outputs.kgc == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install bandit
+        run: pip install "bandit[toml]"
+
+      - name: Bandit security scan
+        run: bandit -c pyproject.toml -r backend/ --exclude "**/tests,**/.venv"
+
+  typecheck:
+    needs: changes
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.db == 'true' || needs.changes.outputs.ie == 'true' || needs.changes.outputs.kgc == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install mypy
+        run: pip install mypy
+
+      - name: Mypy type check
+        run: mypy --explicit-package-bases --exclude '\.venv' backend/
+
+  test:
+    needs: changes
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.db == 'true' || needs.changes.outputs.ie == 'true' || needs.changes.outputs.kgc == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run tests for changed projects
+        run: |
+          projects=""
+          [[ "${{ needs.changes.outputs.api }}" == "true" ]] && projects="$projects api"
+          [[ "${{ needs.changes.outputs.db }}" == "true" ]] && projects="$projects db"
+          [[ "${{ needs.changes.outputs.ie }}" == "true" ]] && projects="$projects ie"
+          [[ "${{ needs.changes.outputs.kgc }}" == "true" ]] && projects="$projects kgc"
+          for project in $projects; do
+            echo "::group::test backend/$project"
+            cd backend/$project && uv sync && uv run pytest
+            cd ../..
+            echo "::endgroup::"
+          done
