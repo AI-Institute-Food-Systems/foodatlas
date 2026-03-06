@@ -1,0 +1,49 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background-color: #0a0a09;
+  color: #fff;
+  padding: 0 !important;
+}
+
+a {
+  text-decoration: none;
+}
+
+@layer base {
+  .toggle:focus-visible,
+  [type="radio"]:focus-visible,
+  [type="checkbox"]:focus-visible,
+  [type="text"]:focus-visible,
+  [type="email"]:focus-visible,
+  [type="url"]:focus-visible,
+  [type="password"]:focus-visible,
+  [type="number"]:focus-visible,
+  [type="date"]:focus-visible,
+  [type="datetime-local"]:focus-visible,
+  [type="month"]:focus-visible,
+  [type="search"]:focus-visible,
+  [type="tel"]:focus-visible,
+  [type="time"]:focus-visible,
+  [type="week"]:focus-visible,
+  [multiple]:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible,
+  button:focus-visible,
+  div:focus-visible,
+  a:focus-visible {
+    box-shadow: 0 0 0 2px #f4511e;
+    border-color: transparent;
+    outline: none;
+  }
+}
