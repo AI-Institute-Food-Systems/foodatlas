@@ -95,39 +95,29 @@ jobs:
 
   test:
     needs: changes
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - project: api
-            enabled: ${{ needs.changes.outputs.api }}
-          - project: db
-            enabled: ${{ needs.changes.outputs.db }}
-          - project: ie
-            enabled: ${{ needs.changes.outputs.ie }}
-          - project: kgc
-            enabled: ${{ needs.changes.outputs.kgc }}
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.db == 'true' || needs.changes.outputs.ie == 'true' || needs.changes.outputs.kgc == 'true'
-    name: test (${{ matrix.project }})
+    runs-on: ubuntu-latest
     steps:
-      - if: matrix.enabled == 'true'
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - if: matrix.enabled == 'true'
-        name: Install uv
+      - name: Install uv
         uses: astral-sh/setup-uv@v5
 
-      - if: matrix.enabled == 'true'
-        name: Set up Python
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      - if: matrix.enabled == 'true'
-        name: Install dependencies
-        run: cd backend/${{ matrix.project }} && uv sync
-
-      - if: matrix.enabled == 'true'
-        name: Run tests
-        run: cd backend/${{ matrix.project }} && uv run pytest
+      - name: Run tests for changed projects
+        run: |
+          projects=""
+          [[ "${{ needs.changes.outputs.api }}" == "true" ]] && projects="$projects api"
+          [[ "${{ needs.changes.outputs.db }}" == "true" ]] && projects="$projects db"
+          [[ "${{ needs.changes.outputs.ie }}" == "true" ]] && projects="$projects ie"
+          [[ "${{ needs.changes.outputs.kgc }}" == "true" ]] && projects="$projects kgc"
+          for project in $projects; do
+            echo "::group::test backend/$project"
+            cd backend/$project && uv sync && uv run pytest
+            cd ../..
+            echo "::endgroup::"
+          done
