@@ -92,13 +92,13 @@ repos:
         files: ^backend/kgc/
         stages: [pre-push]
 
-  # Frontend hooks — add eslint/prettier here when frontend is set up
-  # - repo: local
-  #   hooks:
-  #     - id: eslint
-  #       name: eslint
-  #       entry: npx --prefix frontend eslint
-  #       language: system
-  #       types: [javascript, tsx, ts]
-  #       files: ^frontend/
-  #       stages: [pre-commit]
+  # Frontend hooks
+  - repo: local
+    hooks:
+      - id: eslint-frontend
+        name: eslint (frontend)
+        entry: bash -c 'cd frontend && npx eslint --max-warnings=0'
+        language: system
+        types_or: [javascript, tsx, ts]
+        files: ^frontend/
+        stages: [pre-commit]

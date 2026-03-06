@@ -15,7 +15,7 @@ This is a polyglot monorepo with independent sub-projects:
   - `db/` — Database layer
   - `ie/` — Information extraction
   - `kgc/` — Knowledge graph construction
-- **`frontend/`** — Next.js app (not yet initialized)
+- **`frontend/`** — Next.js 14 app (React 18, TypeScript, Tailwind, App Router)
 - **`infra/`** — AWS CDK infrastructure (Python, not yet initialized)
 Each backend sub-project follows the same layout: `src/__init__.py` is the module, `tests/` for tests, `main.py` as entry point.
 
@@ -46,6 +46,25 @@ cd backend/api && uv run pytest tests/test_example.py::test_version
 ./scripts/setup-git-hooks.sh
 ```
 
+### Frontend commands
+
+```bash
+# Install dependencies
+cd frontend && npm ci
+
+# Run dev server
+cd frontend && npm run dev
+
+# Build for production
+cd frontend && npm run build
+
+# Run tests
+cd frontend && npm test
+
+# Lint (ESLint + TypeScript type check)
+cd frontend && npm run lint
+```
+
 ## Code Standards
 
 - **Python**: 3.12+ required
@@ -53,11 +72,14 @@ cd backend/api && uv run pytest tests/test_example.py::test_version
 - **MyPy**: strict mode with `explicit_package_bases` for monorepo support
 - **Bandit**: security scanning (excludes tests, skips B101/B311)
 - **Pytest**: 80% coverage minimum per sub-project (`--cov-fail-under=80`)
+- **TypeScript**: strict mode, Next.js 14 with App Router
+- **ESLint**: next/core-web-vitals config, zero warnings
+- **Vitest**: test framework with React Testing Library
 
 ## Git Hooks
 
 Pre-commit hooks run automatically — do not run linters manually unless debugging:
-- **On commit**: ruff, ruff-format, bandit, mypy (scoped to `backend/`)
+- **On commit**: ruff, ruff-format, bandit, mypy (scoped to `backend/`); ESLint (scoped to `frontend/`)
 - **On push**: pytest per sub-project (only runs if files in that sub-project changed)
 
 ## General Rules

@@ -6,13 +6,14 @@ on:
       - dev
     paths:
       - "backend/**"
+      - "frontend/**"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  # Detect which backend sub-projects have changes
+  # Detect which sub-projects have changes
   changes:
     runs-on: ubuntu-latest
     permissions:
@@ -23,6 +24,7 @@ jobs:
       db: ${{ steps.filter.outputs.db }}
       ie: ${{ steps.filter.outputs.ie }}
       kgc: ${{ steps.filter.outputs.kgc }}
+      frontend: ${{ steps.filter.outputs.frontend }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -37,8 +39,10 @@ jobs:
               - "backend/ie/**"
             kgc:
               - "backend/kgc/**"
+            frontend:
+              - "frontend/**"
 
-  lint:
+  backend-lint:
     needs: changes
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.db == 'true' || needs.changes.outputs.ie == 'true' || needs.changes.outputs.kgc == 'true'
     runs-on: ubuntu-latest
@@ -57,7 +61,7 @@ jobs:
           src: backend/
           args: format --check
 
-  security:
+  backend-security:
     needs: changes
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.db == 'true' || needs.changes.outputs.ie == 'true' || needs.changes.outputs.kgc == 'true'
     runs-on: ubuntu-latest
@@ -75,7 +79,7 @@ jobs:
       - name: Bandit security scan
         run: bandit -c pyproject.toml -r backend/ --exclude "**/tests,**/.venv"
 
-  typecheck:
+  backend-typecheck:
     needs: changes
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.db == 'true' || needs.changes.outputs.ie == 'true' || needs.changes.outputs.kgc == 'true'
     runs-on: ubuntu-latest
@@ -93,7 +97,7 @@ jobs:
       - name: Mypy type check
         run: mypy --explicit-package-bases --exclude '\.venv' backend/
 
-  test:
+  backend-test:
     needs: changes
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.db == 'true' || needs.changes.outputs.ie == 'true' || needs.changes.outputs.kgc == 'true'
     runs-on: ubuntu-latest
@@ -121,3 +125,63 @@ jobs:
             cd ../..
             echo "::endgroup::"
           done
+
+  frontend-lint:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: cd frontend && npm ci
+
+      - name: ESLint
+        run: cd frontend && npm run lint
+
+  frontend-build:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: cd frontend && npm ci
+
+      - name: Build
+        run: cd frontend && npm run build
+
+  frontend-test:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: cd frontend && npm ci
+
+      - name: Test
+        run: cd frontend && npm test
