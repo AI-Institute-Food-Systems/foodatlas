@@ -1,3 +1,3 @@
 #!/bin/bash
 
-uv run pre-commit install && uv run pre-commit install --hook-type pre-push
+uvx pre-commit install && uvx pre-commit install --hook-type pre-push
