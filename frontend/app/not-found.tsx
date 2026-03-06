@@ -11,7 +11,7 @@ const NotFound = () => {
           <h1 className="text-6xl font-mono italic">Not Found</h1>
         </div>
         <p className="text-xl text-light-300">
-          Could not find requested resource.
+          Could not find the requested resource.
         </p>
         <Button variant="filled" href="/">
           Return Home
