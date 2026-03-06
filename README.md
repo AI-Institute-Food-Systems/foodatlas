@@ -1,128 +1,88 @@
-# [Project Title]
+# FoodAtlas
 
-[One-paragraph project description. What does this project do? What problem does it solve?]
+A food knowledge graph platform. This monorepo contains the frontend, backend services, and infrastructure code.
 
-## 0. Project Setup
-
-After cloning this template, run these steps to configure it for your project:
-
-1. **Rename the source package** — rename `src/mypackage/` to your package name
-2. **Update `pyproject.toml`** — set `name`, `description`, and `--cov=src` target to match your package
-3. **Update `.pre-commit-config.yaml`** — update any paths that reference the old package name
-4. **Set up git hooks**
-   ```bash
-   ./scripts/setup-git-hooks.sh
-   ```
-5. **Set up Claude Code** (optional)
-   ```bash
-   ./scripts/setup-claude-code.sh
-   ```
-6. **Install dependencies**
-   ```bash
-   uv sync
-   ```
-
-## 1. Directories
+## Repository Structure
 
 ```
 .
-├── src/
-│   └── mypackage/      # Rename to your package name
-│       └── __init__.py
-├── tests/              # Test files
-├── data/               # Data files
-├── outputs/            # Output files
-└── pyproject.toml      # Project configuration
+├── frontend/               # Next.js web app (deployed on Vercel)
+├── backend/
+│   ├── api/                # API service
+│   ├── db/                 # Database layer
+│   ├── ie/                 # Information extraction
+│   └── kgc/                # Knowledge graph construction
+├── infra/                  # AWS CDK infrastructure (Python)
+├── .github/workflows/      # CI/CD pipelines
+├── pyproject.toml          # Shared linter/checker configs (ruff, mypy, bandit)
+└── .pre-commit-config.yaml # Git hooks
 ```
 
-## 2. Getting Started
+## Getting Started
 
-Tested environments:
-- Python [version] (e.g., 3.10+)
-- Ubuntu [version]
-- CUDA [version] (if applicable)
+### Prerequisites
 
-### 2a. Clone this repository
+- Python 3.12+
+- [uv](https://docs.astral.sh/uv/) (Python package manager)
+
+### Clone and set up
 
 ```bash
-git clone https://github.com/[username]/[repo].git
-cd [repo]
+git clone https://github.com/AI-Institute-Food-Systems/foodatlas.git
+cd foodatlas
 ```
 
-### 2b. Install uv (if not already installed)
+### Install uv (if not already installed)
 
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-### 2c. Install Mutagen (if syncing to a remote machine)
+### Set up git hooks
 
 ```bash
-# macOS
-brew install mutagen-io/mutagen/mutagen
-
-# Linux
-curl -sS https://webi.sh/mutagen | sh
+./scripts/setup-git-hooks.sh
 ```
 
-Run this command to update your PATH:
+### Install dependencies for a backend sub-project
+
+Each backend sub-project is independent. Navigate to it and install:
 
 ```bash
-source ~/.config/envman/PATH.env
-```
-
-Copy the example config and edit it for your setup:
-
-```bash
-cp mutagen.yml.example mutagen.yml
-# Edit mutagen.yml with your remote host and path
-mutagen project start
-```
-
-### 2d. Install dependencies
-
-```bash
+cd backend/api
 uv sync
 ```
 
-### 2e. (Optional) Set up pre-commit hooks
+### Run tests
 
 ```bash
-uv run pre-commit install
-uv run pre-commit install --hook-type pre-push
+cd backend/api
+uv run pytest
 ```
 
-### 2f. Run the code
-
-[Describe how to run your project]
-
-```bash
-uv run python src/[your_script].py
-```
-
-## 3. Authors
+## Authors
 
 - [Your Name] - [@github_username](https://github.com/[username])
 
-## 4. Contact
+## Contact
 
 [Your email or preferred contact method]
 
-## 5. Citation
+## Citation
 
 ```bibtex
-@misc{[project],
+@misc{foodatlas,
   author = {[Your Name]},
-  title = {[Project Title]},
-  year = {[Year]},
-  url = {https://github.com/[username]/[repo]}
+  title = {FoodAtlas},
+  year = {2026},
+  url = {https://github.com/AI-Institute-Food-Systems/foodatlas}
 }
 ```
 
-## 6. License
+## License
 
-[License type] - see [LICENSE](LICENSE) for details.
+See [LICENSE](LICENSE) for details.
 
-## 7. Acknowledgements
+## Acknowledgements
 
 - [Acknowledge contributors, funding, or inspirations]
