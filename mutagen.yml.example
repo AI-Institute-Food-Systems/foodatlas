@@ -1,0 +1,17 @@
+sync:
+  defaults:
+    mode: "one-way-replica"
+    ignore:
+      paths:
+        - ".git"
+        - "__pycache__"
+        - "*.pyc"
+        - ".mypy_cache"
+        - ".ruff_cache"
+        - ".pytest_cache"
+        - ".venv"
+        - "data/"
+        - "outputs/"
+  server:
+    alpha: "."
+    beta: "<SSH_HOST>:~/path/to/project"
