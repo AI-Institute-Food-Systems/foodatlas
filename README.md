@@ -60,6 +60,10 @@ cd backend/api
 uv run pytest
 ```
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, branching strategy, and code quality standards.
+
 ## Authors
 
 - [Your Name] - [@github_username](https://github.com/[username])
