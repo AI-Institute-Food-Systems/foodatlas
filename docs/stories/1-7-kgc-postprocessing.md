@@ -6,7 +6,7 @@ Port the postprocessing modules that improve KG quality: entity grouping (food/c
 
 ## Depends On
 
-- Story 1-2 (entities)
+- Story 1-2 (stores, discovery)
 
 ## Acceptance Criteria
 

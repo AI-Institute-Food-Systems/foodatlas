@@ -6,14 +6,14 @@ Port the KG initialization modules that create empty files and seed entities fro
 
 ## Depends On
 
-- Story 1-2 (entities)
+- Story 1-2 (stores, discovery)
 - Story 1-3 (query layer for NCBI/PubChem lookups)
 
 ## Acceptance Criteria
 
 - [ ] `initialization/scaffold.py` — ported from `create_empty_files.py`
   - Use `KGCSettings.kg_dir` instead of hardcoded `"outputs/kg"`
-  - Use column constants from entities/triplets/metadata classes
+  - Use column constants from `stores/schema.py` (`ENTITY_COLUMNS`, `TRIPLET_COLUMNS`, etc.)
 - [ ] `initialization/food/init_entities.py` — ported
 - [ ] `initialization/food/init_onto.py` — ported
 - [ ] `initialization/food/loaders.py` — combined `_load_fdc.py` + `_load_foodon.py`

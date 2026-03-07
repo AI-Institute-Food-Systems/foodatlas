@@ -2,17 +2,22 @@
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class Entity(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     foodatlas_id: str
     entity_type: Literal["food", "chemical"]
     common_name: str
     scientific_name: str = ""
     synonyms: list[str] = Field(default_factory=list)
     external_ids: dict[str, list[str]] = Field(default_factory=dict)
-    synonyms_display: list[str] = Field(default_factory=list)
+    synonyms_display: list[str] = Field(
+        default_factory=list,
+        alias="_synonyms_display",
+    )
 
 
 class FoodEntity(Entity):

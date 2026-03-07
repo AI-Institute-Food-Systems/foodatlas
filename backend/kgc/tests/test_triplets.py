@@ -1,0 +1,110 @@
+"""Tests for the TripletStore class."""
+
+from pathlib import Path
+
+import pandas as pd
+import pytest
+from src.stores.triplet_store import FAID_PREFIX, TripletStore
+
+
+@pytest.fixture()
+def triplets_dir(tmp_path: Path) -> Path:
+    triplets_df = pd.DataFrame(
+        [
+            {
+                "foodatlas_id": "t0",
+                "head_id": "e0",
+                "relationship_id": "r1",
+                "tail_id": "e1",
+                "metadata_ids": ["mc0"],
+            },
+        ]
+    )
+    triplets_df.to_csv(tmp_path / "triplets.tsv", sep="\t", index=False)
+    return tmp_path
+
+
+@pytest.fixture()
+def triplets(triplets_dir: Path) -> TripletStore:
+    return TripletStore(path_triplets=triplets_dir / "triplets.tsv")
+
+
+class TestTripletStoreLoad:
+    def test_loads_triplets(self, triplets: TripletStore) -> None:
+        assert len(triplets._triplets) == 1
+
+    def test_curr_tid_increments(self, triplets: TripletStore) -> None:
+        assert triplets._curr_tid == 1
+
+    def test_hash_table_built(self, triplets: TripletStore) -> None:
+        assert "e0_r1_e1" in triplets._key_to_metadata
+
+    def test_faid_prefix(self) -> None:
+        assert FAID_PREFIX == "t"
+
+
+class TestTripletStoreCreate:
+    def test_create_new_triplet(self, triplets: TripletStore) -> None:
+        metadata = pd.DataFrame(
+            [
+                {
+                    "head_id": "e2",
+                    "relationship_id": "r1",
+                    "tail_id": "e3",
+                }
+            ],
+            index=pd.Index(["mc1"], name="foodatlas_id"),
+        )
+        triplets.create(metadata)
+        assert len(triplets._triplets) == 2
+        assert "e2_r1_e3" in triplets._key_to_metadata
+
+    def test_dedup_merges_metadata(self, triplets: TripletStore) -> None:
+        metadata = pd.DataFrame(
+            [
+                {
+                    "head_id": "e0",
+                    "relationship_id": "r1",
+                    "tail_id": "e1",
+                }
+            ],
+            index=pd.Index(["mc1"], name="foodatlas_id"),
+        )
+        triplets.create(metadata)
+        assert len(triplets._triplets) == 1
+        row = triplets._triplets.loc["t0"]
+        assert "mc0" in row["metadata_ids"]
+        assert "mc1" in row["metadata_ids"]
+
+    def test_id_generation(self, triplets: TripletStore) -> None:
+        metadata = pd.DataFrame(
+            [
+                {"head_id": "e10", "relationship_id": "r1", "tail_id": "e11"},
+                {"head_id": "e12", "relationship_id": "r1", "tail_id": "e13"},
+            ],
+            index=pd.Index(["mc10", "mc11"], name="foodatlas_id"),
+        )
+        triplets.create(metadata)
+        assert "t1" in triplets._triplets.index
+        assert "t2" in triplets._triplets.index
+
+
+class TestTripletStoreGetByRelationship:
+    def test_filters_by_relationship(self, triplets: TripletStore) -> None:
+        result = triplets.get_by_relationship_id("r1")
+        assert len(result) == 1
+
+    def test_empty_for_unknown_relationship(self, triplets: TripletStore) -> None:
+        result = triplets.get_by_relationship_id("r999")
+        assert len(result) == 0
+
+
+class TestTripletStoreSaveReload:
+    def test_round_trip(self, triplets: TripletStore, tmp_path: Path) -> None:
+        out_dir = tmp_path / "output"
+        out_dir.mkdir()
+        triplets.save(out_dir)
+
+        reloaded = TripletStore(path_triplets=out_dir / "triplets.tsv")
+        assert len(reloaded._triplets) == len(triplets._triplets)
+        assert "e0_r1_e1" in reloaded._key_to_metadata
