@@ -48,7 +48,7 @@ def generate_chemical_groups_cdno(
     dp_dir = Path(settings.integration_dir)
     cdno: pd.DataFrame = pd.read_parquet(dp_dir / "cdno_hierarchy.parquet")
 
-    cdno["chebi_id"] = cdno["chebi_ids"].apply(lambda x: x[0] if x else None)
+    cdno["chebi_id"] = cdno["chebi_ids"].apply(lambda x: x[0] if len(x) > 0 else None)
     cdno["chebi_id"] = cdno["chebi_id"].replace(
         {
             "http://purl.obolibrary.org/obo/CHEBI_80096": (
@@ -63,7 +63,10 @@ def generate_chemical_groups_cdno(
     chebi2group = _build_chebi_to_group(cdno, id2parent)
     eid2group = _map_entities_to_groups(chemicals, chebi2group)
 
-    return chemicals.index.map(lambda eid: _assign_label(eid, eid2group))
+    return pd.Series(
+        chemicals.index.map(lambda eid: _assign_label(eid, eid2group)),
+        index=chemicals.index,
+    )
 
 
 def _traverse_cdno_hierarchy(
