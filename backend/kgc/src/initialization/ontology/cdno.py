@@ -19,6 +19,8 @@ def process_cdno(settings: KGCSettings) -> None:
     dp_dir.mkdir(parents=True, exist_ok=True)
 
     cdno = _parse_cdno_owl(data_dir / "CDNO" / "cdno.owl")
+    cdno.to_parquet(dp_dir / "cdno_hierarchy.parquet")
+
     cdno = cdno[cdno["fdc_nutrient_ids"].apply(len) > 0]
     cdno["chebi_id"] = cdno["chebi_ids"].apply(lambda x: x[0] if x else None)
 
