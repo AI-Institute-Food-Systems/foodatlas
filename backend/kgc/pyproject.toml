@@ -17,6 +17,10 @@ dependencies = [
     "lxml>=5.1.0",
     "openpyxl>=3.1.0",
     "numpy>=1.26.0",
+    "requests>=2.31.0",
+    "beautifulsoup4>=4.12.0",
+    "thefuzz>=0.22.0",
+    "python-Levenshtein>=0.25.0",
 ]
 
 [tool.uv]
@@ -42,6 +46,8 @@ dev = [
     "ruff>=0.9.0",
     "mypy>=1.14.0",
     "bandit>=1.8.0",
+    "types-requests>=2.31.0",
+    "types-beautifulsoup4>=4.12.0",
 ]
 
 # PYTEST

@@ -9,7 +9,7 @@ class Entity(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     foodatlas_id: str
-    entity_type: Literal["food", "chemical"]
+    entity_type: Literal["food", "chemical", "disease", "flavor"]
     common_name: str
     scientific_name: str = ""
     synonyms: list[str] = Field(default_factory=list)
@@ -26,3 +26,11 @@ class FoodEntity(Entity):
 
 class ChemicalEntity(Entity):
     entity_type: Literal["chemical"] = "chemical"
+
+
+class DiseaseEntity(Entity):
+    entity_type: Literal["disease"] = "disease"
+
+
+class FlavorEntity(Entity):
+    entity_type: Literal["flavor"] = "flavor"

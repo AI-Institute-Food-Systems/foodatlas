@@ -3,7 +3,7 @@
 from pydantic import BaseModel
 
 from ..models.entity import Entity
-from ..models.metadata import MetadataContains
+from ..models.metadata import MetadataContains, MetadataDisease, MetadataFlavor
 from ..models.triplet import Triplet
 
 INDEX_COL = "foodatlas_id"
@@ -35,3 +35,8 @@ def _get_columns(model: type[BaseModel]) -> list[str]:
 ENTITY_COLUMNS = _get_columns(Entity)
 TRIPLET_COLUMNS = _get_columns(Triplet)
 METADATA_CONTAINS_COLUMNS = _get_columns(MetadataContains)
+
+FILE_METADATA_DISEASE = "metadata_disease.json"
+FILE_METADATA_FLAVOR = "metadata_flavor.json"
+METADATA_DISEASE_COLUMNS = _get_columns(MetadataDisease)
+METADATA_FLAVOR_COLUMNS = _get_columns(MetadataFlavor)

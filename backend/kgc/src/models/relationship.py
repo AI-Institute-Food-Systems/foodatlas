@@ -8,9 +8,9 @@ from pydantic import BaseModel
 class RelationshipType(StrEnum):
     CONTAINS = "r1"
     IS_A = "r2"
-    PART_OF = "r3"
-    HAS_PROPERTY = "r4"
-    RELATED_TO = "r5"
+    POSITIVELY_CORRELATES_WITH = "r3"
+    NEGATIVELY_CORRELATES_WITH = "r4"
+    HAS_FLAVOR = "r5"
 
 
 class Relationship(BaseModel):

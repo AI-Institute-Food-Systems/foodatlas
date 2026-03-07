@@ -137,9 +137,9 @@ class TestRelationship:
     def test_relationship_types(self):
         assert RelationshipType.CONTAINS == "r1"
         assert RelationshipType.IS_A == "r2"
-        assert RelationshipType.PART_OF == "r3"
-        assert RelationshipType.HAS_PROPERTY == "r4"
-        assert RelationshipType.RELATED_TO == "r5"
+        assert RelationshipType.POSITIVELY_CORRELATES_WITH == "r3"
+        assert RelationshipType.NEGATIVELY_CORRELATES_WITH == "r4"
+        assert RelationshipType.HAS_FLAVOR == "r5"
 
     def test_relationship_model(self):
         r = Relationship(
