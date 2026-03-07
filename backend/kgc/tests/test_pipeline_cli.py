@@ -53,6 +53,30 @@ def test_init_command(mock_runner_cls: MagicMock) -> None:
     runner_instance.run.assert_called_once_with([PipelineStage.KG_INIT])
 
 
+@patch("main.PipelineRunner")
+def test_run_stage_by_number(mock_runner_cls: MagicMock) -> None:
+    runner_instance = MagicMock()
+    mock_runner_cls.return_value = runner_instance
+
+    result = CliRunner().invoke(cli, ["run", "--stage", "0"])
+    assert result.exit_code == 0
+    runner_instance.run.assert_called_once_with([PipelineStage.ONTOLOGY_PREP])
+
+
+@patch("main.PipelineRunner")
+def test_run_mixed_name_and_number(mock_runner_cls: MagicMock) -> None:
+    runner_instance = MagicMock()
+    mock_runner_cls.return_value = runner_instance
+
+    result = CliRunner().invoke(
+        cli, ["run", "--stage", "1", "--stage", "postprocessing"]
+    )
+    assert result.exit_code == 0
+    runner_instance.run.assert_called_once_with(
+        [PipelineStage.KG_INIT, PipelineStage.POSTPROCESSING]
+    )
+
+
 def test_invalid_stage() -> None:
     result = CliRunner().invoke(cli, ["run", "--stage", "nonexistent"])
     assert result.exit_code != 0

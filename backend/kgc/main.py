@@ -12,13 +12,21 @@ from src.pipeline.runner import PipelineRunner
 from src.pipeline.stages import PipelineStage
 
 _STAGE_NAMES = [s.name.lower() for s in PipelineStage]
+_VALID_STAGES = _STAGE_NAMES + [str(s.value) for s in PipelineStage]
+
+
+def _parse_stage(name: str) -> PipelineStage:
+    """Parse a stage name or numeric index into a PipelineStage."""
+    if name.isdigit():
+        return PipelineStage(int(name))
+    return PipelineStage[name.upper()]
 
 
 def _resolve_stages(stage_names: tuple[str, ...]) -> list[PipelineStage] | None:
-    """Convert CLI stage names to PipelineStage enums, or None for all."""
+    """Convert CLI stage names/numbers to PipelineStage enums, or None for all."""
     if not stage_names:
         return None
-    return [PipelineStage[name.upper()] for name in stage_names]
+    return [_parse_stage(name) for name in stage_names]
 
 
 @click.group()
@@ -65,8 +73,8 @@ def cli(
     "--stage",
     "stages",
     multiple=True,
-    type=click.Choice(_STAGE_NAMES, case_sensitive=False),
-    help="Stage to run (repeatable). Omit for all stages.",
+    type=click.Choice(_VALID_STAGES, case_sensitive=False),
+    help="Stage name or number (0-6, repeatable). Omit for all.",
 )
 @click.pass_context
 def run(ctx: click.Context, stages: tuple[str, ...]) -> None:
