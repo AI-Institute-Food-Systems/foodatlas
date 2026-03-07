@@ -2,7 +2,7 @@
 
 import pandas as pd
 import pytest
-from src.integration.fdc import (
+from src.integration.triplets.fdc import (
     build_fdc_id_map,
     build_fdc_metadata,
     build_fdc_nutrient_id_map,

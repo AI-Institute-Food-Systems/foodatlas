@@ -131,7 +131,7 @@ def _disambiguate_fdc_ids(cdno: pd.DataFrame) -> pd.DataFrame:
 
 
 def _validate_fdc_chebi_mapping(cdno_cleaned: pd.DataFrame) -> None:
-    """Verify FDC→ChEBI is one-to-one."""
+    """Verify FDC->ChEBI is one-to-one."""
     map_fdc2chebi: dict[str, set[str]] = {}
     for _, row in cdno_cleaned.iterrows():
         for fdc_id in row["fdc_nutrient_ids"]:
@@ -144,5 +144,5 @@ def _validate_fdc_chebi_mapping(cdno_cleaned: pd.DataFrame) -> None:
 
     for fdc_id, chebi_ids in map_fdc2chebi.items():
         if len(chebi_ids) != 1:
-            msg = f"FDC→ChEBI not one-to-one for {fdc_id}: {chebi_ids}"
+            msg = f"FDC->ChEBI not one-to-one for {fdc_id}: {chebi_ids}"
             raise ValueError(msg)

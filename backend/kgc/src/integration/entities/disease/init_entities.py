@@ -1,8 +1,10 @@
-"""Disease entity creation from CTD data."""
+"""Initialize disease entities from CTD data."""
 
 from __future__ import annotations
 
 import logging
+from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pandas as pd
 
@@ -13,6 +15,11 @@ from .constants import (
     EXTERNAL_IDS,
     FA_ID,
 )
+from .loaders import filter_ctd_chemdis, load_ctd_data
+
+if TYPE_CHECKING:
+    from ....constructor.knowledge_graph import KnowledgeGraph
+    from ....models.settings import KGCSettings
 
 logger = logging.getLogger(__name__)
 
@@ -97,3 +104,34 @@ def create_disease_entities(
     ctd_diseases[EXTERNAL_IDS] = ctd_diseases.apply(parse_alt_disease_ids, axis=1)
 
     return pd.concat([fa_entities, ctd_diseases], join="inner", ignore_index=True)
+
+
+def append_diseases_from_ctd(kg: KnowledgeGraph, settings: KGCSettings) -> None:
+    """Create disease entities from CTD and add to the KG entity store.
+
+    Loads raw CTD data, filters to chemicals present in the KG,
+    then creates disease entities for referenced diseases.
+
+    Args:
+        kg: Loaded KnowledgeGraph instance.
+        settings: KGCSettings with ``data_dir``.
+    """
+    ctd_dir = Path(settings.data_dir) / "CTD"
+
+    ctd_chemdis = load_ctd_data(ctd_dir, dataset="chemdis")
+    ctd_diseases = load_ctd_data(ctd_dir, dataset="disease")
+
+    ctd_chemdis = filter_ctd_chemdis(ctd_chemdis, kg.entities)
+
+    entities_df = kg.entities._entities.reset_index()
+    max_eid = get_max_entity_id(entities_df)
+    entities_df = create_disease_entities(
+        entities_df, ctd_diseases, ctd_chemdis, max_eid
+    )
+
+    kg.entities._entities = entities_df.set_index(FA_ID)
+    kg.entities._curr_eid = (
+        kg.entities._entities.index.str.slice(1).astype(int).max() + 1
+    )
+
+    logger.info("Imported disease entities from CTD.")

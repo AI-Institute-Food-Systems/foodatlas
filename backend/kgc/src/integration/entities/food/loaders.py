@@ -5,7 +5,7 @@ from pathlib import Path
 import pandas as pd
 from inflection import pluralize, singularize
 
-from ...models.settings import KGCSettings
+from ....models.settings import KGCSettings
 
 
 def load_foodon(settings: KGCSettings) -> pd.DataFrame:
@@ -23,7 +23,7 @@ def load_lut_food(
     resolve_organisms: bool = True,
     resolve_singular_plural_forms: bool = True,
 ) -> dict[str, str]:
-    """Build a synonym → FoodOn ID lookup table from the FoodOn ontology."""
+    """Build a synonym -> FoodOn ID lookup table from the FoodOn ontology."""
     foodon = load_foodon(settings)
     lut_food: dict[str, str] = {}
 

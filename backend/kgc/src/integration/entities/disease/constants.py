@@ -11,7 +11,7 @@ PMCID = "pmcid"
 ENTITY_TYPE = "entity_type"
 EXTERNAL_IDS = "external_ids"
 
-# CTD alt-ID key mappings (CTD prefix → internal key)
+# CTD alt-ID key mappings (CTD prefix -> internal key)
 CTD_ALTID_MAPPING: dict[str, str] = {
     "DO": "diseaseontology",
     "MESH": "mesh",
@@ -24,7 +24,7 @@ CTD_REVERSE_ALTID_MAPPING: dict[str, str] = {
     "omim": "OMIM",
 }
 
-# DirectEvidence → RelationshipType value
+# DirectEvidence -> RelationshipType value
 CTD_DIRECTEVIDENCE_MAPPING: dict[str, str] = {
     "marker/mechanism": "r3",
     "therapeutic": "r4",

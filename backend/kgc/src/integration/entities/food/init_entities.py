@@ -6,11 +6,11 @@ from typing import TYPE_CHECKING
 import pandas as pd
 from inflection import pluralize, singularize
 
-from ...stores.entity_store import EntityStore
+from ....stores.entity_store import EntityStore
 from .loaders import load_fdc, load_foodon, load_lut_food
 
 if TYPE_CHECKING:
-    from ...models.settings import KGCSettings
+    from ....models.settings import KGCSettings
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +77,7 @@ def _rebuild_food_lut(
     entities_new: pd.DataFrame,
     lut_food_df: pd.DataFrame,
 ) -> None:
-    """Rebuild the food LUT mapping names → entity IDs."""
+    """Rebuild the food LUT mapping names -> entity IDs."""
     foodon2fa: dict[str, str] = {}
     for entity_id, row in entities_new.iterrows():
         foodon2fa[row["external_ids"]["foodon"][0]] = str(entity_id)

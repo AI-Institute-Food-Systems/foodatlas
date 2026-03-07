@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import pandas as pd
 import pytest
-from src.initialization.food.init_entities import (
+from src.integration.entities.food.init_entities import (
     _remove_plural_display,
     append_foods_from_foodon,
 )
@@ -120,11 +120,11 @@ class TestAppendFoodsFromFoodon:
 
         with (
             patch(
-                "src.initialization.food.init_entities.load_foodon",
+                "src.integration.entities.food.init_entities.load_foodon",
                 return_value=sample_foodon,
             ),
             patch(
-                "src.initialization.food.init_entities.load_lut_food",
+                "src.integration.entities.food.init_entities.load_lut_food",
                 return_value=sample_lut_food,
             ),
         ):
@@ -145,11 +145,11 @@ class TestAppendFoodsFromFoodon:
 
         with (
             patch(
-                "src.initialization.food.init_entities.load_foodon",
+                "src.integration.entities.food.init_entities.load_foodon",
                 return_value=sample_foodon,
             ),
             patch(
-                "src.initialization.food.init_entities.load_lut_food",
+                "src.integration.entities.food.init_entities.load_lut_food",
                 return_value=sample_lut_food,
             ),
         ):
@@ -170,11 +170,11 @@ class TestAppendFoodsFromFoodon:
 
         with (
             patch(
-                "src.initialization.food.init_entities.load_foodon",
+                "src.integration.entities.food.init_entities.load_foodon",
                 return_value=sample_foodon,
             ),
             patch(
-                "src.initialization.food.init_entities.load_lut_food",
+                "src.integration.entities.food.init_entities.load_lut_food",
                 return_value=sample_lut_food,
             ),
         ):
@@ -194,11 +194,11 @@ class TestAppendFoodsFromFoodon:
 
         with (
             patch(
-                "src.initialization.food.init_entities.load_foodon",
+                "src.integration.entities.food.init_entities.load_foodon",
                 return_value=sample_foodon,
             ),
             patch(
-                "src.initialization.food.init_entities.load_lut_food",
+                "src.integration.entities.food.init_entities.load_lut_food",
                 return_value=sample_lut_food,
             ),
         ):

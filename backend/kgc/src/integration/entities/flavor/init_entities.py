@@ -1,10 +1,21 @@
-"""Flavor entity and triplet creation."""
+"""Initialize flavor entities from FlavorDB/HSDB data."""
 
 from __future__ import annotations
 
+import logging
+from pathlib import Path
+from typing import TYPE_CHECKING
+
 import pandas as pd
 
-from ...models.relationship import RelationshipType
+from ....models.relationship import RelationshipType
+from .loaders import build_flavor_metadata
+
+if TYPE_CHECKING:
+    from ....constructor.knowledge_graph import KnowledgeGraph
+    from ....models.settings import KGCSettings
+
+logger = logging.getLogger(__name__)
 
 
 def create_flavor_entities(
@@ -40,7 +51,7 @@ def create_flavor_triplets(
     entities: pd.DataFrame,
     max_triplet_id: int,
 ) -> pd.DataFrame:
-    """Create chemical→flavor triplets from flavor metadata.
+    """Create chemical->flavor triplets from flavor metadata.
 
     Args:
         flavor_metadata: Flavor metadata with ``_pubchem_id`` and ``_flavor``.
@@ -86,3 +97,37 @@ def create_flavor_triplets(
         f"t{max_triplet_id + i + 1}" for i in range(len(triplets))
     ]
     return triplets
+
+
+def append_flavors_from_flavordb(kg: KnowledgeGraph, settings: KGCSettings) -> None:
+    """Create flavor entities from FlavorDB/HSDB and add to the KG entity store.
+
+    Builds flavor metadata, creates unique flavor entities, and appends
+    them to the KG entity store.
+
+    Args:
+        kg: Loaded KnowledgeGraph instance.
+        settings: KGCSettings with ``data_dir`` pointing to data root.
+    """
+    data_dir = Path(settings.data_dir)
+    flavordb_path = data_dir / "FlavorDB" / "flavordb_scrape.json"
+    hsdb_dir = data_dir / "HSDB"
+
+    entities_df = kg.entities._entities.reset_index()
+    flavor_metadata = build_flavor_metadata(flavordb_path, hsdb_dir, entities_df)
+    if flavor_metadata.empty:
+        logger.info("No flavor metadata — no entities to import.")
+        return
+
+    max_eid = int(
+        entities_df["foodatlas_id"].str.extract(r"(\d+)").astype(int).max().iloc[0]
+    )
+    flavor_ents = create_flavor_entities(flavor_metadata, max_eid)
+
+    new_ents_indexed = flavor_ents.set_index("foodatlas_id")
+    kg.entities._entities = pd.concat([kg.entities._entities, new_ents_indexed])
+    kg.entities._curr_eid = (
+        kg.entities._entities.index.str.slice(1).astype(int).max() + 1
+    )
+
+    logger.info("Imported %d flavor entities.", len(flavor_ents))

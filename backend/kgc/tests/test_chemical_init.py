@@ -7,17 +7,13 @@ from unittest.mock import patch
 
 import pandas as pd
 import pytest
-from src.initialization.chemical.init_entities import (
+from src.integration.entities.chemical.init_entities import (
     _add_to_lut,
-    append_entities_from_cdno,
-    append_entities_from_chebi,
-    append_entities_from_fdc,
+    append_chemicals_from_cdno,
+    append_chemicals_from_chebi,
+    append_chemicals_from_fdc,
 )
-from src.initialization.chemical.init_onto import (
-    _build_chebi_to_fa_map,
-    create_chemical_ontology,
-)
-from src.initialization.chemical.loaders import (
+from src.integration.entities.chemical.loaders import (
     load_cdno,
     load_fdc_nutrient,
     load_mapper_chebi_id_to_names,
@@ -26,6 +22,10 @@ from src.initialization.chemical.loaders import (
     load_mapper_name_to_mesh_id,
     load_mapper_pubchem_cid_to_mesh_id,
     load_mesh,
+)
+from src.integration.ontologies.chemical import (
+    _build_chebi_to_fa_map,
+    create_chemical_ontology,
 )
 from src.models.settings import KGCSettings
 from src.stores.entity_store import EntityStore
@@ -36,7 +36,7 @@ from src.stores.schema import (
     FILE_LUT_FOOD,
 )
 
-_IE = "src.initialization.chemical.init_entities"
+_IE = "src.integration.entities.chemical.init_entities"
 
 
 def _ent(fid: str, etype: str, name: str, syns: list[str], ext: dict) -> dict:
@@ -206,7 +206,7 @@ class TestAppendFromChebi:
             patch(f"{_IE}.load_mapper_chebi_id_to_names", return_value=c2n),
             patch(f"{_IE}.load_mapper_name_to_chebi_id", return_value=n2c),
         ):
-            append_entities_from_chebi(store, _cfg(tmp_path))
+            append_chemicals_from_chebi(store, _cfg(tmp_path))
         assert len(store._entities) == 3
         phs = store._entities[
             store._entities["external_ids"].apply(lambda x: "_placeholder_to" in x)
@@ -228,7 +228,7 @@ class TestAppendFromCdno:
             }
         )
         with patch(f"{_IE}.load_cdno", return_value=cdno):
-            append_entities_from_cdno(store, _cfg(tmp_path))
+            append_chemicals_from_cdno(store, _cfg(tmp_path))
         assert store._entities.at["e1", "external_ids"]["cdno"] == ["CDNO_01"]
         assert len(store._entities) == 2
         assert store._entities.loc["e2"]["common_name"] == "fiber"
@@ -244,7 +244,7 @@ class TestAppendFromCdno:
             }
         )
         with patch(f"{_IE}.load_cdno", return_value=cdno):
-            append_entities_from_cdno(store, _cfg(tmp_path))
+            append_chemicals_from_cdno(store, _cfg(tmp_path))
         assert store._entities.loc["e1"]["external_ids"]["chebi"] == [999]
 
 
@@ -260,7 +260,7 @@ class TestAppendFromFdc:
             patch(f"{_IE}.load_fdc_nutrient", return_value=fdc),
             pytest.raises(ValueError, match="Duplicate FDC"),
         ):
-            append_entities_from_fdc(store, _cfg(tmp_path))
+            append_chemicals_from_fdc(store, _cfg(tmp_path))
 
     def test_skips_non_chemical(self, tmp_path: Path) -> None:
         store = _store(
@@ -268,7 +268,7 @@ class TestAppendFromFdc:
         )
         fdc = pd.DataFrame({"id": [1001], "name": ["fiber"]}).set_index("id")
         with patch(f"{_IE}.load_fdc_nutrient", return_value=fdc):
-            append_entities_from_fdc(store, _cfg(tmp_path))
+            append_chemicals_from_fdc(store, _cfg(tmp_path))
         assert len(store._entities) == 2
 
     def test_links_by_fdc_id_and_name(self, tmp_path: Path) -> None:
@@ -278,7 +278,7 @@ class TestAppendFromFdc:
             {"id": [1001, 1002, 9999], "name": ["iron", "zinc", "copper"]}
         ).set_index("id")
         with patch(f"{_IE}.load_fdc_nutrient", return_value=fdc):
-            append_entities_from_fdc(store, _cfg(tmp_path))
+            append_chemicals_from_fdc(store, _cfg(tmp_path))
         assert store._entities.at["e2", "external_ids"]["fdc_nutrient"] == [1002]
         assert len(store._entities) == 3
         assert store._entities.loc["e3"]["common_name"] == "copper"

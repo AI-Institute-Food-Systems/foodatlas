@@ -4,8 +4,8 @@ import logging
 
 import pandas as pd
 
-from ...models.settings import KGCSettings
-from ...stores.entity_store import EntityStore
+from ....models.settings import KGCSettings
+from ....stores.entity_store import EntityStore
 from .loaders import (
     load_cdno,
     load_fdc_nutrient,
@@ -26,7 +26,7 @@ def _add_to_lut(row: pd.Series, lut_chemical: dict[str, list[str]]) -> None:
         lut_chemical[syn] = [row.name]
 
 
-def append_entities_from_chebi(
+def append_chemicals_from_chebi(
     entity_store: EntityStore,
     settings: KGCSettings,
 ) -> None:
@@ -124,7 +124,7 @@ def _add_placeholder_entities(
     logger.info("Added %d placeholder chemical entities.", len(entities_new))
 
 
-def append_entities_from_cdno(
+def append_chemicals_from_cdno(
     entity_store: EntityStore,
     settings: KGCSettings,
 ) -> None:
@@ -188,7 +188,7 @@ def _add_new_cdno_entities(
     logger.info("Added %d unique chemical entities from CDNO.", len(entities_new))
 
 
-def append_entities_from_fdc(
+def append_chemicals_from_fdc(
     entity_store: EntityStore,
     settings: KGCSettings,
 ) -> None:

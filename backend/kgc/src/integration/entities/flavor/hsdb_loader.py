@@ -43,7 +43,7 @@ def _map_cid_to_hsdb_flavor(
     hsdb: dict,
     mapper: dict[int, list[dict]],
 ) -> None:
-    """Populate a CID→flavor mapping from an HSDB annotation dict."""
+    """Populate a CID->flavor mapping from an HSDB annotation dict."""
     for annot in hsdb["Annotations"]["Annotation"]:
         if "LinkedRecords" not in annot:
             continue

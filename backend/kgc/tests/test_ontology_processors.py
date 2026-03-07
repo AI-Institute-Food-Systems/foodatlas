@@ -4,25 +4,25 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
-from src.initialization.ontology.cdno import (
+from src.integration.ontologies.cdno import (
     _disambiguate_fdc_ids,
     _extract_chebi_ids,
     _validate_fdc_chebi_mapping,
 )
-from src.initialization.ontology.chebi import _build_name_lut
-from src.initialization.ontology.foodon import (
+from src.integration.ontologies.chebi import _build_name_lut
+from src.integration.ontologies.foodon import (
     _clean,
     _label_is_food,
     _label_is_organism,
     _rename_foodon_id,
 )
-from src.initialization.ontology.mesh import (
+from src.integration.ontologies.mesh import (
     _ensure_list,
     _extract_synonyms,
     _parse_mesh_desc,
     _parse_mesh_supp,
 )
-from src.initialization.ontology.pubchem import process_pubchem
+from src.integration.ontologies.pubchem import process_pubchem
 from src.models.settings import KGCSettings
 
 

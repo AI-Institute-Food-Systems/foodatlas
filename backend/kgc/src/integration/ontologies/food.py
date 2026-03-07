@@ -9,7 +9,7 @@ import pandas as pd
 from ...models.settings import KGCSettings
 from ...stores.entity_store import EntityStore
 from ...stores.schema import FILE_FOOD_ONTOLOGY
-from .loaders import load_foodon
+from ..entities.food.loaders import load_foodon
 
 logger = logging.getLogger(__name__)
 

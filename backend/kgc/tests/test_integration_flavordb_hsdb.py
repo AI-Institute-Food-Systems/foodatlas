@@ -3,7 +3,7 @@
 import json
 
 import pytest
-from src.integration.flavordb.hsdb_loader import load_hsdb
+from src.integration.entities.flavor.hsdb_loader import load_hsdb
 
 
 class TestLoadHsdb:

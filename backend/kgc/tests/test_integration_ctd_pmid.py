@@ -3,7 +3,7 @@
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
-from src.integration.ctd.pmid_mapping import (
+from src.integration.triplets.ctd import (
     fetch_pmid_to_pmcid,
     get_or_create_pmid_mapping,
     load_pmid_to_pmcid,
@@ -25,7 +25,7 @@ class TestLoadPmidToPmcid:
 
 
 class TestFetchPmidToPmcid:
-    @patch("src.integration.ctd.pmid_mapping.requests.get")
+    @patch("src.integration.triplets.ctd.requests.get")
     def test_fetches_mappings(self, mock_get):
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -40,7 +40,7 @@ class TestFetchPmidToPmcid:
         assert "pmid" in result.columns
         assert "pmcid" in result.columns
 
-    @patch("src.integration.ctd.pmid_mapping.requests.get")
+    @patch("src.integration.triplets.ctd.requests.get")
     def test_handles_error_status(self, mock_get):
         mock_response = MagicMock()
         mock_response.status_code = 500
@@ -58,7 +58,7 @@ class TestGetOrCreatePmidMapping:
         result = get_or_create_pmid_mapping(tmp_path, [123], "test@test.com")
         assert result == {123: 456}
 
-    @patch("src.integration.ctd.pmid_mapping.fetch_pmid_to_pmcid")
+    @patch("src.integration.triplets.ctd.fetch_pmid_to_pmcid")
     def test_cache_miss_creates(self, mock_fetch, tmp_path):
         mock_fetch.return_value = pd.DataFrame(
             {

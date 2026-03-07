@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 def process_chebi(settings: KGCSettings) -> None:
-    """Clean raw ChEBI data and save name→ID lookup and cleaned compounds."""
+    """Clean raw ChEBI data and save name->ID lookup and cleaned compounds."""
     data_dir = Path(settings.data_dir)
     dp_dir = Path(settings.integration_dir)
     dp_dir.mkdir(parents=True, exist_ok=True)
@@ -45,7 +45,7 @@ def _load_chebi(data_dir: Path) -> pd.DataFrame:
 
 
 def _load_map_is_a(data_dir: Path) -> dict[int, list[int]]:
-    """Load ChEBI is_a relationships as parent → children mapping."""
+    """Load ChEBI is_a relationships as parent -> children mapping."""
     triplets: pd.DataFrame = pd.read_csv(
         data_dir / "ChEBI" / "relation.tsv", sep="\t"
     ).query("TYPE in ['is_a']")
@@ -90,7 +90,7 @@ def _load_synonyms(data_dir: Path, valid_ids: pd.Index) -> pd.DataFrame:
 
 
 def _build_name_lut(chebi: pd.DataFrame, chebi_synonyms: pd.DataFrame) -> pd.DataFrame:
-    """Build a name → ChEBI ID lookup table with star-priority ordering."""
+    """Build a name -> ChEBI ID lookup table with star-priority ordering."""
     lut: dict[str, Any] = {}
 
     for star in (3, 2):

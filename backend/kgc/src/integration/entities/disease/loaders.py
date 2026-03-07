@@ -16,7 +16,7 @@ from .constants import (
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from ...stores.entity_store import EntityStore
+    from ....stores.entity_store import EntityStore
 
 
 def load_ctd_data(

@@ -6,16 +6,11 @@ from unittest.mock import patch
 
 import pandas as pd
 import pytest
-from src.initialization.food.init_entities import (
+from src.integration.entities.food.init_entities import (
     _rebuild_food_lut,
     append_foods_from_fdc,
 )
-from src.initialization.food.init_onto import (
-    _build_foodon_to_fa_map,
-    _traverse_hierarchy,
-    create_food_ontology,
-)
-from src.initialization.food.loaders import (
+from src.integration.entities.food.loaders import (
     _extract_foodon_url,
     _resolve_multiple_foodon_urls,
     _resolve_organisms,
@@ -23,6 +18,11 @@ from src.initialization.food.loaders import (
     load_fdc,
     load_foodon,
     load_lut_food,
+)
+from src.integration.ontologies.food import (
+    _build_foodon_to_fa_map,
+    _traverse_hierarchy,
+    create_food_ontology,
 )
 from src.models.settings import KGCSettings
 from src.stores.entity_store import EntityStore
@@ -122,7 +122,7 @@ def foodon2() -> pd.DataFrame:
 
 class TestLoadFoodon:
     def test_reads_parquet(self, tmp_path: Path, foodon2: pd.DataFrame) -> None:
-        with patch("src.initialization.food.loaders.pd.read_parquet") as m:
+        with patch("src.integration.entities.food.loaders.pd.read_parquet") as m:
             m.return_value = foodon2.reset_index()
             r = load_foodon(_settings(tmp_path))
         assert r.index.name == "foodon_id" and len(r) == 2
@@ -130,7 +130,9 @@ class TestLoadFoodon:
 
 class TestLoadLutFood:
     def test_builds_lut_no_extras(self, tmp_path: Path, foodon2: pd.DataFrame) -> None:
-        with patch("src.initialization.food.loaders.load_foodon", return_value=foodon2):
+        with patch(
+            "src.integration.entities.food.loaders.load_foodon", return_value=foodon2
+        ):
             lut = load_lut_food(
                 _settings(tmp_path),
                 resolve_organisms=False,
@@ -139,7 +141,9 @@ class TestLoadLutFood:
         assert lut["apple"] == FA and lut["banana"] == FB
 
     def test_with_extras(self, tmp_path: Path, foodon2: pd.DataFrame) -> None:
-        with patch("src.initialization.food.loaders.load_foodon", return_value=foodon2):
+        with patch(
+            "src.integration.entities.food.loaders.load_foodon", return_value=foodon2
+        ):
             lut = load_lut_food(_settings(tmp_path))
         assert "apples" in lut and "bananas" in lut
 
@@ -251,7 +255,9 @@ class TestAppendFoodsFromFdc:
             ],
             index=pd.Index([100, 200], name="fdc_id"),
         )
-        with patch("src.initialization.food.init_entities.load_fdc", return_value=fdc):
+        with patch(
+            "src.integration.entities.food.init_entities.load_fdc", return_value=fdc
+        ):
             append_foods_from_fdc(store, _settings(tmp_path))
         assert 100 in store._entities.at["e1", "external_ids"]["fdc"]
         assert store._entities.iloc[1]["common_name"] == "carrot"
@@ -262,7 +268,9 @@ class TestAppendFoodsFromFdc:
         store = _store(tmp_path, ents)
         fdc = pd.DataFrame(columns=["description", "foodon_url"])
         with (
-            patch("src.initialization.food.init_entities.load_fdc", return_value=fdc),
+            patch(
+                "src.integration.entities.food.init_entities.load_fdc", return_value=fdc
+            ),
             pytest.raises(ValueError, match="Duplicate"),
         ):
             append_foods_from_fdc(store, _settings(tmp_path))
@@ -323,9 +331,7 @@ class TestCreateFoodOntology:
             _ent("e2", "banana", {"foodon": [FB]}),
         ]
         store = _store(tmp_path, ents)
-        with patch(
-            "src.initialization.food.init_onto.load_foodon", return_value=foodon2
-        ):
+        with patch("src.integration.ontologies.food.load_foodon", return_value=foodon2):
             result = create_food_ontology(store, _settings(tmp_path))
         assert len(result) == 1
         assert (tmp_path / FILE_FOOD_ONTOLOGY).exists()

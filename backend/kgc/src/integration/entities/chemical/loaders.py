@@ -5,13 +5,13 @@ from pathlib import Path
 
 import pandas as pd
 
-from ...models.settings import KGCSettings
+from ....models.settings import KGCSettings
 
-# ── ChEBI ────────────────────────────────────────────────────────────
+# -- ChEBI ------------------------------------------------------------
 
 
 def load_mapper_name_to_chebi_id(settings: KGCSettings) -> pd.DataFrame:
-    """Load name → ChEBI ID mapper from preprocessed data."""
+    """Load name -> ChEBI ID mapper from preprocessed data."""
     dp_dir = Path(settings.integration_dir)
     name2chebi: pd.DataFrame = pd.read_parquet(
         dp_dir / "chebi_name_to_id.parquet",
@@ -21,7 +21,7 @@ def load_mapper_name_to_chebi_id(settings: KGCSettings) -> pd.DataFrame:
 
 
 def load_mapper_chebi_id_to_names(settings: KGCSettings) -> pd.DataFrame:
-    """Load ChEBI ID → list of names mapper (inverse of name→id)."""
+    """Load ChEBI ID -> list of names mapper (inverse of name->id)."""
     name2chebi = load_mapper_name_to_chebi_id(settings).set_index("NAME")
 
     mapper: dict[int, list[str]] = {}
@@ -37,7 +37,7 @@ def load_mapper_chebi_id_to_names(settings: KGCSettings) -> pd.DataFrame:
     return result
 
 
-# ── CDNO ─────────────────────────────────────────────────────────────
+# -- CDNO --------------------------------------------------------------
 
 
 def load_cdno(settings: KGCSettings) -> pd.DataFrame:
@@ -51,9 +51,9 @@ def load_cdno(settings: KGCSettings) -> pd.DataFrame:
     cdno["chebi_id"] = (
         cdno["chebi_id"]
         .apply(
-            lambda x: int(x.split("/")[-1].split("_")[-1])
-            if isinstance(x, str)
-            else None
+            lambda x: (
+                int(x.split("/")[-1].split("_")[-1]) if isinstance(x, str) else None
+            )
         )
         .astype("Int64")
     )
@@ -67,7 +67,7 @@ def load_cdno(settings: KGCSettings) -> pd.DataFrame:
     return cdno[["cdno_id", "label", "chebi_id", "fdc_nutrient_ids"]].copy()
 
 
-# ── FDC Nutrients ────────────────────────────────────────────────────
+# -- FDC Nutrients -----------------------------------------------------
 
 
 def load_fdc_nutrient(settings: KGCSettings) -> pd.DataFrame:
@@ -89,11 +89,11 @@ def load_fdc_nutrient(settings: KGCSettings) -> pd.DataFrame:
     return fdc.set_index("id")
 
 
-# ── MeSH ─────────────────────────────────────────────────────────────
+# -- MeSH --------------------------------------------------------------
 
 
 def load_mapper_name_to_mesh_id(settings: KGCSettings) -> pd.Series:
-    """Load name → MeSH ID mapper from preprocessed MeSH data."""
+    """Load name -> MeSH ID mapper from preprocessed MeSH data."""
     dp_dir = Path(settings.integration_dir)
     mesh_desc = pd.read_parquet(
         dp_dir / "mesh_desc_cleaned.parquet",
@@ -125,11 +125,11 @@ def load_mesh(settings: KGCSettings) -> pd.Series:
     return mesh
 
 
-# ── PubChem ──────────────────────────────────────────────────────────
+# -- PubChem -----------------------------------------------------------
 
 
 def load_mapper_pubchem_cid_to_mesh_id(settings: KGCSettings) -> pd.Series:
-    """Load PubChem CID → MeSH ID mapper."""
+    """Load PubChem CID -> MeSH ID mapper."""
     name_to_mesh = load_mapper_name_to_mesh_id(settings)
     data_dir = Path(settings.data_dir)
 
@@ -145,7 +145,7 @@ def load_mapper_pubchem_cid_to_mesh_id(settings: KGCSettings) -> pd.Series:
 
 
 def load_mapper_chebi_id_to_pubchem_cid(settings: KGCSettings) -> pd.Series:
-    """Load ChEBI ID → PubChem CID mapper from preprocessed data."""
+    """Load ChEBI ID -> PubChem CID mapper from preprocessed data."""
     dp_dir = Path(settings.integration_dir)
     chebi2cid: pd.DataFrame = pd.read_parquet(
         dp_dir / "pubchem-sid-map-small.parquet",

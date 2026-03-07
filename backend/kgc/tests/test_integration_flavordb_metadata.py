@@ -1,7 +1,7 @@
 """Tests for FlavorDB metadata module."""
 
 import pandas as pd
-from src.integration.flavordb.flavor_metadata import (
+from src.integration.entities.flavor.loaders import (
     extract_flavordb_metadata,
     extract_hsdb_metadata,
     fuzzy_match_flavors,

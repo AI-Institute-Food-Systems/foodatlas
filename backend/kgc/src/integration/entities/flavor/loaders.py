@@ -41,7 +41,7 @@ def extract_flavordb_metadata(
     Args:
         flavordb_data: Dict from ``load_flavordb_data``.
         entity_pc_ids: Set of PubChem CIDs present in entities.
-        entity_pc_id_to_name: PubChem CID → common_name mapping.
+        entity_pc_id_to_name: PubChem CID -> common_name mapping.
 
     Returns:
         DataFrame with flavor metadata rows.
@@ -96,10 +96,10 @@ def extract_hsdb_metadata(
     Skips CIDs already covered by FlavorDB to avoid duplication.
 
     Args:
-        cid2odor: CID→odor mapping from HSDB.
-        cid2taste: CID→taste mapping from HSDB.
+        cid2odor: CID->odor mapping from HSDB.
+        cid2taste: CID->taste mapping from HSDB.
         skip_pc_ids: CIDs to skip (already in FlavorDB data).
-        entity_pc_id_to_name: CID→common_name mapping for entities.
+        entity_pc_id_to_name: CID->common_name mapping for entities.
 
     Returns:
         DataFrame with HSDB flavor metadata rows.

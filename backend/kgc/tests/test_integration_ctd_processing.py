@@ -3,7 +3,7 @@
 from unittest.mock import MagicMock
 
 import pandas as pd
-from src.integration.ctd.processing import (
+from src.integration.entities.disease.loaders import (
     change_content_to_list,
     extract_pubmed_ids,
     filter_ctd_chemdis,

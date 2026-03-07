@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from src.initialization.scaffold import create_empty_files
+from src.integration.scaffold import create_empty_files
 from src.models.relationship import RelationshipType
 from src.models.settings import KGCSettings
 from src.stores.schema import (

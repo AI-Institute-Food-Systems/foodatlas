@@ -1,7 +1,7 @@
 """Tests for CTD disease entity creation module."""
 
 import pandas as pd
-from src.integration.ctd.disease_entities import (
+from src.integration.entities.disease.init_entities import (
     create_disease_entities,
     get_max_entity_id,
     parse_alt_disease_ids,

@@ -1,1 +1,1 @@
-"""Integration modules for merging external databases into FoodAtlas."""
+"""Integration — entities, ontologies, triplets, and scaffold."""

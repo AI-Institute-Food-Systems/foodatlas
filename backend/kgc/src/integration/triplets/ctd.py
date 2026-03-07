@@ -1,4 +1,4 @@
-"""Step 3: Merge CTD disease data into the knowledge graph."""
+"""Merge CTD disease triplets and metadata into the knowledge graph."""
 
 from __future__ import annotations
 
@@ -8,24 +8,119 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pandas as pd
+import requests
+from bs4 import BeautifulSoup
 
-from .constants import (
+from ..entities.disease.constants import (
     CTD_DIRECTEVIDENCE,
     CTD_DIRECTEVIDENCE_MAPPING,
     CTD_PUBMED_IDS,
     FA_ID,
     PMCID,
+    PMID_PMCID_REQUEST_URL,
     PUBMED_IDS,
 )
-from .disease_entities import create_disease_entities, get_max_entity_id
-from .pmid_mapping import get_or_create_pmid_mapping
-from .processing import extract_pubmed_ids, filter_ctd_chemdis, load_ctd_data
+from ..entities.disease.loaders import (
+    extract_pubmed_ids,
+    filter_ctd_chemdis,
+    load_ctd_data,
+)
 
 if TYPE_CHECKING:
     from ...constructor.knowledge_graph import KnowledgeGraph
     from ...models.settings import KGCSettings
 
 logger = logging.getLogger(__name__)
+
+PMID_TO_PMCID_FILENAME = "CTD_pubmed_ids_to_pmcid.csv"
+BATCH_SIZE = 200
+
+
+def fetch_pmid_to_pmcid(
+    pubmed_ids: list[int],
+    email: str,
+    tool_name: str = "foodatlas",
+) -> pd.DataFrame:
+    """Fetch PMID→PMCID mappings from NCBI in batches.
+
+    Args:
+        pubmed_ids: List of integer PubMed IDs.
+        email: Contact email for the NCBI API.
+        tool_name: Tool identifier for the NCBI API.
+
+    Returns:
+        DataFrame with ``pmid`` and ``pmcid`` columns.
+    """
+    middle_url = f"?tool={tool_name}&email={email}&ids="
+    dfs: list[pd.DataFrame] = []
+
+    for i in range(0, len(pubmed_ids), BATCH_SIZE):
+        batch = pubmed_ids[i : i + BATCH_SIZE]
+        ids_str = ",".join(str(pid) for pid in batch)
+        url = PMID_PMCID_REQUEST_URL + middle_url + ids_str
+        response = requests.get(url, timeout=30)
+        if response.status_code != 200:
+            logger.error("NCBI request failed with status %d", response.status_code)
+            continue
+
+        soup = BeautifulSoup(response.content, "html.parser")
+        records = soup.find_all("record")
+        pmid_list = [record.get("pmid") for record in records]
+        pmcid_list = [record.get("pmcid") for record in records]
+        dfs.append(pd.DataFrame({PUBMED_IDS: pmid_list, PMCID: pmcid_list}))
+
+    if not dfs:
+        return pd.DataFrame(columns=[PUBMED_IDS, PMCID])
+
+    result = pd.concat(dfs, ignore_index=True)
+    return result.sort_values(by=PUBMED_IDS).reset_index(drop=True)
+
+
+def load_pmid_to_pmcid(mapping_path: Path) -> dict[int, int]:
+    """Load a PMID→PMCID CSV mapping, returning only valid entries.
+
+    Args:
+        mapping_path: Path to CSV with ``pmid`` and ``pmcid`` columns.
+
+    Returns:
+        Dict mapping integer PMID to integer PMCID.
+    """
+    df = pd.read_csv(mapping_path)
+    df = df.dropna(how="all").reset_index(drop=True)
+    df[PMCID] = df[PMCID].apply(
+        lambda x: x.split("PMC")[1] if pd.notnull(x) and "PMC" in str(x) else None
+    )
+    df = df[df[PMCID].notnull()].reset_index(drop=True)
+    df[PMCID] = df[PMCID].astype(int)
+    df[PUBMED_IDS] = df[PUBMED_IDS].astype(int)
+    return dict(zip(df[PUBMED_IDS], df[PMCID], strict=False))
+
+
+def get_or_create_pmid_mapping(
+    integration_dir: Path,
+    pubmed_ids: list[int],
+    email: str,
+) -> dict[int, int]:
+    """Load cached PMID→PMCID mapping or create it from NCBI.
+
+    Args:
+        integration_dir: Directory to cache the mapping CSV.
+        pubmed_ids: PubMed IDs to map (used only when creating).
+        email: NCBI contact email.
+
+    Returns:
+        Dict mapping integer PMID to integer PMCID.
+    """
+    cache_path = integration_dir / PMID_TO_PMCID_FILENAME
+    if cache_path.exists():
+        logger.info("Loading cached PMID→PMCID mapping from %s", cache_path)
+        return load_pmid_to_pmcid(cache_path)
+
+    logger.info("Fetching PMID→PMCID mapping from NCBI for %d IDs...", len(pubmed_ids))
+    df = fetch_pmid_to_pmcid(pubmed_ids, email)
+    integration_dir.mkdir(parents=True, exist_ok=True)
+    df.to_csv(cache_path, index=False)
+    return load_pmid_to_pmcid(cache_path)
 
 
 def build_chemical_id_map(entities: pd.DataFrame) -> dict[str, list[str]]:
@@ -152,24 +247,20 @@ def create_disease_triplets_metadata(
     return triplets, metadata
 
 
-def merge_ctd(kg: KnowledgeGraph, settings: KGCSettings) -> None:
-    """Merge CTD disease data into the knowledge graph.
+def merge_ctd_triplets(kg: KnowledgeGraph, settings: KGCSettings) -> None:
+    """Create disease triplets and metadata from CTD data.
 
-    Three-step pipeline:
-    1. Filter raw CTD data
-    2. Map PMIDs to PMCIDs
-    3. Create disease entities, triplets, and metadata
+    Requires disease entities to already be present in the KG (via
+    ``initialization.disease.init_entities.append_diseases_from_ctd``).
 
     Args:
-        kg: Loaded KnowledgeGraph instance.
+        kg: Loaded KnowledgeGraph instance with disease entities.
         settings: KGCSettings with data paths and NCBI email.
     """
     ctd_dir = Path(settings.data_dir) / "CTD"
     integration_dir = Path(settings.integration_dir)
 
     ctd_chemdis = load_ctd_data(ctd_dir, dataset="chemdis")
-    ctd_diseases = load_ctd_data(ctd_dir, dataset="disease")
-
     ctd_chemdis = filter_ctd_chemdis(ctd_chemdis, kg.entities)
     pubmed_ids = sorted(extract_pubmed_ids(ctd_chemdis))
 
@@ -177,18 +268,15 @@ def merge_ctd(kg: KnowledgeGraph, settings: KGCSettings) -> None:
         integration_dir, pubmed_ids, settings.ncbi_email
     )
 
-    entities_df = kg.entities._entities.reset_index()
-    max_eid = get_max_entity_id(entities_df)
-    entities_df = create_disease_entities(
-        entities_df, ctd_diseases, ctd_chemdis, max_eid
-    )
-
     max_tid = 0
     if not kg.triplets._triplets.empty:
         max_tid = int(kg.triplets._triplets.index.str.slice(1).astype(int).max())
 
     triplets, metadata = create_disease_triplets_metadata(
-        ctd_chemdis, entities_df.set_index(FA_ID), pmid_to_pmcid, max_tid
+        ctd_chemdis,
+        kg.entities._entities,
+        pmid_to_pmcid,
+        max_tid,
     )
 
     triplets_df = triplets[
