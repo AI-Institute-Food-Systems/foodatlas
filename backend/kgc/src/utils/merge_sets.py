@@ -1,7 +1,5 @@
 """Merge overlapping sets using graph-based connected component detection."""
 
-from __future__ import annotations
-
 from tqdm import tqdm
 
 

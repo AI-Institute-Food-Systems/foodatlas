@@ -1,7 +1,5 @@
 """Entity models matching the KG entity schema."""
 
-from __future__ import annotations
-
 from typing import Literal
 
 from pydantic import BaseModel, Field
