@@ -6,21 +6,21 @@ Set up the project skeleton: `pyproject.toml` with real dependencies, `config/`,
 
 ## Acceptance Criteria
 
-- [ ] `pyproject.toml` updated with all dependencies (pandas, click, biopython, inflection, tqdm, pympler, pydantic-settings, owlready2, rdflib, lxml, openpyxl, numpy)
-- [ ] `uv sync` succeeds
-- [ ] `config/defaults.json` created with default paths and empty API key placeholders
-- [ ] `models/__init__.py` exports all models
-- [ ] `models/settings.py` — `KGCSettings` with Pydantic Settings, env prefix `KGC_`, loads defaults from `config/defaults.json`
-- [ ] `models/entity.py` — Entity, FoodEntity, ChemicalEntity pydantic models matching TSV schema (foodatlas_id, entity_type, common_name, scientific_name, synonyms, external_ids, synonyms_display)
-- [ ] `models/triplet.py` — Triplet model (foodatlas_id, head_id, relationship_id, tail_id, metadata_ids)
-- [ ] `models/metadata.py` — MetadataContains model (foodatlas_id, conc_value, conc_unit, food_part, food_processing, source, reference, entity_linking_method, quality_score, food_name_raw, chemical_name_raw, conc_raw, food_part_raw)
-- [ ] `models/relationship.py` — Relationship model (r1-r5)
-- [ ] `models/version.py` — KGVersion model
-- [ ] `utils/__init__.py`, `utils/constants.py`, `utils/merge_sets.py` ported from `FoodAtlas-KGv2/food_atlas/kg/utils/`
-- [ ] `preprocessing/constants/` ported (greek_letters.py, punctuations.py, units.py)
-- [ ] All files pass `ruff check` and `mypy`
-- [ ] All files under 300 lines
-- [ ] Tests for settings loading (env vars, defaults.json fallback) and model validation
+- [x] `pyproject.toml` updated with all dependencies (pandas, click, biopython, inflection, tqdm, pympler, pydantic-settings, owlready2, rdflib, lxml, openpyxl, numpy)
+- [x] `uv sync` succeeds
+- [x] `config/defaults.json` created with default paths and empty API key placeholders
+- [x] `models/__init__.py` exports all models
+- [x] `models/settings.py` — `KGCSettings` with Pydantic Settings, env prefix `KGC_`, loads defaults from `config/defaults.json`
+- [x] `models/entity.py` — Entity, FoodEntity, ChemicalEntity pydantic models matching TSV schema (foodatlas_id, entity_type, common_name, scientific_name, synonyms, external_ids, synonyms_display)
+- [x] `models/triplet.py` — Triplet model (foodatlas_id, head_id, relationship_id, tail_id, metadata_ids)
+- [x] `models/metadata.py` — MetadataContains model (foodatlas_id, conc_value, conc_unit, food_part, food_processing, source, reference, entity_linking_method, quality_score, food_name_raw, chemical_name_raw, conc_raw, food_part_raw)
+- [x] `models/relationship.py` — Relationship model (r1-r5)
+- [x] `models/version.py` — KGVersion model
+- [x] `utils/__init__.py`, `utils/constants.py`, `utils/merge_sets.py` ported from `FoodAtlas-KGv2/food_atlas/kg/utils/`
+- [x] `preprocessing/constants/` ported (greek_letters.py, punctuations.py, units.py)
+- [x] All files pass `ruff check` and `mypy`
+- [x] All files under 300 lines
+- [x] Tests for settings loading (env vars, defaults.json fallback) and model validation
 
 ## Source Files
 
