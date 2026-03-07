@@ -44,26 +44,26 @@ class TestParseConcString:
         assert wt is None
 
     def test_decimal(self) -> None:
-        val, unit, wt = parse_conc_string("3.14mg/100g")
+        val, unit, _wt = parse_conc_string("3.14mg/100g")
         assert val == pytest.approx(3.14)
         assert unit == "mg/100g"
 
     def test_range_mean(self) -> None:
-        val, unit, wt = parse_conc_string("2-4mg")
+        val, unit, _wt = parse_conc_string("2-4mg")
         assert val == pytest.approx(3.0)
         assert unit == "mg"
 
     def test_unicode_range(self) -> None:
-        val, unit, wt = parse_conc_string("2\u20134mg")
+        val, unit, _wt = parse_conc_string("2\u20134mg")
         assert val == pytest.approx(3.0)
         assert unit == "mg"
 
     def test_fresh_weight(self) -> None:
-        val, unit, wt = parse_conc_string("5mg/100gfw")
+        _val, _unit, wt = parse_conc_string("5mg/100gfw")
         assert wt == "fresh"
 
     def test_dry_weight(self) -> None:
-        val, unit, wt = parse_conc_string("5mg/100gdw")
+        _val, _unit, wt = parse_conc_string("5mg/100gdw")
         assert wt == "dry"
 
     def test_freshweight_long(self) -> None:
@@ -96,7 +96,7 @@ class TestParseConcString:
         assert unit == "mg"
 
     def test_percentage(self) -> None:
-        val, unit, _ = parse_conc_string("5%")
+        val, _unit, _ = parse_conc_string("5%")
         assert val == 5.0
 
     def test_range_different_units_returns_none(self) -> None:

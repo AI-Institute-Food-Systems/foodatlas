@@ -5,7 +5,8 @@
       "Bash(find *)",
       "Bash(uv run ruff *)",
       "Bash(uv run pytest *)",
-      "Bash(uv run mypy *)"
+      "Bash(uv run mypy *)",
+      "Bash(uv run bandit *)"
     ]
   }
 }

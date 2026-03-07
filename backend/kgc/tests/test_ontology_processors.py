@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
+from bs4 import BeautifulSoup
 from src.integration.ontologies.cdno import (
     _disambiguate_fdc_ids,
     _extract_chebi_ids,
@@ -155,8 +156,6 @@ class TestBuildNameLut:
 
 class TestExtractChebiIds:
     def test_extracts_chebi_from_owl(self) -> None:
-        from bs4 import BeautifulSoup
-
         xml = (
             '<root xmlns:owl="http://www.w3.org/2002/07/owl#"'
             ' xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">'
@@ -173,8 +172,6 @@ class TestExtractChebiIds:
         ]
 
     def test_no_equivalent_class(self) -> None:
-        from bs4 import BeautifulSoup
-
         xml = (
             '<root xmlns:owl="http://www.w3.org/2002/07/owl#"'
             ' xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">'

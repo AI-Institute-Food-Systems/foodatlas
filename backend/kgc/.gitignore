@@ -1,1 +1,4 @@
 examples
+outputs/
+data/
+config/local.json

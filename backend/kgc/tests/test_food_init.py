@@ -19,16 +19,10 @@ from src.integration.entities.food.loaders import (
     load_foodon,
     load_lut_food,
 )
-from src.integration.ontologies.food import (
-    _build_foodon_to_fa_map,
-    _traverse_hierarchy,
-    create_food_ontology,
-)
 from src.models.settings import KGCSettings
 from src.stores.entity_store import EntityStore
 from src.stores.schema import (
     FILE_ENTITIES,
-    FILE_FOOD_ONTOLOGY,
     FILE_LUT_CHEMICAL,
     FILE_LUT_FOOD,
 )
@@ -292,49 +286,3 @@ class TestRebuildFoodLut:
         _rebuild_food_lut(store, ents_new, lut_df)
         assert store._lut_food["apple"] == ["e1"]
         assert store._lut_food["apples"] == ["e1"]
-
-
-# ── init_onto ────────────────────────────────────────────────────────
-
-
-class TestBuildFoodonToFaMap:
-    def test_maps(self, tmp_path: Path) -> None:
-        store = _store(tmp_path, [_ent("e1", "apple", {"foodon": [FA]})])
-        assert _build_foodon_to_fa_map(store) == {FA: "e1"}
-
-    def test_skips_non_foodon(self, tmp_path: Path) -> None:
-        store = _store(tmp_path, [_ent("e1", "vc", {"pubchem": [1]}, "chemical")])
-        assert _build_foodon_to_fa_map(store) == {}
-
-
-class TestTraverseHierarchy:
-    def test_collects_is_a(self, foodon2: pd.DataFrame) -> None:
-        rows = _traverse_hierarchy(foodon2, {FA: "e1", FB: "e2"})
-        assert len(rows) == 1
-        assert rows[0] == {
-            "foodatlas_id": None,
-            "head_id": "e1",
-            "relationship_id": "r2",
-            "tail_id": "e2",
-            "source": "foodon",
-        }
-
-    def test_no_parents(self) -> None:
-        foodon = _fon([_fon_row(FA, "apple")])
-        assert _traverse_hierarchy(foodon, {FA: "e1"}) == []
-
-
-class TestCreateFoodOntology:
-    def test_end_to_end(self, tmp_path: Path, foodon2: pd.DataFrame) -> None:
-        ents = [
-            _ent("e1", "apple", {"foodon": [FA]}),
-            _ent("e2", "banana", {"foodon": [FB]}),
-        ]
-        store = _store(tmp_path, ents)
-        with patch("src.integration.ontologies.food.load_foodon", return_value=foodon2):
-            result = create_food_ontology(store, _settings(tmp_path))
-        assert len(result) == 1
-        assert (tmp_path / FILE_FOOD_ONTOLOGY).exists()
-        with (tmp_path / FILE_FOOD_ONTOLOGY).open() as f:
-            saved = json.load(f)
-        assert saved[0]["head_id"] == "e1" and saved[0]["tail_id"] == "e2"

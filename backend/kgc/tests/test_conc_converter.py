@@ -105,7 +105,7 @@ class TestCheckConcValue:
         assert check_conc_value(None, None) == (None, None)
 
     def test_valid_mg_100g(self) -> None:
-        val, unit = check_conc_value(500.0, "mg/100g")
+        val, _unit = check_conc_value(500.0, "mg/100g")
         assert val == 500.0
 
     def test_excessive_mg_100g(self) -> None:
@@ -115,11 +115,11 @@ class TestCheckConcValue:
         assert check_conc_value(2e5, "mg/100g (converted)") == (None, None)
 
     def test_other_unit_not_checked(self) -> None:
-        val, unit = check_conc_value(2e5, "mg")
+        val, _unit = check_conc_value(2e5, "mg")
         assert val == 2e5
 
     def test_boundary_value(self) -> None:
-        val, unit = check_conc_value(1e5, "mg/100g")
+        val, _unit = check_conc_value(1e5, "mg/100g")
         assert val == 1e5
 
     def test_just_over_boundary(self) -> None:
