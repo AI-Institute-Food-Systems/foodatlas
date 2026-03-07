@@ -124,6 +124,19 @@ class TripletStore:
             axis=1,
         )
 
+    def filter(
+        self,
+        head_id: str | None = None,
+        tail_id: str | None = None,
+    ) -> pd.DataFrame:
+        """Return triplets matching optional head/tail filters."""
+        result = self._triplets
+        if head_id is not None:
+            result = result[result["head_id"] == head_id]
+        if tail_id is not None:
+            result = result[result["tail_id"] == tail_id]
+        return result.copy()
+
     def get_by_relationship_id(self, relationship_id: str) -> pd.DataFrame:
         return self._triplets[
             self._triplets["relationship_id"] == relationship_id

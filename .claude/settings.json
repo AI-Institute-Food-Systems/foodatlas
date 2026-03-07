@@ -1,2 +1,9 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(uv run ruff *)",
+      "Bash(uv run pytest *)",
+      "Bash(uv run mypy *)"
+    ]
+  }
 }

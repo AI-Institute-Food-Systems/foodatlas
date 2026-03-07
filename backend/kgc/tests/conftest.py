@@ -5,12 +5,16 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
+from src.constructor.knowledge_graph import KnowledgeGraph
+from src.models.settings import KGCSettings
 from src.stores.entity_store import EntityStore
 from src.stores.schema import (
     ENTITY_COLUMNS,
     FILE_ENTITIES,
     FILE_LUT_CHEMICAL,
     FILE_LUT_FOOD,
+    FILE_METADATA_CONTAINS,
+    FILE_TRIPLETS,
     TSV_SEP,
 )
 
@@ -20,10 +24,9 @@ def _write_lut(path: Path, lut: dict[str, list[str]]) -> None:
         json.dump(lut, f)
 
 
-@pytest.fixture()
-def entities_dir_populated(tmp_path: Path) -> Path:
-    """Directory with two entities (apple + vitamin c) and populated LUTs."""
-    entities_df = pd.DataFrame(
+def _make_kg_dir(tmp_path: Path) -> Path:
+    """Create a minimal KG directory with fixture TSVs and LUTs."""
+    entities = pd.DataFrame(
         [
             {
                 "foodatlas_id": "e0",
@@ -45,7 +48,41 @@ def entities_dir_populated(tmp_path: Path) -> Path:
             },
         ]
     )
-    entities_df.to_csv(tmp_path / FILE_ENTITIES, sep=TSV_SEP, index=False)
+    entities.to_csv(tmp_path / FILE_ENTITIES, sep=TSV_SEP, index=False)
+
+    triplets = pd.DataFrame(
+        [
+            {
+                "foodatlas_id": "t0",
+                "head_id": "e0",
+                "relationship_id": "r1",
+                "tail_id": "e1",
+                "metadata_ids": ["mc0"],
+            },
+        ]
+    )
+    triplets.to_csv(tmp_path / FILE_TRIPLETS, sep=TSV_SEP, index=False)
+
+    metadata = pd.DataFrame(
+        [
+            {
+                "foodatlas_id": "mc0",
+                "conc_value": 1.5,
+                "conc_unit": "mg/g",
+                "food_part": "peel",
+                "food_processing": "raw",
+                "source": "fdc",
+                "reference": ["ref1"],
+                "entity_linking_method": "exact",
+                "quality_score": 0.95,
+                "_food_name": "apple",
+                "_chemical_name": "vitamin c",
+                "_conc": "1.5 mg/g",
+                "_food_part": "peel",
+            },
+        ]
+    )
+    metadata.to_csv(tmp_path / FILE_METADATA_CONTAINS, sep=TSV_SEP, index=False)
 
     _write_lut(
         tmp_path / FILE_LUT_FOOD,
@@ -56,6 +93,15 @@ def entities_dir_populated(tmp_path: Path) -> Path:
         {"vitamin c": ["e1"], "ascorbic acid": ["e1"]},
     )
     return tmp_path
+
+
+# ── Entity fixtures ──────────────────────────────────────────────────
+
+
+@pytest.fixture()
+def entities_dir_populated(tmp_path: Path) -> Path:
+    """Directory with two entities (apple + vitamin c) and populated LUTs."""
+    return _make_kg_dir(tmp_path)
 
 
 @pytest.fixture()
@@ -85,3 +131,17 @@ def entity_store_empty(entities_dir_empty: Path) -> EntityStore:
         path_lut_food=entities_dir_empty / FILE_LUT_FOOD,
         path_lut_chemical=entities_dir_empty / FILE_LUT_CHEMICAL,
     )
+
+
+# ── KnowledgeGraph fixtures ─────────────────────────────────────────
+
+
+@pytest.fixture()
+def kg_dir(tmp_path: Path) -> Path:
+    return _make_kg_dir(tmp_path)
+
+
+@pytest.fixture()
+def kg(kg_dir: Path) -> KnowledgeGraph:
+    settings = KGCSettings(kg_dir=str(kg_dir), cache_dir=str(kg_dir / "_cache"))
+    return KnowledgeGraph(settings)
