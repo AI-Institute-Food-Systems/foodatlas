@@ -4,60 +4,18 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
-from src.stores.entity_store import COLUMNS, EntityStore
+from src.stores.entity_store import EntityStore
+from src.stores.schema import (
+    ENTITY_COLUMNS,
+    FILE_ENTITIES,
+    FILE_LUT_CHEMICAL,
+    FILE_LUT_FOOD,
+)
 
 
 @pytest.fixture()
-def entities_dir(tmp_path: Path) -> Path:
-    entities_df = pd.DataFrame(
-        [
-            {
-                "foodatlas_id": "e0",
-                "entity_type": "food",
-                "common_name": "apple",
-                "scientific_name": "malus domestica",
-                "synonyms": ["apple", "apples"],
-                "external_ids": {"ncbi_taxon_id": 12345},
-                "_synonyms_display": ["apple"],
-            },
-            {
-                "foodatlas_id": "e1",
-                "entity_type": "chemical",
-                "common_name": "vitamin c",
-                "scientific_name": "ascorbic acid",
-                "synonyms": ["vitamin c", "ascorbic acid"],
-                "external_ids": {"pubchem_cid": 54670067},
-                "_synonyms_display": ["vitamin c"],
-            },
-        ]
-    )
-    entities_df.to_csv(tmp_path / "entities.tsv", sep="\t", index=False)
-
-    lut_food = pd.DataFrame(
-        [
-            {"name": "apple", "foodatlas_id": ["e0"]},
-            {"name": "apples", "foodatlas_id": ["e0"]},
-        ]
-    )
-    lut_food.to_csv(tmp_path / "lookup_table_food.tsv", sep="\t", index=False)
-
-    lut_chem = pd.DataFrame(
-        [
-            {"name": "vitamin c", "foodatlas_id": ["e1"]},
-            {"name": "ascorbic acid", "foodatlas_id": ["e1"]},
-        ]
-    )
-    lut_chem.to_csv(tmp_path / "lookup_table_chemical.tsv", sep="\t", index=False)
-    return tmp_path
-
-
-@pytest.fixture()
-def entities(entities_dir: Path) -> EntityStore:
-    return EntityStore(
-        path_entities=entities_dir / "entities.tsv",
-        path_lut_food=entities_dir / "lookup_table_food.tsv",
-        path_lut_chemical=entities_dir / "lookup_table_chemical.tsv",
-    )
+def entities(entity_store_populated: EntityStore) -> EntityStore:
+    return entity_store_populated
 
 
 class TestEntityStoreLoad:
@@ -139,9 +97,9 @@ class TestSaveReload:
         entities.save(out_dir)
 
         reloaded = EntityStore(
-            path_entities=out_dir / "entities.tsv",
-            path_lut_food=out_dir / "lookup_table_food.tsv",
-            path_lut_chemical=out_dir / "lookup_table_chemical.tsv",
+            path_entities=out_dir / FILE_ENTITIES,
+            path_lut_food=out_dir / FILE_LUT_FOOD,
+            path_lut_chemical=out_dir / FILE_LUT_CHEMICAL,
         )
         assert len(reloaded._entities) == len(entities._entities)
         assert reloaded.get_entity_ids("food", "apple") == ["e0"]
@@ -157,4 +115,4 @@ class TestSaveReload:
             "external_ids",
             "_synonyms_display",
         ]
-        assert expected == COLUMNS
+        assert expected == ENTITY_COLUMNS

@@ -2,9 +2,13 @@
 
 from .entity_store import EntityStore
 from .metadata_store import MetadataContainsStore
+from .schema import ENTITY_COLUMNS, METADATA_CONTAINS_COLUMNS, TRIPLET_COLUMNS
 from .triplet_store import TripletStore
 
 __all__ = [
+    "ENTITY_COLUMNS",
+    "METADATA_CONTAINS_COLUMNS",
+    "TRIPLET_COLUMNS",
     "EntityStore",
     "MetadataContainsStore",
     "TripletStore",

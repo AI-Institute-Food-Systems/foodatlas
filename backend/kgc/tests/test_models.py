@@ -49,6 +49,23 @@ class TestEntity:
                 common_name="test",
             )
 
+    def test_entity_dump_aliases(self):
+        e = FoodEntity(
+            foodatlas_id="e1",
+            common_name="apple",
+            synonyms_display=["apple"],
+        )
+        dumped = e.model_dump(by_alias=True)
+        assert "_synonyms_display" in dumped
+        assert "synonyms_display" not in dumped
+        assert dumped["_synonyms_display"] == ["apple"]
+
+    def test_entity_construct_by_alias(self):
+        e = FoodEntity.model_validate(
+            {"foodatlas_id": "e1", "common_name": "apple", "_synonyms_display": ["a"]}
+        )
+        assert e.synonyms_display == ["a"]
+
 
 class TestTriplet:
     def test_triplet(self):
@@ -92,6 +109,28 @@ class TestMetadata:
         assert m.conc_value is None
         assert m.food_part == ""
         assert m.reference == []
+
+    def test_metadata_dump_aliases(self):
+        m = MetadataContains(
+            foodatlas_id="mc1",
+            food_name_raw="apple",
+            chemical_name_raw="vitamin C",
+            conc_raw="1.5 mg",
+            food_part_raw="fruit",
+        )
+        dumped = m.model_dump(by_alias=True)
+        assert "_food_name" in dumped
+        assert "_chemical_name" in dumped
+        assert "_conc" in dumped
+        assert "_food_part" in dumped
+        assert "food_name_raw" not in dumped
+        assert dumped["_food_name"] == "apple"
+
+    def test_metadata_construct_by_alias(self):
+        m = MetadataContains.model_validate(
+            {"foodatlas_id": "mc1", "_food_name": "apple"}
+        )
+        assert m.food_name_raw == "apple"
 
 
 class TestRelationship:

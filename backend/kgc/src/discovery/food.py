@@ -9,23 +9,17 @@ from typing import TYPE_CHECKING
 import pandas as pd
 from inflection import pluralize, singularize
 
-from ..query import query_ncbi_taxonomy
+from ..models.entity import FoodEntity
+from ..stores.schema import ENTITY_COLUMNS
 from ..utils import get_lookup_key_by_id, merge_sets
+from .query import query_ncbi_taxonomy
 
 if TYPE_CHECKING:
     from ..stores.entity_store import EntityStore
 
 logger = logging.getLogger(__name__)
 
-COLUMNS = [
-    "foodatlas_id",
-    "entity_type",
-    "common_name",
-    "scientific_name",
-    "synonyms",
-    "external_ids",
-    "_synonyms_display",
-]
+COLUMNS = ENTITY_COLUMNS
 
 
 def _group_synonyms(synonyms_groups: list[list[str]]) -> list[list[str]]:
@@ -131,16 +125,12 @@ def _create_from_synonym_groups(
     for synonyms in synonym_groups:
         found = any(store.get_entity_ids("food", name) for name in synonyms)
         if not found:
-            rows.append(
-                {
-                    "foodatlas_id": f"e{store._curr_eid}",
-                    "entity_type": "food",
-                    "common_name": min(synonyms, key=len),
-                    "scientific_name": "",
-                    "synonyms": synonyms,
-                    "external_ids": {},
-                }
+            entity = FoodEntity(
+                foodatlas_id=f"e{store._curr_eid}",
+                common_name=min(synonyms, key=len),
+                synonyms=synonyms,
             )
+            rows.append(entity.model_dump(by_alias=True))
             store._curr_eid += 1
 
     if rows:

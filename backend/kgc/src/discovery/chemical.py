@@ -7,23 +7,17 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
-from ..query import query_pubchem_compound
+from ..models.entity import ChemicalEntity
+from ..stores.schema import ENTITY_COLUMNS
 from ..utils import get_lookup_key_by_id
+from .query import query_pubchem_compound
 
 if TYPE_CHECKING:
     from ..stores.entity_store import EntityStore
 
 logger = logging.getLogger(__name__)
 
-COLUMNS = [
-    "foodatlas_id",
-    "entity_type",
-    "common_name",
-    "scientific_name",
-    "synonyms",
-    "external_ids",
-    "_synonyms_display",
-]
+COLUMNS = ENTITY_COLUMNS
 
 
 def _parse_pubchem_names(row: pd.Series) -> pd.Series:
@@ -94,16 +88,12 @@ def _create_from_names(
     rows: list[dict] = []
     for name in names:
         if not store.get_entity_ids("chemical", name):
-            rows.append(
-                {
-                    "foodatlas_id": f"e{store._curr_eid}",
-                    "entity_type": "chemical",
-                    "common_name": name,
-                    "scientific_name": None,
-                    "synonyms": [name],
-                    "external_ids": {},
-                }
+            entity = ChemicalEntity(
+                foodatlas_id=f"e{store._curr_eid}",
+                common_name=name,
+                synonyms=[name],
             )
+            rows.append(entity.model_dump(by_alias=True))
             store._curr_eid += 1
 
     if rows:

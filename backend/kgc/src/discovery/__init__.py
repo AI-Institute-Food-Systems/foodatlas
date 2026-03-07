@@ -1,4 +1,4 @@
-"""Entity creation logic for the knowledge graph."""
+"""Runtime entity discovery from external sources (NCBI, PubChem)."""
 
 from .chemical import create_chemical_entities
 from .food import create_food_entities

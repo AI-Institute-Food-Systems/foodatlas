@@ -1,10 +1,8 @@
 """Tests for chemical entity creation helpers."""
 
-from pathlib import Path
-
 import pandas as pd
 import pytest
-from src.entities.chemical import (
+from src.discovery.chemical import (
     _create_from_names,
     _create_from_pubchem_compound,
     _parse_pubchem_names,
@@ -14,34 +12,8 @@ from src.stores.entity_store import EntityStore
 
 
 @pytest.fixture()
-def entities_dir(tmp_path: Path) -> Path:
-    entities_df = pd.DataFrame(
-        columns=[
-            "foodatlas_id",
-            "entity_type",
-            "common_name",
-            "scientific_name",
-            "synonyms",
-            "external_ids",
-            "_synonyms_display",
-        ]
-    )
-    entities_df.to_csv(tmp_path / "entities.tsv", sep="\t", index=False)
-
-    for name in ("lookup_table_food.tsv", "lookup_table_chemical.tsv"):
-        pd.DataFrame(columns=["name", "foodatlas_id"]).to_csv(
-            tmp_path / name, sep="\t", index=False
-        )
-    return tmp_path
-
-
-@pytest.fixture()
-def entities(entities_dir: Path) -> EntityStore:
-    return EntityStore(
-        path_entities=entities_dir / "entities.tsv",
-        path_lut_food=entities_dir / "lookup_table_food.tsv",
-        path_lut_chemical=entities_dir / "lookup_table_chemical.tsv",
-    )
+def entities(entity_store_empty: EntityStore) -> EntityStore:
+    return entity_store_empty
 
 
 class TestParsePubchemNames:

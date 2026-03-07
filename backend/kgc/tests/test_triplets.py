@@ -37,7 +37,7 @@ class TestTripletStoreLoad:
         assert triplets._curr_tid == 1
 
     def test_hash_table_built(self, triplets: TripletStore) -> None:
-        assert "e0_r1_e1" in triplets._ht_t2m
+        assert "e0_r1_e1" in triplets._key_to_metadata
 
     def test_faid_prefix(self) -> None:
         assert FAID_PREFIX == "t"
@@ -57,7 +57,7 @@ class TestTripletStoreCreate:
         )
         triplets.create(metadata)
         assert len(triplets._triplets) == 2
-        assert "e2_r1_e3" in triplets._ht_t2m
+        assert "e2_r1_e3" in triplets._key_to_metadata
 
     def test_dedup_merges_metadata(self, triplets: TripletStore) -> None:
         metadata = pd.DataFrame(
@@ -107,4 +107,4 @@ class TestTripletStoreSaveReload:
 
         reloaded = TripletStore(path_triplets=out_dir / "triplets.tsv")
         assert len(reloaded._triplets) == len(triplets._triplets)
-        assert "e0_r1_e1" in reloaded._ht_t2m
+        assert "e0_r1_e1" in reloaded._key_to_metadata

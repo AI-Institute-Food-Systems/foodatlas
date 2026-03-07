@@ -1,5 +1,6 @@
 """EntityStore — runtime container wrapping a pandas DataFrame."""
 
+import json
 import logging
 from ast import literal_eval
 from collections import OrderedDict
@@ -7,21 +8,32 @@ from pathlib import Path
 
 import pandas as pd
 
-from ..entities.chemical import create_chemical_entities
-from ..entities.food import create_food_entities
+from ..discovery.chemical import create_chemical_entities
+from ..discovery.food import create_food_entities
+from .schema import (
+    FILE_ENTITIES,
+    FILE_LUT_CHEMICAL,
+    FILE_LUT_FOOD,
+    INDEX_COL,
+    TSV_SEP,
+)
 
 logger = logging.getLogger(__name__)
 
-COLUMNS = [
-    "foodatlas_id",
-    "entity_type",
-    "common_name",
-    "scientific_name",
-    "synonyms",
-    "external_ids",
-    "_synonyms_display",
-]
 FAID_PREFIX = "e"
+
+
+def _load_lut(path: Path) -> dict[str, list[str]]:
+    """Load a synonym → entity-ID lookup table from a JSON file."""
+    with path.open() as f:
+        data: dict[str, list[str]] = json.load(f)
+    return data
+
+
+def _save_lut(lut: dict[str, list[str]], path: Path) -> None:
+    """Save a synonym → entity-ID lookup table to a JSON file."""
+    with path.open("w") as f:
+        json.dump(lut, f, ensure_ascii=False)
 
 
 class EntityStore:
@@ -55,44 +67,25 @@ class EntityStore:
     def _load(self) -> None:
         self._entities = pd.read_csv(
             self.path_entities,
-            sep="\t",
+            sep=TSV_SEP,
             converters={
                 "synonyms": literal_eval,
                 "external_ids": literal_eval,
                 "_synonyms_display": literal_eval,
             },
-        ).set_index("foodatlas_id")
+        ).set_index(INDEX_COL)
 
-        for path_lut, attr in [
-            (self.path_lut_food, "_lut_food"),
-            (self.path_lut_chemical, "_lut_chemical"),
-        ]:
-            lut_df = pd.read_csv(
-                path_lut,
-                sep="\t",
-                converters={
-                    "foodatlas_id": literal_eval,
-                    "name": str,
-                },
-            )
-            setattr(
-                self,
-                attr,
-                dict(zip(lut_df["name"], lut_df["foodatlas_id"], strict=False)),
-            )
+        self._lut_food = _load_lut(self.path_lut_food)
+        self._lut_chemical = _load_lut(self.path_lut_chemical)
 
-        eid = self._entities.index.str.slice(1).astype(int).max()
-        self._curr_eid = eid + 1 if pd.notna(eid) else 1
+        max_eid = self._entities.index.str.slice(1).astype(int).max()
+        self._curr_eid = max_eid + 1 if pd.notna(max_eid) else 1
 
     def save(self, path_output_dir: Path) -> None:
         path_output_dir = Path(path_output_dir)
-        self._entities.to_csv(path_output_dir / "entities.tsv", sep="\t")
-        pd.DataFrame(self._lut_food.items(), columns=["name", "foodatlas_id"]).to_csv(
-            path_output_dir / "lookup_table_food.tsv", sep="\t", index=False
-        )
-        pd.DataFrame(
-            self._lut_chemical.items(), columns=["name", "foodatlas_id"]
-        ).to_csv(path_output_dir / "lookup_table_chemical.tsv", sep="\t", index=False)
+        self._entities.to_csv(path_output_dir / FILE_ENTITIES, sep=TSV_SEP)
+        _save_lut(self._lut_food, path_output_dir / FILE_LUT_FOOD)
+        _save_lut(self._lut_chemical, path_output_dir / FILE_LUT_CHEMICAL)
 
     def _get_lut(self, entity_type: str) -> dict[str, list[str]]:
         luts = {"food": self._lut_food, "chemical": self._lut_chemical}
@@ -107,30 +100,30 @@ class EntityStore:
         synonyms_new: list[str],
     ) -> None:
         entity = self.get_entity(entity_id)
-        synonyms = OrderedDict.fromkeys(entity["synonyms"])
+        lut = self._get_lut(entity["entity_type"])
+
+        existing = OrderedDict.fromkeys(entity["synonyms"])
         updated = False
         for synonym in synonyms_new:
-            if synonym not in synonyms:
-                synonyms[synonym] = None
-                if synonym not in self._lut_food:
-                    self._lut_food[synonym] = []
-                self._lut_food[synonym] += [entity_id]
+            if synonym not in existing:
+                existing[synonym] = None
+                if synonym not in lut:
+                    lut[synonym] = []
+                lut[synonym] += [entity_id]
                 updated = True
 
         if updated:
-            self._entities.at[entity_id, "synonyms"] = list(synonyms.keys())
+            self._entities.at[entity_id, "synonyms"] = list(existing.keys())
             self.update_lut(self._entities.loc[[entity_id]])
 
     def update_lut(self, entities: pd.DataFrame) -> None:
-        def _add_to_lut(row: pd.Series) -> None:
+        for entity_id, row in entities.iterrows():
             lut = self._get_lut(row["entity_type"])
             for synonym in row["synonyms"]:
                 if synonym not in lut:
                     lut[synonym] = []
-                if row.name not in lut[synonym]:
-                    lut[synonym] += [row.name]
-
-        entities.apply(_add_to_lut, axis=1)
+                if entity_id not in lut[synonym]:
+                    lut[synonym] += [entity_id]
 
     def create(
         self,
@@ -162,18 +155,12 @@ class EntityStore:
         entity_type: str,
         names: list[str],
     ) -> list[str]:
-        n_found = 0
-        names_not_in_lut: list[str] = []
-        for name in names:
-            if not self.get_entity_ids(entity_type, name):
-                names_not_in_lut.append(name)
-            else:
-                n_found += 1
+        new_names = [n for n in names if not self.get_entity_ids(entity_type, n)]
 
         logger.info(
             "# of unique %s name existing/new: %d/%d",
             entity_type,
-            n_found,
-            len(names_not_in_lut),
+            len(names) - len(new_names),
+            len(new_names),
         )
-        return names_not_in_lut
+        return new_names

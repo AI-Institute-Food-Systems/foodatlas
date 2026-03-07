@@ -41,7 +41,7 @@ def metadata(metadata_dir: Path) -> MetadataContainsStore:
 
 class TestMetadataContainsStoreLoad:
     def test_loads_metadata(self, metadata: MetadataContainsStore) -> None:
-        assert len(metadata._metadata_contains) == 1
+        assert len(metadata._records) == 1
 
     def test_curr_mcid_increments(self, metadata: MetadataContainsStore) -> None:
         assert metadata._curr_mcid == 1
@@ -72,7 +72,7 @@ class TestMetadataContainsStoreCreate:
         )
         result = metadata.create(new_meta)
         assert "mc1" in result.index
-        assert len(metadata._metadata_contains) == 2
+        assert len(metadata._records) == 2
 
     def test_id_counter_advances(self, metadata: MetadataContainsStore) -> None:
         new_meta = pd.DataFrame(
@@ -147,7 +147,7 @@ class TestMetadataContainsStoreSaveReload:
         reloaded = MetadataContainsStore(
             path_metadata_contains=out_dir / "metadata_contains.tsv"
         )
-        assert len(reloaded._metadata_contains) == len(metadata._metadata_contains)
-        row = reloaded._metadata_contains.loc["mc0"]
+        assert len(reloaded._records) == len(metadata._records)
+        row = reloaded._records.loc["mc0"]
         assert row["conc_unit"] == "mg/g"
         assert row["reference"] == ["ref1"]
