@@ -31,6 +31,9 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "**/tests/**/*.py" = ["ARG", "PLR2004"]
+"**/preprocessing/constants/greek_letters.py" = ["RUF001"]
+"**/preprocessing/constants/punctuations.py" = ["RUF001"]
+"**/tests/test_preprocessing_constants.py" = ["RUF001"]
 
 [tool.ruff.format]
 quote-style = "double"
