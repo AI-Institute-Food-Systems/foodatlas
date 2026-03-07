@@ -1,36 +1,54 @@
-This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# FoodAtlas Frontend
+
+Next.js 14 web application with React 18, TypeScript, and Tailwind CSS using the App Router.
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
+npm ci
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to view the app.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Commands
 
-This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
+| Command         | Description                      |
+|-----------------|----------------------------------|
+| `npm run dev`   | Start development server         |
+| `npm run build` | Production build                 |
+| `npm run lint`  | ESLint + TypeScript type check   |
+| `npm test`      | Run tests (Vitest)               |
 
-## Learn More
+## Project Structure
 
-To learn more about Next.js, take a look at the following resources:
+```
+frontend/
+├── app/                    # Next.js App Router pages and layouts
+│   ├── (home)/             # Landing page route group
+│   ├── (everything-else)/  # All other pages (about, contact, entities, etc.)
+│   └── api/                # API routes (auth, contact form)
+├── components/             # Reusable React components
+│   ├── basic/              # UI primitives (Button, Card, Modal, etc.)
+│   ├── entities/           # Entity detail page components (food, chemical, disease)
+│   ├── icons/              # SVG icon components
+│   ├── landing/            # Landing page sections
+│   ├── navigation/         # Navbar and Footer
+│   └── search/             # Search bar and results
+├── context/                # React context providers
+├── hooks/                  # Custom React hooks
+├── styles/                 # Global CSS and font config
+├── types/                  # TypeScript type definitions
+└── utils/                  # Utility functions (fetching, downloads)
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Environment Variables
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
+| Variable               | Description                        |
+|------------------------|------------------------------------|
+| `NEXT_PUBLIC_API_URL`  | Backend API base URL               |
+| `NEXT_PUBLIC_API_KEY`  | Backend API key                    |
+| `RESEND_API_KEY`       | Resend API key (contact form)      |
+| `EMAIL_FROM`           | Sender email address               |
+| `EMAIL_TO`             | Recipient email address(es)        |
+| `NEXTAUTH_SECRET`      | NextAuth.js secret                 |

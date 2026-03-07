@@ -7,6 +7,7 @@ on:
     paths:
       - "backend/**"
       - "frontend/**"
+      - "!**/*.md"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -33,14 +34,19 @@ jobs:
           filters: |
             api:
               - "backend/api/**"
+              - "!backend/api/**/*.md"
             db:
               - "backend/db/**"
+              - "!backend/db/**/*.md"
             ie:
               - "backend/ie/**"
+              - "!backend/ie/**/*.md"
             kgc:
               - "backend/kgc/**"
+              - "!backend/kgc/**/*.md"
             frontend:
               - "frontend/**"
+              - "!frontend/**/*.md"
 
   backend-lint:
     needs: changes
