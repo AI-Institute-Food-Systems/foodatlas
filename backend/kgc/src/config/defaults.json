@@ -4,5 +4,7 @@
   "cache_dir": "data/cache",
   "output_format": "jsonl",
   "openai_api_key": "",
-  "ncbi_api_key": ""
+  "ncbi_email": "",
+  "ncbi_api_key": "",
+  "pubchem_mapping_file": ""
 }

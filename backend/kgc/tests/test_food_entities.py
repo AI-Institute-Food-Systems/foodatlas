@@ -130,6 +130,6 @@ class TestCreateFromSynonymGroups:
 
 
 class TestCreateFoodEntityStore:
-    def test_raises_when_query_not_implemented(self, entities: EntityStore) -> None:
-        with pytest.raises(NotImplementedError):
+    def test_raises_without_cache_dir(self, entities: EntityStore) -> None:
+        with pytest.raises(ValueError, match="cache_dir must be provided"):
             create_food_entities(entities, ["apple"])

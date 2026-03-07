@@ -26,7 +26,9 @@ class KGCSettings(BaseSettings):
     cache_dir: str = ""
     output_format: Literal["json", "jsonl", "parquet"] = "jsonl"
     openai_api_key: str = ""
+    ncbi_email: str = ""
     ncbi_api_key: str = ""
+    pubchem_mapping_file: str = ""
 
     @model_validator(mode="before")
     @classmethod
