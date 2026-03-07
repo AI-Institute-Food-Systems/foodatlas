@@ -6,7 +6,7 @@ Port the main `KnowledgeGraph` class that orchestrates entity creation, triplet 
 
 ## Depends On
 
-- Story 1-2 (entities, triplets, metadata)
+- Story 1-2 (stores, discovery)
 - Story 1-3 (query layer)
 - Story 1-4 (preprocessing)
 

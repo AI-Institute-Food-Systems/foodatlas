@@ -6,7 +6,7 @@ Port the external database integration modules (FDC, CTD disease correlations, F
 
 ## Depends On
 
-- Story 1-2 (entities, triplets, metadata)
+- Story 1-2 (stores, discovery)
 - Story 1-5 (KnowledgeGraph class)
 
 ## Acceptance Criteria
