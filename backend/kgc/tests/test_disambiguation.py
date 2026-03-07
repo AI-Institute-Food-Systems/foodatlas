@@ -3,14 +3,13 @@
 import json
 from pathlib import Path
 
-import pandas as pd
 import pytest
 from src.constructor.disambiguation import disambiguate_synonyms
 from src.stores.entity_store import EntityStore
-from src.stores.schema import TSV_SEP
+from src.stores.schema import FILE_ENTITIES, FILE_LUT_CHEMICAL, FILE_LUT_FOOD
 
 
-def _write_lut(path: Path, data: dict) -> None:
+def _write_json(path: Path, data: object) -> None:
     with path.open("w") as f:
         json.dump(data, f)
 
@@ -21,14 +20,13 @@ def _make_entity_store(
     lut_food: dict[str, list[str]],
     lut_chemical: dict[str, list[str]],
 ) -> EntityStore:
-    df = pd.DataFrame(entities_data)
-    df.to_csv(tmp_path / "entities.tsv", sep=TSV_SEP, index=False)
-    _write_lut(tmp_path / "lookup_table_food.json", lut_food)
-    _write_lut(tmp_path / "lookup_table_chemical.json", lut_chemical)
+    _write_json(tmp_path / FILE_ENTITIES, entities_data)
+    _write_json(tmp_path / FILE_LUT_FOOD, lut_food)
+    _write_json(tmp_path / FILE_LUT_CHEMICAL, lut_chemical)
     return EntityStore(
-        path_entities=tmp_path / "entities.tsv",
-        path_lut_food=tmp_path / "lookup_table_food.json",
-        path_lut_chemical=tmp_path / "lookup_table_chemical.json",
+        path_entities=tmp_path / FILE_ENTITIES,
+        path_lut_food=tmp_path / FILE_LUT_FOOD,
+        path_lut_chemical=tmp_path / FILE_LUT_CHEMICAL,
     )
 
 

@@ -1,5 +1,7 @@
 {
   "kg_dir": "data/kg",
+  "data_dir": "data",
+  "integration_dir": "data/data_processing",
   "output_dir": "data/output",
   "cache_dir": "data/cache",
   "output_format": "jsonl",

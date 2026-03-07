@@ -22,6 +22,8 @@ class KGCSettings(BaseSettings):
     model_config = {"env_prefix": "KGC_"}
 
     kg_dir: str = ""
+    data_dir: str = ""
+    integration_dir: str = ""
     output_dir: str = ""
     cache_dir: str = ""
     output_format: Literal["json", "jsonl", "parquet"] = "jsonl"

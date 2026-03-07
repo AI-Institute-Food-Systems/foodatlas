@@ -1,12 +1,12 @@
 """TripletStore — runtime container wrapping a pandas DataFrame."""
 
+import json
 import logging
-from ast import literal_eval
 from pathlib import Path
 
 import pandas as pd
 
-from .schema import FILE_TRIPLETS, INDEX_COL, TSV_SEP
+from .schema import FILE_TRIPLETS, INDEX_COL
 
 logger = logging.getLogger(__name__)
 
@@ -35,14 +35,17 @@ class TripletStore:
         self._load()
 
     def _load(self) -> None:
-        self._triplets = pd.read_csv(
-            self.path_triplets,
-            sep=TSV_SEP,
-            converters={"metadata_ids": literal_eval},
-        ).set_index(INDEX_COL)
+        with self.path_triplets.open() as f:
+            records = json.load(f)
+        self._triplets = pd.DataFrame(records)
+        if not self._triplets.empty:
+            self._triplets = self._triplets.set_index(INDEX_COL)
 
-        max_tid = self._triplets.index.str.slice(1).astype(int).max()
-        self._curr_tid = max_tid + 1 if pd.notna(max_tid) else 1
+        if self._triplets.empty:
+            self._curr_tid = 1
+        else:
+            max_tid = self._triplets.index.str.slice(1).astype(int).max()
+            self._curr_tid = max_tid + 1 if pd.notna(max_tid) else 1
 
         self._key_to_metadata = {}
         for _, row in self._triplets.iterrows():
@@ -51,7 +54,9 @@ class TripletStore:
 
     def save(self, path_output_dir: Path) -> None:
         path_output_dir = Path(path_output_dir)
-        self._triplets.to_csv(path_output_dir / FILE_TRIPLETS, sep=TSV_SEP)
+        records = self._triplets.reset_index().to_dict(orient="records")
+        with (path_output_dir / FILE_TRIPLETS).open("w") as f:
+            json.dump(records, f, ensure_ascii=False)
 
     def create(self, metadata: pd.DataFrame) -> pd.Series:
         """Create new triplet entries from metadata rows.

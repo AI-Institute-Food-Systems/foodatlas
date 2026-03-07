@@ -2,7 +2,6 @@
 
 import json
 import logging
-from ast import literal_eval
 from collections import OrderedDict
 from pathlib import Path
 
@@ -15,7 +14,6 @@ from .schema import (
     FILE_LUT_CHEMICAL,
     FILE_LUT_FOOD,
     INDEX_COL,
-    TSV_SEP,
 )
 
 logger = logging.getLogger(__name__)
@@ -65,25 +63,26 @@ class EntityStore:
         self._load()
 
     def _load(self) -> None:
-        self._entities = pd.read_csv(
-            self.path_entities,
-            sep=TSV_SEP,
-            converters={
-                "synonyms": literal_eval,
-                "external_ids": literal_eval,
-                "_synonyms_display": literal_eval,
-            },
-        ).set_index(INDEX_COL)
+        with self.path_entities.open() as f:
+            records = json.load(f)
+        self._entities = pd.DataFrame(records)
+        if not self._entities.empty:
+            self._entities = self._entities.set_index(INDEX_COL)
 
         self._lut_food = _load_lut(self.path_lut_food)
         self._lut_chemical = _load_lut(self.path_lut_chemical)
 
-        max_eid = self._entities.index.str.slice(1).astype(int).max()
-        self._curr_eid = max_eid + 1 if pd.notna(max_eid) else 1
+        if self._entities.empty:
+            self._curr_eid = 1
+        else:
+            max_eid = self._entities.index.str.slice(1).astype(int).max()
+            self._curr_eid = max_eid + 1 if pd.notna(max_eid) else 1
 
     def save(self, path_output_dir: Path) -> None:
         path_output_dir = Path(path_output_dir)
-        self._entities.to_csv(path_output_dir / FILE_ENTITIES, sep=TSV_SEP)
+        records = self._entities.reset_index().to_dict(orient="records")
+        with (path_output_dir / FILE_ENTITIES).open("w") as f:
+            json.dump(records, f, ensure_ascii=False)
         _save_lut(self._lut_food, path_output_dir / FILE_LUT_FOOD)
         _save_lut(self._lut_chemical, path_output_dir / FILE_LUT_CHEMICAL)
 
