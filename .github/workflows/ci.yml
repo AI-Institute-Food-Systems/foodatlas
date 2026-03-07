@@ -14,39 +14,32 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Detect which sub-projects have changes
+  # Detect which sub-projects have changes via git diff
   changes:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: read
     outputs:
-      api: ${{ steps.filter.outputs.api }}
-      db: ${{ steps.filter.outputs.db }}
-      ie: ${{ steps.filter.outputs.ie }}
-      kgc: ${{ steps.filter.outputs.kgc }}
-      frontend: ${{ steps.filter.outputs.frontend }}
+      api: ${{ steps.diff.outputs.api }}
+      db: ${{ steps.diff.outputs.db }}
+      ie: ${{ steps.diff.outputs.ie }}
+      kgc: ${{ steps.diff.outputs.kgc }}
+      frontend: ${{ steps.diff.outputs.frontend }}
     steps:
       - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
-        id: filter
         with:
-          filters: |
-            api:
-              - "backend/api/**"
-              - "!backend/api/**/*.md"
-            db:
-              - "backend/db/**"
-              - "!backend/db/**/*.md"
-            ie:
-              - "backend/ie/**"
-              - "!backend/ie/**/*.md"
-            kgc:
-              - "backend/kgc/**"
-              - "!backend/kgc/**/*.md"
-            frontend:
-              - "frontend/**"
-              - "!frontend/**/*.md"
+          fetch-depth: 0
+      - name: Detect changed paths
+        id: diff
+        run: |
+          BASE=${{ github.event.pull_request.base.sha }}
+          HEAD=${{ github.sha }}
+          CHANGED=$(git diff --name-only "$BASE" "$HEAD" -- ':!*.md')
+          echo "api=$( echo "$CHANGED" | grep -q '^backend/api/' && echo true || echo false )" >> "$GITHUB_OUTPUT"
+          echo "db=$(  echo "$CHANGED" | grep -q '^backend/db/'  && echo true || echo false )" >> "$GITHUB_OUTPUT"
+          echo "ie=$(  echo "$CHANGED" | grep -q '^backend/ie/'  && echo true || echo false )" >> "$GITHUB_OUTPUT"
+          echo "kgc=$( echo "$CHANGED" | grep -q '^backend/kgc/' && echo true || echo false )" >> "$GITHUB_OUTPUT"
+          echo "frontend=$( echo "$CHANGED" | grep -q '^frontend/' && echo true || echo false )" >> "$GITHUB_OUTPUT"
 
   backend-lint:
     needs: changes
