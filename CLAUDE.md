@@ -23,7 +23,7 @@ Each backend sub-project follows the same layout: `src/__init__.py` is the modul
 
 - **Root `pyproject.toml`** — Shared linter/checker configs (ruff, mypy, bandit). NOT a Python package.
 - **Per-project `pyproject.toml`** — Build, dependencies, and pytest config only.
-- **Root `.pre-commit-config.yaml`** — All git hooks. Uses official pre-commit repos (not local/uvx).
+- **Root `.pre-commit-config.yaml`** — All git hooks. Uses official pre-commit repos for Python tools; local hooks for ESLint and pytest.
 
 ## Commands
 
@@ -67,7 +67,7 @@ cd frontend && npm run lint
 
 ## Code Standards
 
-- **Python**: 3.12+ required
+- **Python**: 3.12+ (managed by uv)
 - **Ruff**: linting + formatting (E, W, F, I, B, C4, UP, ARG, SIM, TCH, PTH, ERA, PL, RUF rules)
 - **MyPy**: strict mode with `explicit_package_bases` for monorepo support
 - **Bandit**: security scanning (excludes tests, skips B101/B311)

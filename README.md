@@ -22,42 +22,35 @@ A food knowledge graph platform. This monorepo contains the frontend, backend se
 
 ### Prerequisites
 
-- Python 3.12+
-- [uv](https://docs.astral.sh/uv/) (Python package manager)
+- [uv](https://docs.astral.sh/uv/) (Python package manager; handles Python installation automatically)
+- Node.js 20+
+- npm
 
 ### Clone and set up
 
 ```bash
 git clone https://github.com/AI-Institute-Food-Systems/foodatlas.git
 cd foodatlas
+./scripts/check-prereqs.sh
 ```
 
-### Install uv (if not already installed)
+The setup script auto-installs uv, git hooks, backend dependencies, and frontend dependencies. Node.js and npm must be installed separately.
 
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-### Set up git hooks
-
-```bash
-./scripts/setup-git-hooks.sh
-```
-
-### Install dependencies for a backend sub-project
-
-Each backend sub-project is independent. Navigate to it and install:
-
-```bash
-cd backend/api
-uv sync
-```
-
-### Run tests
+### Backend
 
 ```bash
 cd backend/api
 uv run pytest
+```
+
+### Frontend
+
+```bash
+cd frontend
+npm run dev     # dev server
+npm run build   # production build
+npm run lint    # ESLint + type check
+npm test        # Vitest
 ```
 
 ## Contributing
