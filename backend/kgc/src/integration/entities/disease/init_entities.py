@@ -7,10 +7,10 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
+from ....models.entity import DiseaseEntity
 from .constants import (
     CTD_ALTID_MAPPING,
     CTD_DISEASE_ID,
-    ENTITY_TYPE,
     EXTERNAL_IDS,
     FA_ID,
 )
@@ -57,16 +57,8 @@ def create_disease_entities(
         ctd_diseases[CTD_DISEASE_ID].isin(ctd_chemdis[CTD_DISEASE_ID])
     ].reset_index(drop=True)
 
+    # Build external_ids using the existing parse_alt_disease_ids helper
     ctd_diseases = ctd_diseases.copy()
-    ctd_diseases[FA_ID] = [
-        f"e{max_entity_id + i + 1}" for i in range(len(ctd_diseases))
-    ]
-    ctd_diseases[ENTITY_TYPE] = "disease"
-    ctd_diseases["common_name"] = ctd_diseases["DiseaseName"].str.lower()
-    ctd_diseases["scientific_name"] = ""
-    ctd_diseases["synonyms"] = ctd_diseases["Synonyms"].apply(
-        lambda x: [s.lower() for s in x] if isinstance(x, list) else []
-    )
     ctd_diseases[EXTERNAL_IDS] = ctd_diseases[CTD_DISEASE_ID].apply(
         lambda x: {CTD_ALTID_MAPPING[x.split(":")[0]]: [":".join(x.split(":")[1:])]}
     )
@@ -74,7 +66,23 @@ def create_disease_entities(
         parse_alt_disease_ids, axis=1, result_type="reduce"
     )
 
-    return pd.concat([fa_entities, ctd_diseases], join="inner", ignore_index=True)
+    rows: list[dict] = []
+    for i, (_, row) in enumerate(ctd_diseases.iterrows()):
+        synonyms = (
+            [s.lower() for s in row["Synonyms"]]
+            if isinstance(row["Synonyms"], list)
+            else []
+        )
+        entity = DiseaseEntity(
+            foodatlas_id=f"e{max_entity_id + i + 1}",
+            common_name=row["DiseaseName"].lower(),
+            synonyms=synonyms,
+            external_ids=row[EXTERNAL_IDS],
+        )
+        rows.append(entity.model_dump(by_alias=True))
+
+    new_entities = pd.DataFrame(rows)
+    return pd.concat([fa_entities, new_entities], join="inner", ignore_index=True)
 
 
 def append_diseases_from_ctd(entity_store: EntityStore, settings: KGCSettings) -> None:

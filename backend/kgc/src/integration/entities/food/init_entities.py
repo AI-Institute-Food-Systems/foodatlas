@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 import pandas as pd
 from inflection import pluralize, singularize
 
+from ....models.entity import FoodEntity
 from ....stores.entity_store import EntityStore
 from .loaders import load_fdc, load_foodon, load_lut_food
 
@@ -31,23 +32,17 @@ def append_foods_from_foodon(
     entities_new_rows = []
     for foodon_id, _ in foodon_food.iterrows():
         synonyms = names_grouped[foodon_id]
-        entities_new_rows.append(
-            {
-                "foodatlas_id": f"e{entity_store._curr_eid}",
-                "entity_type": "food",
-                "common_name": synonyms[0],
-                "scientific_name": None,
-                "synonyms": synonyms,
-                "external_ids": {"foodon": [foodon_id]},
-                "_synonyms_display": synonyms,
-            }
+        entity = FoodEntity(
+            foodatlas_id=f"e{entity_store._curr_eid}",
+            common_name=synonyms[0],
+            synonyms=synonyms,
+            external_ids={"foodon": [foodon_id]},
+            synonyms_display=_remove_plural_display(synonyms),
         )
+        entities_new_rows.append(entity.model_dump(by_alias=True))
         entity_store._curr_eid += 1
 
     entities_new = pd.DataFrame(entities_new_rows).set_index("foodatlas_id")
-    entities_new["_synonyms_display"] = entities_new["_synonyms_display"].apply(
-        _remove_plural_display
-    )
 
     entity_store._entities = pd.concat([entity_store._entities, entities_new])
 
@@ -121,17 +116,14 @@ def append_foods_from_fdc(
     entities_not_added_df = pd.DataFrame(entities_not_added)
     entities_new_rows = []
     for fdc_id, row in entities_not_added_df.iterrows():
-        entities_new_rows.append(
-            {
-                "foodatlas_id": f"e{entity_store._curr_eid}",
-                "entity_type": "food",
-                "common_name": row["description"],
-                "scientific_name": None,
-                "synonyms": [row["description"]],
-                "external_ids": {"fdc": [fdc_id]},
-                "_synonyms_display": {"fdc": [row["description"]]},
-            }
+        entity = FoodEntity(
+            foodatlas_id=f"e{entity_store._curr_eid}",
+            common_name=row["description"],
+            synonyms=[row["description"]],
+            external_ids={"fdc": [fdc_id]},
+            synonyms_display={"fdc": [row["description"]]},
         )
+        entities_new_rows.append(entity.model_dump(by_alias=True))
         entity_store._curr_eid += 1
 
     entities_new = pd.DataFrame(entities_new_rows).set_index("foodatlas_id")

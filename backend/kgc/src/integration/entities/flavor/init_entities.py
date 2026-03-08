@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
+from ....models.entity import FlavorEntity
 from .loaders import load_flavor_data
 
 if TYPE_CHECKING:
@@ -22,18 +23,14 @@ def create_flavor_entities(
 ) -> pd.DataFrame:
     """Create new flavor entities from unique flavor descriptors."""
     descriptors = flavor_metadata["_flavor"].unique()
-    return pd.DataFrame(
-        {
-            "foodatlas_id": [
-                f"e{max_entity_id + i + 1}" for i in range(len(descriptors))
-            ],
-            "common_name": descriptors,
-            "entity_type": "flavor",
-            "scientific_name": "",
-            "synonyms": [[] for _ in descriptors],
-            "external_ids": [{} for _ in descriptors],
-        }
-    )
+    rows = [
+        FlavorEntity(
+            foodatlas_id=f"e{max_entity_id + i + 1}",
+            common_name=desc,
+        ).model_dump(by_alias=True)
+        for i, desc in enumerate(descriptors)
+    ]
+    return pd.DataFrame(rows)
 
 
 def append_flavors_from_flavordb(

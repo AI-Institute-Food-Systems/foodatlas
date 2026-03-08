@@ -1,6 +1,6 @@
 """Entity models matching the KG entity schema."""
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -13,9 +13,9 @@ class Entity(BaseModel):
     common_name: str
     scientific_name: str = ""
     synonyms: list[str] = Field(default_factory=list)
-    external_ids: dict[str, list[str]] = Field(default_factory=dict)
-    synonyms_display: list[str] = Field(
-        default_factory=list,
+    external_ids: dict[str, Any] = Field(default_factory=dict)
+    synonyms_display: dict[str, list[str]] = Field(
+        default_factory=dict,
         alias="_synonyms_display",
     )
 

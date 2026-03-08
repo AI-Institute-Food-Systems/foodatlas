@@ -4,6 +4,7 @@ import logging
 
 import pandas as pd
 
+from ....models.entity import ChemicalEntity
 from ....models.settings import KGCSettings
 from ....stores.entity_store import EntityStore
 from .loaders import (
@@ -69,16 +70,13 @@ def _add_unique_chebi_entities(
     """Add unique ChEBI entities to the store."""
     entities_new_rows = []
     for _, row in chebi2name.iterrows():
-        entities_new_rows.append(
-            {
-                "foodatlas_id": f"e{entity_store._curr_eid}",
-                "entity_type": "chemical",
-                "common_name": row["NAME"][0],
-                "scientific_name": None,
-                "synonyms": row["NAME"],
-                "external_ids": {"chebi": [row["CHEBI_ID"]]},
-            }
+        entity = ChemicalEntity(
+            foodatlas_id=f"e{entity_store._curr_eid}",
+            common_name=row["NAME"][0],
+            synonyms=row["NAME"],
+            external_ids={"chebi": [row["CHEBI_ID"]]},
         )
+        entities_new_rows.append(entity.model_dump(by_alias=True))
         entity_store._curr_eid += 1
 
     entities_new = pd.DataFrame(entities_new_rows).set_index("foodatlas_id")
@@ -102,18 +100,15 @@ def _add_placeholder_entities(
 
     entities_new_rows = []
     for _, row in phs.iterrows():
-        entities_new_rows.append(
-            {
-                "foodatlas_id": f"e{entity_store._curr_eid}",
-                "entity_type": "chemical",
-                "common_name": row["NAME"][0],
-                "scientific_name": None,
-                "synonyms": row["NAME"],
-                "external_ids": {
-                    "_placeholder_to": [chebi2fa[cid] for cid in row["CHEBI_ID"]],
-                },
-            }
+        entity = ChemicalEntity(
+            foodatlas_id=f"e{entity_store._curr_eid}",
+            common_name=row["NAME"][0],
+            synonyms=row["NAME"],
+            external_ids={
+                "_placeholder_to": [chebi2fa[cid] for cid in row["CHEBI_ID"]],
+            },
         )
+        entities_new_rows.append(entity.model_dump(by_alias=True))
         entity_store._curr_eid += 1
 
     entities_new = pd.DataFrame(entities_new_rows).set_index("foodatlas_id")
@@ -168,16 +163,13 @@ def _add_new_cdno_entities(
         external_ids["cdno"] = [row["cdno_id"]]
         external_ids["fdc_nutrient"] = row["fdc_nutrient_ids"]
 
-        entities_new_rows.append(
-            {
-                "foodatlas_id": f"e{entity_store._curr_eid}",
-                "entity_type": "chemical",
-                "common_name": row["label"],
-                "scientific_name": None,
-                "synonyms": [row["label"]],
-                "external_ids": external_ids,
-            }
+        entity = ChemicalEntity(
+            foodatlas_id=f"e{entity_store._curr_eid}",
+            common_name=row["label"],
+            synonyms=[row["label"]],
+            external_ids=external_ids,
         )
+        entities_new_rows.append(entity.model_dump(by_alias=True))
         entity_store._curr_eid += 1
 
     entities_new = pd.DataFrame(entities_new_rows).set_index("foodatlas_id")
@@ -229,16 +221,13 @@ def _add_new_fdc_entities(
     """Create new entities for unlinked FDC nutrients."""
     entities_new_rows = []
     for fdc_id, row in entities_not_added.iterrows():
-        entities_new_rows.append(
-            {
-                "foodatlas_id": f"e{entity_store._curr_eid}",
-                "entity_type": "chemical",
-                "common_name": row["name"],
-                "scientific_name": None,
-                "synonyms": [row["name"]],
-                "external_ids": {"fdc_nutrient": [fdc_id]},
-            }
+        entity = ChemicalEntity(
+            foodatlas_id=f"e{entity_store._curr_eid}",
+            common_name=row["name"],
+            synonyms=[row["name"]],
+            external_ids={"fdc_nutrient": [fdc_id]},
         )
+        entities_new_rows.append(entity.model_dump(by_alias=True))
         entity_store._curr_eid += 1
 
     entities_new = pd.DataFrame(entities_new_rows).set_index("foodatlas_id")
