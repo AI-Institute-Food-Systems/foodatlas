@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 def process_chebi(settings: KGCSettings) -> None:
     """Clean raw ChEBI data and save name->ID lookup and cleaned compounds."""
     data_dir = Path(settings.data_dir)
-    dp_dir = Path(settings.integration_dir)
+    dp_dir = Path(settings.data_cleaning_dir)
     dp_dir.mkdir(parents=True, exist_ok=True)
 
     chebi = _load_chebi(data_dir)

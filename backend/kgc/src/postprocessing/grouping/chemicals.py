@@ -45,7 +45,7 @@ def generate_chemical_groups_cdno(
 
     Returns a Series indexed like *chemicals* with list[str] group labels.
     """
-    dp_dir = Path(settings.integration_dir)
+    dp_dir = Path(settings.data_cleaning_dir)
     cdno: pd.DataFrame = pd.read_parquet(dp_dir / "cdno_hierarchy.parquet")
 
     cdno["chebi_id"] = cdno["chebi_ids"].apply(lambda x: x[0] if len(x) > 0 else None)

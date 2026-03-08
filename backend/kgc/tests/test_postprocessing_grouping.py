@@ -119,7 +119,14 @@ class TestGenerateChemicalGroupsCdno:
             ]
         ).set_index(IC)
         result = generate_chemical_groups_cdno(
-            chems, KGCSettings(integration_dir=str(dp_dir))
+            chems,
+            KGCSettings(
+                pipeline={
+                    "stages": {
+                        "integration": {"data_cleaning": {"output_dir": str(dp_dir)}}
+                    }
+                }
+            ),
         )
         assert result["e1"] == ["vitamin"]
         assert result["e2"] == ["others"]

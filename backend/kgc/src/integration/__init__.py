@@ -1,1 +1,1 @@
-"""Integration — entities, ontologies, triplets, and scaffold."""
+"""Integration — entities, data cleaning, triplets, and scaffold."""

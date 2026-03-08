@@ -12,7 +12,7 @@ from ....models.settings import KGCSettings
 
 def load_mapper_name_to_chebi_id(settings: KGCSettings) -> pd.DataFrame:
     """Load name -> ChEBI ID mapper from preprocessed data."""
-    dp_dir = Path(settings.integration_dir)
+    dp_dir = Path(settings.data_cleaning_dir)
     name2chebi: pd.DataFrame = pd.read_parquet(
         dp_dir / "chebi_name_to_id.parquet",
     )
@@ -42,7 +42,7 @@ def load_mapper_chebi_id_to_names(settings: KGCSettings) -> pd.DataFrame:
 
 def load_cdno(settings: KGCSettings) -> pd.DataFrame:
     """Load preprocessed CDNO data with ChEBI and FDC nutrient mappings."""
-    dp_dir = Path(settings.integration_dir)
+    dp_dir = Path(settings.data_cleaning_dir)
     cdno: pd.DataFrame = pd.read_parquet(
         dp_dir / "cdno_cleaned.parquet",
     )
@@ -94,7 +94,7 @@ def load_fdc_nutrient(settings: KGCSettings) -> pd.DataFrame:
 
 def load_mapper_name_to_mesh_id(settings: KGCSettings) -> pd.Series:
     """Load name -> MeSH ID mapper from preprocessed MeSH data."""
-    dp_dir = Path(settings.integration_dir)
+    dp_dir = Path(settings.data_cleaning_dir)
     mesh_desc = pd.read_parquet(
         dp_dir / "mesh_desc_cleaned.parquet",
     ).set_index("name")
@@ -108,7 +108,7 @@ def load_mapper_name_to_mesh_id(settings: KGCSettings) -> pd.Series:
 
 def load_mesh(settings: KGCSettings) -> pd.Series:
     """Load MeSH terms with lowercased, deduplicated synonyms."""
-    dp_dir = Path(settings.integration_dir)
+    dp_dir = Path(settings.data_cleaning_dir)
     meshd = pd.read_parquet(
         dp_dir / "mesh_desc_cleaned.parquet",
     ).set_index("id")
@@ -146,7 +146,7 @@ def load_mapper_pubchem_cid_to_mesh_id(settings: KGCSettings) -> pd.Series:
 
 def load_mapper_chebi_id_to_pubchem_cid(settings: KGCSettings) -> pd.Series:
     """Load ChEBI ID -> PubChem CID mapper from preprocessed data."""
-    dp_dir = Path(settings.integration_dir)
+    dp_dir = Path(settings.data_cleaning_dir)
     chebi2cid: pd.DataFrame = pd.read_parquet(
         dp_dir / "pubchem-sid-map-small.parquet",
         columns=["registry_id", "cid"],

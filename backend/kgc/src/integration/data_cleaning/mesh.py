@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 def process_mesh(settings: KGCSettings) -> None:
     """Parse MeSH XML files and save cleaned JSON output."""
     data_dir = Path(settings.data_dir)
-    dp_dir = Path(settings.integration_dir)
+    dp_dir = Path(settings.data_cleaning_dir)
     dp_dir.mkdir(parents=True, exist_ok=True)
 
     desc = _parse_mesh_desc(data_dir / "MeSH" / "desc2024.xml")
@@ -36,7 +36,9 @@ def _parse_mesh_desc(xml_path: Path) -> pd.DataFrame:
         mesh_id = record["DescriptorUI"]
         name = record["DescriptorName"]["String"]
         tree_numbers = (
-            record["TreeNumberList"]["TreeNumber"] if "TreeNumberList" in record else []
+            _ensure_list(record["TreeNumberList"]["TreeNumber"])
+            if "TreeNumberList" in record
+            else []
         )
         synonyms = _extract_synonyms(record)
         rows.append(
@@ -82,10 +84,10 @@ def _extract_synonyms(record: dict) -> list[str]:
 
 
 def _ensure_list(val: object) -> list:
-    """Wrap dicts in a list; pass through lists."""
+    """Wrap scalars/dicts in a list; pass through lists."""
     if isinstance(val, list):
         return val
-    if isinstance(val, dict):
+    if isinstance(val, dict | str):
         return [val]
     msg = f"Unknown type: {type(val)}"
     raise ValueError(msg)

@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import pandas as pd
 import pytest
-from src.integration.ontologies.food import (
+from src.integration.triplets.food_food.foodon import (
     _build_foodon_to_fa_map,
     _traverse_hierarchy,
     create_food_ontology,
@@ -53,7 +53,13 @@ def _store(tmp: Path, ents: list | None = None) -> EntityStore:
 
 
 def _settings(tmp: Path) -> KGCSettings:
-    return KGCSettings(kg_dir=str(tmp), data_dir=str(tmp), integration_dir=str(tmp))
+    return KGCSettings(
+        kg_dir=str(tmp),
+        data_dir=str(tmp),
+        pipeline={
+            "stages": {"integration": {"data_cleaning": {"output_dir": str(tmp)}}}
+        },
+    )
 
 
 def _syns(label: list[str] | None = None) -> dict:
@@ -136,7 +142,10 @@ class TestCreateFoodOntology:
             _ent("e2", "banana", {"foodon": [FB]}),
         ]
         store = _store(tmp_path, ents)
-        with patch("src.integration.ontologies.food.load_foodon", return_value=foodon2):
+        with patch(
+            "src.integration.triplets.food_food.foodon.load_foodon",
+            return_value=foodon2,
+        ):
             result = create_food_ontology(store, _settings(tmp_path))
         assert len(result) == 1
         assert (tmp_path / FILE_FOOD_ONTOLOGY).exists()

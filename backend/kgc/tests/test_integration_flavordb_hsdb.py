@@ -1,9 +1,9 @@
-"""Tests for HSDB loader module."""
+"""Tests for HSDB loader module (now in data_cleaning.flavordb)."""
 
 import json
 
 import pytest
-from src.integration.entities.flavor.hsdb_loader import load_hsdb
+from src.integration.data_cleaning.flavordb import _load_hsdb
 
 
 class TestLoadHsdb:
@@ -40,7 +40,7 @@ class TestLoadHsdb:
         odor_path.write_text(json.dumps(odor_data))
         taste_path.write_text(json.dumps(taste_data))
 
-        cid2odor, cid2taste = load_hsdb(tmp_path)
+        cid2odor, cid2taste = _load_hsdb(tmp_path)
         assert 100 in cid2odor
         assert cid2odor[100][0]["value"] == "fruity"
         assert 200 in cid2taste
@@ -64,7 +64,7 @@ class TestLoadHsdb:
             json.dumps({"Annotations": {"Annotation": []}})
         )
 
-        cid2odor, cid2taste = load_hsdb(tmp_path)
+        cid2odor, cid2taste = _load_hsdb(tmp_path)
         assert cid2odor == {}
         assert cid2taste == {}
 
@@ -95,4 +95,4 @@ class TestLoadHsdb:
         )
 
         with pytest.raises(ValueError, match="Expected 1"):
-            load_hsdb(tmp_path)
+            _load_hsdb(tmp_path)

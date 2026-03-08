@@ -1,10 +1,10 @@
-"""Tests for FlavorDB metadata module."""
+"""Tests for FlavorDB metadata module (now in data_cleaning.flavordb)."""
 
 import pandas as pd
-from src.integration.entities.flavor.loaders import (
-    extract_flavordb_metadata,
-    extract_hsdb_metadata,
-    fuzzy_match_flavors,
+from src.integration.data_cleaning.flavordb import (
+    _extract_flavordb_metadata,
+    _extract_hsdb_metadata,
+    _fuzzy_match_flavors,
 )
 
 
@@ -20,27 +20,15 @@ class TestExtractFlavordbMetadata:
                 "bitter": False,
             }
         }
-        entity_pc_ids = {100}
-        pc_id_to_name = {100: "ethanol"}
 
-        result = extract_flavordb_metadata(data, entity_pc_ids, pc_id_to_name)
+        result = _extract_flavordb_metadata(data)
         flavors = set(result["_flavor"])
         assert "fruity" in flavors
         assert "sweet" in flavors
         assert "sour" in flavors
 
-    def test_skips_non_entity_cids(self):
-        data = {
-            "999": {
-                "flavor_profile": "fruity",
-                "taste": "",
-                "odor": "",
-                "fooddb_flavor_profile": "",
-                "super_sweet": "",
-                "bitter": False,
-            }
-        }
-        result = extract_flavordb_metadata(data, set(), {})
+    def test_empty_data_returns_empty(self):
+        result = _extract_flavordb_metadata({})
         assert result.empty
 
     def test_adds_bitter_when_true(self):
@@ -54,7 +42,7 @@ class TestExtractFlavordbMetadata:
                 "bitter": True,
             }
         }
-        result = extract_flavordb_metadata(data, {100}, {100: "test"})
+        result = _extract_flavordb_metadata(data)
         assert "bitter" in set(result["_flavor"])
 
 
@@ -62,19 +50,13 @@ class TestExtractHsdbMetadata:
     def test_extracts_entries(self):
         cid2odor = {100: [{"value": "musty", "hsdb_url": "http://a"}]}
         cid2taste = {200: [{"value": "sweet", "hsdb_url": "http://b"}]}
-        pc_to_name = {100: "chem_a", 200: "chem_b"}
 
-        result = extract_hsdb_metadata(cid2odor, cid2taste, set(), pc_to_name)
+        result = _extract_hsdb_metadata(cid2odor, cid2taste, set())
         assert len(result) == 2
 
     def test_skips_existing_cids(self):
         cid2odor = {100: [{"value": "musty", "hsdb_url": "http://a"}]}
-        result = extract_hsdb_metadata(cid2odor, {}, {100}, {100: "chem_a"})
-        assert result.empty
-
-    def test_skips_unmapped_cids(self):
-        cid2odor = {999: [{"value": "musty", "hsdb_url": "http://a"}]}
-        result = extract_hsdb_metadata(cid2odor, {}, set(), {})
+        result = _extract_hsdb_metadata(cid2odor, {}, {100})
         assert result.empty
 
 
@@ -87,14 +69,14 @@ class TestFuzzyMatchFlavors:
             }
         )
         ref = pd.Series(["sweet", "sour", "bitter"])
-        result = fuzzy_match_flavors(pubchem, ref, threshold=90)
+        result = _fuzzy_match_flavors(pubchem, ref, threshold=90)
         assert len(result) == 1
         assert result.iloc[0]["_flavor"] == "sweet"
 
     def test_empty_input(self):
         empty = pd.DataFrame({"_flavor": []})
         ref = pd.Series(["sweet"])
-        result = fuzzy_match_flavors(empty, ref)
+        result = _fuzzy_match_flavors(empty, ref)
         assert result.empty
 
     def test_replaces_with_matched(self):
@@ -105,6 +87,6 @@ class TestFuzzyMatchFlavors:
             }
         )
         ref = pd.Series(["sweet", "sour"])
-        result = fuzzy_match_flavors(pubchem, ref, threshold=70)
+        result = _fuzzy_match_flavors(pubchem, ref, threshold=70)
         assert len(result) == 1
         assert result.iloc[0]["_flavor"] == "sweet"

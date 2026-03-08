@@ -36,18 +36,11 @@ def _resolve_stages(stage_names: tuple[str, ...]) -> list[PipelineStage] | None:
     default=None,
     help="Path to config JSON (overrides defaults.json).",
 )
-@click.option(
-    "--output-format",
-    type=click.Choice(["json", "jsonl", "parquet"]),
-    default=None,
-    help="Output serialization format.",
-)
 @click.option("-v", "--verbose", is_flag=True, help="Enable DEBUG logging.")
 @click.pass_context
 def cli(
     ctx: click.Context,
     config: str | None,
-    output_format: str | None,
     verbose: bool,
 ) -> None:
     """FoodAtlas Knowledge Graph Construction pipeline."""
@@ -61,8 +54,6 @@ def cli(
         with Path(config).open() as f:
             data: dict[str, str] = json.load(f)
             kwargs.update(data)
-    if output_format:
-        kwargs["output_format"] = output_format
 
     ctx.ensure_object(dict)
     ctx.obj["settings"] = KGCSettings.model_validate(kwargs)
@@ -74,7 +65,7 @@ def cli(
     "stages",
     multiple=True,
     type=click.Choice(_VALID_STAGES, case_sensitive=False),
-    help="Stage name or number (0-6, repeatable). Omit for all.",
+    help="Stage name or number (0-4, repeatable). Omit for all.",
 )
 @click.pass_context
 def run(ctx: click.Context, stages: tuple[str, ...]) -> None:

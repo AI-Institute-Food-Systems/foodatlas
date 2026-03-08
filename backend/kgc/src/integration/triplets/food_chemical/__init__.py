@@ -1,0 +1,1 @@
+"""Food-chemical (contains) triplets."""

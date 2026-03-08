@@ -1,10 +1,8 @@
 """Tests for FlavorDB entity and triplet creation."""
 
 import pandas as pd
-from src.integration.entities.flavor.init_entities import (
-    create_flavor_entities,
-    create_flavor_triplets,
-)
+from src.integration.entities.flavor.init_entities import create_flavor_entities
+from src.integration.triplets.chemical_flavor.flavordb import create_flavor_triplets
 
 
 class TestCreateFlavorEntities:

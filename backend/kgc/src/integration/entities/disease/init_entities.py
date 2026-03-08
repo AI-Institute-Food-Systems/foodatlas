@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pandas as pd
@@ -15,40 +14,23 @@ from .constants import (
     EXTERNAL_IDS,
     FA_ID,
 )
-from .loaders import filter_ctd_chemdis, load_ctd_data
+from .loaders import filter_ctd_chemdis, load_ctd_chemdis, load_ctd_diseases
 
 if TYPE_CHECKING:
-    from ....constructor.knowledge_graph import KnowledgeGraph
     from ....models.settings import KGCSettings
+    from ....stores.entity_store import EntityStore
 
 logger = logging.getLogger(__name__)
 
 
 def get_max_entity_id(entities: pd.DataFrame) -> int:
-    """Extract the maximum numeric entity ID from a DataFrame.
-
-    Args:
-        entities: DataFrame with ``foodatlas_id`` column (e.g. ``"e42"``).
-
-    Returns:
-        Maximum integer portion of the IDs.
-    """
+    """Extract the maximum numeric entity ID from a DataFrame."""
     id_ints = entities[FA_ID].str.extract(r"(\d+)").astype(int)
     return int(id_ints.max().iloc[0])
 
 
 def parse_alt_disease_ids(row: pd.Series) -> dict:
-    """Parse AltDiseaseIDs into structured external_ids dict.
-
-    Merges alternative disease identifiers (MESH, OMIM, DO) from the
-    ``AltDiseaseIDs`` column with the row's existing ``external_ids``.
-
-    Args:
-        row: A row from the CTD diseases DataFrame.
-
-    Returns:
-        Merged external_ids dict with mapped keys.
-    """
+    """Parse AltDiseaseIDs into structured external_ids dict."""
     alt_disease_ids = row["AltDiseaseIDs"]
     grouped: dict[str, list] = {}
     for item in alt_disease_ids:
@@ -70,20 +52,7 @@ def create_disease_entities(
     ctd_chemdis: pd.DataFrame,
     max_entity_id: int,
 ) -> pd.DataFrame:
-    """Create disease entities from CTD data and append to existing entities.
-
-    Filters CTD diseases to only those referenced in ``ctd_chemdis``,
-    assigns new entity IDs starting after ``max_entity_id``.
-
-    Args:
-        fa_entities: Existing FoodAtlas entities DataFrame.
-        ctd_diseases: Full CTD diseases DataFrame.
-        ctd_chemdis: Filtered CTD chemical-disease DataFrame.
-        max_entity_id: Current maximum entity ID (integer).
-
-    Returns:
-        Combined DataFrame with original and new disease entities.
-    """
+    """Create disease entities from CTD data and append to existing entities."""
     ctd_diseases = ctd_diseases[
         ctd_diseases[CTD_DISEASE_ID].isin(ctd_chemdis[CTD_DISEASE_ID])
     ].reset_index(drop=True)
@@ -106,32 +75,26 @@ def create_disease_entities(
     return pd.concat([fa_entities, ctd_diseases], join="inner", ignore_index=True)
 
 
-def append_diseases_from_ctd(kg: KnowledgeGraph, settings: KGCSettings) -> None:
-    """Create disease entities from CTD and add to the KG entity store.
+def append_diseases_from_ctd(entity_store: EntityStore, settings: KGCSettings) -> None:
+    """Create disease entities from CTD and add to the entity store.
 
-    Loads raw CTD data, filters to chemicals present in the KG,
+    Loads cleaned CTD data, filters to chemicals present in the KG,
     then creates disease entities for referenced diseases.
-
-    Args:
-        kg: Loaded KnowledgeGraph instance.
-        settings: KGCSettings with ``data_dir``.
     """
-    ctd_dir = Path(settings.data_dir) / "CTD"
+    ctd_chemdis = load_ctd_chemdis(settings)
+    ctd_diseases = load_ctd_diseases(settings)
 
-    ctd_chemdis = load_ctd_data(ctd_dir, dataset="chemdis")
-    ctd_diseases = load_ctd_data(ctd_dir, dataset="disease")
+    ctd_chemdis = filter_ctd_chemdis(ctd_chemdis, entity_store)
 
-    ctd_chemdis = filter_ctd_chemdis(ctd_chemdis, kg.entities)
-
-    entities_df = kg.entities._entities.reset_index()
+    entities_df = entity_store._entities.reset_index()
     max_eid = get_max_entity_id(entities_df)
     entities_df = create_disease_entities(
         entities_df, ctd_diseases, ctd_chemdis, max_eid
     )
 
-    kg.entities._entities = entities_df.set_index(FA_ID)
-    kg.entities._curr_eid = (
-        kg.entities._entities.index.str.slice(1).astype(int).max() + 1
+    entity_store._entities = entities_df.set_index(FA_ID)
+    entity_store._curr_eid = (
+        entity_store._entities.index.str.slice(1).astype(int).max() + 1
     )
 
     logger.info("Imported disease entities from CTD.")

@@ -10,7 +10,7 @@ from ....models.settings import KGCSettings
 
 def load_foodon(settings: KGCSettings) -> pd.DataFrame:
     """Load the cleaned FoodOn ontology from preprocessed parquet."""
-    dp_dir = Path(settings.integration_dir)
+    dp_dir = Path(settings.data_cleaning_dir)
     foodon: pd.DataFrame = pd.read_parquet(
         dp_dir / "foodon_cleaned.parquet",
     ).set_index("foodon_id")

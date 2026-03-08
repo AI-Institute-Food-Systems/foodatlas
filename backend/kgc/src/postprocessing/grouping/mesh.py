@@ -19,7 +19,7 @@ def load_mesh_categories(settings: KGCSettings) -> pd.DataFrame:
         primary_tree_numbers, secondary_tree_numbers,
         primary_category, secondary_category
     """
-    dp_dir = Path(settings.integration_dir)
+    dp_dir = Path(settings.data_cleaning_dir)
     cache_path = dp_dir / "mesh_categories.parquet"
 
     if cache_path.exists():

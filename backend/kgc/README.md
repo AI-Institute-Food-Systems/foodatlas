@@ -55,7 +55,7 @@ Override via environment variables, config JSON, or CLI flags.
 
 | # | Stage | Description |
 |---|-------|-------------|
-| 0 | `ontology_prep` | Process ontologies (FoodOn, ChEBI, CDNO, MeSH, PubChem) |
+| 0 | `preprocessing` | Process ontologies (FoodOn, ChEBI, CDNO, MeSH, PubChem) |
 | 1 | `kg_init` | Initialize entities from sources; create ontology triplets |
 | 2 | `metadata_processing` | Handled by the IE pipeline (external) |
 | 3 | `triplet_expansion` | Add triplets from extracted metadata |

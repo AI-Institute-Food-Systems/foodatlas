@@ -11,7 +11,7 @@ import pandas as pd
 import requests
 from bs4 import BeautifulSoup
 
-from ..entities.disease.constants import (
+from ...entities.disease.constants import (
     CTD_DIRECTEVIDENCE,
     CTD_DIRECTEVIDENCE_MAPPING,
     CTD_PUBMED_IDS,
@@ -20,15 +20,15 @@ from ..entities.disease.constants import (
     PMID_PMCID_REQUEST_URL,
     PUBMED_IDS,
 )
-from ..entities.disease.loaders import (
+from ...entities.disease.loaders import (
     extract_pubmed_ids,
     filter_ctd_chemdis,
-    load_ctd_data,
+    load_ctd_chemdis,
 )
 
 if TYPE_CHECKING:
-    from ...constructor.knowledge_graph import KnowledgeGraph
-    from ...models.settings import KGCSettings
+    from ....constructor.knowledge_graph import KnowledgeGraph
+    from ....models.settings import KGCSettings
 
 logger = logging.getLogger(__name__)
 
@@ -97,28 +97,28 @@ def load_pmid_to_pmcid(mapping_path: Path) -> dict[int, int]:
 
 
 def get_or_create_pmid_mapping(
-    integration_dir: Path,
+    cache_dir: Path,
     pubmed_ids: list[int],
     email: str,
 ) -> dict[int, int]:
     """Load cached PMID→PMCID mapping or create it from NCBI.
 
     Args:
-        integration_dir: Directory to cache the mapping CSV.
+        cache_dir: Directory to cache the mapping CSV.
         pubmed_ids: PubMed IDs to map (used only when creating).
         email: NCBI contact email.
 
     Returns:
         Dict mapping integer PMID to integer PMCID.
     """
-    cache_path = integration_dir / PMID_TO_PMCID_FILENAME
+    cache_path = cache_dir / PMID_TO_PMCID_FILENAME
     if cache_path.exists():
         logger.info("Loading cached PMID→PMCID mapping from %s", cache_path)
         return load_pmid_to_pmcid(cache_path)
 
     logger.info("Fetching PMID→PMCID mapping from NCBI for %d IDs...", len(pubmed_ids))
     df = fetch_pmid_to_pmcid(pubmed_ids, email)
-    integration_dir.mkdir(parents=True, exist_ok=True)
+    cache_dir.mkdir(parents=True, exist_ok=True)
     df.to_csv(cache_path, index=False)
     return load_pmid_to_pmcid(cache_path)
 
@@ -257,15 +257,14 @@ def merge_ctd_triplets(kg: KnowledgeGraph, settings: KGCSettings) -> None:
         kg: Loaded KnowledgeGraph instance with disease entities.
         settings: KGCSettings with data paths and NCBI email.
     """
-    ctd_dir = Path(settings.data_dir) / "CTD"
-    integration_dir = Path(settings.integration_dir)
+    cache_dir = Path(settings.data_cleaning_dir)
 
-    ctd_chemdis = load_ctd_data(ctd_dir, dataset="chemdis")
+    ctd_chemdis = load_ctd_chemdis(settings)
     ctd_chemdis = filter_ctd_chemdis(ctd_chemdis, kg.entities)
     pubmed_ids = sorted(extract_pubmed_ids(ctd_chemdis))
 
     pmid_to_pmcid = get_or_create_pmid_mapping(
-        integration_dir, pubmed_ids, settings.ncbi_email
+        cache_dir, pubmed_ids, settings.ncbi_email
     )
 
     max_tid = 0

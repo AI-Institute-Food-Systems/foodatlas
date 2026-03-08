@@ -3,15 +3,14 @@
 from unittest.mock import MagicMock
 
 import pandas as pd
+from src.integration.data_cleaning.ctd import _change_content_to_list, _load_ctd_csv
 from src.integration.entities.disease.loaders import (
-    change_content_to_list,
     extract_pubmed_ids,
     filter_ctd_chemdis,
-    load_ctd_data,
 )
 
 
-class TestLoadCtdData:
+class TestLoadCtdCsv:
     def test_parses_header_and_data(self, tmp_path):
         content = (
             "# Comment line\n"
@@ -20,8 +19,8 @@ class TestLoadCtdData:
             "D000001,MESH:D001,marker/mechanism,123|456\n"
             "D000002,MESH:D002,,789\n"
         )
-        (tmp_path / "CTD_chemicals_diseases.csv").write_text(content)
-        df = load_ctd_data(tmp_path, dataset="chemdis")
+        (tmp_path / "chemdis.csv").write_text(content)
+        df = _load_ctd_csv(tmp_path / "chemdis.csv")
         assert len(df) == 2
         assert "ChemicalID" in df.columns
         assert df.iloc[0]["PubMedIDs"] == [123, 456]
@@ -33,8 +32,8 @@ class TestLoadCtdData:
             "# DiseaseID,DiseaseName,AltDiseaseIDs,Synonyms\n"
             "MESH:D001,Cancer,DO:123|OMIM:456,tumor|neoplasm\n"
         )
-        (tmp_path / "CTD_diseases.csv").write_text(content)
-        df = load_ctd_data(tmp_path, dataset="disease")
+        (tmp_path / "diseases.csv").write_text(content)
+        df = _load_ctd_csv(tmp_path / "diseases.csv")
         assert len(df) == 1
         assert df.iloc[0]["DiseaseName"] == "Cancer"
 
@@ -42,22 +41,22 @@ class TestLoadCtdData:
 class TestChangeContentToList:
     def test_splits_pipe_delimited(self):
         df = pd.DataFrame({"PubMedIDs": ["123|456"]})
-        result = change_content_to_list(df, columns=["PubMedIDs"])
+        result = _change_content_to_list(df)
         assert result.iloc[0]["PubMedIDs"] == [123, 456]
 
     def test_handles_null(self):
         df = pd.DataFrame({"PubMedIDs": [None]})
-        result = change_content_to_list(df, columns=["PubMedIDs"])
+        result = _change_content_to_list(df)
         assert result.iloc[0]["PubMedIDs"] == []
 
     def test_preserves_non_digit_strings(self):
         df = pd.DataFrame({"Synonyms": ["cancer|MESH:D001"]})
-        result = change_content_to_list(df, columns=["Synonyms"])
+        result = _change_content_to_list(df)
         assert result.iloc[0]["Synonyms"] == ["cancer", "MESH:D001"]
 
     def test_skips_missing_columns(self):
         df = pd.DataFrame({"other": ["val"]})
-        result = change_content_to_list(df, columns=["PubMedIDs"])
+        result = _change_content_to_list(df)
         assert "other" in result.columns
 
 

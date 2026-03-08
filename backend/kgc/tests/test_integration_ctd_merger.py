@@ -1,7 +1,7 @@
 """Tests for CTD merger module."""
 
 import pandas as pd
-from src.integration.triplets.ctd import (
+from src.integration.triplets.chemical_disease.ctd import (
     build_chemical_id_map,
     build_disease_id_map,
     create_disease_triplets_metadata,

@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 def process_cdno(settings: KGCSettings) -> None:
     """Parse CDNO OWL file and save cleaned data with ChEBI/FDC mappings."""
     data_dir = Path(settings.data_dir)
-    dp_dir = Path(settings.integration_dir)
+    dp_dir = Path(settings.data_cleaning_dir)
     dp_dir.mkdir(parents=True, exist_ok=True)
 
     cdno = _parse_cdno_owl(data_dir / "CDNO" / "cdno.owl")

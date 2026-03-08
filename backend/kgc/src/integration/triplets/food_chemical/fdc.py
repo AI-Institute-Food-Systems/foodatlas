@@ -9,8 +9,8 @@ from typing import TYPE_CHECKING
 import pandas as pd
 
 if TYPE_CHECKING:
-    from ...constructor.knowledge_graph import KnowledgeGraph
-    from ...models.settings import KGCSettings
+    from ....constructor.knowledge_graph import KnowledgeGraph
+    from ....models.settings import KGCSettings
 
 logger = logging.getLogger(__name__)
 

@@ -6,7 +6,7 @@ from typing import Any
 from unittest.mock import patch
 
 import pandas as pd
-from src.integration.ontologies.chemical import (
+from src.integration.triplets.chemical_chemical.chebi import (
     _build_chebi_to_fa_map,
     create_chemical_ontology,
 )
@@ -52,7 +52,13 @@ def _store(tp: Path, ents: list[dict], lut_c: dict | None = None) -> EntityStore
 
 
 def _cfg(tp: Path) -> KGCSettings:
-    return KGCSettings(kg_dir=str(tp), data_dir=str(tp), integration_dir=str(tp))
+    return KGCSettings(
+        kg_dir=str(tp),
+        data_dir=str(tp),
+        pipeline={
+            "stages": {"integration": {"data_cleaning": {"output_dir": str(tp)}}}
+        },
+    )
 
 
 class TestBuildChebiToFaMap:

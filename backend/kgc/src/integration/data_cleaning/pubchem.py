@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 def process_pubchem(settings: KGCSettings) -> None:
     """Filter PubChem SID-Map for ChEBI entries and save as parquet."""
     data_dir = Path(settings.data_dir)
-    dp_dir = Path(settings.integration_dir)
+    dp_dir = Path(settings.data_cleaning_dir)
     dp_dir.mkdir(parents=True, exist_ok=True)
 
     sids: pd.DataFrame = pd.read_csv(

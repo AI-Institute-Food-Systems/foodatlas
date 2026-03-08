@@ -60,7 +60,13 @@ def _store(tmp: Path, ents: list | None = None, lf: dict | None = None) -> Entit
 
 
 def _settings(tmp: Path) -> KGCSettings:
-    return KGCSettings(kg_dir=str(tmp), data_dir=str(tmp), integration_dir=str(tmp))
+    return KGCSettings(
+        kg_dir=str(tmp),
+        data_dir=str(tmp),
+        pipeline={
+            "stages": {"integration": {"data_cleaning": {"output_dir": str(tmp)}}}
+        },
+    )
 
 
 def _syns(label: list[str] | None = None) -> dict:

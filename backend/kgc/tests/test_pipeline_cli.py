@@ -60,7 +60,7 @@ def test_run_stage_by_number(mock_runner_cls: MagicMock) -> None:
 
     result = CliRunner().invoke(cli, ["run", "--stage", "0"])
     assert result.exit_code == 0
-    runner_instance.run.assert_called_once_with([PipelineStage.ONTOLOGY_PREP])
+    runner_instance.run.assert_called_once_with([PipelineStage.PREPROCESSING])
 
 
 @patch("main.PipelineRunner")
@@ -80,17 +80,6 @@ def test_run_mixed_name_and_number(mock_runner_cls: MagicMock) -> None:
 def test_invalid_stage() -> None:
     result = CliRunner().invoke(cli, ["run", "--stage", "nonexistent"])
     assert result.exit_code != 0
-
-
-@patch("main.PipelineRunner")
-def test_output_format_option(mock_runner_cls: MagicMock) -> None:
-    runner_instance = MagicMock()
-    mock_runner_cls.return_value = runner_instance
-
-    result = CliRunner().invoke(cli, ["--output-format", "parquet", "run"])
-    assert result.exit_code == 0
-    settings = mock_runner_cls.call_args[0][0]
-    assert settings.output_format == "parquet"
 
 
 @patch("main.PipelineRunner")

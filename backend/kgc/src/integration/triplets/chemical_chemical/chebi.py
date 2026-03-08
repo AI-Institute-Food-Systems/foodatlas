@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pandas as pd
 
-from ...models.settings import KGCSettings
-from ...stores.entity_store import EntityStore
-from ...stores.schema import FILE_CHEMICAL_ONTOLOGY
+from ....models.settings import KGCSettings
+from ....stores.entity_store import EntityStore
+from ....stores.schema import FILE_CHEMICAL_ONTOLOGY
 
 logger = logging.getLogger(__name__)
 

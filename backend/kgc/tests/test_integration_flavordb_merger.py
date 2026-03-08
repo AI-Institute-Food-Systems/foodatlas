@@ -5,12 +5,12 @@ from unittest.mock import MagicMock
 
 import pandas as pd
 from src.integration.entities.flavor.init_entities import append_flavors_from_flavordb
-from src.integration.triplets.flavordb import merge_flavordb_triplets
+from src.integration.triplets.chemical_flavor.flavordb import merge_flavordb_triplets
 
 
 class TestFlavordbIntegration:
     def _setup_data_dir(self, tmp_path):
-        """Create minimal test data for FlavorDB merging."""
+        """Create minimal test data: cleaned parquet + raw data for triplets."""
         flavordb_dir = tmp_path / "FlavorDB"
         flavordb_dir.mkdir()
         flavordb_data = {
@@ -30,6 +30,24 @@ class TestFlavordbIntegration:
         empty_hsdb: dict = {"Annotations": {"Annotation": []}}
         (hsdb_dir / "HSDB_Odor.json").write_text(json.dumps(empty_hsdb))
         (hsdb_dir / "HSDB_Taste.json").write_text(json.dumps(empty_hsdb))
+
+        dp_dir = tmp_path / "dp"
+        dp_dir.mkdir()
+        metadata = pd.DataFrame(
+            [
+                {
+                    "foodatlas_id": "mf1",
+                    "source": "flavordb",
+                    "reference": {
+                        "url": "https://cosylab.iiitd.edu.in/flavordb/"
+                        "molecules_json?id=100"
+                    },
+                    "_flavor": "sweet",
+                    "_pubchem_id": 100,
+                }
+            ]
+        )
+        metadata.to_parquet(dp_dir / "flavor_metadata_cleaned.parquet")
 
         return tmp_path
 
@@ -62,8 +80,9 @@ class TestFlavordbIntegration:
         kg = self._make_mock_kg()
         settings = MagicMock()
         settings.data_dir = str(data_dir)
+        settings.data_cleaning_dir = str(data_dir / "dp")
 
-        append_flavors_from_flavordb(kg, settings)
+        append_flavors_from_flavordb(kg.entities, settings)
 
         assert len(kg.entities._entities) > 1
         flavor_ents = kg.entities._entities[
@@ -76,24 +95,29 @@ class TestFlavordbIntegration:
         kg = self._make_mock_kg()
         settings = MagicMock()
         settings.data_dir = str(data_dir)
+        settings.data_cleaning_dir = str(data_dir / "dp")
 
-        append_flavors_from_flavordb(kg, settings)
+        append_flavors_from_flavordb(kg.entities, settings)
         merge_flavordb_triplets(kg, settings)
 
     def test_no_data_skips(self, tmp_path):
-        flavordb_dir = tmp_path / "FlavorDB"
-        flavordb_dir.mkdir()
-        (flavordb_dir / "flavordb_scrape.json").write_text("{}")
-
-        hsdb_dir = tmp_path / "HSDB"
-        hsdb_dir.mkdir()
-        empty_hsdb: dict = {"Annotations": {"Annotation": []}}
-        (hsdb_dir / "HSDB_Odor.json").write_text(json.dumps(empty_hsdb))
-        (hsdb_dir / "HSDB_Taste.json").write_text(json.dumps(empty_hsdb))
+        dp_dir = tmp_path / "dp"
+        dp_dir.mkdir()
+        empty_meta = pd.DataFrame(
+            columns=[
+                "foodatlas_id",
+                "source",
+                "reference",
+                "_flavor",
+                "_pubchem_id",
+            ]
+        )
+        empty_meta.to_parquet(dp_dir / "flavor_metadata_cleaned.parquet")
 
         kg = self._make_mock_kg()
         settings = MagicMock()
         settings.data_dir = str(tmp_path)
+        settings.data_cleaning_dir = str(dp_dir)
 
-        append_flavors_from_flavordb(kg, settings)
+        append_flavors_from_flavordb(kg.entities, settings)
         assert len(kg.entities._entities) == 1

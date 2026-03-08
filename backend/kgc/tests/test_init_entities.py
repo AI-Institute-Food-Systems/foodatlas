@@ -116,7 +116,14 @@ class TestAppendFoodsFromFoodon:
         sample_lut_food: dict[str, str],
     ) -> None:
         store = _make_empty_entity_store(tmp_path)
-        settings = KGCSettings(kg_dir=str(tmp_path), integration_dir=str(tmp_path))
+        settings = KGCSettings(
+            kg_dir=str(tmp_path),
+            pipeline={
+                "stages": {
+                    "integration": {"data_cleaning": {"output_dir": str(tmp_path)}}
+                }
+            },
+        )
 
         with (
             patch(
@@ -141,7 +148,14 @@ class TestAppendFoodsFromFoodon:
         sample_lut_food: dict[str, str],
     ) -> None:
         store = _make_empty_entity_store(tmp_path)
-        settings = KGCSettings(kg_dir=str(tmp_path), integration_dir=str(tmp_path))
+        settings = KGCSettings(
+            kg_dir=str(tmp_path),
+            pipeline={
+                "stages": {
+                    "integration": {"data_cleaning": {"output_dir": str(tmp_path)}}
+                }
+            },
+        )
 
         with (
             patch(
@@ -166,7 +180,14 @@ class TestAppendFoodsFromFoodon:
         sample_lut_food: dict[str, str],
     ) -> None:
         store = _make_empty_entity_store(tmp_path)
-        settings = KGCSettings(kg_dir=str(tmp_path), integration_dir=str(tmp_path))
+        settings = KGCSettings(
+            kg_dir=str(tmp_path),
+            pipeline={
+                "stages": {
+                    "integration": {"data_cleaning": {"output_dir": str(tmp_path)}}
+                }
+            },
+        )
 
         with (
             patch(
@@ -190,7 +211,14 @@ class TestAppendFoodsFromFoodon:
         sample_lut_food: dict[str, str],
     ) -> None:
         store = _make_empty_entity_store(tmp_path)
-        settings = KGCSettings(kg_dir=str(tmp_path), integration_dir=str(tmp_path))
+        settings = KGCSettings(
+            kg_dir=str(tmp_path),
+            pipeline={
+                "stages": {
+                    "integration": {"data_cleaning": {"output_dir": str(tmp_path)}}
+                }
+            },
+        )
 
         with (
             patch(

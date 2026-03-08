@@ -5,25 +5,25 @@ from pathlib import Path
 import pandas as pd
 import pytest
 from bs4 import BeautifulSoup
-from src.integration.ontologies.cdno import (
+from src.integration.data_cleaning.cdno import (
     _disambiguate_fdc_ids,
     _extract_chebi_ids,
     _validate_fdc_chebi_mapping,
 )
-from src.integration.ontologies.chebi import _build_name_lut
-from src.integration.ontologies.foodon import (
+from src.integration.data_cleaning.chebi import _build_name_lut
+from src.integration.data_cleaning.foodon import (
     _clean,
     _label_is_food,
     _label_is_organism,
     _rename_foodon_id,
 )
-from src.integration.ontologies.mesh import (
+from src.integration.data_cleaning.mesh import (
     _ensure_list,
     _extract_synonyms,
     _parse_mesh_desc,
     _parse_mesh_supp,
 )
-from src.integration.ontologies.pubchem import process_pubchem
+from src.integration.data_cleaning.pubchem import process_pubchem
 from src.models.settings import KGCSettings
 
 
@@ -38,7 +38,11 @@ class TestProcessPubchem:
         settings = KGCSettings(
             kg_dir=str(tmp_path),
             data_dir=str(tmp_path),
-            integration_dir=str(tmp_path),
+            pipeline={
+                "stages": {
+                    "integration": {"data_cleaning": {"output_dir": str(tmp_path)}}
+                }
+            },
         )
         process_pubchem(settings)
         result = pd.read_parquet(tmp_path / "pubchem-sid-map-small.parquet")
@@ -53,9 +57,8 @@ class TestEnsureList:
     def test_dict_wrapped(self) -> None:
         assert _ensure_list({"a": 1}) == [{"a": 1}]
 
-    def test_raises_on_string(self) -> None:
-        with pytest.raises(ValueError, match="Unknown type"):
-            _ensure_list("bad")
+    def test_wraps_string(self) -> None:
+        assert _ensure_list("value") == ["value"]
 
     def test_raises_on_int(self) -> None:
         with pytest.raises(ValueError, match="Unknown type"):

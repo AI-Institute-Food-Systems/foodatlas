@@ -7,12 +7,20 @@ import hashlib
 import json
 import logging
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pandas as pd
 
 from ..constructor.knowledge_graph import KnowledgeGraph
+from ..integration.data_cleaning.cdno import process_cdno
+from ..integration.data_cleaning.chebi import process_chebi
+from ..integration.data_cleaning.ctd import process_ctd
+from ..integration.data_cleaning.flavordb import process_flavordb
+from ..integration.data_cleaning.foodon import process_foodon
+from ..integration.data_cleaning.mesh import process_mesh
+from ..integration.data_cleaning.pubchem import process_pubchem
 from ..integration.entities.chemical.init_entities import (
     append_chemicals_from_cdno,
     append_chemicals_from_chebi,
@@ -24,17 +32,12 @@ from ..integration.entities.food.init_entities import (
     append_foods_from_fdc,
     append_foods_from_foodon,
 )
-from ..integration.ontologies.cdno import process_cdno
-from ..integration.ontologies.chebi import process_chebi
-from ..integration.ontologies.chemical import create_chemical_ontology
-from ..integration.ontologies.food import create_food_ontology
-from ..integration.ontologies.foodon import process_foodon
-from ..integration.ontologies.mesh import process_mesh
-from ..integration.ontologies.pubchem import process_pubchem
 from ..integration.scaffold import create_empty_files
-from ..integration.triplets.ctd import merge_ctd_triplets
-from ..integration.triplets.fdc import merge_fdc
-from ..integration.triplets.flavordb import merge_flavordb_triplets
+from ..integration.triplets.chemical_chemical.chebi import create_chemical_ontology
+from ..integration.triplets.chemical_disease.ctd import merge_ctd_triplets
+from ..integration.triplets.chemical_flavor.flavordb import merge_flavordb_triplets
+from ..integration.triplets.food_chemical.fdc import merge_fdc
+from ..integration.triplets.food_food.foodon import create_food_ontology
 from ..postprocessing.common_name import apply_common_names
 from ..postprocessing.grouping.chemicals import (
     generate_chemical_groups_cdno,
@@ -99,13 +102,24 @@ class PipelineRunner:
     # Stage handlers
     # ------------------------------------------------------------------
 
-    def _run_ontology_prep(self) -> None:
+    def _run_preprocessing(self) -> None:
         s = self._settings
-        process_foodon(s)
-        process_chebi(s)
-        process_cdno(s)
-        process_mesh(s)
-        process_pubchem(s)
+        processors = [
+            process_foodon,
+            process_chebi,
+            process_cdno,
+            process_mesh,
+            process_pubchem,
+            process_ctd,
+            process_flavordb,
+        ]
+        logger.info("Launching %d processors in parallel.", len(processors))
+        with ThreadPoolExecutor(max_workers=len(processors)) as pool:
+            futures = {pool.submit(fn, s): fn.__name__ for fn in processors}
+            for future in as_completed(futures):
+                name = futures[future]
+                future.result()  # re-raises any exception
+                logger.info("Processor %s finished.", name)
 
     def _run_kg_init(self) -> None:
         s = self._settings
@@ -117,11 +131,15 @@ class PipelineRunner:
         append_chemicals_from_chebi(kg.entities, s)
         append_chemicals_from_cdno(kg.entities, s)
         append_chemicals_from_fdc(kg.entities, s)
+        append_diseases_from_ctd(kg.entities, s)
+        append_flavors_from_flavordb(kg.entities, s)
 
         create_food_ontology(kg.entities, s)
         create_chemical_ontology(kg.entities, s)
 
         merge_fdc(kg, s)
+        merge_ctd_triplets(kg, s)
+        merge_flavordb_triplets(kg, s)
         kg.save()
 
     def _run_metadata_processing(self) -> None:
@@ -161,20 +179,6 @@ class PipelineRunner:
         apply_synonyms_display(store)
         kg.save()
 
-    def _run_merge_disease(self) -> None:
-        kg = self._ensure_kg()
-        s = self._settings
-        append_diseases_from_ctd(kg, s)
-        merge_ctd_triplets(kg, s)
-        kg.save()
-
-    def _run_merge_flavor(self) -> None:
-        kg = self._ensure_kg()
-        s = self._settings
-        append_flavors_from_flavordb(kg, s)
-        merge_flavordb_triplets(kg, s)
-        kg.save()
-
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
@@ -211,11 +215,9 @@ class PipelineRunner:
 
 
 _STAGE_HANDLERS: dict[PipelineStage, Callable[[PipelineRunner], None]] = {
-    PipelineStage.ONTOLOGY_PREP: PipelineRunner._run_ontology_prep,
+    PipelineStage.PREPROCESSING: PipelineRunner._run_preprocessing,
     PipelineStage.KG_INIT: PipelineRunner._run_kg_init,
     PipelineStage.METADATA_PROCESSING: PipelineRunner._run_metadata_processing,
     PipelineStage.TRIPLET_EXPANSION: PipelineRunner._run_triplet_expansion,
     PipelineStage.POSTPROCESSING: PipelineRunner._run_postprocessing,
-    PipelineStage.MERGE_DISEASE: PipelineRunner._run_merge_disease,
-    PipelineStage.MERGE_FLAVOR: PipelineRunner._run_merge_flavor,
 }

@@ -15,7 +15,9 @@ def settings() -> KGCSettings:
     return KGCSettings(
         kg_dir="/tmp/test_kg",
         data_dir="/tmp/test_data",
-        integration_dir="/tmp/test_dp",
+        pipeline={
+            "stages": {"integration": {"data_cleaning": {"output_dir": "/tmp/test_dp"}}}
+        },
         output_dir="/tmp/test_out",
         cache_dir="/tmp/test_cache",
     )
@@ -36,8 +38,8 @@ def test_runner_init(runner: PipelineRunner) -> None:
 
 def test_run_stage_calls_handler(runner: PipelineRunner) -> None:
     mock = MagicMock()
-    with patch.dict(_STAGE_HANDLERS, {PipelineStage.ONTOLOGY_PREP: mock}):
-        runner.run_stage(PipelineStage.ONTOLOGY_PREP)
+    with patch.dict(_STAGE_HANDLERS, {PipelineStage.PREPROCESSING: mock}):
+        runner.run_stage(PipelineStage.PREPROCESSING)
     mock.assert_called_once_with(runner)
 
 
@@ -51,20 +53,20 @@ def test_run_selected_stages_in_order(runner: PipelineRunner) -> None:
         return _handler
 
     overrides = {
-        PipelineStage.MERGE_FLAVOR: _make_tracker("MERGE_FLAVOR"),
+        PipelineStage.POSTPROCESSING: _make_tracker("POSTPROCESSING"),
         PipelineStage.KG_INIT: _make_tracker("KG_INIT"),
-        PipelineStage.ONTOLOGY_PREP: _make_tracker("ONTOLOGY_PREP"),
+        PipelineStage.PREPROCESSING: _make_tracker("PREPROCESSING"),
     }
     with patch.dict(_STAGE_HANDLERS, overrides):
         runner.run(
             [
-                PipelineStage.MERGE_FLAVOR,
+                PipelineStage.POSTPROCESSING,
                 PipelineStage.KG_INIT,
-                PipelineStage.ONTOLOGY_PREP,
+                PipelineStage.PREPROCESSING,
             ]
         )
 
-    assert called == ["ONTOLOGY_PREP", "KG_INIT", "MERGE_FLAVOR"]
+    assert called == ["PREPROCESSING", "KG_INIT", "POSTPROCESSING"]
 
 
 def test_run_all_stages(runner: PipelineRunner) -> None:

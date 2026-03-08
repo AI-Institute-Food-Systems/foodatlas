@@ -13,9 +13,9 @@ logger = logging.getLogger(__name__)
 
 
 def process_foodon(settings: KGCSettings) -> None:
-    """Clean raw FoodOn data and save to integration_dir."""
+    """Clean raw FoodOn data and save to data_cleaning output dir."""
     data_dir = Path(settings.data_dir)
-    dp_dir = Path(settings.integration_dir)
+    dp_dir = Path(settings.data_cleaning_dir)
     dp_dir.mkdir(parents=True, exist_ok=True)
 
     foodon_synonyms = pd.read_csv(data_dir / "FoodOn" / "foodon-synonyms.tsv", sep="\t")

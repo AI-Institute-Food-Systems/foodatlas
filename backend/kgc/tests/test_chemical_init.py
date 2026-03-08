@@ -66,7 +66,13 @@ def _store(tp: Path, ents: list[dict], lut_c: dict | None = None) -> EntityStore
 
 
 def _cfg(tp: Path) -> KGCSettings:
-    return KGCSettings(kg_dir=str(tp), data_dir=str(tp), integration_dir=str(tp))
+    return KGCSettings(
+        kg_dir=str(tp),
+        data_dir=str(tp),
+        pipeline={
+            "stages": {"integration": {"data_cleaning": {"output_dir": str(tp)}}}
+        },
+    )
 
 
 # ── loaders ──────────────────────────────────────────────────────────
