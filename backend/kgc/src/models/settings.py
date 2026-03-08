@@ -22,12 +22,28 @@ class DataCleaningStageConfig(BaseModel):
     output_dir: str = ""
 
 
-class IntegrationStagesConfig(BaseModel):
-    data_cleaning: DataCleaningStageConfig = DataCleaningStageConfig()
+class KgInitStageConfig(BaseModel):
+    pass
+
+
+class MetadataProcessingStageConfig(BaseModel):
+    pass
+
+
+class TripletExpansionStageConfig(BaseModel):
+    pass
+
+
+class PostprocessingStageConfig(BaseModel):
+    pass
 
 
 class StagesConfig(BaseModel):
-    integration: IntegrationStagesConfig = IntegrationStagesConfig()
+    data_cleaning: DataCleaningStageConfig = DataCleaningStageConfig()
+    kg_init: KgInitStageConfig = KgInitStageConfig()
+    metadata_processing: MetadataProcessingStageConfig = MetadataProcessingStageConfig()
+    triplet_expansion: TripletExpansionStageConfig = TripletExpansionStageConfig()
+    postprocessing: PostprocessingStageConfig = PostprocessingStageConfig()
 
 
 class PipelineConfig(BaseModel):
@@ -49,7 +65,7 @@ class KGCSettings(BaseSettings):
 
     @property
     def data_cleaning_dir(self) -> str:
-        return self.pipeline.stages.integration.data_cleaning.output_dir
+        return self.pipeline.stages.data_cleaning.output_dir
 
     @model_validator(mode="before")
     @classmethod

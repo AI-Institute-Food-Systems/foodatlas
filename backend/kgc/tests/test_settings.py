@@ -30,9 +30,7 @@ class TestKGCSettings:
 
     def test_data_cleaning_dir_override(self):
         settings = KGCSettings(
-            pipeline={
-                "stages": {"integration": {"data_cleaning": {"output_dir": "/custom"}}}
-            }
+            pipeline={"stages": {"data_cleaning": {"output_dir": "/custom"}}}
         )
         assert settings.data_cleaning_dir == "/custom"
 

@@ -38,11 +38,7 @@ class TestProcessPubchem:
         settings = KGCSettings(
             kg_dir=str(tmp_path),
             data_dir=str(tmp_path),
-            pipeline={
-                "stages": {
-                    "integration": {"data_cleaning": {"output_dir": str(tmp_path)}}
-                }
-            },
+            pipeline={"stages": {"data_cleaning": {"output_dir": str(tmp_path)}}},
         )
         process_pubchem(settings)
         result = pd.read_parquet(tmp_path / "pubchem-sid-map-small.parquet")

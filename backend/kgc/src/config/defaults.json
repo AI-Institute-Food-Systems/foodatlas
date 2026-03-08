@@ -9,11 +9,13 @@
   "pubchem_mapping_file": "",
   "pipeline": {
     "stages": {
-      "integration": {
-        "data_cleaning": {
-          "output_dir": "outputs/data_cleaning"
-        }
-      }
+      "data_cleaning": {
+        "output_dir": "outputs/data_cleaning"
+      },
+      "kg_init": {},
+      "metadata_processing": {},
+      "triplet_expansion": {},
+      "postprocessing": {}
     }
   }
 }

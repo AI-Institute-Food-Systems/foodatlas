@@ -15,9 +15,7 @@ def settings() -> KGCSettings:
     return KGCSettings(
         kg_dir="/tmp/test_kg",
         data_dir="/tmp/test_data",
-        pipeline={
-            "stages": {"integration": {"data_cleaning": {"output_dir": "/tmp/test_dp"}}}
-        },
+        pipeline={"stages": {"data_cleaning": {"output_dir": "/tmp/test_dp"}}},
         output_dir="/tmp/test_out",
         cache_dir="/tmp/test_cache",
     )

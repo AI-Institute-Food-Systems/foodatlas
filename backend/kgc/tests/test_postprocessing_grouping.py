@@ -121,11 +121,7 @@ class TestGenerateChemicalGroupsCdno:
         result = generate_chemical_groups_cdno(
             chems,
             KGCSettings(
-                pipeline={
-                    "stages": {
-                        "integration": {"data_cleaning": {"output_dir": str(dp_dir)}}
-                    }
-                }
+                pipeline={"stages": {"data_cleaning": {"output_dir": str(dp_dir)}}}
             ),
         )
         assert result["e1"] == ["vitamin"]

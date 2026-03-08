@@ -55,9 +55,7 @@ def _cfg(tp: Path) -> KGCSettings:
     return KGCSettings(
         kg_dir=str(tp),
         data_dir=str(tp),
-        pipeline={
-            "stages": {"integration": {"data_cleaning": {"output_dir": str(tp)}}}
-        },
+        pipeline={"stages": {"data_cleaning": {"output_dir": str(tp)}}},
     )
 
 
