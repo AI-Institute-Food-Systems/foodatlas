@@ -1,6 +1,5 @@
 """Tests for FlavorDB entity initialization and triplet merging."""
 
-import json
 from unittest.mock import MagicMock
 
 import pandas as pd
@@ -10,45 +9,21 @@ from src.integration.triplets.chemical_flavor.flavordb import merge_flavordb_tri
 
 class TestFlavordbIntegration:
     def _setup_data_dir(self, tmp_path):
-        """Create minimal test data: cleaned parquet + raw data for triplets."""
-        flavordb_dir = tmp_path / "FlavorDB"
-        flavordb_dir.mkdir()
-        flavordb_data = {
-            "100": {
-                "flavor_profile": "sweet",
-                "taste": "",
-                "odor": "",
-                "fooddb_flavor_profile": "",
-                "super_sweet": "",
-                "bitter": False,
-            }
-        }
-        (flavordb_dir / "flavordb_scrape.json").write_text(json.dumps(flavordb_data))
-
-        hsdb_dir = tmp_path / "HSDB"
-        hsdb_dir.mkdir()
-        empty_hsdb: dict = {"Annotations": {"Annotation": []}}
-        (hsdb_dir / "HSDB_Odor.json").write_text(json.dumps(empty_hsdb))
-        (hsdb_dir / "HSDB_Taste.json").write_text(json.dumps(empty_hsdb))
-
+        """Create minimal cleaned parquet data."""
         dp_dir = tmp_path / "dp"
         dp_dir.mkdir()
-        metadata = pd.DataFrame(
+        data = pd.DataFrame(
             [
                 {
-                    "foodatlas_id": "mf1",
-                    "source": "flavordb",
-                    "reference": {
-                        "url": "https://cosylab.iiitd.edu.in/flavordb/"
-                        "molecules_json?id=100"
-                    },
-                    "_flavor": "sweet",
                     "_pubchem_id": 100,
+                    "_flavor": "sweet",
+                    "_source": "flavordb",
+                    "_url": "https://cosylab.iiitd.edu.in/flavordb/"
+                    "molecules_json?id=100",
                 }
             ]
         )
-        metadata.to_parquet(dp_dir / "flavor_metadata_cleaned.parquet")
-
+        data.to_parquet(dp_dir / "flavor_cleaned.parquet")
         return tmp_path
 
     def _make_mock_kg(self):
@@ -103,16 +78,8 @@ class TestFlavordbIntegration:
     def test_no_data_skips(self, tmp_path):
         dp_dir = tmp_path / "dp"
         dp_dir.mkdir()
-        empty_meta = pd.DataFrame(
-            columns=[
-                "foodatlas_id",
-                "source",
-                "reference",
-                "_flavor",
-                "_pubchem_id",
-            ]
-        )
-        empty_meta.to_parquet(dp_dir / "flavor_metadata_cleaned.parquet")
+        empty = pd.DataFrame(columns=["_pubchem_id", "_flavor", "_source", "_url"])
+        empty.to_parquet(dp_dir / "flavor_cleaned.parquet")
 
         kg = self._make_mock_kg()
         settings = MagicMock()

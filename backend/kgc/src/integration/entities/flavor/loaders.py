@@ -1,4 +1,4 @@
-"""Load cleaned flavor metadata and filter for KG integration."""
+"""Load cleaned flavor data and filter for KG integration."""
 
 from __future__ import annotations
 
@@ -11,19 +11,22 @@ if TYPE_CHECKING:
     from ....models.settings import KGCSettings
 
 
-def load_flavor_metadata(settings: KGCSettings) -> pd.DataFrame:
-    """Load cleaned flavor metadata from parquet."""
-    path = Path(settings.data_cleaning_dir) / "flavor_metadata_cleaned.parquet"
+def load_flavor_data(settings: KGCSettings) -> pd.DataFrame:
+    """Load cleaned flavor data from parquet.
+
+    Columns: ``_pubchem_id``, ``_flavor``, ``_source``, ``_url``.
+    """
+    path = Path(settings.data_cleaning_dir) / "flavor_cleaned.parquet"
     return pd.read_parquet(path)
 
 
-def filter_flavor_metadata(
-    metadata: pd.DataFrame,
+def filter_flavor_data(
+    data: pd.DataFrame,
     entities_df: pd.DataFrame,
 ) -> pd.DataFrame:
-    """Filter flavor metadata to PubChem IDs present in entity store."""
-    if metadata.empty:
-        return metadata
+    """Filter flavor data to PubChem IDs present in entity store."""
+    if data.empty:
+        return data
 
     chemicals = entities_df[entities_df["entity_type"] == "chemical"].copy()
     chemicals["pc_id"] = chemicals["external_ids"].apply(
@@ -37,6 +40,6 @@ def filter_flavor_metadata(
         zip(chemicals["pc_id"], chemicals["common_name"], strict=False)
     )
 
-    filtered = metadata[metadata["_pubchem_id"].isin(entity_pc_ids)].copy()
+    filtered = data[data["_pubchem_id"].isin(entity_pc_ids)].copy()
     filtered["_chemical"] = filtered["_pubchem_id"].map(pc_id_to_name)
     return filtered.reset_index(drop=True)

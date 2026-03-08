@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
-from .loaders import filter_flavor_metadata, load_flavor_metadata
+from .loaders import filter_flavor_data, load_flavor_data
 
 if TYPE_CHECKING:
     from ....models.settings import KGCSettings
@@ -44,9 +44,9 @@ def append_flavors_from_flavordb(
     Loads cleaned flavor metadata, filters to chemicals in the KG,
     creates unique flavor entities, and appends them.
     """
-    metadata = load_flavor_metadata(settings)
+    data = load_flavor_data(settings)
     entities_df = entity_store._entities.reset_index()
-    flavor_metadata = filter_flavor_metadata(metadata, entities_df)
+    flavor_metadata = filter_flavor_data(data, entities_df)
     if flavor_metadata.empty:
         logger.info("No flavor metadata — no entities to import.")
         return

@@ -13,7 +13,10 @@ logger = logging.getLogger(__name__)
 
 
 def process_flavordb(settings: KGCSettings) -> None:
-    """Parse FlavorDB JSON + HSDB JSON, merge, and save cleaned parquet."""
+    """Parse FlavorDB JSON + HSDB JSON, merge, and save cleaned parquet.
+
+    Output columns: ``_pubchem_id``, ``_flavor``, ``_source``, ``_url``.
+    """
     data_dir = Path(settings.data_dir)
     dp_dir = Path(settings.data_cleaning_dir)
     dp_dir.mkdir(parents=True, exist_ok=True)
@@ -22,27 +25,24 @@ def process_flavordb(settings: KGCSettings) -> None:
     hsdb_dir = data_dir / "HSDB"
 
     flavordb_data = _load_flavordb_json(flavordb_path)
-    flavordb_meta = _extract_flavordb_metadata(flavordb_data)
+    flavordb_rows = _extract_flavordb_rows(flavordb_data)
 
     cid2odor, cid2taste = _load_hsdb(hsdb_dir)
-    skip_ids = set(flavordb_meta["_pubchem_id"]) if not flavordb_meta.empty else set()
-    hsdb_meta = _extract_hsdb_metadata(cid2odor, cid2taste, skip_ids)
+    skip_ids = set(flavordb_rows["_pubchem_id"]) if not flavordb_rows.empty else set()
+    hsdb_rows = _extract_hsdb_rows(cid2odor, cid2taste, skip_ids)
 
-    if not flavordb_meta.empty and not hsdb_meta.empty:
-        ref_flavors = flavordb_meta["_flavor"].drop_duplicates().reset_index(drop=True)
-        hsdb_meta = _fuzzy_match_flavors(hsdb_meta, ref_flavors)
+    if not flavordb_rows.empty and not hsdb_rows.empty:
+        ref_flavors = flavordb_rows["_flavor"].drop_duplicates().reset_index(drop=True)
+        hsdb_rows = _fuzzy_match_flavors(hsdb_rows, ref_flavors)
 
-    combined = pd.concat([flavordb_meta, hsdb_meta], ignore_index=True)
+    combined = pd.concat([flavordb_rows, hsdb_rows], ignore_index=True)
     if not combined.empty:
-        combined["__url"] = combined["reference"].apply(lambda x: x.get("url", ""))
         combined = combined.drop_duplicates(
-            subset=["source", "_pubchem_id", "_flavor", "__url"],
-        )
-        combined = combined.drop(columns=["__url"]).reset_index(drop=True)
-        combined["foodatlas_id"] = [f"mf{i + 1}" for i in range(len(combined))]
+            subset=["_source", "_pubchem_id", "_flavor", "_url"],
+        ).reset_index(drop=True)
 
-    combined.to_parquet(dp_dir / "flavor_metadata_cleaned.parquet")
-    logger.info("Processed FlavorDB/HSDB: %d metadata rows.", len(combined))
+    combined.to_parquet(dp_dir / "flavor_cleaned.parquet")
+    logger.info("Processed FlavorDB/HSDB: %d rows.", len(combined))
 
 
 def _load_flavordb_json(data_path: Path) -> dict:
@@ -51,8 +51,8 @@ def _load_flavordb_json(data_path: Path) -> dict:
     return result
 
 
-def _extract_flavordb_metadata(flavordb_data: dict) -> pd.DataFrame:
-    """Extract ALL flavor descriptors from FlavorDB (no entity filtering)."""
+def _extract_flavordb_rows(flavordb_data: dict) -> pd.DataFrame:
+    """Extract (pubchem_id, flavor, source, url) from FlavorDB."""
     rows: list[dict] = []
     for pc_id_str, chemical in flavordb_data.items():
         pc_id = int(pc_id_str)
@@ -70,19 +70,14 @@ def _extract_flavordb_metadata(flavordb_data: dict) -> pd.DataFrame:
         if chemical.get("bitter"):
             descriptors.add("bitter")
 
+        url = f"https://cosylab.iiitd.edu.in/flavordb/molecules_json?id={pc_id}"
         for flavor in descriptors:
             rows.append(
                 {
-                    "foodatlas_id": "mf",
-                    "source": "flavordb",
-                    "reference": {
-                        "url": (
-                            "https://cosylab.iiitd.edu.in/flavordb/"
-                            f"molecules_json?id={pc_id}"
-                        ),
-                    },
-                    "_flavor": flavor,
                     "_pubchem_id": pc_id,
+                    "_flavor": flavor,
+                    "_source": "flavordb",
+                    "_url": url,
                 }
             )
     return pd.DataFrame(rows)
@@ -130,12 +125,12 @@ def _map_cid_to_hsdb_flavor(
                 )
 
 
-def _extract_hsdb_metadata(
+def _extract_hsdb_rows(
     cid2odor: dict[int, list[dict]],
     cid2taste: dict[int, list[dict]],
     skip_pc_ids: set[int],
 ) -> pd.DataFrame:
-    """Extract flavor metadata from HSDB (no entity filtering)."""
+    """Extract (pubchem_id, flavor, source, url) from HSDB."""
     rows: list[dict] = []
     for mapper in [cid2odor, cid2taste]:
         for pc_id, data in mapper.items():
@@ -144,11 +139,10 @@ def _extract_hsdb_metadata(
             for ref in data:
                 rows.append(
                     {
-                        "foodatlas_id": "mf",
                         "_pubchem_id": pc_id,
-                        "source": "hsdb",
-                        "reference": {"url": ref["hsdb_url"]},
                         "_flavor": ref["value"],
+                        "_source": "hsdb",
+                        "_url": ref["hsdb_url"],
                     }
                 )
     return pd.DataFrame(rows)

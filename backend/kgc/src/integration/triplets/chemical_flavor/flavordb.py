@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 import pandas as pd
 
 from ....models.relationship import RelationshipType
-from ...entities.flavor.loaders import filter_flavor_metadata, load_flavor_metadata
+from ...entities.flavor.loaders import filter_flavor_data, load_flavor_data
 
 if TYPE_CHECKING:
     from ....constructor.knowledge_graph import KnowledgeGraph
@@ -65,20 +65,23 @@ def merge_flavordb_triplets(kg: KnowledgeGraph, settings: KGCSettings) -> None:
     """Create flavor triplets and metadata from FlavorDB/HSDB data.
 
     Requires flavor entities to already be present in the KG (via
-    ``initialization.flavor.init_entities.append_flavors_from_flavordb``).
+    ``entities.flavor.init_entities.append_flavors_from_flavordb``).
     """
-    metadata = load_flavor_metadata(settings)
+    data = load_flavor_data(settings)
     entities_df = kg.entities._entities.reset_index()
-    flavor_metadata = filter_flavor_metadata(metadata, entities_df)
-    if flavor_metadata.empty:
-        logger.info("No flavor metadata — no triplets to create.")
+    flavor_data = filter_flavor_data(data, entities_df)
+    if flavor_data.empty:
+        logger.info("No flavor data - no triplets to create.")
         return
+
+    flavor_data = flavor_data.copy()
+    flavor_data["foodatlas_id"] = [f"mf{i + 1}" for i in range(len(flavor_data))]
 
     max_tid = 0
     if not kg.triplets._triplets.empty:
         max_tid = int(kg.triplets._triplets.index.str.slice(1).astype(int).max())
 
-    flavor_trips = create_flavor_triplets(flavor_metadata, entities_df, max_tid)
+    flavor_trips = create_flavor_triplets(flavor_data, entities_df, max_tid)
 
     if not flavor_trips.empty:
         trips_indexed = flavor_trips.set_index("foodatlas_id")
@@ -87,14 +90,8 @@ def merge_flavordb_triplets(kg: KnowledgeGraph, settings: KGCSettings) -> None:
             kg.triplets._triplets.index.str.slice(1).astype(int).max() + 1
         )
 
-    flavor_metadata["entity_linking_method"] = "id_matching"
-    flavor_metadata["_chemical_name"] = flavor_metadata["_pubchem_id"].apply(
-        lambda x: f"PUBCHEM_COMPOUND:{x}"
-    )
-    flavor_metadata = flavor_metadata.rename(columns={"_flavor": "_flavor_name"})
-
     logger.info(
         "Merged %d flavor triplets, %d metadata rows.",
         len(flavor_trips),
-        len(flavor_metadata),
+        len(flavor_data),
     )
