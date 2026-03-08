@@ -7,7 +7,7 @@ import hashlib
 import json
 import logging
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -102,7 +102,7 @@ class PipelineRunner:
     # Stage handlers
     # ------------------------------------------------------------------
 
-    def _run_preprocessing(self) -> None:
+    def _run_data_cleaning(self) -> None:
         s = self._settings
         processors = [
             process_foodon,
@@ -114,7 +114,7 @@ class PipelineRunner:
             process_flavordb,
         ]
         logger.info("Launching %d processors in parallel.", len(processors))
-        with ThreadPoolExecutor(max_workers=len(processors)) as pool:
+        with ProcessPoolExecutor(max_workers=len(processors)) as pool:
             futures = {pool.submit(fn, s): fn.__name__ for fn in processors}
             for future in as_completed(futures):
                 name = futures[future]
@@ -215,7 +215,7 @@ class PipelineRunner:
 
 
 _STAGE_HANDLERS: dict[PipelineStage, Callable[[PipelineRunner], None]] = {
-    PipelineStage.PREPROCESSING: PipelineRunner._run_preprocessing,
+    PipelineStage.DATA_CLEANING: PipelineRunner._run_data_cleaning,
     PipelineStage.KG_INIT: PipelineRunner._run_kg_init,
     PipelineStage.METADATA_PROCESSING: PipelineRunner._run_metadata_processing,
     PipelineStage.TRIPLET_EXPANSION: PipelineRunner._run_triplet_expansion,

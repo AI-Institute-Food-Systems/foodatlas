@@ -9,7 +9,7 @@ def test_all_stages_present() -> None:
 
 def test_stage_names() -> None:
     expected = {
-        "PREPROCESSING",
+        "DATA_CLEANING",
         "KG_INIT",
         "METADATA_PROCESSING",
         "TRIPLET_EXPANSION",

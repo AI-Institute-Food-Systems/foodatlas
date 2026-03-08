@@ -10,7 +10,7 @@ class PipelineStage(Enum):
     The ``value`` is the execution order used for sorting.
     """
 
-    PREPROCESSING = 0  # scripts/00_run_data_processing.sh
+    DATA_CLEANING = 0  # scripts/00_run_data_processing.sh
     KG_INIT = 1  # scripts/0_run_kg_init.sh
     METADATA_PROCESSING = 2  # scripts/1_run_metadata_processing.sh
     TRIPLET_EXPANSION = 3  # scripts/2_run_adding_triplets_from_metadata.sh

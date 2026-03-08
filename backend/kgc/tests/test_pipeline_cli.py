@@ -60,7 +60,7 @@ def test_run_stage_by_number(mock_runner_cls: MagicMock) -> None:
 
     result = CliRunner().invoke(cli, ["run", "--stage", "0"])
     assert result.exit_code == 0
-    runner_instance.run.assert_called_once_with([PipelineStage.PREPROCESSING])
+    runner_instance.run.assert_called_once_with([PipelineStage.DATA_CLEANING])
 
 
 @patch("main.PipelineRunner")

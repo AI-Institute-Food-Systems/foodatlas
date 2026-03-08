@@ -38,8 +38,8 @@ def test_runner_init(runner: PipelineRunner) -> None:
 
 def test_run_stage_calls_handler(runner: PipelineRunner) -> None:
     mock = MagicMock()
-    with patch.dict(_STAGE_HANDLERS, {PipelineStage.PREPROCESSING: mock}):
-        runner.run_stage(PipelineStage.PREPROCESSING)
+    with patch.dict(_STAGE_HANDLERS, {PipelineStage.DATA_CLEANING: mock}):
+        runner.run_stage(PipelineStage.DATA_CLEANING)
     mock.assert_called_once_with(runner)
 
 
@@ -55,18 +55,18 @@ def test_run_selected_stages_in_order(runner: PipelineRunner) -> None:
     overrides = {
         PipelineStage.POSTPROCESSING: _make_tracker("POSTPROCESSING"),
         PipelineStage.KG_INIT: _make_tracker("KG_INIT"),
-        PipelineStage.PREPROCESSING: _make_tracker("PREPROCESSING"),
+        PipelineStage.DATA_CLEANING: _make_tracker("DATA_CLEANING"),
     }
     with patch.dict(_STAGE_HANDLERS, overrides):
         runner.run(
             [
                 PipelineStage.POSTPROCESSING,
                 PipelineStage.KG_INIT,
-                PipelineStage.PREPROCESSING,
+                PipelineStage.DATA_CLEANING,
             ]
         )
 
-    assert called == ["PREPROCESSING", "KG_INIT", "POSTPROCESSING"]
+    assert called == ["DATA_CLEANING", "KG_INIT", "POSTPROCESSING"]
 
 
 def test_run_all_stages(runner: PipelineRunner) -> None:
