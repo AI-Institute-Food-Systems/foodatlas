@@ -6,9 +6,7 @@ injection — no module-level side effects.
 
 from __future__ import annotations
 
-import json
 import logging
-from ast import literal_eval
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -17,6 +15,7 @@ from Bio import Entrez
 from tqdm import tqdm
 
 from ..utils.constants import get_lookup_key_by_id
+from ..utils.json_io import read_json, write_json
 from .cache import (
     incremental_save,
     load_cached,
@@ -49,15 +48,7 @@ def _load_lookup_tables(path_kg: Path) -> tuple[dict, dict]:
     """Load food and chemical lookup tables from the KG directory."""
     luts: list[dict] = []
     for suffix in ["food", "chemical"]:
-        lut_df = pd.read_csv(
-            path_kg / f"lookup_table_{suffix}.tsv",
-            sep="\t",
-            converters={
-                "foodatlas_id": literal_eval,
-                "name": str,
-            },
-        )
-        lut = dict(zip(lut_df["name"], lut_df["foodatlas_id"], strict=False))
+        lut: dict[str, list[str]] = read_json(path_kg / f"lookup_table_{suffix}.json")
         luts.append(lut)
     return luts[0], luts[1]
 
@@ -180,18 +171,14 @@ def _load_pubchem_mapping(cache_dir: Path) -> pd.DataFrame:
     """Load cached chemical name-to-CID mappings."""
     path = cache_dir / _CACHE_CHEMICAL_TERMS
     if path.exists():
-        with path.open() as f:
-            data: list[dict[str, Any]] = json.load(f)
-        return pd.DataFrame(data)
+        return pd.DataFrame(read_json(path))
     return pd.DataFrame(columns=["name", "cid"])
 
 
 def _save_pubchem_mapping(df: pd.DataFrame, cache_dir: Path) -> None:
     """Save chemical name-to-CID mappings to cache."""
     cache_dir.mkdir(parents=True, exist_ok=True)
-    records: list[dict[str, Any]] = df.to_dict(orient="records")
-    with (cache_dir / _CACHE_CHEMICAL_TERMS).open("w") as f:
-        json.dump(records, f, ensure_ascii=False, default=str)
+    write_json(cache_dir / _CACHE_CHEMICAL_TERMS, df.to_dict(orient="records"))
 
 
 def query_pubchem_compound(
@@ -246,6 +233,9 @@ def query_pubchem_compound(
                 dtype={"cid": "Int64"},
             )
             searched = pd.concat([searched, new_search], ignore_index=True)
+
+    if searched.empty:
+        return pd.DataFrame()
 
     cids = searched.query(f"name in {entity_names}")["cid"].dropna().unique().tolist()
 

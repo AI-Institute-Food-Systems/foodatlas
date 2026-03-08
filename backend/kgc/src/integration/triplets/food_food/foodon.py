@@ -1,6 +1,5 @@
 """Initialize food ontology triplets from FoodOn hierarchy."""
 
-import json
 import logging
 from pathlib import Path
 
@@ -9,6 +8,7 @@ import pandas as pd
 from ....models.settings import KGCSettings
 from ....stores.entity_store import EntityStore
 from ....stores.schema import FILE_FOOD_ONTOLOGY
+from ....utils.json_io import write_json
 from ...entities.food.loaders import load_foodon
 
 logger = logging.getLogger(__name__)
@@ -32,9 +32,7 @@ def create_food_ontology(
     food_ontology["foodatlas_id"] = [f"fo{i}" for i in range(1, len(food_ontology) + 1)]
 
     kg_dir = Path(settings.kg_dir)
-    records = food_ontology.to_dict(orient="records")
-    with (kg_dir / FILE_FOOD_ONTOLOGY).open("w") as f:
-        json.dump(records, f, ensure_ascii=False)
+    write_json(kg_dir / FILE_FOOD_ONTOLOGY, food_ontology.to_dict(orient="records"))
     logger.info("Created %d food ontology triplets.", len(food_ontology))
 
     return food_ontology

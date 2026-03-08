@@ -11,6 +11,7 @@ import pandas as pd
 import requests
 from bs4 import BeautifulSoup
 
+from ....utils.json_io import read_json, write_json
 from ...entities.disease.constants import (
     CTD_DIRECTEVIDENCE,
     CTD_DIRECTEVIDENCE_MAPPING,
@@ -32,7 +33,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-PMID_TO_PMCID_FILENAME = "CTD_pubmed_ids_to_pmcid.csv"
+PMID_TO_PMCID_FILENAME = "CTD_pubmed_ids_to_pmcid.json"
 BATCH_SIZE = 200
 
 
@@ -77,15 +78,18 @@ def fetch_pmid_to_pmcid(
 
 
 def load_pmid_to_pmcid(mapping_path: Path) -> dict[int, int]:
-    """Load a PMID→PMCID CSV mapping, returning only valid entries.
+    """Load a PMID→PMCID JSON mapping, returning only valid entries.
 
     Args:
-        mapping_path: Path to CSV with ``pmid`` and ``pmcid`` columns.
+        mapping_path: Path to JSON with ``pmid`` and ``pmcid`` records.
 
     Returns:
         Dict mapping integer PMID to integer PMCID.
     """
-    df = pd.read_csv(mapping_path)
+    records = read_json(mapping_path)
+    df = pd.DataFrame(records)
+    if df.empty:
+        return {}
     df = df.dropna(how="all").reset_index(drop=True)
     df[PMCID] = df[PMCID].apply(
         lambda x: x.split("PMC")[1] if pd.notnull(x) and "PMC" in str(x) else None
@@ -119,7 +123,7 @@ def get_or_create_pmid_mapping(
     logger.info("Fetching PMID→PMCID mapping from NCBI for %d IDs...", len(pubmed_ids))
     df = fetch_pmid_to_pmcid(pubmed_ids, email)
     cache_dir.mkdir(parents=True, exist_ok=True)
-    df.to_csv(cache_path, index=False)
+    write_json(cache_path, df.to_dict(orient="records"))
     return load_pmid_to_pmcid(cache_path)
 
 
@@ -257,7 +261,7 @@ def merge_ctd_triplets(kg: KnowledgeGraph, settings: KGCSettings) -> None:
         kg: Loaded KnowledgeGraph instance with disease entities.
         settings: KGCSettings with data paths and NCBI email.
     """
-    cache_dir = Path(settings.data_cleaning_dir)
+    cache_dir = Path(settings.cache_dir)
 
     ctd_chemdis = load_ctd_chemdis(settings)
     ctd_chemdis = filter_ctd_chemdis(ctd_chemdis, kg.entities)

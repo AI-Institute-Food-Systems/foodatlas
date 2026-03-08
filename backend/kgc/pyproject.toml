@@ -23,6 +23,7 @@ dependencies = [
     "python-Levenshtein>=0.25.0",
     "xmltodict>=0.13.0",
     "pyarrow>=15.0.0",
+    "python-dotenv>=1.2.2",
 ]
 
 [tool.uv]

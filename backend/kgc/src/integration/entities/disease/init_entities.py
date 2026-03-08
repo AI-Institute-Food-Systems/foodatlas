@@ -70,7 +70,9 @@ def create_disease_entities(
     ctd_diseases[EXTERNAL_IDS] = ctd_diseases[CTD_DISEASE_ID].apply(
         lambda x: {CTD_ALTID_MAPPING[x.split(":")[0]]: [":".join(x.split(":")[1:])]}
     )
-    ctd_diseases[EXTERNAL_IDS] = ctd_diseases.apply(parse_alt_disease_ids, axis=1)
+    ctd_diseases[EXTERNAL_IDS] = ctd_diseases.apply(
+        parse_alt_disease_ids, axis=1, result_type="reduce"
+    )
 
     return pd.concat([fa_entities, ctd_diseases], join="inner", ignore_index=True)
 

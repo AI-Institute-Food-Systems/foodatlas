@@ -1,6 +1,5 @@
 """Clean raw FlavorDB and HSDB data into a single parquet file."""
 
-import json
 import logging
 from pathlib import Path
 
@@ -8,6 +7,7 @@ import pandas as pd
 from thefuzz import process as fuzz_process
 
 from ...models.settings import KGCSettings
+from ...utils.json_io import read_json
 
 logger = logging.getLogger(__name__)
 
@@ -46,8 +46,7 @@ def process_flavordb(settings: KGCSettings) -> None:
 
 
 def _load_flavordb_json(data_path: Path) -> dict:
-    with data_path.open() as f:
-        result: dict = json.load(f)
+    result: dict = read_json(data_path)
     return result
 
 
@@ -90,10 +89,8 @@ def _load_hsdb(
     odor_path = next(hsdb_dir.glob("*Odor*.json"))
     taste_path = next(hsdb_dir.glob("*Taste*.json"))
 
-    with odor_path.open() as f:
-        hsdb_odor = json.load(f)
-    with taste_path.open() as f:
-        hsdb_taste = json.load(f)
+    hsdb_odor = read_json(odor_path)
+    hsdb_taste = read_json(taste_path)
 
     cid2odor: dict[int, list[dict]] = {}
     cid2taste: dict[int, list[dict]] = {}

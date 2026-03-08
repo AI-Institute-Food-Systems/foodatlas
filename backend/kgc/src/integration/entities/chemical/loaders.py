@@ -43,9 +43,9 @@ def load_mapper_chebi_id_to_names(settings: KGCSettings) -> pd.DataFrame:
 def load_cdno(settings: KGCSettings) -> pd.DataFrame:
     """Load preprocessed CDNO data with ChEBI and FDC nutrient mappings."""
     dp_dir = Path(settings.data_cleaning_dir)
-    cdno: pd.DataFrame = pd.read_parquet(
-        dp_dir / "cdno_cleaned.parquet",
-    )
+    cdno: pd.DataFrame = pd.read_parquet(dp_dir / "cdno_cleaned.parquet")
+    if cdno.index.name == "index":
+        cdno = cdno.reset_index()
     cdno = cdno.rename(columns={"index": "cdno_id"})
     cdno["cdno_id"] = cdno["cdno_id"].apply(lambda x: x.split("/")[-1])
     cdno["chebi_id"] = (

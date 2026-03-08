@@ -1,11 +1,9 @@
 {
-  "kg_dir": "data/kg",
+  "kg_dir": "outputs/kg",
   "data_dir": "data",
-  "output_dir": "data/output",
-  "cache_dir": "data/cache",
+  "output_dir": "outputs",
+  "cache_dir": "outputs/cache",
   "openai_api_key": "",
-  "ncbi_email": "",
-  "ncbi_api_key": "",
   "pubchem_mapping_file": "",
   "pipeline": {
     "stages": {

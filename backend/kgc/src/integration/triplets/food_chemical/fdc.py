@@ -112,12 +112,17 @@ def build_fdc_metadata(
                 "_chemical_name": f"FDC_NUTRIENT:{nutrient_id}",
                 "_conc": f"{conc_value} {conc_unit}",
                 "_food_part": "",
+                "conc_value": conc_value,
+                "conc_unit": conc_unit,
+                "food_part": "",
+                "food_processing": "",
                 "source": "fdc",
                 "reference": [
                     f"https://fdc.nal.usda.gov/fdc-app.html"
                     f"#/food-details/{fdc_id}/nutrients"
                 ],
                 "entity_linking_method": "id_matching",
+                "quality_score": None,
             }
         )
     return pd.DataFrame(rows)

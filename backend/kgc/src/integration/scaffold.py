@@ -1,6 +1,5 @@
 """Create empty KG files as JSON."""
 
-import json
 from pathlib import Path
 
 from ..models.relationship import RelationshipType
@@ -14,6 +13,7 @@ from ..stores.schema import (
     FILE_RETIRED,
     FILE_TRIPLETS,
 )
+from ..utils.json_io import write_json
 
 
 def _build_default_relationships() -> list[dict[str, str]]:
@@ -22,20 +22,15 @@ def _build_default_relationships() -> list[dict[str, str]]:
     ]
 
 
-def _write_json(path: Path, data: object) -> None:
-    with path.open("w") as f:
-        json.dump(data, f, ensure_ascii=False)
-
-
 def create_empty_files(settings: KGCSettings) -> None:
     """Create all empty KG files as JSON."""
     kg_dir = Path(settings.kg_dir)
     kg_dir.mkdir(parents=True, exist_ok=True)
 
-    _write_json(kg_dir / FILE_ENTITIES, [])
-    _write_json(kg_dir / FILE_RELATIONSHIPS, _build_default_relationships())
-    _write_json(kg_dir / FILE_TRIPLETS, [])
-    _write_json(kg_dir / FILE_METADATA_CONTAINS, [])
-    _write_json(kg_dir / FILE_RETIRED, [])
-    _write_json(kg_dir / FILE_LUT_FOOD, {})
-    _write_json(kg_dir / FILE_LUT_CHEMICAL, {})
+    write_json(kg_dir / FILE_ENTITIES, [])
+    write_json(kg_dir / FILE_RELATIONSHIPS, _build_default_relationships())
+    write_json(kg_dir / FILE_TRIPLETS, [])
+    write_json(kg_dir / FILE_METADATA_CONTAINS, [])
+    write_json(kg_dir / FILE_RETIRED, [])
+    write_json(kg_dir / FILE_LUT_FOOD, {})
+    write_json(kg_dir / FILE_LUT_CHEMICAL, {})

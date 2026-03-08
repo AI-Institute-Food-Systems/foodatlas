@@ -11,9 +11,9 @@ from ....models.settings import KGCSettings
 def load_foodon(settings: KGCSettings) -> pd.DataFrame:
     """Load the cleaned FoodOn ontology from preprocessed parquet."""
     dp_dir = Path(settings.data_cleaning_dir)
-    foodon: pd.DataFrame = pd.read_parquet(
-        dp_dir / "foodon_cleaned.parquet",
-    ).set_index("foodon_id")
+    foodon: pd.DataFrame = pd.read_parquet(dp_dir / "foodon_cleaned.parquet")
+    if foodon.index.name != "foodon_id":
+        foodon = foodon.set_index("foodon_id")
     return foodon
 
 
@@ -64,7 +64,7 @@ def _resolve_organisms(
         for _, row in foodon.iterrows():
             if row["is_food"]:
                 continue
-            candidates = list(set(row["derives"] + row["has_part"]))
+            candidates = list(set(list(row["derives"]) + list(row["has_part"])))
             if len(candidates) != 1:
                 continue
             for syn in row["synonyms"][level]:

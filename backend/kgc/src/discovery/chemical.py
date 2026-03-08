@@ -118,5 +118,6 @@ def create_chemical_entities(
         store.path_kg,
         store.path_cache_dir,
     )
-    _create_from_pubchem_compound(store, records)
+    if not records.empty:
+        _create_from_pubchem_compound(store, records)
     _create_from_names(store, entity_names_new)

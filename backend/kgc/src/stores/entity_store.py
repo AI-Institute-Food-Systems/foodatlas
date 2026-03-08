@@ -1,6 +1,5 @@
 """EntityStore — runtime container wrapping a pandas DataFrame."""
 
-import json
 import logging
 from collections import OrderedDict
 from pathlib import Path
@@ -9,6 +8,7 @@ import pandas as pd
 
 from ..discovery.chemical import create_chemical_entities
 from ..discovery.food import create_food_entities
+from ..utils.json_io import read_json, write_json
 from .schema import (
     FILE_ENTITIES,
     FILE_LUT_CHEMICAL,
@@ -23,15 +23,13 @@ FAID_PREFIX = "e"
 
 def _load_lut(path: Path) -> dict[str, list[str]]:
     """Load a synonym → entity-ID lookup table from a JSON file."""
-    with path.open() as f:
-        data: dict[str, list[str]] = json.load(f)
+    data: dict[str, list[str]] = read_json(path)
     return data
 
 
 def _save_lut(lut: dict[str, list[str]], path: Path) -> None:
     """Save a synonym → entity-ID lookup table to a JSON file."""
-    with path.open("w") as f:
-        json.dump(lut, f, ensure_ascii=False)
+    write_json(path, lut)
 
 
 class EntityStore:
@@ -63,8 +61,7 @@ class EntityStore:
         self._load()
 
     def _load(self) -> None:
-        with self.path_entities.open() as f:
-            records = json.load(f)
+        records = read_json(self.path_entities)
         self._entities = pd.DataFrame(records)
         if not self._entities.empty:
             self._entities = self._entities.set_index(INDEX_COL)
@@ -81,8 +78,7 @@ class EntityStore:
     def save(self, path_output_dir: Path) -> None:
         path_output_dir = Path(path_output_dir)
         records = self._entities.reset_index().to_dict(orient="records")
-        with (path_output_dir / FILE_ENTITIES).open("w") as f:
-            json.dump(records, f, ensure_ascii=False)
+        write_json(path_output_dir / FILE_ENTITIES, records)
         _save_lut(self._lut_food, path_output_dir / FILE_LUT_FOOD)
         _save_lut(self._lut_chemical, path_output_dir / FILE_LUT_CHEMICAL)
 

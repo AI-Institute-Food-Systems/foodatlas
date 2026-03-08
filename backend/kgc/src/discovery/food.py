@@ -93,6 +93,9 @@ def _create_from_ncbi_taxonomy(
     """Create food entities that have NCBI Taxonomy IDs."""
     logger.info("Start creating entities with NCBI Taxonomy IDs...")
 
+    if records.empty:
+        return
+
     entities_new = records.copy()
     entities_new[COLUMNS] = None
     entities_new = entities_new.apply(_parse_ncbi_names, axis=1)

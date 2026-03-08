@@ -1,6 +1,5 @@
 """Food entity grouping via FoodOn ontology hierarchy."""
 
-import json
 import logging
 from pathlib import Path
 
@@ -8,6 +7,7 @@ import pandas as pd
 
 from ...models.settings import KGCSettings
 from ...stores.entity_store import EntityStore
+from ...utils.json_io import read_json
 
 logger = logging.getLogger(__name__)
 
@@ -58,9 +58,7 @@ def generate_food_groups_foodon(
 
 
 def _load_food_ontology(kg_dir: Path) -> pd.DataFrame:
-    with (kg_dir / "food_ontology.json").open() as f:
-        records = json.load(f)
-    df = pd.DataFrame(records)
+    df = pd.DataFrame(read_json(kg_dir / "food_ontology.json"))
     return df[df["source"] == "foodon"]
 
 

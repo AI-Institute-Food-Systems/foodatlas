@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import datetime
 import hashlib
-import json
 import logging
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -45,6 +44,7 @@ from ..postprocessing.grouping.chemicals import (
 )
 from ..postprocessing.grouping.foods import generate_food_groups_foodon
 from ..postprocessing.synonyms_display import apply_synonyms_display
+from ..utils.json_io import read_json, write_json
 from .stages import ALL_STAGES, PipelineStage
 
 if TYPE_CHECKING:
@@ -153,7 +153,7 @@ class PipelineRunner:
             return
 
         kg = self._ensure_kg()
-        metadata = pd.read_json(metadata_path, orient="records")
+        metadata = pd.DataFrame(read_json(metadata_path))
         kg.add_triplets_from_metadata(metadata)
         kg.save()
 
@@ -209,8 +209,7 @@ class PipelineRunner:
             version_info["entities_hash"] = h
 
         version_path = kg_dir / "version.json"
-        with version_path.open("w") as f:
-            json.dump(version_info, f, indent=2)
+        write_json(version_path, version_info)
         logger.info("Wrote %s", version_path)
 
 

@@ -1,11 +1,11 @@
 """TripletStore — runtime container wrapping a pandas DataFrame."""
 
-import json
 import logging
 from pathlib import Path
 
 import pandas as pd
 
+from ..utils.json_io import read_json, write_json
 from .schema import FILE_TRIPLETS, INDEX_COL
 
 logger = logging.getLogger(__name__)
@@ -35,8 +35,7 @@ class TripletStore:
         self._load()
 
     def _load(self) -> None:
-        with self.path_triplets.open() as f:
-            records = json.load(f)
+        records = read_json(self.path_triplets)
         self._triplets = pd.DataFrame(records)
         if not self._triplets.empty:
             self._triplets = self._triplets.set_index(INDEX_COL)
@@ -55,8 +54,7 @@ class TripletStore:
     def save(self, path_output_dir: Path) -> None:
         path_output_dir = Path(path_output_dir)
         records = self._triplets.reset_index().to_dict(orient="records")
-        with (path_output_dir / FILE_TRIPLETS).open("w") as f:
-            json.dump(records, f, ensure_ascii=False)
+        write_json(path_output_dir / FILE_TRIPLETS, records)
 
     def create(self, metadata: pd.DataFrame) -> pd.Series:
         """Create new triplet entries from metadata rows.
