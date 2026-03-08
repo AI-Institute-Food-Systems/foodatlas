@@ -6,8 +6,8 @@ from src.models.settings import KGCSettings
 class TestKGCSettings:
     def test_defaults_from_json(self):
         settings = KGCSettings()
-        assert settings.kg_dir == "data/kg"
-        assert settings.output_dir == "data/output"
+        assert settings.kg_dir == "outputs/kg"
+        assert settings.output_dir == "outputs"
         assert settings.cache_dir == "outputs/cache"
 
     def test_env_var_override(self, monkeypatch):

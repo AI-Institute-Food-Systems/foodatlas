@@ -1,5 +1,6 @@
 """Tests for CTD PMID mapping module."""
 
+import json
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -12,15 +13,29 @@ from src.integration.triplets.chemical_disease.ctd import (
 
 class TestLoadPmidToPmcid:
     def test_loads_and_parses(self, tmp_path):
-        csv_path = tmp_path / "mapping.csv"
-        csv_path.write_text("pmid,pmcid\n123,PMC456\n789,PMC101\n")
-        result = load_pmid_to_pmcid(csv_path)
+        json_path = tmp_path / "mapping.json"
+        json_path.write_text(
+            json.dumps(
+                [
+                    {"pmid": "123", "pmcid": "PMC456"},
+                    {"pmid": "789", "pmcid": "PMC101"},
+                ]
+            )
+        )
+        result = load_pmid_to_pmcid(json_path)
         assert result == {123: 456, 789: 101}
 
     def test_skips_null_pmcid(self, tmp_path):
-        csv_path = tmp_path / "mapping.csv"
-        csv_path.write_text("pmid,pmcid\n123,PMC456\n789,\n")
-        result = load_pmid_to_pmcid(csv_path)
+        json_path = tmp_path / "mapping.json"
+        json_path.write_text(
+            json.dumps(
+                [
+                    {"pmid": "123", "pmcid": "PMC456"},
+                    {"pmid": "789", "pmcid": None},
+                ]
+            )
+        )
+        result = load_pmid_to_pmcid(json_path)
         assert result == {123: 456}
 
 
@@ -52,8 +67,8 @@ class TestFetchPmidToPmcid:
 
 class TestGetOrCreatePmidMapping:
     def test_cache_hit(self, tmp_path):
-        csv_path = tmp_path / "CTD_pubmed_ids_to_pmcid.csv"
-        csv_path.write_text("pmid,pmcid\n123,PMC456\n")
+        json_path = tmp_path / "CTD_pubmed_ids_to_pmcid.json"
+        json_path.write_text(json.dumps([{"pmid": "123", "pmcid": "PMC456"}]))
 
         result = get_or_create_pmid_mapping(tmp_path, [123], "test@test.com")
         assert result == {123: 456}
@@ -69,4 +84,4 @@ class TestGetOrCreatePmidMapping:
 
         result = get_or_create_pmid_mapping(tmp_path, [123], "test@test.com")
         assert result == {123: 456}
-        assert (tmp_path / "CTD_pubmed_ids_to_pmcid.csv").exists()
+        assert (tmp_path / "CTD_pubmed_ids_to_pmcid.json").exists()
