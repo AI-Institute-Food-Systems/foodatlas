@@ -65,7 +65,7 @@ def cli(
     "stages",
     multiple=True,
     type=click.Choice(_VALID_STAGES, case_sensitive=False),
-    help="Stage name or number (0-4, repeatable). Omit for all.",
+    help="Stage name or number (0-5, repeatable). Omit for all.",
 )
 @click.pass_context
 def run(ctx: click.Context, stages: tuple[str, ...]) -> None:
@@ -78,10 +78,10 @@ def run(ctx: click.Context, stages: tuple[str, ...]) -> None:
 @cli.command()
 @click.pass_context
 def init(ctx: click.Context) -> None:
-    """Shortcut: run KG initialization only."""
+    """Shortcut: run entity and triplet initialization."""
     settings: KGCSettings = ctx.obj["settings"]
     runner = PipelineRunner(settings)
-    runner.run([PipelineStage.KG_INIT])
+    runner.run([PipelineStage.ENTITY_INIT, PipelineStage.TRIPLET_INIT])
 
 
 if __name__ == "__main__":

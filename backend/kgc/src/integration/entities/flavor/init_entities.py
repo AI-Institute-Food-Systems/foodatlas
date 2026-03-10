@@ -58,4 +58,4 @@ def append_flavors_from_flavordb(
         entity_store._entities.index.str.slice(1).astype(int).max() + 1
     )
 
-    logger.info("Imported %d flavor entities.", len(flavor_ents))
+    logger.info("Added %d unique flavor entities from FlavorDB.", len(flavor_ents))

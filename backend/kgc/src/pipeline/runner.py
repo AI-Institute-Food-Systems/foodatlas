@@ -31,7 +31,7 @@ from ..integration.entities.food.init_entities import (
     append_foods_from_fdc,
     append_foods_from_foodon,
 )
-from ..integration.scaffold import create_empty_files
+from ..integration.scaffold import create_empty_entity_files, create_empty_triplet_files
 from ..integration.triplets.chemical_chemical.chebi import create_chemical_ontology
 from ..integration.triplets.chemical_disease.ctd import merge_ctd_triplets
 from ..integration.triplets.chemical_flavor.flavordb import merge_flavordb_triplets
@@ -44,6 +44,8 @@ from ..postprocessing.grouping.chemicals import (
 )
 from ..postprocessing.grouping.foods import generate_food_groups_foodon
 from ..postprocessing.synonyms_display import apply_synonyms_display
+from ..stores.entity_store import EntityStore
+from ..stores.schema import FILE_ENTITIES, FILE_LUT_CHEMICAL, FILE_LUT_FOOD
 from ..utils.json_io import read_json, write_json
 from .stages import ALL_STAGES, PipelineStage
 
@@ -121,18 +123,31 @@ class PipelineRunner:
                 future.result()  # re-raises any exception
                 logger.info("Processor %s finished.", name)
 
-    def _run_kg_init(self) -> None:
+    def _run_entity_init(self) -> None:
         s = self._settings
-        create_empty_files(s)
+        create_empty_entity_files(s)
+
+        kg_dir = Path(s.kg_dir)
+        entity_store = EntityStore(
+            path_entities=kg_dir / FILE_ENTITIES,
+            path_lut_food=kg_dir / FILE_LUT_FOOD,
+            path_lut_chemical=kg_dir / FILE_LUT_CHEMICAL,
+        )
+
+        append_foods_from_foodon(entity_store, s)
+        append_foods_from_fdc(entity_store, s)
+        append_chemicals_from_chebi(entity_store, s)
+        append_chemicals_from_cdno(entity_store, s)
+        append_chemicals_from_fdc(entity_store, s)
+        append_diseases_from_ctd(entity_store, s)
+        append_flavors_from_flavordb(entity_store, s)
+        entity_store.save(kg_dir)
+
+    def _run_triplet_init(self) -> None:
+        s = self._settings
+        create_empty_triplet_files(s)
 
         kg = self._ensure_kg()
-        append_foods_from_foodon(kg.entities, s)
-        append_foods_from_fdc(kg.entities, s)
-        append_chemicals_from_chebi(kg.entities, s)
-        append_chemicals_from_cdno(kg.entities, s)
-        append_chemicals_from_fdc(kg.entities, s)
-        append_diseases_from_ctd(kg.entities, s)
-        append_flavors_from_flavordb(kg.entities, s)
 
         create_food_ontology(kg.entities, s)
         create_chemical_ontology(kg.entities, s)
@@ -215,7 +230,8 @@ class PipelineRunner:
 
 _STAGE_HANDLERS: dict[PipelineStage, Callable[[PipelineRunner], None]] = {
     PipelineStage.DATA_CLEANING: PipelineRunner._run_data_cleaning,
-    PipelineStage.KG_INIT: PipelineRunner._run_kg_init,
+    PipelineStage.ENTITY_INIT: PipelineRunner._run_entity_init,
+    PipelineStage.TRIPLET_INIT: PipelineRunner._run_triplet_init,
     PipelineStage.METADATA_PROCESSING: PipelineRunner._run_metadata_processing,
     PipelineStage.TRIPLET_EXPANSION: PipelineRunner._run_triplet_expansion,
     PipelineStage.POSTPROCESSING: PipelineRunner._run_postprocessing,

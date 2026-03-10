@@ -24,9 +24,9 @@ def test_run_single_stage(mock_runner_cls: MagicMock) -> None:
     runner_instance = MagicMock()
     mock_runner_cls.return_value = runner_instance
 
-    result = CliRunner().invoke(cli, ["run", "--stage", "kg_init"])
+    result = CliRunner().invoke(cli, ["run", "--stage", "entity_init"])
     assert result.exit_code == 0
-    runner_instance.run.assert_called_once_with([PipelineStage.KG_INIT])
+    runner_instance.run.assert_called_once_with([PipelineStage.ENTITY_INIT])
 
 
 @patch("main.PipelineRunner")
@@ -35,11 +35,11 @@ def test_run_multiple_stages(mock_runner_cls: MagicMock) -> None:
     mock_runner_cls.return_value = runner_instance
 
     result = CliRunner().invoke(
-        cli, ["run", "--stage", "kg_init", "--stage", "postprocessing"]
+        cli, ["run", "--stage", "entity_init", "--stage", "postprocessing"]
     )
     assert result.exit_code == 0
     runner_instance.run.assert_called_once_with(
-        [PipelineStage.KG_INIT, PipelineStage.POSTPROCESSING]
+        [PipelineStage.ENTITY_INIT, PipelineStage.POSTPROCESSING]
     )
 
 
@@ -50,7 +50,9 @@ def test_init_command(mock_runner_cls: MagicMock) -> None:
 
     result = CliRunner().invoke(cli, ["init"])
     assert result.exit_code == 0
-    runner_instance.run.assert_called_once_with([PipelineStage.KG_INIT])
+    runner_instance.run.assert_called_once_with(
+        [PipelineStage.ENTITY_INIT, PipelineStage.TRIPLET_INIT]
+    )
 
 
 @patch("main.PipelineRunner")
@@ -73,7 +75,7 @@ def test_run_mixed_name_and_number(mock_runner_cls: MagicMock) -> None:
     )
     assert result.exit_code == 0
     runner_instance.run.assert_called_once_with(
-        [PipelineStage.KG_INIT, PipelineStage.POSTPROCESSING]
+        [PipelineStage.ENTITY_INIT, PipelineStage.POSTPROCESSING]
     )
 
 

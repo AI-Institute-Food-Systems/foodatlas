@@ -10,11 +10,12 @@ import pandas as pd
 from ....models.entity import DiseaseEntity
 from .constants import (
     CTD_ALTID_MAPPING,
+    CTD_DIRECTEVIDENCE,
     CTD_DISEASE_ID,
     EXTERNAL_IDS,
     FA_ID,
 )
-from .loaders import filter_ctd_chemdis, load_ctd_chemdis, load_ctd_diseases
+from .loaders import load_ctd_chemdis, load_ctd_diseases
 
 if TYPE_CHECKING:
     from ....models.settings import KGCSettings
@@ -66,6 +67,9 @@ def create_disease_entities(
         parse_alt_disease_ids, axis=1, result_type="reduce"
     )
 
+    if ctd_diseases.empty:
+        return fa_entities
+
     rows: list[dict] = []
     for i, (_, row) in enumerate(ctd_diseases.iterrows()):
         synonyms = (
@@ -88,13 +92,19 @@ def create_disease_entities(
 def append_diseases_from_ctd(entity_store: EntityStore, settings: KGCSettings) -> None:
     """Create disease entities from CTD and add to the entity store.
 
-    Loads cleaned CTD data, filters to chemicals present in the KG,
-    then creates disease entities for referenced diseases.
+    Loads cleaned CTD data, filters chemdis to direct-evidence rows,
+    then creates disease entities for all referenced diseases.
     """
     ctd_chemdis = load_ctd_chemdis(settings)
     ctd_diseases = load_ctd_diseases(settings)
 
-    ctd_chemdis = filter_ctd_chemdis(ctd_chemdis, entity_store)
+    ctd_chemdis = ctd_chemdis[ctd_chemdis[CTD_DIRECTEVIDENCE].notnull()].reset_index(
+        drop=True
+    )
+
+    if ctd_chemdis.empty:
+        logger.info("No direct-evidence CTD rows — skipping disease entities.")
+        return
 
     entities_df = entity_store._entities.reset_index()
     max_eid = get_max_entity_id(entities_df)
@@ -102,9 +112,11 @@ def append_diseases_from_ctd(entity_store: EntityStore, settings: KGCSettings) -
         entities_df, ctd_diseases, ctd_chemdis, max_eid
     )
 
+    n_before = len(entity_store._entities)
     entity_store._entities = entities_df.set_index(FA_ID)
     entity_store._curr_eid = (
         entity_store._entities.index.str.slice(1).astype(int).max() + 1
     )
+    n_added = len(entity_store._entities) - n_before
 
-    logger.info("Imported disease entities from CTD.")
+    logger.info("Added %d unique disease entities from CTD.", n_added)

@@ -52,19 +52,19 @@ def test_run_selected_stages_in_order(runner: PipelineRunner) -> None:
 
     overrides = {
         PipelineStage.POSTPROCESSING: _make_tracker("POSTPROCESSING"),
-        PipelineStage.KG_INIT: _make_tracker("KG_INIT"),
+        PipelineStage.ENTITY_INIT: _make_tracker("ENTITY_INIT"),
         PipelineStage.DATA_CLEANING: _make_tracker("DATA_CLEANING"),
     }
     with patch.dict(_STAGE_HANDLERS, overrides):
         runner.run(
             [
                 PipelineStage.POSTPROCESSING,
-                PipelineStage.KG_INIT,
+                PipelineStage.ENTITY_INIT,
                 PipelineStage.DATA_CLEANING,
             ]
         )
 
-    assert called == ["DATA_CLEANING", "KG_INIT", "POSTPROCESSING"]
+    assert called == ["DATA_CLEANING", "ENTITY_INIT", "POSTPROCESSING"]
 
 
 def test_run_all_stages(runner: PipelineRunner) -> None:
@@ -97,8 +97,8 @@ def test_run_all_writes_version(runner: PipelineRunner) -> None:
 
 def test_run_selected_does_not_write_version(runner: PipelineRunner) -> None:
     with (
-        patch.dict(_STAGE_HANDLERS, {PipelineStage.KG_INIT: MagicMock()}),
+        patch.dict(_STAGE_HANDLERS, {PipelineStage.ENTITY_INIT: MagicMock()}),
         patch.object(runner, "_write_version") as mock_version,
     ):
-        runner.run([PipelineStage.KG_INIT])
+        runner.run([PipelineStage.ENTITY_INIT])
         mock_version.assert_not_called()

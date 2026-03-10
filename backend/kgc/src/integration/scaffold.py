@@ -22,15 +22,22 @@ def _build_default_relationships() -> list[dict[str, str]]:
     ]
 
 
-def create_empty_files(settings: KGCSettings) -> None:
-    """Create all empty KG files as JSON."""
+def create_empty_entity_files(settings: KGCSettings) -> None:
+    """Create empty entity-related KG files (entities + LUTs)."""
     kg_dir = Path(settings.kg_dir)
     kg_dir.mkdir(parents=True, exist_ok=True)
 
     write_json(kg_dir / FILE_ENTITIES, [])
+    write_json(kg_dir / FILE_LUT_FOOD, {})
+    write_json(kg_dir / FILE_LUT_CHEMICAL, {})
+
+
+def create_empty_triplet_files(settings: KGCSettings) -> None:
+    """Create empty triplet-related KG files (triplets, metadata, etc.)."""
+    kg_dir = Path(settings.kg_dir)
+    kg_dir.mkdir(parents=True, exist_ok=True)
+
     write_json(kg_dir / FILE_RELATIONSHIPS, _build_default_relationships())
     write_json(kg_dir / FILE_TRIPLETS, [])
     write_json(kg_dir / FILE_METADATA_CONTAINS, [])
     write_json(kg_dir / FILE_RETIRED, [])
-    write_json(kg_dir / FILE_LUT_FOOD, {})
-    write_json(kg_dir / FILE_LUT_CHEMICAL, {})

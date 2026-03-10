@@ -6,6 +6,7 @@
       "Bash(grep *)",
       "Bash(uv run ruff *)",
       "Bash(uv run pytest *)",
+      "Bash(uv run pytest * 2>&1 | grep *)",
       "Bash(uv run mypy *)",
       "Bash(uv run bandit *)"
     ]
