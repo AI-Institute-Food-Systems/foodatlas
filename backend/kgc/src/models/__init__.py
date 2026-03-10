@@ -1,6 +1,6 @@
 """KGC data models."""
 
-from .entity import ChemicalEntity, DiseaseEntity, Entity, FlavorEntity, FoodEntity
+from .entity import ChemicalEntity, DiseaseEntity, Entity, FoodEntity
 from .metadata import MetadataContains, MetadataDisease, MetadataFlavor
 from .relationship import Relationship, RelationshipType
 from .settings import KGCSettings
@@ -11,7 +11,6 @@ __all__ = [
     "ChemicalEntity",
     "DiseaseEntity",
     "Entity",
-    "FlavorEntity",
     "FoodEntity",
     "KGCSettings",
     "KGVersion",

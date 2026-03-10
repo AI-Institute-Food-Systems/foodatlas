@@ -1,6 +1,6 @@
 # FoodAtlas KGC
 
-Knowledge graph construction pipeline for FoodAtlas. Ingests data from 11 external sources (FoodOn, ChEBI, FDC, CTD, FlavorDB, etc.) and builds a unified knowledge graph of foods, chemicals, diseases, and flavors.
+Knowledge graph construction pipeline for FoodAtlas. Ingests data from 11 external sources (FoodOn, ChEBI, FDC, CTD, FlavorDB, etc.) and builds a unified knowledge graph of foods, chemicals, and diseases. Flavor descriptors from FlavorDB are stored as descriptions on chemical entities rather than as separate entities.
 
 ## Getting Started
 
@@ -12,8 +12,8 @@ uv sync
 uv run python main.py run
 
 # Run a single stage (by name or 0-indexed number)
-uv run python main.py run --stage kg_init
-uv run python main.py run --stage 1
+uv run python main.py run --stage 0
+uv run python main.py run --stage data_cleaning
 
 # Shortcut: initialize KG only
 uv run python main.py init
@@ -28,13 +28,12 @@ uv run pytest
 uv run python main.py [OPTIONS] COMMAND [ARGS]
 
 Options:
-  --config FILE                   Path to config JSON (overrides defaults.json)
-  --output-format [json|jsonl|parquet]  Output serialization format
-  -v, --verbose                   Enable DEBUG logging
+  --config FILE       Path to config JSON (overrides defaults.json)
+  -v, --verbose       Enable DEBUG logging
 
 Commands:
   run   Run pipeline stages (--stage repeatable, omit for all)
-  init  Shortcut: run KG initialization only
+  init  Shortcut: run entity and triplet initialization only
 ```
 
 ### Configuration
@@ -55,13 +54,12 @@ Override via environment variables, config JSON, or CLI flags.
 
 | # | Stage | Description |
 |---|-------|-------------|
-| 0 | `preprocessing` | Process ontologies (FoodOn, ChEBI, CDNO, MeSH, PubChem) |
-| 1 | `kg_init` | Initialize entities from sources; create ontology triplets |
-| 2 | `metadata_processing` | Handled by the IE pipeline (external) |
-| 3 | `triplet_expansion` | Add triplets from extracted metadata |
-| 4 | `postprocessing` | Apply common names, group chemicals/foods |
-| 5 | `merge_disease` | Integrate CTD chemical-disease relationships |
-| 6 | `merge_flavor` | Integrate FlavorDB chemical-flavor relationships |
+| 0 | `data_cleaning` | Process external sources (FoodOn, ChEBI, CDNO, MeSH, PubChem, CTD, FlavorDB) |
+| 1 | `entity_init` | Create entities from external sources (food, chemical, disease) |
+| 2 | `triplet_init` | Create ontology triplets, merge FDC/CTD triplets, apply flavor descriptions |
+| 3 | `metadata_processing` | Handled by the IE pipeline (external) |
+| 4 | `triplet_expansion` | Add triplets from extracted metadata |
+| 5 | `postprocessing` | Apply common names, synonyms display, group chemicals/foods |
 
 ## Architecture
 
@@ -84,17 +82,17 @@ so column definitions are never duplicated.
 | `r2` | IS_A (ontology hierarchy) |
 | `r3` | POSITIVELY_CORRELATES_WITH (chemical → disease) |
 | `r4` | NEGATIVELY_CORRELATES_WITH (chemical → disease) |
-| `r5` | HAS_FLAVOR (chemical → flavor) |
+| `r5` | HAS_FLAVOR (deprecated — flavors are now stored as chemical descriptions) |
 
 ### Output Files
 
 | File | Description |
 |------|-------------|
-| `entities.json` | All entities (food, chemical, disease, flavor) |
+| `entities.json` | All entities (food, chemical, disease); chemicals may include `_flavor_descriptions` |
 | `triplets.json` | Relationship triplets (head, rel, tail) |
 | `metadata_contains.json` | Food-chemical concentration metadata |
 | `metadata_disease.json` | Chemical-disease metadata |
-| `metadata_flavor.json` | Chemical-flavor metadata |
+| `metadata_flavor.json` | Chemical-flavor metadata (legacy, no longer generated) |
 | `lookup_table_food.json` | Synonym → food entity ID mapping |
 | `lookup_table_chemical.json` | Synonym → chemical entity ID mapping |
 | `relationships.json` | Relationship type definitions |
@@ -111,7 +109,7 @@ kgc/
 ├── src/
 │   ├── config/                    # Settings and defaults.json
 │   ├── models/                    # Pydantic data models
-│   │   ├── entity.py              # Entity (food/chemical/disease/flavor)
+│   │   ├── entity.py              # Entity (food/chemical/disease)
 │   │   ├── relationship.py        # RelationshipType enum
 │   │   ├── triplet.py             # Triplet (head, rel, tail)
 │   │   ├── metadata.py            # MetadataContains/Disease/Flavor
@@ -123,7 +121,7 @@ kgc/
 │   │   ├── triplet_store.py       # TripletStore with deduplication
 │   │   └── metadata_store.py      # MetadataContainsStore
 │   ├── pipeline/                  # Execution orchestration
-│   │   ├── stages.py              # PipelineStage enum (0-6)
+│   │   ├── stages.py              # PipelineStage enum (0-5)
 │   │   └── runner.py              # PipelineRunner
 │   ├── constructor/               # Core KG building
 │   │   ├── knowledge_graph.py     # KG orchestrator (load/save all stores)
@@ -134,9 +132,9 @@ kgc/
 │   │   └── chemical.py            # Chemical entities from PubChem
 │   ├── integration/               # External data source ingestion
 │   │   ├── scaffold.py            # Create empty KG files
-│   │   ├── entities/              # Entity loaders (food, chemical, disease, flavor)
+│   │   ├── entities/              # Entity loaders (food, chemical, disease)
 │   │   ├── ontologies/            # Hierarchy processing (FoodOn, ChEBI, CDNO, MeSH)
-│   │   └── triplets/              # Relationship loaders (FDC, CTD, FlavorDB)
+│   │   └── triplets/              # Relationship loaders (FDC, CTD) and flavor descriptions
 │   ├── preprocessing/             # Text normalization (names, concentrations, units)
 │   ├── postprocessing/            # Common names, synonyms display, grouping
 │   └── utils/                     # Shared helpers

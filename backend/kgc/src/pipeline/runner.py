@@ -26,7 +26,6 @@ from ..integration.entities.chemical.init_entities import (
     append_chemicals_from_fdc,
 )
 from ..integration.entities.disease.init_entities import append_diseases_from_ctd
-from ..integration.entities.flavor.init_entities import append_flavors_from_flavordb
 from ..integration.entities.food.init_entities import (
     append_foods_from_fdc,
     append_foods_from_foodon,
@@ -34,7 +33,7 @@ from ..integration.entities.food.init_entities import (
 from ..integration.scaffold import create_empty_entity_files, create_empty_triplet_files
 from ..integration.triplets.chemical_chemical.chebi import create_chemical_ontology
 from ..integration.triplets.chemical_disease.ctd import merge_ctd_triplets
-from ..integration.triplets.chemical_flavor.flavordb import merge_flavordb_triplets
+from ..integration.triplets.chemical_flavor.flavordb import apply_flavor_descriptions
 from ..integration.triplets.food_chemical.fdc import merge_fdc
 from ..integration.triplets.food_food.foodon import create_food_ontology
 from ..postprocessing.common_name import apply_common_names
@@ -140,7 +139,6 @@ class PipelineRunner:
         append_chemicals_from_cdno(entity_store, s)
         append_chemicals_from_fdc(entity_store, s)
         append_diseases_from_ctd(entity_store, s)
-        append_flavors_from_flavordb(entity_store, s)
         entity_store.save(kg_dir)
 
     def _run_triplet_init(self) -> None:
@@ -154,7 +152,7 @@ class PipelineRunner:
 
         merge_fdc(kg, s)
         merge_ctd_triplets(kg, s)
-        merge_flavordb_triplets(kg, s)
+        apply_flavor_descriptions(kg, s)
         kg.save()
 
     def _run_metadata_processing(self) -> None:

@@ -1,94 +1,81 @@
-"""Tests for FlavorDB entity and triplet creation."""
+"""Tests for FlavorDB flavor description application."""
 
 import pandas as pd
-from src.integration.entities.flavor.init_entities import create_flavor_entities
-from src.integration.triplets.chemical_flavor.flavordb import create_flavor_triplets
+from src.integration.triplets.chemical_flavor.flavordb import (
+    apply_flavor_descriptions,
+)
 
 
-class TestCreateFlavorEntities:
-    def test_creates_entities_with_ids(self):
-        metadata = pd.DataFrame({"_flavor": ["sweet", "sour", "sweet"]})
-        result = create_flavor_entities(metadata, 5)
-        assert len(result) == 2  # unique flavors
-        assert result.iloc[0]["foodatlas_id"] == "e6"
-        assert result.iloc[1]["foodatlas_id"] == "e7"
-        assert set(result["entity_type"]) == {"flavor"}
+class TestApplyFlavorDescriptions:
+    def _make_mock_kg(self):
+        """Create a mock KnowledgeGraph with chemical entities."""
+        from unittest.mock import MagicMock
 
-    def test_entity_fields(self):
-        metadata = pd.DataFrame({"_flavor": ["sweet"]})
-        result = create_flavor_entities(metadata, 0)
-        row = result.iloc[0]
-        assert row["common_name"] == "sweet"
-        assert row["scientific_name"] == ""
-        assert row["synonyms"] == []
-        assert row["external_ids"] == {}
-
-
-class TestCreateFlavorTriplets:
-    def test_creates_triplets(self):
-        metadata = pd.DataFrame(
-            {
-                "_pubchem_id": [100, 100],
-                "_flavor": ["sweet", "sour"],
-                "foodatlas_id": ["mf1", "mf2"],
-            }
-        )
+        kg = MagicMock()
         entities = pd.DataFrame(
-            {
-                "foodatlas_id": ["e0", "e5", "e6"],
-                "entity_type": ["chemical", "flavor", "flavor"],
-                "common_name": ["ethanol", "sweet", "sour"],
-                "external_ids": [
-                    {"pubchem_compound": [100]},
-                    {},
-                    {},
-                ],
-            }
+            [
+                {
+                    "entity_type": "chemical",
+                    "common_name": "ethanol",
+                    "external_ids": {"pubchem_compound": [100]},
+                    "scientific_name": "",
+                    "synonyms": [],
+                },
+            ],
+            index=pd.Index(["e0"], name="foodatlas_id"),
         )
-
-        result = create_flavor_triplets(metadata, entities, 0)
-        assert len(result) == 2
-        assert result.iloc[0]["head_id"] == "e0"
-        assert result.iloc[0]["relationship_id"] == "r5"
-        assert result.iloc[0]["foodatlas_id"] == "t1"
-        assert result.iloc[0]["metadata_ids"] == ["mf1"]
-
-    def test_skips_unmapped_chemicals(self):
-        metadata = pd.DataFrame(
-            {
-                "_pubchem_id": [999],
-                "_flavor": ["sweet"],
-                "foodatlas_id": ["mf1"],
-            }
+        kg.entities._entities = entities
+        kg.entities._curr_eid = 1
+        kg.triplets._triplets = pd.DataFrame(
+            columns=["head_id", "relationship_id", "tail_id", "metadata_ids"]
         )
-        entities = pd.DataFrame(
-            {
-                "foodatlas_id": ["e5"],
-                "entity_type": ["flavor"],
-                "common_name": ["sweet"],
-                "external_ids": [{}],
-            }
-        )
+        kg.triplets._triplets.index.name = "foodatlas_id"
+        kg.triplets._curr_tid = 1
+        return kg
 
-        result = create_flavor_triplets(metadata, entities, 0)
-        assert result.empty
-
-    def test_empty_metadata(self):
-        metadata = pd.DataFrame(
-            {
-                "_pubchem_id": pd.Series(dtype=int),
-                "_flavor": pd.Series(dtype=str),
-                "foodatlas_id": pd.Series(dtype=str),
-            }
+    def test_applies_descriptions_to_chemicals(self, tmp_path):
+        dp_dir = tmp_path / "dp"
+        dp_dir.mkdir()
+        data = pd.DataFrame(
+            [
+                {
+                    "_pubchem_id": 100,
+                    "_flavor": "sweet",
+                    "_source": "flavordb",
+                    "_url": "https://example.com",
+                },
+                {
+                    "_pubchem_id": 100,
+                    "_flavor": "fruity",
+                    "_source": "flavordb",
+                    "_url": "https://example.com",
+                },
+            ]
         )
-        entities = pd.DataFrame(
-            {
-                "foodatlas_id": ["e0"],
-                "entity_type": ["chemical"],
-                "common_name": ["test"],
-                "external_ids": [{"pubchem_compound": [100]}],
-            }
-        )
+        data.to_parquet(dp_dir / "flavor_cleaned.parquet")
 
-        result = create_flavor_triplets(metadata, entities, 0)
-        assert result.empty
+        from unittest.mock import MagicMock
+
+        kg = self._make_mock_kg()
+        settings = MagicMock()
+        settings.data_cleaning_dir = str(dp_dir)
+
+        apply_flavor_descriptions(kg, settings)
+
+        descs = kg.entities._entities.at["e0", "_flavor_descriptions"]
+        assert descs == ["fruity", "sweet"]
+
+    def test_no_data_skips(self, tmp_path):
+        dp_dir = tmp_path / "dp"
+        dp_dir.mkdir()
+        empty = pd.DataFrame(columns=["_pubchem_id", "_flavor", "_source", "_url"])
+        empty.to_parquet(dp_dir / "flavor_cleaned.parquet")
+
+        from unittest.mock import MagicMock
+
+        kg = self._make_mock_kg()
+        settings = MagicMock()
+        settings.data_cleaning_dir = str(dp_dir)
+
+        apply_flavor_descriptions(kg, settings)
+        assert "_flavor_descriptions" not in kg.entities._entities.columns

@@ -10,6 +10,7 @@ from src.models import (
     RelationshipType,
     Triplet,
 )
+from src.models.entity import DiseaseEntity
 from src.models.version import KGVersion
 
 
@@ -41,12 +42,27 @@ class TestEntity:
         )
         assert e.entity_type == "food"
 
+    def test_disease_entity(self):
+        e = DiseaseEntity(
+            foodatlas_id="e3",
+            common_name="diabetes",
+        )
+        assert e.entity_type == "disease"
+
     def test_entity_invalid_type(self):
         with pytest.raises(ValueError):
             Entity(
                 foodatlas_id="e4",
                 entity_type="invalid",
                 common_name="test",
+            )
+
+    def test_flavor_type_rejected(self):
+        with pytest.raises(ValueError):
+            Entity(
+                foodatlas_id="e5",
+                entity_type="flavor",
+                common_name="sweet",
             )
 
     def test_entity_dump_aliases(self):

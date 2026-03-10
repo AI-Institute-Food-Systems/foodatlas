@@ -1,1 +1,1 @@
-"""Entity initialization — food, chemical, disease, and flavor."""
+"""Entity initialization — food, chemical, and disease."""

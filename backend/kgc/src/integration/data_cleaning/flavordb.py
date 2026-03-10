@@ -70,7 +70,7 @@ def _extract_flavordb_rows(flavordb_data: dict) -> pd.DataFrame:
             descriptors.add("bitter")
 
         url = f"https://cosylab.iiitd.edu.in/flavordb/molecules_json?id={pc_id}"
-        for flavor in descriptors:
+        for flavor in sorted(descriptors):
             rows.append(
                 {
                     "_pubchem_id": pc_id,

@@ -24,7 +24,7 @@ def append_foods_from_foodon(
     logger.info("Initializing food entities from FoodOn.")
 
     foodon = load_foodon(settings)
-    foodon_food = foodon[foodon["is_food"]]
+    foodon_food = foodon[foodon["is_food"]].sort_index()
     lut_food = load_lut_food(settings)
     lut_food_df = pd.DataFrame(lut_food.items(), columns=["name", "foodon_id"])
     names_grouped = lut_food_df.groupby("foodon_id")["name"].apply(list)
@@ -87,7 +87,7 @@ def append_foods_from_fdc(
     settings: "KGCSettings",
 ) -> None:
     """Add FDC food entities, linking to existing FoodOn entities where possible."""
-    fdc = load_fdc(settings)
+    fdc = load_fdc(settings).sort_index()
 
     foodon2fa: dict[str, str] = {}
     for entity_id, row in entity_store._entities.iterrows():

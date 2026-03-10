@@ -1,10 +1,11 @@
-"""Tests for FlavorDB entity initialization and triplet merging."""
+"""Tests for FlavorDB flavor description integration."""
 
 from unittest.mock import MagicMock
 
 import pandas as pd
-from src.integration.entities.flavor.init_entities import append_flavors_from_flavordb
-from src.integration.triplets.chemical_flavor.flavordb import merge_flavordb_triplets
+from src.integration.triplets.chemical_flavor.flavordb import (
+    apply_flavor_descriptions,
+)
 
 
 class TestFlavordbIntegration:
@@ -50,30 +51,17 @@ class TestFlavordbIntegration:
         kg.triplets._curr_tid = 1
         return kg
 
-    def test_append_flavors_adds_entities(self, tmp_path):
+    def test_apply_descriptions(self, tmp_path):
         data_dir = self._setup_data_dir(tmp_path)
         kg = self._make_mock_kg()
         settings = MagicMock()
         settings.data_dir = str(data_dir)
         settings.data_cleaning_dir = str(data_dir / "dp")
 
-        append_flavors_from_flavordb(kg.entities, settings)
+        apply_flavor_descriptions(kg, settings)
 
-        assert len(kg.entities._entities) > 1
-        flavor_ents = kg.entities._entities[
-            kg.entities._entities["entity_type"] == "flavor"
-        ]
-        assert len(flavor_ents) >= 1
-
-    def test_merge_triplets_after_entities(self, tmp_path):
-        data_dir = self._setup_data_dir(tmp_path)
-        kg = self._make_mock_kg()
-        settings = MagicMock()
-        settings.data_dir = str(data_dir)
-        settings.data_cleaning_dir = str(data_dir / "dp")
-
-        append_flavors_from_flavordb(kg.entities, settings)
-        merge_flavordb_triplets(kg, settings)
+        descs = kg.entities._entities.at["e0", "_flavor_descriptions"]
+        assert descs == ["sweet"]
 
     def test_no_data_skips(self, tmp_path):
         dp_dir = tmp_path / "dp"
@@ -86,5 +74,5 @@ class TestFlavordbIntegration:
         settings.data_dir = str(tmp_path)
         settings.data_cleaning_dir = str(dp_dir)
 
-        append_flavors_from_flavordb(kg.entities, settings)
-        assert len(kg.entities._entities) == 1
+        apply_flavor_descriptions(kg, settings)
+        assert "_flavor_descriptions" not in kg.entities._entities.columns

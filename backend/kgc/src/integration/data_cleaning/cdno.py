@@ -106,7 +106,7 @@ def _disambiguate_fdc_ids(cdno: pd.DataFrame) -> pd.DataFrame:
     }
 
     cleaned_rows = []
-    for fdc_id in fdc_ids:
+    for fdc_id in sorted(fdc_ids):
         if fdc_id == "1071":
             continue
         matches = cdno[cdno["fdc_nutrient_ids"].apply(lambda x, fid=fdc_id: fid in x)]

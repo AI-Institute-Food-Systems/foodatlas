@@ -1,1 +1,1 @@
-"""Chemical-flavor triplets from FlavorDB."""
+"""Chemical flavor descriptions from FlavorDB."""
