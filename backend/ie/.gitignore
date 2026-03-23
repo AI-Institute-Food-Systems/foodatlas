@@ -3,9 +3,11 @@ outputs/*
 !outputs/biobert_binary_prod/
 outputs/biobert_binary_prod/*
 !outputs/biobert_binary_prod/.gitkeep
+!outputs/biobert_binary_prod/download.sh
 !outputs/past_sentence_filtering_preds/
 outputs/past_sentence_filtering_preds/*
 !outputs/past_sentence_filtering_preds/.gitkeep
+!outputs/past_sentence_filtering_preds/download.sh
 !outputs/text_parser/
 outputs/text_parser/*
 !outputs/text_parser/last_search_date.txt
