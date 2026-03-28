@@ -2,22 +2,28 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
 from src.models.settings import KGCSettings
+
+if TYPE_CHECKING:
+    from pathlib import Path
 from src.pipeline.runner import _STAGE_HANDLERS, PipelineRunner
 from src.pipeline.stages import PipelineStage
 
 
 @pytest.fixture
-def settings() -> KGCSettings:
+def settings(tmp_path: Path) -> KGCSettings:
+    base = tmp_path
+    (base / "test_kg").mkdir()
     return KGCSettings(
-        kg_dir="/tmp/test_kg",
-        data_dir="/tmp/test_data",
-        pipeline={"stages": {"data_cleaning": {"output_dir": "/tmp/test_dp"}}},
-        output_dir="/tmp/test_out",
-        cache_dir="/tmp/test_cache",
+        kg_dir=str(base / "test_kg"),
+        data_dir=str(base / "test_data"),
+        pipeline={"stages": {"data_cleaning": {"output_dir": str(base / "test_dp")}}},
+        output_dir=str(base / "test_out"),
+        cache_dir=str(base / "test_cache"),
     )
 
 

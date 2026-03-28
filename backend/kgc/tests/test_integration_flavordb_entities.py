@@ -1,5 +1,7 @@
 """Tests for FlavorDB flavor description application."""
 
+from unittest.mock import MagicMock
+
 import pandas as pd
 from src.integration.triplets.chemical_flavor.flavordb import (
     apply_flavor_descriptions,
@@ -9,8 +11,6 @@ from src.integration.triplets.chemical_flavor.flavordb import (
 class TestApplyFlavorDescriptions:
     def _make_mock_kg(self):
         """Create a mock KnowledgeGraph with chemical entities."""
-        from unittest.mock import MagicMock
-
         kg = MagicMock()
         entities = pd.DataFrame(
             [
@@ -54,8 +54,6 @@ class TestApplyFlavorDescriptions:
         )
         data.to_parquet(dp_dir / "flavor_cleaned.parquet")
 
-        from unittest.mock import MagicMock
-
         kg = self._make_mock_kg()
         settings = MagicMock()
         settings.data_cleaning_dir = str(dp_dir)
@@ -70,8 +68,6 @@ class TestApplyFlavorDescriptions:
         dp_dir.mkdir()
         empty = pd.DataFrame(columns=["_pubchem_id", "_flavor", "_source", "_url"])
         empty.to_parquet(dp_dir / "flavor_cleaned.parquet")
-
-        from unittest.mock import MagicMock
 
         kg = self._make_mock_kg()
         settings = MagicMock()
