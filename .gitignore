@@ -145,3 +145,8 @@ npm-debug.log*
 .vercel
 *.tsbuildinfo
 next-env.d.ts
+
+# BMAD
+_bmad/
+.bmad_output/
+.claude/
