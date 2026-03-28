@@ -1,8 +1,6 @@
 """EntityStore — runtime container wrapping a pandas DataFrame."""
 
-import json
 import logging
-from ast import literal_eval
 from collections import OrderedDict
 from pathlib import Path
 
@@ -10,12 +8,12 @@ import pandas as pd
 
 from ..discovery.chemical import create_chemical_entities
 from ..discovery.food import create_food_entities
+from ..utils.json_io import read_json, write_json
 from .schema import (
     FILE_ENTITIES,
     FILE_LUT_CHEMICAL,
     FILE_LUT_FOOD,
     INDEX_COL,
-    TSV_SEP,
 )
 
 logger = logging.getLogger(__name__)
@@ -25,15 +23,13 @@ FAID_PREFIX = "e"
 
 def _load_lut(path: Path) -> dict[str, list[str]]:
     """Load a synonym → entity-ID lookup table from a JSON file."""
-    with path.open() as f:
-        data: dict[str, list[str]] = json.load(f)
+    data: dict[str, list[str]] = read_json(path)
     return data
 
 
 def _save_lut(lut: dict[str, list[str]], path: Path) -> None:
     """Save a synonym → entity-ID lookup table to a JSON file."""
-    with path.open("w") as f:
-        json.dump(lut, f, ensure_ascii=False)
+    write_json(path, lut)
 
 
 class EntityStore:
@@ -65,25 +61,24 @@ class EntityStore:
         self._load()
 
     def _load(self) -> None:
-        self._entities = pd.read_csv(
-            self.path_entities,
-            sep=TSV_SEP,
-            converters={
-                "synonyms": literal_eval,
-                "external_ids": literal_eval,
-                "_synonyms_display": literal_eval,
-            },
-        ).set_index(INDEX_COL)
+        records = read_json(self.path_entities)
+        self._entities = pd.DataFrame(records)
+        if not self._entities.empty:
+            self._entities = self._entities.set_index(INDEX_COL)
 
         self._lut_food = _load_lut(self.path_lut_food)
         self._lut_chemical = _load_lut(self.path_lut_chemical)
 
-        max_eid = self._entities.index.str.slice(1).astype(int).max()
-        self._curr_eid = max_eid + 1 if pd.notna(max_eid) else 1
+        if self._entities.empty:
+            self._curr_eid = 1
+        else:
+            max_eid = self._entities.index.str.slice(1).astype(int).max()
+            self._curr_eid = max_eid + 1 if pd.notna(max_eid) else 1
 
     def save(self, path_output_dir: Path) -> None:
         path_output_dir = Path(path_output_dir)
-        self._entities.to_csv(path_output_dir / FILE_ENTITIES, sep=TSV_SEP)
+        records = self._entities.reset_index().to_dict(orient="records")
+        write_json(path_output_dir / FILE_ENTITIES, records)
         _save_lut(self._lut_food, path_output_dir / FILE_LUT_FOOD)
         _save_lut(self._lut_chemical, path_output_dir / FILE_LUT_CHEMICAL)
 

@@ -1,32 +1,33 @@
 """Tests for the TripletStore class."""
 
+import json
 from pathlib import Path
 
 import pandas as pd
 import pytest
+from src.stores.schema import FILE_TRIPLETS
 from src.stores.triplet_store import FAID_PREFIX, TripletStore
 
 
 @pytest.fixture()
 def triplets_dir(tmp_path: Path) -> Path:
-    triplets_df = pd.DataFrame(
-        [
-            {
-                "foodatlas_id": "t0",
-                "head_id": "e0",
-                "relationship_id": "r1",
-                "tail_id": "e1",
-                "metadata_ids": ["mc0"],
-            },
-        ]
-    )
-    triplets_df.to_csv(tmp_path / "triplets.tsv", sep="\t", index=False)
+    data = [
+        {
+            "foodatlas_id": "t0",
+            "head_id": "e0",
+            "relationship_id": "r1",
+            "tail_id": "e1",
+            "metadata_ids": ["mc0"],
+        },
+    ]
+    with (tmp_path / FILE_TRIPLETS).open("w") as f:
+        json.dump(data, f)
     return tmp_path
 
 
 @pytest.fixture()
 def triplets(triplets_dir: Path) -> TripletStore:
-    return TripletStore(path_triplets=triplets_dir / "triplets.tsv")
+    return TripletStore(path_triplets=triplets_dir / FILE_TRIPLETS)
 
 
 class TestTripletStoreLoad:
@@ -105,6 +106,6 @@ class TestTripletStoreSaveReload:
         out_dir.mkdir()
         triplets.save(out_dir)
 
-        reloaded = TripletStore(path_triplets=out_dir / "triplets.tsv")
+        reloaded = TripletStore(path_triplets=out_dir / FILE_TRIPLETS)
         assert len(reloaded._triplets) == len(triplets._triplets)
         assert "e0_r1_e1" in reloaded._key_to_metadata

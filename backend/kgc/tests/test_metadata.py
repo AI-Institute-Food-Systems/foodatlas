@@ -1,41 +1,42 @@
 """Tests for the MetadataContainsStore class."""
 
+import json
 from pathlib import Path
 
 import pandas as pd
 import pytest
 from src.stores.metadata_store import COLUMNS, FAID_PREFIX, MetadataContainsStore
+from src.stores.schema import FILE_METADATA_CONTAINS
 
 
 @pytest.fixture()
 def metadata_dir(tmp_path: Path) -> Path:
-    metadata_df = pd.DataFrame(
-        [
-            {
-                "foodatlas_id": "mc0",
-                "conc_value": 1.5,
-                "conc_unit": "mg/g",
-                "food_part": "peel",
-                "food_processing": "raw",
-                "source": "fdc",
-                "reference": ["ref1"],
-                "entity_linking_method": "exact",
-                "quality_score": 0.95,
-                "_food_name": "apple",
-                "_chemical_name": "vitamin c",
-                "_conc": "1.5 mg/g",
-                "_food_part": "peel",
-            },
-        ]
-    )
-    metadata_df.to_csv(tmp_path / "metadata_contains.tsv", sep="\t", index=False)
+    data = [
+        {
+            "foodatlas_id": "mc0",
+            "conc_value": 1.5,
+            "conc_unit": "mg/g",
+            "food_part": "peel",
+            "food_processing": "raw",
+            "source": "fdc",
+            "reference": ["ref1"],
+            "entity_linking_method": "exact",
+            "quality_score": 0.95,
+            "_food_name": "apple",
+            "_chemical_name": "vitamin c",
+            "_conc": "1.5 mg/g",
+            "_food_part": "peel",
+        },
+    ]
+    with (tmp_path / FILE_METADATA_CONTAINS).open("w") as f:
+        json.dump(data, f)
     return tmp_path
 
 
 @pytest.fixture()
 def metadata(metadata_dir: Path) -> MetadataContainsStore:
     return MetadataContainsStore(
-        path_metadata_contains=metadata_dir / "metadata_contains.tsv"
+        path_metadata_contains=metadata_dir / FILE_METADATA_CONTAINS
     )
 
 
@@ -145,7 +146,7 @@ class TestMetadataContainsStoreSaveReload:
         metadata.save(out_dir)
 
         reloaded = MetadataContainsStore(
-            path_metadata_contains=out_dir / "metadata_contains.tsv"
+            path_metadata_contains=out_dir / FILE_METADATA_CONTAINS
         )
         assert len(reloaded._records) == len(metadata._records)
         row = reloaded._records.loc["mc0"]

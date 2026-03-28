@@ -10,6 +10,7 @@ from src.models import (
     RelationshipType,
     Triplet,
 )
+from src.models.entity import DiseaseEntity
 from src.models.version import KGVersion
 
 
@@ -41,6 +42,13 @@ class TestEntity:
         )
         assert e.entity_type == "food"
 
+    def test_disease_entity(self):
+        e = DiseaseEntity(
+            foodatlas_id="e3",
+            common_name="diabetes",
+        )
+        assert e.entity_type == "disease"
+
     def test_entity_invalid_type(self):
         with pytest.raises(ValueError):
             Entity(
@@ -49,22 +57,34 @@ class TestEntity:
                 common_name="test",
             )
 
+    def test_flavor_type_rejected(self):
+        with pytest.raises(ValueError):
+            Entity(
+                foodatlas_id="e5",
+                entity_type="flavor",
+                common_name="sweet",
+            )
+
     def test_entity_dump_aliases(self):
         e = FoodEntity(
             foodatlas_id="e1",
             common_name="apple",
-            synonyms_display=["apple"],
+            synonyms_display={"foodon": ["apple"]},
         )
         dumped = e.model_dump(by_alias=True)
         assert "_synonyms_display" in dumped
         assert "synonyms_display" not in dumped
-        assert dumped["_synonyms_display"] == ["apple"]
+        assert dumped["_synonyms_display"] == {"foodon": ["apple"]}
 
     def test_entity_construct_by_alias(self):
         e = FoodEntity.model_validate(
-            {"foodatlas_id": "e1", "common_name": "apple", "_synonyms_display": ["a"]}
+            {
+                "foodatlas_id": "e1",
+                "common_name": "apple",
+                "_synonyms_display": {"foodon": ["a"]},
+            }
         )
-        assert e.synonyms_display == ["a"]
+        assert e.synonyms_display == {"foodon": ["a"]}
 
 
 class TestTriplet:
@@ -137,9 +157,9 @@ class TestRelationship:
     def test_relationship_types(self):
         assert RelationshipType.CONTAINS == "r1"
         assert RelationshipType.IS_A == "r2"
-        assert RelationshipType.PART_OF == "r3"
-        assert RelationshipType.HAS_PROPERTY == "r4"
-        assert RelationshipType.RELATED_TO == "r5"
+        assert RelationshipType.POSITIVELY_CORRELATES_WITH == "r3"
+        assert RelationshipType.NEGATIVELY_CORRELATES_WITH == "r4"
+        assert RelationshipType.HAS_FLAVOR == "r5"
 
     def test_relationship_model(self):
         r = Relationship(

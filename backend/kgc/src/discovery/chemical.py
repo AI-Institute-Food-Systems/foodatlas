@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING
 import pandas as pd
 
 from ..models.entity import ChemicalEntity
-from ..stores.schema import ENTITY_COLUMNS
 from ..utils import get_lookup_key_by_id
 from .query import query_pubchem_compound
 
@@ -16,8 +15,6 @@ if TYPE_CHECKING:
     from ..stores.entity_store import EntityStore
 
 logger = logging.getLogger(__name__)
-
-COLUMNS = ENTITY_COLUMNS
 
 
 def _parse_pubchem_names(row: pd.Series) -> pd.Series:
@@ -42,15 +39,12 @@ def _create_from_pubchem_compound(
     """Create chemical entities that have PubChem CIDs."""
     logger.info("Start creating entities with PubChem CIDs...")
 
-    entities_new = records.copy()
-    entities_new[COLUMNS] = None
-    entities_new = entities_new.apply(_parse_pubchem_names, axis=1)
+    parsed = records.apply(_parse_pubchem_names, axis=1)
 
-    entities_skip: list = []
-    for _, row in entities_new.iterrows():
+    rows: list[dict] = []
+    for _, row in parsed.iterrows():
         lookup_key = get_lookup_key_by_id("pubchem_cid", row["CID"])
         if lookup_key in store._lut_chemical:
-            entities_skip.append(row["CID"])
             eid = store._lut_chemical[lookup_key][0]
             for synonym in row["synonyms"]:
                 if synonym not in store._entities.at[eid, "synonyms"]:
@@ -59,21 +53,22 @@ def _create_from_pubchem_compound(
                         store._lut_chemical[synonym] = []
                     if eid not in store._lut_chemical[synonym]:
                         store._lut_chemical[synonym].append(eid)
+            continue
 
-    entities_new = entities_new[~entities_new["CID"].isin(entities_skip)]
-    entities_new["external_ids"] = entities_new["CID"].apply(
-        lambda x: {"pubchem_cid": x}
-    )
+        entity = ChemicalEntity(
+            foodatlas_id=f"e{store._curr_eid}",
+            common_name=row["common_name"],
+            scientific_name=row["scientific_name"] or "",
+            synonyms=row["synonyms"],
+            external_ids={"pubchem_cid": [row["CID"]]},
+        )
+        rows.append(entity.model_dump(by_alias=True))
+        store._curr_eid += 1
 
-    entities_new["foodatlas_id"] = [
-        f"e{i}" for i in range(store._curr_eid, store._curr_eid + len(entities_new))
-    ]
-    store._curr_eid += len(entities_new)
-
-    entities_new["entity_type"] = "chemical"
-    entities_new = entities_new[COLUMNS].set_index("foodatlas_id")
-    store._entities = pd.concat([store._entities, entities_new])
-    store.update_lut(entities_new)
+    if rows:
+        entities_new = pd.DataFrame(rows).set_index("foodatlas_id")
+        store._entities = pd.concat([store._entities, entities_new])
+        store.update_lut(entities_new)
 
     logger.info("Completed!")
 
@@ -118,5 +113,6 @@ def create_chemical_entities(
         store.path_kg,
         store.path_cache_dir,
     )
-    _create_from_pubchem_compound(store, records)
+    if not records.empty:
+        _create_from_pubchem_compound(store, records)
     _create_from_names(store, entity_names_new)

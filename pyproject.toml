@@ -62,5 +62,10 @@ disallow_untyped_defs = false
 
 # BANDIT
 [tool.bandit]
-exclude_dirs = ["**/tests"]
+exclude_dirs = [
+    "backend/api/tests",
+    "backend/db/tests",
+    "backend/ie/tests",
+    "backend/kgc/tests",
+]
 skips = ["B101", "B311"]

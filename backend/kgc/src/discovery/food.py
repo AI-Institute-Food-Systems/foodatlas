@@ -10,7 +10,6 @@ import pandas as pd
 from inflection import pluralize, singularize
 
 from ..models.entity import FoodEntity
-from ..stores.schema import ENTITY_COLUMNS
 from ..utils import get_lookup_key_by_id, merge_sets
 from .query import query_ncbi_taxonomy
 
@@ -18,8 +17,6 @@ if TYPE_CHECKING:
     from ..stores.entity_store import EntityStore
 
 logger = logging.getLogger(__name__)
-
-COLUMNS = ENTITY_COLUMNS
 
 
 def _group_synonyms(synonyms_groups: list[list[str]]) -> list[list[str]]:
@@ -93,23 +90,27 @@ def _create_from_ncbi_taxonomy(
     """Create food entities that have NCBI Taxonomy IDs."""
     logger.info("Start creating entities with NCBI Taxonomy IDs...")
 
-    entities_new = records.copy()
-    entities_new[COLUMNS] = None
-    entities_new = entities_new.apply(_parse_ncbi_names, axis=1)
-    entities_new = entities_new.rename(columns={"TaxId": "ncbi_taxon_id"})
-    entities_new["external_ids"] = entities_new["ncbi_taxon_id"].apply(
-        lambda x: {"ncbi_taxon_id": x}
-    )
+    if records.empty:
+        return
 
-    entities_new["foodatlas_id"] = [
-        f"e{i}" for i in range(store._curr_eid, store._curr_eid + len(entities_new))
-    ]
-    store._curr_eid += len(entities_new)
+    parsed = records.apply(_parse_ncbi_names, axis=1)
 
-    entities_new["entity_type"] = "food"
-    entities_new = entities_new[COLUMNS].set_index("foodatlas_id")
-    store._entities = pd.concat([store._entities, entities_new])
-    store.update_lut(entities_new)
+    rows: list[dict] = []
+    for _, row in parsed.iterrows():
+        entity = FoodEntity(
+            foodatlas_id=f"e{store._curr_eid}",
+            common_name=row["common_name"],
+            scientific_name=row["scientific_name"] or "",
+            synonyms=row["synonyms"],
+            external_ids={"ncbi_taxon_id": [row["TaxId"]]},
+        )
+        rows.append(entity.model_dump(by_alias=True))
+        store._curr_eid += 1
+
+    if rows:
+        entities_new = pd.DataFrame(rows).set_index("foodatlas_id")
+        store._entities = pd.concat([store._entities, entities_new])
+        store.update_lut(entities_new)
 
     logger.info("Completed!")
 
