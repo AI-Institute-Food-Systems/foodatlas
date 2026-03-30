@@ -73,6 +73,11 @@ class KGCSettings(BaseSettings):
     def data_cleaning_dir(self) -> str:
         return self.pipeline.stages.data_cleaning.output_dir
 
+    @property
+    def ingest_dir(self) -> str:
+        """Output directory for Phase 1 ingest artifacts."""
+        return str(Path(self.output_dir) / "ingest")
+
     @model_validator(mode="before")
     @classmethod
     def _fill_defaults(cls, values: dict) -> dict:

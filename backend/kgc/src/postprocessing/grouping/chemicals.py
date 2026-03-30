@@ -181,10 +181,15 @@ def _invert_is_a(ht_is_a: dict[str, list[str]]) -> dict[str, set[str]]:
 
 
 def _find_root_chemical(entity_store: EntityStore) -> str:
-    """Find the entity ID for 'chemical entity' (ChEBI root)."""
-    ids = entity_store.get_entity_ids("chemical", "chemical entity")
+    """Find the entity ID for 'molecular entity' (ChEBI root in the store).
+
+    The data-cleaning stage filters to descendants of ChEBI:23367
+    ('molecular entity'), so the broader 'chemical entity' (ChEBI:24431)
+    is never created.  We therefore use 'molecular entity' as the root.
+    """
+    ids = entity_store.get_entity_ids("chemical", "molecular entity")
     if not ids:
-        msg = "Root 'chemical entity' not found in entity store."
+        msg = "Root 'molecular entity' not found in entity store."
         raise ValueError(msg)
     return ids[0]
 

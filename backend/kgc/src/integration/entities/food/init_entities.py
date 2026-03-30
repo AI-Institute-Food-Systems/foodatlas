@@ -37,7 +37,7 @@ def append_foods_from_foodon(
             common_name=synonyms[0],
             synonyms=synonyms,
             external_ids={"foodon": [foodon_id]},
-            synonyms_display=_remove_plural_display(synonyms),
+            _synonyms_display=_remove_plural_display(synonyms),
         )
         entities_new_rows.append(entity.model_dump(by_alias=True))
         entity_store._curr_eid += 1
@@ -121,7 +121,7 @@ def append_foods_from_fdc(
             common_name=row["description"],
             synonyms=[row["description"]],
             external_ids={"fdc": [fdc_id]},
-            synonyms_display={"fdc": [row["description"]]},
+            _synonyms_display={"fdc": [row["description"]]},
         )
         entities_new_rows.append(entity.model_dump(by_alias=True))
         entity_store._curr_eid += 1

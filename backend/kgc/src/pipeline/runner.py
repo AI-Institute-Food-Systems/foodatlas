@@ -6,45 +6,14 @@ import datetime
 import hashlib
 import logging
 import time
-from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pandas as pd
 
+from ..construct.runner import ConstructRunner
 from ..constructor.knowledge_graph import KnowledgeGraph
-from ..integration.data_cleaning.cdno import process_cdno
-from ..integration.data_cleaning.chebi import process_chebi
-from ..integration.data_cleaning.ctd import process_ctd
-from ..integration.data_cleaning.flavordb import process_flavordb
-from ..integration.data_cleaning.foodon import process_foodon
-from ..integration.data_cleaning.mesh import process_mesh
-from ..integration.data_cleaning.pubchem import process_pubchem
-from ..integration.entities.chemical.init_entities import (
-    append_chemicals_from_cdno,
-    append_chemicals_from_chebi,
-    append_chemicals_from_fdc,
-)
-from ..integration.entities.disease.init_entities import append_diseases_from_ctd
-from ..integration.entities.food.init_entities import (
-    append_foods_from_fdc,
-    append_foods_from_foodon,
-)
-from ..integration.scaffold import create_empty_entity_files, create_empty_triplet_files
-from ..integration.triplets.chemical_chemical.chebi import create_chemical_ontology
-from ..integration.triplets.chemical_disease.ctd import merge_ctd_triplets
-from ..integration.triplets.chemical_flavor.flavordb import apply_flavor_descriptions
-from ..integration.triplets.food_chemical.fdc import merge_fdc
-from ..integration.triplets.food_food.foodon import create_food_ontology
-from ..postprocessing.common_name import apply_common_names
-from ..postprocessing.grouping.chemicals import (
-    generate_chemical_groups_cdno,
-    generate_chemical_groups_chebi,
-)
-from ..postprocessing.grouping.foods import generate_food_groups_foodon
-from ..postprocessing.synonyms_display import apply_synonyms_display
-from ..stores.entity_store import EntityStore
-from ..stores.schema import FILE_ENTITIES, FILE_LUT_CHEMICAL, FILE_LUT_FOOD
+from ..ingest.runner import IngestRunner
 from ..utils.json_io import read_json, write_json
 from .stages import ALL_STAGES, PipelineStage
 
@@ -67,8 +36,13 @@ class PipelineRunner:
         self._settings = settings
         self._kg: KnowledgeGraph | None = None
 
-    def run(self, stages: list[PipelineStage] | None = None) -> None:
+    def run(
+        self,
+        stages: list[PipelineStage] | None = None,
+        sources: list[str] | None = None,
+    ) -> None:
         """Run all or selected stages in order."""
+        self._sources = sources
         to_run = sorted(stages or ALL_STAGES, key=lambda s: s.value)
 
         logger.info("Pipeline starting — stages: %s", [s.name for s in to_run])
@@ -103,57 +77,26 @@ class PipelineRunner:
     # Stage handlers
     # ------------------------------------------------------------------
 
-    def _run_data_cleaning(self) -> None:
-        s = self._settings
-        processors = [
-            process_foodon,
-            process_chebi,
-            process_cdno,
-            process_mesh,
-            process_pubchem,
-            process_ctd,
-            process_flavordb,
-        ]
-        logger.info("Launching %d processors in parallel.", len(processors))
-        with ProcessPoolExecutor(max_workers=len(processors)) as pool:
-            futures = {pool.submit(fn, s): fn.__name__ for fn in processors}
-            for future in as_completed(futures):
-                name = futures[future]
-                future.result()  # re-raises any exception
-                logger.info("Processor %s finished.", name)
+    def _run_ingest(self) -> None:
+        runner = IngestRunner(self._settings)
+        runner.run(sources=getattr(self, "_sources", None))
 
-    def _run_entity_init(self) -> None:
-        s = self._settings
-        create_empty_entity_files(s)
+    def _run_construct_full(self) -> None:
+        """Run the full Phase 2 construct pipeline."""
+        runner = ConstructRunner(self._settings)
+        runner.run()
 
-        kg_dir = Path(s.kg_dir)
-        entity_store = EntityStore(
-            path_entities=kg_dir / FILE_ENTITIES,
-            path_lut_food=kg_dir / FILE_LUT_FOOD,
-            path_lut_chemical=kg_dir / FILE_LUT_CHEMICAL,
-        )
+    def _run_corrections(self) -> None:
+        logger.info("Run as part of construct pipeline (use stages together).")
 
-        append_foods_from_foodon(entity_store, s)
-        append_foods_from_fdc(entity_store, s)
-        append_chemicals_from_chebi(entity_store, s)
-        append_chemicals_from_cdno(entity_store, s)
-        append_chemicals_from_fdc(entity_store, s)
-        append_diseases_from_ctd(entity_store, s)
-        entity_store.save(kg_dir)
+    def _run_subtree_filter(self) -> None:
+        logger.info("Run as part of construct pipeline (use stages together).")
 
-    def _run_triplet_init(self) -> None:
-        s = self._settings
-        create_empty_triplet_files(s)
+    def _run_entity_resolution(self) -> None:
+        logger.info("Run as part of construct pipeline (use stages together).")
 
-        kg = self._ensure_kg()
-
-        create_food_ontology(kg.entities, s)
-        create_chemical_ontology(kg.entities, s)
-
-        merge_fdc(kg, s)
-        merge_ctd_triplets(kg, s)
-        apply_flavor_descriptions(kg, s)
-        kg.save()
+    def _run_triplet_build(self) -> None:
+        logger.info("Run as part of construct pipeline (use stages together).")
 
     def _run_metadata_processing(self) -> None:
         logger.info("Metadata processing is handled by the IE pipeline.")
@@ -174,23 +117,7 @@ class PipelineRunner:
         self._validate_kg()
 
     def _run_postprocessing(self) -> None:
-        kg = self._ensure_kg()
-        s = self._settings
-        store = kg.entities
-        chemicals = store._entities.query("entity_type == 'chemical'")
-
-        food_groups = generate_food_groups_foodon(store, s)
-        store._entities.loc[food_groups.index, "foodon_group"] = food_groups
-
-        cdno_groups = generate_chemical_groups_cdno(chemicals, s)
-        store._entities.loc[cdno_groups.index, "cdno_group"] = cdno_groups
-
-        chebi_groups = generate_chemical_groups_chebi(chemicals, store, s)
-        store._entities.loc[chebi_groups.index, "chebi_group"] = chebi_groups
-
-        apply_common_names(store, kg.triplets, kg.metadata)
-        apply_synonyms_display(store)
-        kg.save()
+        logger.info("Run as part of construct pipeline (use stages together).")
 
     # ------------------------------------------------------------------
     # Helpers
@@ -227,9 +154,11 @@ class PipelineRunner:
 
 
 _STAGE_HANDLERS: dict[PipelineStage, Callable[[PipelineRunner], None]] = {
-    PipelineStage.DATA_CLEANING: PipelineRunner._run_data_cleaning,
-    PipelineStage.ENTITY_INIT: PipelineRunner._run_entity_init,
-    PipelineStage.TRIPLET_INIT: PipelineRunner._run_triplet_init,
+    PipelineStage.INGEST: PipelineRunner._run_ingest,
+    PipelineStage.CORRECTIONS: PipelineRunner._run_construct_full,
+    PipelineStage.SUBTREE_FILTER: PipelineRunner._run_subtree_filter,
+    PipelineStage.ENTITY_RESOLUTION: PipelineRunner._run_entity_resolution,
+    PipelineStage.TRIPLET_BUILD: PipelineRunner._run_triplet_build,
     PipelineStage.METADATA_PROCESSING: PipelineRunner._run_metadata_processing,
     PipelineStage.TRIPLET_EXPANSION: PipelineRunner._run_triplet_expansion,
     PipelineStage.POSTPROCESSING: PipelineRunner._run_postprocessing,

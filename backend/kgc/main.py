@@ -7,12 +7,14 @@ import logging
 from pathlib import Path
 
 import click
+from src.ingest.runner import ALL_ADAPTERS
 from src.models.settings import KGCSettings
 from src.pipeline.runner import PipelineRunner
 from src.pipeline.stages import PipelineStage
 
 _STAGE_NAMES = [s.name.lower() for s in PipelineStage]
 _VALID_STAGES = _STAGE_NAMES + [str(s.value) for s in PipelineStage]
+_VALID_SOURCES = [cls().source_id for cls in ALL_ADAPTERS]
 
 
 def _parse_stage(name: str) -> PipelineStage:
@@ -65,14 +67,26 @@ def cli(
     "stages",
     multiple=True,
     type=click.Choice(_VALID_STAGES, case_sensitive=False),
-    help="Stage name or number (0-5, repeatable). Omit for all.",
+    help="Stage name or number (0-7, repeatable). Omit for all.",
+)
+@click.option(
+    "--source",
+    "sources",
+    multiple=True,
+    type=click.Choice(_VALID_SOURCES, case_sensitive=False),
+    help="Source adapter to run (repeatable). Only applies to ingest stage.",
 )
 @click.pass_context
-def run(ctx: click.Context, stages: tuple[str, ...]) -> None:
+def run(
+    ctx: click.Context,
+    stages: tuple[str, ...],
+    sources: tuple[str, ...],
+) -> None:
     """Run pipeline stages."""
     settings: KGCSettings = ctx.obj["settings"]
     runner = PipelineRunner(settings)
-    runner.run(_resolve_stages(stages))
+    source_list = list(sources) if sources else None
+    runner.run(_resolve_stages(stages), sources=source_list)
 
 
 @cli.command()
@@ -81,7 +95,7 @@ def init(ctx: click.Context) -> None:
     """Shortcut: run entity and triplet initialization."""
     settings: KGCSettings = ctx.obj["settings"]
     runner = PipelineRunner(settings)
-    runner.run([PipelineStage.ENTITY_INIT, PipelineStage.TRIPLET_INIT])
+    runner.run([PipelineStage.INGEST, PipelineStage.CORRECTIONS])
 
 
 if __name__ == "__main__":
