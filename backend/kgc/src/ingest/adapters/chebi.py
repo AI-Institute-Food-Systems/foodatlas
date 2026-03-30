@@ -105,8 +105,8 @@ def _build_edges(chebi_dir: Path) -> pd.DataFrame:
         rows.append(
             {
                 "source_id": SOURCE_ID,
-                "head_native_id": str(row["INIT_ID"]),
-                "tail_native_id": str(row["FINAL_ID"]),
+                "head_native_id": str(row["FINAL_ID"]),
+                "tail_native_id": str(row["INIT_ID"]),
                 "edge_type": edge_type,
                 "raw_attrs": {},
             }

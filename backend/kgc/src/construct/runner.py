@@ -19,7 +19,6 @@ from ..postprocessing.grouping.chemicals import (
 )
 from ..postprocessing.grouping.foods import generate_food_groups_foodon
 from ..postprocessing.synonyms_display import apply_synonyms_display
-from .corrections_applier import apply_corrections
 from .entity_resolver import EntityResolver
 from .subtree_filter import filter_sources
 from .triplet_builder import build_triplets
@@ -43,8 +42,9 @@ class ConstructRunner:
         sources = self._load_ingest_output()
         corrections = load_corrections()
 
-        logger.info("=== CORRECTIONS ===")
-        apply_corrections(sources, corrections)
+        # Corrections are disabled — the base KG should be a faithful
+        # representation of the source data. All fixes are applied as
+        # patches at read time (overlay/override pattern).
 
         logger.info("=== SUBTREE FILTER ===")
         filter_sources(sources, corrections.ontology_roots)
@@ -61,8 +61,10 @@ class ConstructRunner:
         kg = KnowledgeGraph(self._settings)
         build_triplets(kg, sources, self._settings)
 
-        logger.info("=== POSTPROCESSING ===")
-        self._postprocess(kg)
+        # Postprocessing (common names, grouping, synonym display) is
+        # intentionally skipped — it operates on the final KG and can be
+        # run separately once the base KG is validated.
+        logger.info("Construct complete. Skipping postprocessing.")
 
     def _load_ingest_output(self) -> dict[str, dict[str, pd.DataFrame]]:
         """Load Phase 1 parquet artifacts into memory."""

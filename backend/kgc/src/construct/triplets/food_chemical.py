@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
+from ...models.relationship import RelationshipType
+
 if TYPE_CHECKING:
     from ...constructor.knowledge_graph import KnowledgeGraph
 
@@ -17,7 +19,11 @@ def merge_fdc_triplets(
     kg: KnowledgeGraph,
     sources: dict[str, dict[str, pd.DataFrame]],
 ) -> None:
-    """Create food-chemical CONTAINS triplets from FDC edges."""
+    """Create food-chemical CONTAINS triplets from FDC edges.
+
+    Resolves FDC IDs directly to entity IDs via external_ids,
+    bypassing name-based lookup to avoid creating duplicate entities.
+    """
     fdc = sources.get("fdc")
     if fdc is None:
         return
@@ -30,29 +36,24 @@ def merge_fdc_triplets(
     nodes = fdc["nodes"]
     fdc2fa = _build_fdc_maps(kg.entities._entities)
 
-    rows: list[dict] = []
-    for _, edge in contains.iterrows():
-        food_native = edge["head_native_id"]
-        nutrient_native = edge["tail_native_id"]
-        food_id = int(food_native.split(":")[-1])
-        nutrient_id = int(nutrient_native.split(":")[-1])
+    nutrient_units = _build_nutrient_unit_map(nodes)
 
-        if food_id not in fdc2fa["food"] or nutrient_id not in fdc2fa["nutrient"]:
+    metadata_rows: list[dict] = []
+    for _, edge in contains.iterrows():
+        food_id = int(edge["head_native_id"].split(":")[-1])
+        nutrient_id = int(edge["tail_native_id"].split(":")[-1])
+
+        head_id = fdc2fa["food"].get(food_id)
+        tail_id = fdc2fa["nutrient"].get(nutrient_id)
+        if head_id is None or tail_id is None:
             continue
 
         attrs = edge["raw_attrs"] if isinstance(edge["raw_attrs"], dict) else {}
         amount = attrs.get("amount", 0.0)
+        unit_name = nutrient_units.get(nutrient_id, "mg")
+        conc_unit = f"{unit_name.lower()}/100g"
 
-        nutrient_row = nodes[nodes["native_id"] == nutrient_native]
-        unit_name = ""
-        if not nutrient_row.empty:
-            raw = nutrient_row.iloc[0].get("raw_attrs", {})
-            if isinstance(raw, dict):
-                unit_name = raw.get("unit_name", "")
-
-        conc_unit = f"{unit_name.lower()}/100g" if unit_name else "mg/100g"
-
-        rows.append(
+        metadata_rows.append(
             {
                 "_food_name": f"FDC:{food_id}",
                 "_chemical_name": f"FDC_NUTRIENT:{nutrient_id}",
@@ -69,16 +70,25 @@ def merge_fdc_triplets(
                 ],
                 "entity_linking_method": "id_matching",
                 "quality_score": None,
+                "_head_id": head_id,
+                "_tail_id": tail_id,
             }
         )
 
-    metadata = pd.DataFrame(rows)
-    if metadata.empty:
+    if not metadata_rows:
         logger.info("No FDC metadata to merge.")
         return
 
-    kg.add_triplets_from_metadata(metadata, relationship_type="contains")
-    logger.info("Merged %d FDC metadata rows.", len(metadata))
+    metadata_df = pd.DataFrame(metadata_rows)
+
+    stored = kg.metadata.create(metadata_df)
+
+    stored["head_id"] = metadata_df["_head_id"].values
+    stored["tail_id"] = metadata_df["_tail_id"].values
+    stored["relationship_id"] = RelationshipType.CONTAINS
+    triplets = kg.triplets.create(stored)
+
+    logger.info("Merged %d FDC metadata, %d triplets.", len(stored), len(triplets))
 
 
 def _build_fdc_maps(
@@ -93,3 +103,15 @@ def _build_fdc_maps(
         for n_id in ext.get("fdc_nutrient", []):
             nutrient_map[int(n_id)] = str(eid)
     return {"food": food_map, "nutrient": nutrient_map}
+
+
+def _build_nutrient_unit_map(nodes: pd.DataFrame) -> dict[int, str]:
+    """Map nutrient ID → unit_name from FDC nodes."""
+    nutrients = nodes[nodes["node_type"] == "nutrient"]
+    result: dict[int, str] = {}
+    for _, row in nutrients.iterrows():
+        nid = int(row["native_id"].split(":")[-1])
+        attrs = row.get("raw_attrs")
+        if isinstance(attrs, dict):
+            result[nid] = attrs.get("unit_name", "mg")
+    return result

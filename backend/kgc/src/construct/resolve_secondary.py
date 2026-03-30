@@ -45,6 +45,15 @@ def _build_foodon_to_fa(store: EntityStore) -> dict[str, str]:
     return result
 
 
+def _build_external_index(store: EntityStore, key: str) -> dict[str, str]:
+    """Build a hash map from external_ids[key] values → entity ID."""
+    result: dict[str, str] = {}
+    for eid, row in store._entities.iterrows():
+        for val in row["external_ids"].get(key, []):
+            result[str(val)] = str(eid)
+    return result
+
+
 # -- Pass 2 ---------------------------------------------------------------
 
 
@@ -132,12 +141,14 @@ def link_fdc_nutrients(
     for _, xref in fdc_nutrient_xrefs.iterrows():
         fdc_to_cdno[xref["target_id"]] = xref["native_id"]
 
+    cdno_index = _build_external_index(store, "cdno")
+
     linked = 0
     for _, row in nutrients.iterrows():
         nutrient_id = row["native_id"].split(":")[-1]
         if nutrient_id in fdc_to_cdno:
             cdno_id = fdc_to_cdno[nutrient_id]
-            fa_id = _find_by_external(store, "cdno", cdno_id)
+            fa_id = cdno_index.get(cdno_id)
             if fa_id:
                 ext = store._entities.at[fa_id, "external_ids"]
                 if "fdc_nutrient" not in ext:
@@ -161,9 +172,7 @@ def create_unlinked_cdno(
     if cdno is None:
         return
     nodes = cdno["nodes"]
-    linked_ids: set[str] = set()
-    for _, row in store._entities.iterrows():
-        linked_ids.update(row["external_ids"].get("cdno", []))
+    linked_ids = _build_external_index(store, "cdno")
 
     unlinked = nodes[~nodes["native_id"].isin(linked_ids)]
     rows: list[dict] = []
@@ -240,10 +249,3 @@ def create_unlinked_fdc_nutrients(
         store._curr_eid += 1
     _append_entities(store, rows)
     logger.info("Pass 3: %d unlinked FDC nutrient entities.", len(rows))
-
-
-def _find_by_external(store: EntityStore, key: str, value: str) -> str | None:
-    for eid, row in store._entities.iterrows():
-        if value in row["external_ids"].get(key, []):
-            return str(eid)
-    return None
