@@ -1,4 +1,4 @@
-"""Stage 4: Build triplets from resolved entities and Phase 1 edges."""
+"""Build triplets from resolved entities and Phase 1 edges."""
 
 from __future__ import annotations
 
@@ -26,12 +26,11 @@ def build_triplets(
 ) -> None:
     """Orchestrate triplet creation from resolved entities + Phase 1 edges.
 
-    This replaces the old TRIPLET_INIT stage, consuming Phase 1 edges
-    rather than re-reading raw data files.
+    Mutates *kg* in memory. The caller is responsible for calling
+    ``kg.save()`` after all triplet operations are complete.
     """
     create_food_ontology(kg.entities, sources, settings)
     create_chemical_ontology(kg.entities, sources, settings)
     merge_fdc_triplets(kg, sources)
     apply_flavor_descriptions(kg, sources)
-    kg.save()
     logger.info("Triplet build complete.")

@@ -2,7 +2,6 @@
 
 import pytest
 from src.utils.constants import get_lookup_key_by_id
-from src.utils.merge_sets import merge_sets
 
 
 class TestGetLookupKeyById:
@@ -25,33 +24,3 @@ class TestGetLookupKeyById:
     def test_unknown_id_type_raises(self):
         with pytest.raises(ValueError, match="Unknown ID type"):
             get_lookup_key_by_id("unknown_type", "123")
-
-
-class TestMergeSets:
-    def test_no_overlap(self):
-        sets = [{"a", "b"}, {"c", "d"}, {"e", "f"}]
-        result = merge_sets(sets)
-        assert len(result) == 3
-
-    def test_full_overlap(self):
-        sets = [{"a", "b"}, {"b", "c"}, {"c", "d"}]
-        result = merge_sets(sets)
-        assert len(result) == 1
-        assert result[0] == {"a", "b", "c", "d"}
-
-    def test_partial_overlap(self):
-        sets = [{"a", "b"}, {"b", "c"}, {"d", "e"}]
-        result = merge_sets(sets)
-        assert len(result) == 2
-        merged = sorted(result, key=len, reverse=True)
-        assert merged[0] == {"a", "b", "c"}
-        assert merged[1] == {"d", "e"}
-
-    def test_empty_input(self):
-        result = merge_sets([])
-        assert result == []
-
-    def test_single_set(self):
-        result = merge_sets([{"a", "b"}])
-        assert len(result) == 1
-        assert result[0] == {"a", "b"}

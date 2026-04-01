@@ -36,10 +36,6 @@ def _noop_handlers() -> dict[PipelineStage, object]:
     return {stage: MagicMock() for stage in PipelineStage}
 
 
-def test_runner_init(runner: PipelineRunner) -> None:
-    assert runner._kg is None
-
-
 def test_run_stage_calls_handler(runner: PipelineRunner) -> None:
     mock = MagicMock()
     with patch.dict(_STAGE_HANDLERS, {PipelineStage.INGEST: mock}):
@@ -58,19 +54,19 @@ def test_run_selected_stages_in_order(runner: PipelineRunner) -> None:
 
     overrides = {
         PipelineStage.POSTPROCESSING: _make_tracker("POSTPROCESSING"),
-        PipelineStage.CORRECTIONS: _make_tracker("CORRECTIONS"),
+        PipelineStage.ENTITIES: _make_tracker("ENTITIES"),
         PipelineStage.INGEST: _make_tracker("INGEST"),
     }
     with patch.dict(_STAGE_HANDLERS, overrides):
         runner.run(
             [
                 PipelineStage.POSTPROCESSING,
-                PipelineStage.CORRECTIONS,
+                PipelineStage.ENTITIES,
                 PipelineStage.INGEST,
             ]
         )
 
-    assert called == ["INGEST", "CORRECTIONS", "POSTPROCESSING"]
+    assert called == ["INGEST", "ENTITIES", "POSTPROCESSING"]
 
 
 def test_run_all_stages(runner: PipelineRunner) -> None:

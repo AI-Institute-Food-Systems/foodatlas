@@ -18,7 +18,6 @@ from ..stores.schema import (
     FILE_TRIPLETS,
 )
 from ..stores.triplet_store import TripletStore
-from .disambiguation import disambiguate_synonyms
 
 logger = logging.getLogger(__name__)
 
@@ -95,21 +94,11 @@ class KnowledgeGraph:
         self,
         metadata: pd.DataFrame,
     ) -> None:
-        """Create entities, disambiguate, then build metadata + triplets."""
-        food_new = self.entities.get_new_names(
-            "food", metadata["_food_name"].unique().tolist()
-        )
-        chem_new = self.entities.get_new_names(
-            "chemical", metadata["_chemical_name"].unique().tolist()
-        )
+        """Build metadata + triplets from pre-resolved entity names.
 
-        if food_new:
-            self.entities.create("food", food_new)
-        if chem_new:
-            self.entities.create("chemical", chem_new)
-
-        disambiguate_synonyms(self.entities)
-
+        Expects all food/chemical names in the metadata to already exist
+        in the entity store. Unknown names are silently dropped.
+        """
         metadata = self.metadata.create(metadata)
 
         exploded = metadata.copy()
@@ -120,6 +109,7 @@ class KnowledgeGraph:
             lambda x: self.entities.get_entity_ids("chemical", x)
         )
         exploded = exploded.explode("head_id").explode("tail_id")
+        exploded = exploded.dropna(subset=["head_id", "tail_id"])
         exploded["relationship_id"] = RelationshipType.CONTAINS
         triplets = self.triplets.create(exploded)
 

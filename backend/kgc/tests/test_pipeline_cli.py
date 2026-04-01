@@ -24,11 +24,9 @@ def test_run_single_stage(mock_runner_cls: MagicMock) -> None:
     runner_instance = MagicMock()
     mock_runner_cls.return_value = runner_instance
 
-    result = CliRunner().invoke(cli, ["run", "--stage", "corrections"])
+    result = CliRunner().invoke(cli, ["run", "--stage", "entities"])
     assert result.exit_code == 0
-    runner_instance.run.assert_called_once_with(
-        [PipelineStage.CORRECTIONS], sources=None
-    )
+    runner_instance.run.assert_called_once_with([PipelineStage.ENTITIES], sources=None)
 
 
 @patch("main.PipelineRunner")
@@ -53,7 +51,7 @@ def test_init_command(mock_runner_cls: MagicMock) -> None:
     result = CliRunner().invoke(cli, ["init"])
     assert result.exit_code == 0
     runner_instance.run.assert_called_once_with(
-        [PipelineStage.INGEST, PipelineStage.CORRECTIONS]
+        [PipelineStage.INGEST, PipelineStage.ENTITIES]
     )
 
 
@@ -77,7 +75,7 @@ def test_run_mixed_name_and_number(mock_runner_cls: MagicMock) -> None:
     )
     assert result.exit_code == 0
     runner_instance.run.assert_called_once_with(
-        [PipelineStage.CORRECTIONS, PipelineStage.POSTPROCESSING],
+        [PipelineStage.ENTITIES, PipelineStage.POSTPROCESSING],
         sources=None,
     )
 

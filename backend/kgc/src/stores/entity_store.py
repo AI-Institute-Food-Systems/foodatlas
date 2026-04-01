@@ -6,8 +6,6 @@ from pathlib import Path
 
 import pandas as pd
 
-from ..discovery.chemical import create_chemical_entities
-from ..discovery.food import create_food_entities
 from ..utils.json_io import read_json, write_json
 from .schema import (
     FILE_ENTITIES,
@@ -119,20 +117,6 @@ class EntityStore:
                     lut[synonym] = []
                 if entity_id not in lut[synonym]:
                     lut[synonym] += [entity_id]
-
-    def create(
-        self,
-        entity_type: str,
-        entity_names_new: list[str],
-    ) -> None:
-        creators = {
-            "food": create_food_entities,
-            "chemical": create_chemical_entities,
-        }
-        if entity_type not in creators:
-            msg = f"Invalid entity type: {entity_type}."
-            raise ValueError(msg)
-        creators[entity_type](self, entity_names_new)
 
     def get_entity_ids(
         self,

@@ -1,7 +1,6 @@
 """Tests for the KnowledgeGraph class."""
 
 from pathlib import Path
-from unittest.mock import patch
 
 import pandas as pd
 import pytest
@@ -94,7 +93,7 @@ class TestAddTripletsFromMetadata:
         kg.add_triplets_from_metadata(meta)
         assert len(kg.triplets._triplets) == 1
 
-    def test_creates_new_entities_and_triplets(self, kg: KnowledgeGraph) -> None:
+    def test_unknown_names_are_dropped(self, kg: KnowledgeGraph) -> None:
         meta = pd.DataFrame(
             [
                 {
@@ -113,33 +112,8 @@ class TestAddTripletsFromMetadata:
                 },
             ]
         )
-
-        def _fake_create(entity_type: str, names: list[str]) -> None:
-            for name in names:
-                eid = f"e{kg.entities._curr_eid}"
-                kg.entities._curr_eid += 1
-                row = pd.DataFrame(
-                    [
-                        {
-                            "entity_type": entity_type,
-                            "common_name": name,
-                            "scientific_name": "",
-                            "synonyms": [name],
-                            "external_ids": {},
-                            "_synonyms_display": [name],
-                        }
-                    ],
-                    index=pd.Index([eid], name="foodatlas_id"),
-                )
-                kg.entities._entities = pd.concat([kg.entities._entities, row])
-                kg.entities.update_lut(row)
-
-        with patch.object(kg.entities, "create", side_effect=_fake_create):
-            kg.add_triplets_from_metadata(meta)
-
-        assert kg.entities.get_entity_ids("food", "banana")
-        assert kg.entities.get_entity_ids("chemical", "potassium")
-        assert len(kg.triplets._triplets) == 2
+        kg.add_triplets_from_metadata(meta)
+        assert len(kg.triplets._triplets) == 1
 
 
 class TestAddTripletsUnsupported:

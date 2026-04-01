@@ -1,1 +1,1 @@
-"""Integration — entities, data cleaning, triplets, and scaffold."""
+"""Integration — scaffold for empty KG files."""

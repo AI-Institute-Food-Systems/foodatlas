@@ -67,7 +67,7 @@ def cli(
     "stages",
     multiple=True,
     type=click.Choice(_VALID_STAGES, case_sensitive=False),
-    help="Stage name or number (0-7, repeatable). Omit for all.",
+    help="Stage name or number (0-3, repeatable). Omit for all.",
 )
 @click.option(
     "--source",
@@ -92,10 +92,10 @@ def run(
 @cli.command()
 @click.pass_context
 def init(ctx: click.Context) -> None:
-    """Shortcut: run entity and triplet initialization."""
+    """Shortcut: run ingest and entity resolution."""
     settings: KGCSettings = ctx.obj["settings"]
     runner = PipelineRunner(settings)
-    runner.run([PipelineStage.INGEST, PipelineStage.CORRECTIONS])
+    runner.run([PipelineStage.INGEST, PipelineStage.ENTITIES])
 
 
 if __name__ == "__main__":

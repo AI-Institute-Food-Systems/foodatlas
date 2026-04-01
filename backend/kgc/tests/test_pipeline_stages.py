@@ -4,18 +4,14 @@ from src.pipeline.stages import ALL_STAGES, PipelineStage
 
 
 def test_all_stages_present() -> None:
-    assert len(PipelineStage) == 8
+    assert len(PipelineStage) == 4
 
 
 def test_stage_names() -> None:
     expected = {
         "INGEST",
-        "CORRECTIONS",
-        "SUBTREE_FILTER",
-        "ENTITY_RESOLUTION",
-        "TRIPLET_BUILD",
-        "METADATA_PROCESSING",
-        "TRIPLET_EXPANSION",
+        "ENTITIES",
+        "TRIPLETS",
         "POSTPROCESSING",
     }
     assert {s.name for s in PipelineStage} == expected

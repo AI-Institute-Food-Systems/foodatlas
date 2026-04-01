@@ -1,4 +1,4 @@
-"""KG construction — KnowledgeGraph class and disambiguation."""
+"""KG construction — KnowledgeGraph class."""
 
 from .knowledge_graph import KnowledgeGraph
 
