@@ -116,6 +116,28 @@ class KnowledgeGraph:
         logger.info("# metadata entries added: %d", len(metadata))
         logger.info("# triplets added: %d", len(triplets))
 
+    def add_triplets_from_resolved_ie(self, resolved: pd.DataFrame) -> int:
+        """Add CONTAINS triplets from IE data with pre-resolved entity IDs.
+
+        Args:
+            resolved: DataFrame with MetadataContains columns plus
+                ``head_id`` and ``tail_id`` (already resolved and exploded).
+
+        Returns:
+            Number of new triplets created.
+        """
+        metadata = self.metadata.create(resolved)
+
+        triplet_input = resolved[["head_id", "tail_id"]].copy()
+        triplet_input.index = metadata.index
+        triplet_input["relationship_id"] = RelationshipType.CONTAINS
+
+        triplets = self.triplets.create(triplet_input)
+        logger.info(
+            "IE: %d metadata entries, %d new triplets.", len(metadata), len(triplets)
+        )
+        return len(triplets)
+
     def get_triplets(
         self,
         head_id: str | None = None,

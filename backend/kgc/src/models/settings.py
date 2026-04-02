@@ -36,7 +36,8 @@ class MetadataProcessingStageConfig(BaseModel):
 
 
 class TripletExpansionStageConfig(BaseModel):
-    pass
+    ie_raw_path: str = ""
+    ie_prob_threshold: float = 0.95
 
 
 class PostprocessingStageConfig(BaseModel):

@@ -34,6 +34,8 @@ ENTITY_COLUMNS = _get_columns(Entity)
 TRIPLET_COLUMNS = _get_columns(Triplet)
 METADATA_CONTAINS_COLUMNS = _get_columns(MetadataContains)
 
+FILE_IE_UNRESOLVED = "_ie_unresolved.tsv"
+FILE_IE_RESOLUTION_STATS = "_ie_resolution_stats.json"
 FILE_METADATA_DISEASE = "metadata_disease.json"
 FILE_METADATA_FLAVOR = "metadata_flavor.json"
 METADATA_DISEASE_COLUMNS = _get_columns(MetadataDisease)
