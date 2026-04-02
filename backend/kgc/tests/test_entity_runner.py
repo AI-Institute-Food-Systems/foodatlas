@@ -25,7 +25,7 @@ def settings(tmp_path: Path) -> KGCSettings:
     )
 
 
-@patch("src.pipeline.entities.runner.load_ingest_output")
+@patch("src.pipeline.entities.runner.load_sources")
 @patch("src.pipeline.entities.runner.load_corrections")
 @patch("src.pipeline.entities.runner.filter_sources")
 @patch("src.pipeline.entities.runner.create_empty_entity_files")
@@ -55,7 +55,7 @@ def test_run_calls_all_steps(
     resolver.entity_store.save.assert_called_once()
 
 
-@patch("src.pipeline.entities.runner.load_ingest_output")
+@patch("src.pipeline.entities.runner.load_sources")
 @patch("src.pipeline.entities.runner.load_corrections")
 @patch("src.pipeline.entities.runner.filter_sources")
 @patch("src.pipeline.entities.runner.create_empty_entity_files")

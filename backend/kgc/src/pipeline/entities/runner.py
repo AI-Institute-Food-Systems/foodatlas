@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 from ...config.corrections import load_corrections
 from ...stores.entity_registry import EntityRegistry
 from ...stores.schema import FILE_REGISTRY
-from ..ingest_loader import load_ingest_output
+from ..load_sources import load_sources
 from ..scaffold import create_empty_entity_files, ensure_registry_exists
 from .resolver import EntityResolver
 from .utils.subtree_filter import filter_sources
@@ -28,7 +28,7 @@ class EntityRunner:
 
     def run(self) -> None:
         """Load ingest output, filter, resolve entities, and save."""
-        sources = load_ingest_output(self._settings)
+        sources = load_sources(self._settings)
         corrections = load_corrections()
 
         logger.info("=== SUBTREE FILTER ===")

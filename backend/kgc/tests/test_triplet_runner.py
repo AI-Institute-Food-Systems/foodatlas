@@ -20,7 +20,7 @@ def settings(tmp_path: Path) -> KGCSettings:
     )
 
 
-@patch("src.pipeline.triplets.runner.load_ingest_output")
+@patch("src.pipeline.triplets.runner.load_sources")
 @patch("src.pipeline.triplets.runner.create_empty_triplet_files")
 @patch("src.pipeline.triplets.runner.KnowledgeGraph")
 @patch("src.pipeline.triplets.runner.build_triplets")

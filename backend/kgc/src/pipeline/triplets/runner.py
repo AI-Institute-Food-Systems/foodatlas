@@ -5,8 +5,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from ..ingest_loader import load_ingest_output
 from ..knowledge_graph import KnowledgeGraph
+from ..load_sources import load_sources
 from ..scaffold import create_empty_triplet_files
 from .builder import build_triplets
 
@@ -24,7 +24,7 @@ class TripletRunner:
 
     def run(self) -> None:
         """Build triplets from Phase 1 edges and save."""
-        sources = load_ingest_output(self._settings)
+        sources = load_sources(self._settings)
 
         create_empty_triplet_files(self._settings)
         kg = KnowledgeGraph(self._settings)

@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 _SOURCE_IDS = ["foodon", "chebi", "cdno", "ctd", "mesh", "pubchem", "flavordb", "fdc"]
 
 
-def load_ingest_output(settings: KGCSettings) -> dict[str, dict[str, pd.DataFrame]]:
+def load_sources(settings: KGCSettings) -> dict[str, dict[str, pd.DataFrame]]:
     """Load Phase 1 parquet artifacts into memory.
 
     Returns:
