@@ -17,7 +17,7 @@ def triplets_dir(tmp_path: Path) -> Path:
             "relationship_id": "r1",
             "tail_id": "e1",
             "source": "fdc",
-            "metadata_ids": json.dumps(["mc0"]),
+            "extraction_ids": json.dumps(["mc0"]),
         },
     ]
     pd.DataFrame(data).to_parquet(tmp_path / FILE_TRIPLETS, index=False)
@@ -37,7 +37,7 @@ class TestTripletStoreLoad:
         assert "e0_r1_e1" in triplets._triplets.index
 
     def test_hash_table_built(self, triplets: TripletStore) -> None:
-        assert "e0_r1_e1" in triplets._key_to_metadata
+        assert "e0_r1_e1" in triplets._key_to_extractions
 
 
 class TestTripletStoreCreate:
@@ -54,7 +54,7 @@ class TestTripletStoreCreate:
         )
         triplets.create(metadata)
         assert len(triplets._triplets) == 2
-        assert "e2_r1_e3" in triplets._key_to_metadata
+        assert "e2_r1_e3" in triplets._key_to_extractions
 
     def test_dedup_merges_metadata(self, triplets: TripletStore) -> None:
         metadata = pd.DataFrame(
@@ -70,8 +70,8 @@ class TestTripletStoreCreate:
         triplets.create(metadata)
         assert len(triplets._triplets) == 1
         row = triplets._triplets.loc["e0_r1_e1"]
-        assert "mc0" in row["metadata_ids"]
-        assert "mc1" in row["metadata_ids"]
+        assert "mc0" in row["extraction_ids"]
+        assert "mc1" in row["extraction_ids"]
 
     def test_composite_key_used(self, triplets: TripletStore) -> None:
         metadata = pd.DataFrame(
@@ -110,7 +110,7 @@ class TestTripletStoreAddOntology:
         )
         triplets.add_ontology(onto)
         assert len(triplets._triplets) == 2
-        assert "e10_r2_e20" in triplets._key_to_metadata
+        assert "e10_r2_e20" in triplets._key_to_extractions
 
     def test_add_empty_ontology(self, triplets: TripletStore) -> None:
         triplets.add_ontology(pd.DataFrame())
@@ -125,4 +125,4 @@ class TestTripletStoreSaveReload:
 
         reloaded = TripletStore(path_triplets=out_dir / FILE_TRIPLETS)
         assert len(reloaded._triplets) == len(triplets._triplets)
-        assert "e0_r1_e1" in reloaded._key_to_metadata
+        assert "e0_r1_e1" in reloaded._key_to_extractions

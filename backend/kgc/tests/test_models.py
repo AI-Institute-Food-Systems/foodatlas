@@ -5,12 +5,13 @@ from src.models import (
     ChemicalEntity,
     Entity,
     FoodEntity,
-    MetadataContains,
     Relationship,
     RelationshipType,
     Triplet,
 )
 from src.models.entity import DiseaseEntity
+from src.models.evidence import Evidence
+from src.models.extraction import Extraction
 from src.models.version import KGVersion
 
 
@@ -69,67 +70,62 @@ class TestEntity:
 class TestTriplet:
     def test_triplet(self):
         t = Triplet(
-            foodatlas_id="t1",
             head_id="e1",
             relationship_id="r1",
             tail_id="e2",
-            metadata_ids=["mc1", "mc2"],
+            extraction_ids=["ex1", "ex2"],
         )
         assert t.head_id == "e1"
-        assert len(t.metadata_ids) == 2
+        assert len(t.extraction_ids) == 2
 
     def test_triplet_defaults(self):
         t = Triplet(
-            foodatlas_id="t2",
             head_id="e1",
             relationship_id="r1",
             tail_id="e2",
         )
-        assert t.metadata_ids == []
+        assert t.extraction_ids == []
 
 
-class TestMetadata:
-    def test_metadata_contains(self):
-        m = MetadataContains(
-            foodatlas_id="mc1",
-            conc_value=1.5,
-            conc_unit="mg",
-            food_part="fruit",
-            source="FDC",
-            reference=["PMID:12345"],
-            food_name_raw="apple",
-            chemical_name_raw="vitamin C",
+class TestEvidence:
+    def test_evidence(self):
+        ev = Evidence(
+            evidence_id="ev_abc",
+            source_type="pubmed",
+            reference='{"pmcid": 123}',
         )
-        assert m.conc_value == 1.5
-        assert m.reference == ["PMID:12345"]
+        assert ev.source_type == "pubmed"
 
-    def test_metadata_defaults(self):
-        m = MetadataContains(foodatlas_id="mc2")
-        assert m.conc_value is None
-        assert m.food_part == ""
-        assert m.reference == []
-
-    def test_metadata_dump_aliases(self):
-        m = MetadataContains(
-            foodatlas_id="mc1",
-            food_name_raw="apple",
-            chemical_name_raw="vitamin C",
-            conc_raw="1.5 mg",
-            food_part_raw="fruit",
+    def test_evidence_fdc(self):
+        ev = Evidence(
+            evidence_id="ev_def",
+            source_type="fdc",
+            reference='{"url": "https://fdc.nal.usda.gov"}',
         )
-        dumped = m.model_dump(by_alias=True)
-        assert "_food_name" in dumped
-        assert "_chemical_name" in dumped
-        assert "_conc" in dumped
-        assert "_food_part" in dumped
-        assert "food_name_raw" not in dumped
-        assert dumped["_food_name"] == "apple"
+        assert ev.source_type == "fdc"
 
-    def test_metadata_construct_by_alias(self):
-        m = MetadataContains.model_validate(
-            {"foodatlas_id": "mc1", "_food_name": "apple"}
+
+class TestExtraction:
+    def test_extraction(self):
+        ex = Extraction(
+            extraction_id="ex_abc",
+            evidence_id="ev_abc",
+            extractor="lit2kg:gpt-3.5-ft",
+            head_name_raw="apple",
+            tail_name_raw="vitamin c",
+            quality_score=0.99,
         )
-        assert m.food_name_raw == "apple"
+        assert ex.extractor == "lit2kg:gpt-3.5-ft"
+        assert ex.validated is False
+
+    def test_extraction_defaults(self):
+        ex = Extraction(
+            extraction_id="ex_def",
+            evidence_id="ev_def",
+            extractor="fdc",
+        )
+        assert ex.conc_value is None
+        assert ex.validated_correct is True
 
 
 class TestRelationship:

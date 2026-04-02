@@ -118,8 +118,9 @@ class TestLoadIeRaw:
     def test_source_and_reference(self, ie_tsv: Path) -> None:
         df = load_ie_raw(ie_tsv, prob_threshold=0.90)
         row = df[df["_food_name"] == "apple"].iloc[0]
-        assert row["source"] == "lit2kg"
-        assert row["reference"] == ["pmcid:111"]
+        assert row["extractor"] == "lit2kg"
+        assert row["source_type"] == "pubmed"
+        assert "111" in row["reference"]
 
     def test_missing_column_raises(self, tmp_path: Path) -> None:
         path = tmp_path / "bad.tsv"

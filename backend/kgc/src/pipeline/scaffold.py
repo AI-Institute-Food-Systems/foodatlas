@@ -8,9 +8,10 @@ from ..models.relationship import RelationshipType
 from ..models.settings import KGCSettings
 from ..stores.schema import (
     FILE_ENTITIES,
+    FILE_EVIDENCE,
+    FILE_EXTRACTIONS,
     FILE_LUT_CHEMICAL,
     FILE_LUT_FOOD,
-    FILE_METADATA_CONTAINS,
     FILE_REGISTRY,
     FILE_RELATIONSHIPS,
     FILE_RETIRED,
@@ -61,5 +62,6 @@ def create_empty_triplet_files(settings: KGCSettings) -> None:
         kg_dir / FILE_RELATIONSHIPS, index=False
     )
     pd.DataFrame().to_parquet(kg_dir / FILE_TRIPLETS)
-    pd.DataFrame().to_parquet(kg_dir / FILE_METADATA_CONTAINS)
+    pd.DataFrame().to_parquet(kg_dir / FILE_EVIDENCE)
+    pd.DataFrame().to_parquet(kg_dir / FILE_EXTRACTIONS)
     pd.DataFrame().to_parquet(kg_dir / FILE_RETIRED)

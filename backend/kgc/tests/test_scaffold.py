@@ -15,9 +15,10 @@ from src.pipeline.scaffold import (
 )
 from src.stores.schema import (
     FILE_ENTITIES,
+    FILE_EVIDENCE,
+    FILE_EXTRACTIONS,
     FILE_LUT_CHEMICAL,
     FILE_LUT_FOOD,
-    FILE_METADATA_CONTAINS,
     FILE_REGISTRY,
     FILE_RELATIONSHIPS,
     FILE_RETIRED,
@@ -68,7 +69,8 @@ class TestCreateEmptyEntityFiles:
         create_empty_entity_files(settings)
         for f in (
             FILE_TRIPLETS,
-            FILE_METADATA_CONTAINS,
+            FILE_EVIDENCE,
+            FILE_EXTRACTIONS,
             FILE_RELATIONSHIPS,
             FILE_RETIRED,
         ):
@@ -95,7 +97,8 @@ class TestCreateEmptyTripletFiles:
         for f in (
             FILE_RELATIONSHIPS,
             FILE_TRIPLETS,
-            FILE_METADATA_CONTAINS,
+            FILE_EVIDENCE,
+            FILE_EXTRACTIONS,
             FILE_RETIRED,
         ):
             assert (kg_dir / f).exists(), f"Missing: {f}"
@@ -119,7 +122,7 @@ class TestCreateEmptyTripletFiles:
         self, settings: KGCSettings, kg_dir: Path
     ) -> None:
         create_empty_triplet_files(settings)
-        df = pd.read_parquet(kg_dir / FILE_METADATA_CONTAINS)
+        df = pd.read_parquet(kg_dir / FILE_EVIDENCE)
         assert len(df) == 0
 
     def test_retired_is_empty_parquet(

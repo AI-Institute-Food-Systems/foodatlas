@@ -10,9 +10,10 @@ from src.pipeline.triplets.knowledge_graph import KnowledgeGraph
 from src.stores.entity_store import EntityStore
 from src.stores.schema import (
     FILE_ENTITIES,
+    FILE_EVIDENCE,
+    FILE_EXTRACTIONS,
     FILE_LUT_CHEMICAL,
     FILE_LUT_FOOD,
-    FILE_METADATA_CONTAINS,
     FILE_TRIPLETS,
 )
 
@@ -37,7 +38,7 @@ def _write_json(path: Path, data: object) -> None:
 
 
 def _make_kg_dir(tmp_path: Path) -> Path:
-    """Create a minimal KG directory with fixture JSON files and LUTs."""
+    """Create a minimal KG directory with fixture files."""
     entities = [
         {
             "foodatlas_id": "e0",
@@ -64,29 +65,37 @@ def _make_kg_dir(tmp_path: Path) -> Path:
             "relationship_id": "r1",
             "tail_id": "e1",
             "source": "fdc",
-            "metadata_ids": json.dumps(["mc0"]),
+            "extraction_ids": json.dumps(["ex_test0"]),
         },
     ]
     pd.DataFrame(triplets).to_parquet(tmp_path / FILE_TRIPLETS, index=False)
 
-    metadata = [
+    evidence = [
         {
-            "foodatlas_id": "mc0",
+            "evidence_id": "ev_test0",
+            "source_type": "fdc",
+            "reference": '{"url": "https://fdc.nal.usda.gov/test"}',
+        },
+    ]
+    pd.DataFrame(evidence).to_parquet(tmp_path / FILE_EVIDENCE, index=False)
+
+    extractions = [
+        {
+            "extraction_id": "ex_test0",
+            "evidence_id": "ev_test0",
+            "extractor": "fdc",
+            "head_name_raw": "apple",
+            "tail_name_raw": "vitamin c",
             "conc_value": 1.5,
             "conc_unit": "mg/g",
             "food_part": "peel",
             "food_processing": "raw",
-            "source": "fdc",
-            "reference": json.dumps(["ref1"]),
-            "entity_linking_method": "exact",
             "quality_score": 0.95,
-            "_food_name": "apple",
-            "_chemical_name": "vitamin c",
-            "_conc": "1.5 mg/g",
-            "_food_part": "peel",
+            "validated": False,
+            "validated_correct": True,
         },
     ]
-    pd.DataFrame(metadata).to_parquet(tmp_path / FILE_METADATA_CONTAINS, index=False)
+    pd.DataFrame(extractions).to_parquet(tmp_path / FILE_EXTRACTIONS, index=False)
 
     _write_lut(
         tmp_path / FILE_LUT_FOOD,

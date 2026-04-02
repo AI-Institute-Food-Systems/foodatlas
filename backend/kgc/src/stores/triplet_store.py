@@ -29,17 +29,17 @@ class TripletStore:
         self.path_triplets = Path(path_triplets)
 
         self._triplets: pd.DataFrame = pd.DataFrame()
-        self._key_to_metadata: dict[str, list[str]] = {}
+        self._key_to_extractions: dict[str, list[str]] = {}
 
         self._load()
 
     def _load(self) -> None:
         if self.path_triplets.exists() and self.path_triplets.stat().st_size > 0:
             self._triplets = pd.read_parquet(self.path_triplets)
-            if "metadata_ids" in self._triplets.columns:
-                self._triplets["metadata_ids"] = self._triplets["metadata_ids"].apply(
-                    lambda x: json.loads(x) if isinstance(x, str) else x
-                )
+            if "extraction_ids" in self._triplets.columns:
+                self._triplets["extraction_ids"] = self._triplets[
+                    "extraction_ids"
+                ].apply(lambda x: json.loads(x) if isinstance(x, str) else x)
             self._triplets[_KEY_COL] = self._triplets.apply(
                 lambda r: self._make_key(
                     r["head_id"], r["relationship_id"], r["tail_id"]
@@ -50,25 +50,25 @@ class TripletStore:
         else:
             self._triplets = pd.DataFrame()
 
-        self._key_to_metadata = {}
+        self._key_to_extractions = {}
         for key, row in self._triplets.iterrows():
-            self._key_to_metadata[key] = row.get("metadata_ids", []) or []
+            self._key_to_extractions[key] = row.get("extraction_ids", []) or []
 
     def save(self, path_output_dir: Path) -> None:
         path_output_dir = Path(path_output_dir)
         df = self._triplets.reset_index(drop=True)
-        if "metadata_ids" in df.columns:
-            df["metadata_ids"] = df["metadata_ids"].apply(
+        if "extraction_ids" in df.columns:
+            df["extraction_ids"] = df["extraction_ids"].apply(
                 lambda x: json.dumps(x) if isinstance(x, list) else x
             )
         df.to_parquet(path_output_dir / FILE_TRIPLETS, index=False)
 
     def add_ontology(self, triplets: pd.DataFrame) -> None:
-        """Add pre-built ontology triplets (no metadata_ids)."""
+        """Add pre-built ontology triplets (no extraction_ids)."""
         if triplets.empty:
             return
-        if "metadata_ids" not in triplets.columns:
-            triplets["metadata_ids"] = None
+        if "extraction_ids" not in triplets.columns:
+            triplets["extraction_ids"] = None
         # Drop any legacy ID column.
         if "foodatlas_id" in triplets.columns:
             triplets = triplets.drop(columns=["foodatlas_id"])
@@ -78,20 +78,20 @@ class TripletStore:
         )
         triplets = triplets.set_index(_KEY_COL)
         for key in triplets.index:
-            self._key_to_metadata[key] = []
+            self._key_to_extractions[key] = []
         self._triplets = pd.concat([self._triplets, triplets])
 
     def create(self, metadata: pd.DataFrame) -> pd.Series:
         """Create new triplet entries from metadata rows.
 
         If a triplet already exists, the metadata_id is appended to the
-        existing triplet's metadata_ids list (deduplication/merge).
+        existing triplet's extraction_ids list (deduplication/merge).
         """
         new_rows = self._insert_or_merge(metadata)
         self._resolve_all_metadata()
 
         return new_rows.apply(
-            lambda row: self._key_to_metadata[
+            lambda row: self._key_to_extractions[
                 self._make_key(row["head_id"], row["relationship_id"], row["tail_id"])
             ],
             axis=1,
@@ -113,8 +113,8 @@ class TripletStore:
             strict=False,
         ):
             key = self._make_key(head_id, rel_id, tail_id)
-            if key in self._key_to_metadata:
-                self._key_to_metadata[key].append(meta_id)
+            if key in self._key_to_extractions:
+                self._key_to_extractions[key].append(meta_id)
                 continue
             rows.append(
                 {
@@ -123,10 +123,10 @@ class TripletStore:
                     "relationship_id": rel_id,
                     "tail_id": tail_id,
                     "source": src,
-                    "metadata_ids": None,
+                    "extraction_ids": None,
                 }
             )
-            self._key_to_metadata[key] = [meta_id]
+            self._key_to_extractions[key] = [meta_id]
 
         if rows:
             new_triplets = pd.DataFrame(rows).set_index(_KEY_COL)
@@ -139,18 +139,18 @@ class TripletStore:
                 "relationship_id",
                 "tail_id",
                 "source",
-                "metadata_ids",
+                "extraction_ids",
             ]
         )
         empty.index.name = _KEY_COL
         return empty
 
     def _resolve_all_metadata(self) -> None:
-        """Sync metadata_ids column with the key_to_metadata lookup."""
-        self._triplets["metadata_ids"] = self._triplets.apply(
+        """Sync extraction_ids column with the key_to_metadata lookup."""
+        self._triplets["extraction_ids"] = self._triplets.apply(
             lambda row: list(
                 set(
-                    self._key_to_metadata[
+                    self._key_to_extractions[
                         self._make_key(
                             row["head_id"],
                             row["relationship_id"],

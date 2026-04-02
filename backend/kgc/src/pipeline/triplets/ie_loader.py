@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import TYPE_CHECKING
 
@@ -72,7 +73,7 @@ def load_ie_raw(path: Path, prob_threshold: float = 0.95) -> pd.DataFrame:
         prob_threshold: Drop rows below this confidence.
 
     Returns:
-        DataFrame with columns matching :class:`MetadataContains` aliases.
+        DataFrame with evidence + extraction columns.
     """
     raw = pd.read_csv(path, sep="\t", dtype={"pmcid": str})
     missing = set(_RAW_COLUMNS) - set(raw.columns)
@@ -98,21 +99,25 @@ def load_ie_raw(path: Path, prob_threshold: float = 0.95) -> pd.DataFrame:
             if parsed is None:
                 skipped += 1
                 continue
-            food, food_part, chemical, quantity = parsed
+            food, food_part, chemical, _quantity = parsed
+            ref = json.dumps({"pmcid": rec["pmcid"], "text": rec.get("sentence", "")})
             rows.append(
                 {
-                    "_food_name": standardize_name(food),
-                    "_chemical_name": standardize_name(chemical),
-                    "_food_part": food_part.strip().lower(),
-                    "_conc": quantity,
+                    # Evidence fields
+                    "source_type": "pubmed",
+                    "reference": ref,
+                    # Extraction fields
+                    "extractor": "lit2kg",
+                    "head_name_raw": standardize_name(food),
+                    "tail_name_raw": standardize_name(chemical),
                     "conc_value": None,
                     "conc_unit": "",
                     "food_part": food_part.strip().lower(),
                     "food_processing": "",
-                    "source": "lit2kg",
-                    "reference": [f"pmcid:{rec['pmcid']}"],
-                    "entity_linking_method": "ie_lut_lookup",
                     "quality_score": float(rec["prob"]),
+                    # Kept for IE resolver (name lookup)
+                    "_food_name": standardize_name(food),
+                    "_chemical_name": standardize_name(chemical),
                 }
             )
 

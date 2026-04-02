@@ -2,16 +2,24 @@
 
 from .entity_registry import EntityRegistry
 from .entity_store import EntityStore
-from .metadata_store import MetadataContainsStore
-from .schema import ENTITY_COLUMNS, METADATA_CONTAINS_COLUMNS, TRIPLET_COLUMNS
+from .evidence_store import EvidenceStore
+from .extraction_store import ExtractionStore
+from .schema import (
+    ENTITY_COLUMNS,
+    EVIDENCE_COLUMNS,
+    EXTRACTION_COLUMNS,
+    TRIPLET_COLUMNS,
+)
 from .triplet_store import TripletStore
 
 __all__ = [
     "ENTITY_COLUMNS",
-    "METADATA_CONTAINS_COLUMNS",
+    "EVIDENCE_COLUMNS",
+    "EXTRACTION_COLUMNS",
     "TRIPLET_COLUMNS",
     "EntityRegistry",
     "EntityStore",
-    "MetadataContainsStore",
+    "EvidenceStore",
+    "ExtractionStore",
     "TripletStore",
 ]

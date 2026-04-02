@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import TYPE_CHECKING
 
@@ -21,8 +22,8 @@ def merge_fdc_triplets(
 ) -> None:
     """Create food-chemical CONTAINS triplets from FDC edges.
 
-    Resolves FDC IDs directly to entity IDs via external_ids,
-    bypassing name-based lookup to avoid creating duplicate entities.
+    Creates evidence (FDC URL) and extraction (parsed concentration)
+    records, then links them to triplets.
     """
     fdc = sources.get("fdc")
     if fdc is None:
@@ -35,10 +36,9 @@ def merge_fdc_triplets(
 
     nodes = fdc["nodes"]
     fdc2fa = _build_fdc_maps(kg.entities._entities)
-
     nutrient_units = _build_nutrient_unit_map(nodes)
 
-    metadata_rows: list[dict] = []
+    rows: list[dict] = []
     for _, edge in contains.iterrows():
         food_id = int(edge["head_native_id"].split(":")[-1])
         nutrient_id = int(edge["tail_native_id"].split(":")[-1])
@@ -53,42 +53,47 @@ def merge_fdc_triplets(
         unit_name = nutrient_units.get(nutrient_id, "mg")
         conc_unit = f"{unit_name.lower()}/100g"
 
-        metadata_rows.append(
+        ref = json.dumps(
             {
-                "_food_name": f"FDC:{food_id}",
-                "_chemical_name": f"FDC_NUTRIENT:{nutrient_id}",
-                "_conc": f"{amount} {conc_unit}",
-                "_food_part": "",
+                "url": f"https://fdc.nal.usda.gov/fdc-app.html#/food-details/{food_id}/nutrients"
+            }
+        )
+        rows.append(
+            {
+                "source_type": "fdc",
+                "reference": ref,
+                "extractor": "fdc",
+                "head_name_raw": f"FDC:{food_id}",
+                "tail_name_raw": f"FDC_NUTRIENT:{nutrient_id}",
                 "conc_value": amount,
                 "conc_unit": conc_unit,
                 "food_part": "",
                 "food_processing": "",
-                "source": "fdc",
-                "reference": [
-                    f"https://fdc.nal.usda.gov/fdc-app.html"
-                    f"#/food-details/{food_id}/nutrients"
-                ],
-                "entity_linking_method": "id_matching",
                 "quality_score": None,
                 "_head_id": head_id,
                 "_tail_id": tail_id,
             }
         )
 
-    if not metadata_rows:
-        logger.info("No FDC metadata to merge.")
+    if not rows:
+        logger.info("No FDC data to merge.")
         return
 
-    metadata_df = pd.DataFrame(metadata_rows)
+    df = pd.DataFrame(rows)
 
-    stored = kg.metadata.create(metadata_df)
+    ev_result = kg.evidence.create(df[["source_type", "reference"]])
+    df["evidence_id"] = ev_result.index
+    extractions = kg.extractions.create(df)
 
-    stored["head_id"] = metadata_df["_head_id"].values
-    stored["tail_id"] = metadata_df["_tail_id"].values
-    stored["relationship_id"] = RelationshipType.CONTAINS
-    triplets = kg.triplets.create(stored)
+    triplet_input = df[["_head_id", "_tail_id"]].copy()
+    triplet_input.columns = ["head_id", "tail_id"]
+    triplet_input.index = extractions.index
+    triplet_input["relationship_id"] = RelationshipType.CONTAINS
+    triplets = kg.triplets.create(triplet_input)
 
-    logger.info("Merged %d FDC metadata, %d triplets.", len(stored), len(triplets))
+    logger.info(
+        "Merged %d FDC extractions, %d triplets.", len(extractions), len(triplets)
+    )
 
 
 def _build_fdc_maps(

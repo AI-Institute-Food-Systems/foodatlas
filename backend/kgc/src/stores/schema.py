@@ -3,14 +3,16 @@
 from pydantic import BaseModel
 
 from ..models.entity import Entity
-from ..models.metadata import MetadataContains, MetadataDisease, MetadataFlavor
+from ..models.evidence import Evidence
+from ..models.extraction import Extraction
 from ..models.triplet import Triplet
 
 INDEX_COL = "foodatlas_id"
 
 FILE_ENTITIES = "entities.parquet"
 FILE_TRIPLETS = "triplets.parquet"
-FILE_METADATA_CONTAINS = "metadata_contains.parquet"
+FILE_EVIDENCE = "evidence.parquet"
+FILE_EXTRACTIONS = "extractions.parquet"
 FILE_RELATIONSHIPS = "relationships.parquet"
 FILE_LUT_FOOD = "_lookup_table_food.json"
 FILE_LUT_CHEMICAL = "_lookup_table_chemical.json"
@@ -36,11 +38,8 @@ def _get_columns(model: type[BaseModel]) -> list[str]:
 
 ENTITY_COLUMNS = _get_columns(Entity)
 TRIPLET_COLUMNS = _get_columns(Triplet)
-METADATA_CONTAINS_COLUMNS = _get_columns(MetadataContains)
+EVIDENCE_COLUMNS = _get_columns(Evidence)
+EXTRACTION_COLUMNS = _get_columns(Extraction)
 
 FILE_IE_UNRESOLVED = "_ie_unresolved.tsv"
 FILE_IE_RESOLUTION_STATS = "_ie_resolution_stats.json"
-FILE_METADATA_DISEASE = "metadata_disease.json"
-FILE_METADATA_FLAVOR = "metadata_flavor.json"
-METADATA_DISEASE_COLUMNS = _get_columns(MetadataDisease)
-METADATA_FLAVOR_COLUMNS = _get_columns(MetadataFlavor)
