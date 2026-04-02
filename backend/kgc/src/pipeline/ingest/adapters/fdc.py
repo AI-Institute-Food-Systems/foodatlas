@@ -8,7 +8,12 @@ from typing import TYPE_CHECKING
 import pandas as pd
 
 from ....models.ingest import SourceManifest
-from ..protocol import serialize_raw_attrs, write_manifest
+from ..protocol import (
+    ProgressCallback,
+    _noop_progress,
+    serialize_raw_attrs,
+    write_manifest,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -25,11 +30,16 @@ class FDCAdapter:
     def source_id(self) -> str:
         return SOURCE_ID
 
-    def ingest(self, raw_dir: Path, output_dir: Path) -> SourceManifest:
+    def ingest(
+        self,
+        raw_dir: Path,
+        output_dir: Path,
+        progress: ProgressCallback = _noop_progress,
+    ) -> SourceManifest:
         output_dir.mkdir(parents=True, exist_ok=True)
         fdc_dir = _find_fdc_subdir(raw_dir / "FDC")
 
-        nodes, edges, xrefs = _build_outputs(fdc_dir)
+        nodes, edges, xrefs = _build_outputs(fdc_dir, progress)
 
         nodes = serialize_raw_attrs(nodes)
         edges = serialize_raw_attrs(edges)
@@ -71,6 +81,7 @@ def _find_fdc_subdir(fdc_parent: Path) -> Path:
 
 def _build_outputs(
     fdc_dir: Path,
+    progress: ProgressCallback = _noop_progress,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     node_rows: list[dict] = []
     edge_rows: list[dict] = []
@@ -78,10 +89,32 @@ def _build_outputs(
 
     ff_ids = set(pd.read_csv(fdc_dir / "foundation_food.csv")["fdc_id"])
 
+    food_nutrient = pd.read_csv(
+        fdc_dir / "food_nutrient.csv",
+        usecols=["id", "fdc_id", "nutrient_id", "amount"],
+    )
+    food_nutrient = food_nutrient[food_nutrient["fdc_id"].isin(ff_ids)]
+    total = len(food_nutrient)
+    progress(0, total)
+
     _add_food_nodes(fdc_dir, ff_ids, node_rows, xref_rows)
     _add_nutrient_nodes(fdc_dir, node_rows)
-    _add_food_nutrient_edges(fdc_dir, ff_ids, edge_rows)
 
+    for i, (_, row) in enumerate(food_nutrient.iterrows()):
+        edge_rows.append(
+            {
+                "source_id": SOURCE_ID,
+                "head_native_id": f"food:{int(row['fdc_id'])}",
+                "tail_native_id": f"nutrient:{int(row['nutrient_id'])}",
+                "edge_type": "contains",
+                "raw_attrs": {
+                    "amount": float(row["amount"]) if pd.notna(row["amount"]) else 0.0,
+                },
+            }
+        )
+        progress(i, total)
+
+    progress(total, total)
     return pd.DataFrame(node_rows), pd.DataFrame(edge_rows), pd.DataFrame(xref_rows)
 
 
@@ -149,28 +182,5 @@ def _add_nutrient_nodes(fdc_dir: Path, node_rows: list[dict]) -> None:
                 "synonym_types": ["label"],
                 "node_type": "nutrient",
                 "raw_attrs": {"unit_name": row["unit_name"]},
-            }
-        )
-
-
-def _add_food_nutrient_edges(
-    fdc_dir: Path, ff_ids: set[int], edge_rows: list[dict]
-) -> None:
-    food_nutrient = pd.read_csv(
-        fdc_dir / "food_nutrient.csv",
-        usecols=["id", "fdc_id", "nutrient_id", "amount"],
-    )
-    food_nutrient = food_nutrient[food_nutrient["fdc_id"].isin(ff_ids)]
-
-    for _, row in food_nutrient.iterrows():
-        edge_rows.append(
-            {
-                "source_id": SOURCE_ID,
-                "head_native_id": f"food:{int(row['fdc_id'])}",
-                "tail_native_id": f"nutrient:{int(row['nutrient_id'])}",
-                "edge_type": "contains",
-                "raw_attrs": {
-                    "amount": float(row["amount"]) if pd.notna(row["amount"]) else 0.0,
-                },
             }
         )

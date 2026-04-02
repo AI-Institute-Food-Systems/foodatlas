@@ -13,7 +13,7 @@ uv run python main.py run
 
 # Run a single stage (by name or number)
 uv run python main.py run --stage ingest
-uv run python main.py run --stage 1
+uv run python main.py run --stage 0
 
 # Run specific ingest sources
 uv run python main.py run --stage ingest --source foodon --source chebi

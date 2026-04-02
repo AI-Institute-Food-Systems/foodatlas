@@ -8,7 +8,12 @@ from typing import TYPE_CHECKING
 import pandas as pd
 
 from ....models.ingest import SourceManifest
-from ..protocol import serialize_raw_attrs, write_manifest
+from ..protocol import (
+    ProgressCallback,
+    _noop_progress,
+    serialize_raw_attrs,
+    write_manifest,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -25,11 +30,16 @@ class ChEBIAdapter:
     def source_id(self) -> str:
         return SOURCE_ID
 
-    def ingest(self, raw_dir: Path, output_dir: Path) -> SourceManifest:
+    def ingest(
+        self,
+        raw_dir: Path,
+        output_dir: Path,
+        progress: ProgressCallback = _noop_progress,
+    ) -> SourceManifest:
         output_dir.mkdir(parents=True, exist_ok=True)
         chebi_dir = raw_dir / "ChEBI"
 
-        nodes = _build_nodes(chebi_dir)
+        nodes = _build_nodes(chebi_dir, progress)
         edges = _build_edges(chebi_dir)
 
         nodes = serialize_raw_attrs(nodes)
@@ -52,7 +62,10 @@ class ChEBIAdapter:
         return manifest
 
 
-def _build_nodes(chebi_dir: Path) -> pd.DataFrame:
+def _build_nodes(
+    chebi_dir: Path,
+    progress: ProgressCallback = _noop_progress,
+) -> pd.DataFrame:
     compounds = pd.read_csv(
         chebi_dir / "compounds.tsv", sep="\t", encoding="latin1"
     ).set_index("ID")
@@ -71,8 +84,9 @@ def _build_nodes(chebi_dir: Path) -> pd.DataFrame:
             syn_by_id[cid] = []
         syn_by_id[cid].append((row["NAME"], row["TYPE"]))
 
+    total = len(compounds)
     rows: list[dict] = []
-    for chebi_id, row in compounds.iterrows():
+    for i, (chebi_id, row) in enumerate(compounds.iterrows()):
         name = row["NAME"] if pd.notna(row["NAME"]) else ""
         star = int(row["STAR"]) if pd.notna(row["STAR"]) else 0
         syns = [name] if name else []
@@ -93,6 +107,10 @@ def _build_nodes(chebi_dir: Path) -> pd.DataFrame:
                 "raw_attrs": {"star": star},
             }
         )
+
+        progress(i, total)
+
+    progress(total, total)
     return pd.DataFrame(rows)
 
 

@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import logging
-from concurrent.futures import ProcessPoolExecutor, as_completed
+import multiprocessing
+import traceback
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+
+from tqdm import tqdm
 
 from .adapters.cdno import CDNOAdapter
 from .adapters.chebi import ChEBIAdapter
@@ -19,7 +22,7 @@ from .adapters.pubchem import PubChemAdapter
 if TYPE_CHECKING:
     from ...models.ingest import SourceManifest
     from ...models.settings import KGCSettings
-    from .protocol import SourceAdapter
+    from .protocol import ProgressCallback, SourceAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -35,15 +38,43 @@ ALL_ADAPTERS: list[type] = [
 ]
 
 
+def _make_queue_callback(
+    queue: Any,
+    source_id: str,
+    throttle: int = 500,
+) -> ProgressCallback:
+    """Return a throttled callback that pushes ``(source_id, current, total)``.
+
+    Only sends a message every *throttle* calls (or when current == total).
+    """
+    call_count = [0]
+
+    def _cb(current: int, total: int) -> None:
+        call_count[0] += 1
+        if current == total or call_count[0] % throttle == 0:
+            queue.put((source_id, current, total))
+
+    return _cb
+
+
 def _run_single_adapter(
     adapter_cls: type,
     raw_dir: str,
     output_dir: str,
-) -> SourceManifest:
-    """Run one adapter — used as target for ProcessPoolExecutor."""
+    queue: Any,
+) -> SourceManifest | str:
+    """Run one adapter in a child process. Returns manifest or error string."""
     adapter: SourceAdapter = adapter_cls()
-    out = Path(output_dir) / adapter.source_id
-    return adapter.ingest(Path(raw_dir), out)
+    try:
+        out = Path(output_dir) / adapter.source_id
+        cb = _make_queue_callback(queue, adapter.source_id)
+        manifest = adapter.ingest(Path(raw_dir), out, progress=cb)
+        queue.put((adapter.source_id, -1, -1))  # sentinel: done
+        return manifest
+    except Exception:
+        tb = traceback.format_exc()
+        queue.put((adapter.source_id, -2, -2))  # sentinel: error
+        return f"{adapter.source_id} failed:\n{tb}"
 
 
 class IngestRunner:
@@ -56,14 +87,7 @@ class IngestRunner:
         self,
         sources: list[str] | None = None,
     ) -> dict[str, SourceManifest]:
-        """Run adapters in parallel.
-
-        Args:
-            sources: Optional list of source IDs to run. None runs all.
-
-        Returns:
-            Mapping of source_id to SourceManifest.
-        """
+        """Run adapters in parallel with per-source progress bars."""
         raw_dir = self._settings.data_dir
         output_dir = self._settings.ingest_dir
 
@@ -74,18 +98,91 @@ class IngestRunner:
             ]
 
         logger.info("Launching %d ingest adapters.", len(adapters_to_run))
-        results: dict[str, SourceManifest] = {}
 
-        with ProcessPoolExecutor(max_workers=len(adapters_to_run)) as pool:
-            futures = {
-                pool.submit(_run_single_adapter, cls, raw_dir, output_dir): cls
-                for cls in adapters_to_run
-            }
-            for future in as_completed(futures):
-                futures[future]
-                manifest = future.result()
-                results[manifest.source_id] = manifest
-                logger.info("Adapter %s finished.", manifest.source_id)
+        manager = multiprocessing.Manager()
+        queue = manager.Queue()
+        results = _run_with_progress(adapters_to_run, raw_dir, output_dir, queue)
 
         logger.info("All ingest adapters complete.")
         return results
+
+
+def _create_bars(source_ids: list[str]) -> dict[str, tqdm[Any]]:
+    """Create one tqdm progress bar per source (total set dynamically)."""
+    bars: dict[str, tqdm[Any]] = {}
+    for i, sid in enumerate(source_ids):
+        bars[sid] = tqdm(
+            total=0,
+            desc=f"{sid:<10}",
+            position=i,
+            leave=True,
+            unit=" rows",
+            bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt}{unit} [{elapsed}]",
+        )
+    return bars
+
+
+def _drain_queue(
+    queue: Any,
+    bars: dict[str, tqdm[Any]],
+    n_adapters: int,
+) -> None:
+    """Read progress messages until all adapters finish or error."""
+    done_count = 0
+    while done_count < n_adapters:
+        source_id, current, total = queue.get()
+        bar = bars[source_id]
+        if current == -1:
+            if bar.total and bar.n < bar.total:
+                bar.update(bar.total - bar.n)
+            bar.close()
+            done_count += 1
+        elif current == -2:
+            bar.set_postfix_str("ERROR")
+            bar.close()
+            done_count += 1
+        else:
+            if total > 0 and bar.total != total:
+                bar.total = total
+                bar.refresh()
+            bar.n = current
+            bar.refresh()
+
+
+def _run_with_progress(
+    adapters: list[type],
+    raw_dir: str,
+    output_dir: str,
+    queue: Any,
+) -> dict[str, SourceManifest]:
+    """Spawn adapter processes and drive tqdm bars from the queue."""
+    root_logger = logging.getLogger()
+    prev_level = root_logger.level
+    root_logger.setLevel(logging.WARNING)
+
+    source_ids = [cls().source_id for cls in adapters]
+    bars = _create_bars(source_ids)
+    pool = multiprocessing.Pool(processes=len(adapters))
+
+    async_results = {
+        cls().source_id: pool.apply_async(
+            _run_single_adapter, (cls, raw_dir, output_dir, queue)
+        )
+        for cls in adapters
+    }
+
+    _drain_queue(queue, bars, len(adapters))
+    pool.close()
+    pool.join()
+
+    results: dict[str, SourceManifest] = {}
+    for sid, ar in async_results.items():
+        result = ar.get()
+        if isinstance(result, str):
+            logger.error(result)
+        else:
+            results[sid] = result
+
+    tqdm.write("")
+    root_logger.setLevel(prev_level)
+    return results

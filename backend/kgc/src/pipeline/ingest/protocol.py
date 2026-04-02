@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
@@ -11,6 +12,18 @@ if TYPE_CHECKING:
     import pandas as pd
 
     from ...models.ingest import SourceManifest
+
+ProgressCallback = Callable[[int, int], None]
+"""Signature: ``callback(current, total)`` — reports row-level progress.
+
+Adapters should call this frequently (e.g., every iteration). Throttling
+is handled by the callback implementation, not the caller.
+"""
+
+
+def _noop_progress(_current: int, _total: int) -> None:
+    pass
+
 
 # -- Standard column names for ingest parquet files -----------------------
 
@@ -47,7 +60,12 @@ class SourceAdapter(Protocol):
     @property
     def source_id(self) -> str: ...
 
-    def ingest(self, raw_dir: Path, output_dir: Path) -> SourceManifest:
+    def ingest(
+        self,
+        raw_dir: Path,
+        output_dir: Path,
+        progress: ProgressCallback = ...,
+    ) -> SourceManifest:
         """Read raw files from *raw_dir*, write parquet to *output_dir*.
 
         Returns a manifest describing what was produced.

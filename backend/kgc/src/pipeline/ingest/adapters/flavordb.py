@@ -10,7 +10,12 @@ from thefuzz import process as fuzz_process
 
 from ....models.ingest import SourceManifest
 from ....utils.json_io import read_json
-from ..protocol import serialize_raw_attrs, write_manifest
+from ..protocol import (
+    ProgressCallback,
+    _noop_progress,
+    serialize_raw_attrs,
+    write_manifest,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -27,14 +32,19 @@ class FlavorDBAdapter:
     def source_id(self) -> str:
         return SOURCE_ID
 
-    def ingest(self, raw_dir: Path, output_dir: Path) -> SourceManifest:
+    def ingest(
+        self,
+        raw_dir: Path,
+        output_dir: Path,
+        progress: ProgressCallback = _noop_progress,
+    ) -> SourceManifest:
         output_dir.mkdir(parents=True, exist_ok=True)
 
         flavordb_path = raw_dir / "FlavorDB" / "flavordb_scrape.json"
         hsdb_dir = raw_dir / "HSDB"
 
         flavordb_data: dict = read_json(flavordb_path)
-        fdb_rows = _extract_flavordb_rows(flavordb_data)
+        fdb_rows = _extract_flavordb_rows(flavordb_data, progress)
 
         cid2odor, cid2taste = _load_hsdb(hsdb_dir)
         skip_ids = set(fdb_rows["_pubchem_id"]) if not fdb_rows.empty else set()
@@ -106,9 +116,14 @@ def _to_standard_schema(
     return pd.DataFrame(node_rows), pd.DataFrame(xref_rows)
 
 
-def _extract_flavordb_rows(flavordb_data: dict) -> pd.DataFrame:
+def _extract_flavordb_rows(
+    flavordb_data: dict,
+    progress: ProgressCallback = _noop_progress,
+) -> pd.DataFrame:
+    items = list(flavordb_data.items())
+    total = len(items)
     rows: list[dict] = []
-    for pc_id_str, chemical in flavordb_data.items():
+    for i, (pc_id_str, chemical) in enumerate(items):
         pc_id = int(pc_id_str)
         descriptors: set[str] = set()
         for field in [
@@ -134,6 +149,10 @@ def _extract_flavordb_rows(flavordb_data: dict) -> pd.DataFrame:
                     "_url": url,
                 }
             )
+
+        progress(i, total)
+
+    progress(total, total)
     return pd.DataFrame(rows)
 
 

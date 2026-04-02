@@ -8,7 +8,12 @@ from typing import TYPE_CHECKING
 import pandas as pd
 
 from ....models.ingest import SourceManifest
-from ..protocol import serialize_raw_attrs, write_manifest
+from ..protocol import (
+    ProgressCallback,
+    _noop_progress,
+    serialize_raw_attrs,
+    write_manifest,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -28,11 +33,16 @@ class FoodOnAdapter:
     def source_id(self) -> str:
         return SOURCE_ID
 
-    def ingest(self, raw_dir: Path, output_dir: Path) -> SourceManifest:
+    def ingest(
+        self,
+        raw_dir: Path,
+        output_dir: Path,
+        progress: ProgressCallback = _noop_progress,
+    ) -> SourceManifest:
         output_dir.mkdir(parents=True, exist_ok=True)
         synonyms_path = raw_dir / "FoodOn" / "foodon-synonyms.tsv"
 
-        nodes, edges = _build_nodes_and_edges(synonyms_path)
+        nodes, edges = _build_nodes_and_edges(synonyms_path, progress)
 
         nodes = serialize_raw_attrs(nodes)
         edges = serialize_raw_attrs(edges)
@@ -56,15 +66,18 @@ class FoodOnAdapter:
 
 def _build_nodes_and_edges(
     synonyms_path: Path,
+    progress: ProgressCallback = _noop_progress,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     raw = pd.read_csv(synonyms_path, sep="\t")
     raw["?class"] = raw["?class"].apply(_remove_brackets)
     raw["?parent"] = raw["?parent"].apply(_remove_brackets)
 
+    groups = list(raw.groupby("?class"))
+    total = len(groups)
     node_rows: list[dict] = []
     edge_rows: list[dict] = []
 
-    for foodon_id, group in raw.groupby("?class"):
+    for i, (foodon_id, group) in enumerate(groups):
         syns, syn_types = _parse_synonyms(group)
         parents = group["?parent"].dropna().unique().tolist()
 
@@ -94,6 +107,9 @@ def _build_nodes_and_edges(
                 }
             )
 
+        progress(i, total)
+
+    progress(total, total)
     return pd.DataFrame(node_rows), pd.DataFrame(edge_rows)
 
 

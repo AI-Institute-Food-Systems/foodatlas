@@ -9,7 +9,12 @@ import pandas as pd
 from bs4 import BeautifulSoup
 
 from ....models.ingest import SourceManifest
-from ..protocol import serialize_raw_attrs, write_manifest
+from ..protocol import (
+    ProgressCallback,
+    _noop_progress,
+    serialize_raw_attrs,
+    write_manifest,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -26,11 +31,16 @@ class CDNOAdapter:
     def source_id(self) -> str:
         return SOURCE_ID
 
-    def ingest(self, raw_dir: Path, output_dir: Path) -> SourceManifest:
+    def ingest(
+        self,
+        raw_dir: Path,
+        output_dir: Path,
+        progress: ProgressCallback = _noop_progress,
+    ) -> SourceManifest:
         output_dir.mkdir(parents=True, exist_ok=True)
         owl_path = raw_dir / "CDNO" / "cdno.owl"
 
-        nodes, edges, xrefs = _parse_cdno(owl_path)
+        nodes, edges, xrefs = _parse_cdno(owl_path, progress)
 
         nodes = serialize_raw_attrs(nodes)
         edges = serialize_raw_attrs(edges)
@@ -64,15 +74,18 @@ class CDNOAdapter:
 
 def _parse_cdno(
     owl_path: Path,
+    progress: ProgressCallback = _noop_progress,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     with owl_path.open() as f:
         soup = BeautifulSoup(f, "xml")
 
+    classes = soup.find_all("owl:Class")
+    total = len(classes)
     node_rows: list[dict] = []
     edge_rows: list[dict] = []
     xref_rows: list[dict] = []
 
-    for class_ in soup.find_all("owl:Class"):
+    for i, class_ in enumerate(classes):
         cdno_id = class_.attrs.get("rdf:about")
         if cdno_id is None or class_.find("owl:deprecated"):
             continue
@@ -125,6 +138,9 @@ def _parse_cdno(
                 }
             )
 
+        progress(i, total)
+
+    progress(total, total)
     return pd.DataFrame(node_rows), pd.DataFrame(edge_rows), pd.DataFrame(xref_rows)
 
 

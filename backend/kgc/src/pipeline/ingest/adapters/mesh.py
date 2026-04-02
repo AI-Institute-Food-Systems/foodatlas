@@ -9,7 +9,12 @@ import pandas as pd
 import xmltodict
 
 from ....models.ingest import SourceManifest
-from ..protocol import serialize_raw_attrs, write_manifest
+from ..protocol import (
+    ProgressCallback,
+    _noop_progress,
+    serialize_raw_attrs,
+    write_manifest,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -26,13 +31,18 @@ class MeSHAdapter:
     def source_id(self) -> str:
         return SOURCE_ID
 
-    def ingest(self, raw_dir: Path, output_dir: Path) -> SourceManifest:
+    def ingest(
+        self,
+        raw_dir: Path,
+        output_dir: Path,
+        progress: ProgressCallback = _noop_progress,
+    ) -> SourceManifest:
         output_dir.mkdir(parents=True, exist_ok=True)
         mesh_dir = raw_dir / "MeSH"
         desc_path = _find_file(mesh_dir, "desc*.xml")
         supp_path = _find_file(mesh_dir, "supp*.xml")
 
-        nodes, edges = _build_outputs(desc_path, supp_path)
+        nodes, edges = _build_outputs(desc_path, supp_path, progress)
 
         nodes = serialize_raw_attrs(nodes)
         edges = serialize_raw_attrs(edges)
@@ -63,26 +73,41 @@ def _find_file(directory: Path, pattern: str) -> Path:
 
 
 def _build_outputs(
-    desc_path: Path, supp_path: Path
+    desc_path: Path,
+    supp_path: Path,
+    progress: ProgressCallback = _noop_progress,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     node_rows: list[dict] = []
     edge_rows: list[dict] = []
 
-    _parse_descriptors(desc_path, node_rows, edge_rows)
-    _parse_supplementals(supp_path, node_rows, edge_rows)
+    with desc_path.open() as f:
+        desc_records = xmltodict.parse(f.read())["DescriptorRecordSet"][
+            "DescriptorRecord"
+        ]
+    with supp_path.open() as f:
+        supp_records = xmltodict.parse(f.read())["SupplementalRecordSet"][
+            "SupplementalRecord"
+        ]
+
+    combined_total = len(desc_records) + len(supp_records)
+
+    _parse_descriptors(desc_records, node_rows, edge_rows, progress, 0, combined_total)
+    _parse_supplementals(
+        supp_records, node_rows, edge_rows, progress, len(desc_records), combined_total
+    )
 
     return pd.DataFrame(node_rows), pd.DataFrame(edge_rows)
 
 
 def _parse_descriptors(
-    xml_path: Path,
+    records: list[dict],
     node_rows: list[dict],
     edge_rows: list[dict],
+    progress: ProgressCallback = _noop_progress,
+    offset: int = 0,
+    combined_total: int = 0,
 ) -> None:
-    with xml_path.open() as f:
-        data = xmltodict.parse(f.read())
-
-    for record in data["DescriptorRecordSet"]["DescriptorRecord"]:
+    for i, record in enumerate(records):
         mesh_id = record["DescriptorUI"]
         name = record["DescriptorName"]["String"]
         tree_numbers = (
@@ -118,16 +143,20 @@ def _parse_descriptors(
                     }
                 )
 
+        progress(offset + i, combined_total)
+
+    progress(offset + len(records), combined_total)
+
 
 def _parse_supplementals(
-    xml_path: Path,
+    records: list[dict],
     node_rows: list[dict],
     edge_rows: list[dict],
+    progress: ProgressCallback = _noop_progress,
+    offset: int = 0,
+    combined_total: int = 0,
 ) -> None:
-    with xml_path.open() as f:
-        data = xmltodict.parse(f.read())
-
-    for record in data["SupplementalRecordSet"]["SupplementalRecord"]:
+    for i, record in enumerate(records):
         mesh_id = record["SupplementalRecordUI"]
         name = record["SupplementalRecordName"]["String"]
         mapped_to = _ensure_list(record["HeadingMappedToList"]["HeadingMappedTo"])
@@ -157,6 +186,10 @@ def _parse_supplementals(
                     "raw_attrs": {},
                 }
             )
+
+        progress(offset + i, combined_total)
+
+    progress(offset + len(records), combined_total)
 
 
 def _extract_synonyms(record: dict) -> list[str]:

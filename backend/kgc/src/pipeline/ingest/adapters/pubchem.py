@@ -1,4 +1,4 @@
-"""PubChem adapter — ingest cross-reference mappings (ChEBI ↔ PubChem, CID ↔ MeSH)."""
+"""PubChem adapter — ingest xref mappings (ChEBI-PubChem, CID-MeSH)."""
 
 from __future__ import annotations
 
@@ -8,7 +8,12 @@ from typing import TYPE_CHECKING
 import pandas as pd
 
 from ....models.ingest import SourceManifest
-from ..protocol import serialize_raw_attrs, write_manifest
+from ..protocol import (
+    ProgressCallback,
+    _noop_progress,
+    serialize_raw_attrs,
+    write_manifest,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -25,11 +30,16 @@ class PubChemAdapter:
     def source_id(self) -> str:
         return SOURCE_ID
 
-    def ingest(self, raw_dir: Path, output_dir: Path) -> SourceManifest:
+    def ingest(
+        self,
+        raw_dir: Path,
+        output_dir: Path,
+        progress: ProgressCallback = _noop_progress,
+    ) -> SourceManifest:
         output_dir.mkdir(parents=True, exist_ok=True)
         pubchem_dir = raw_dir / "PubChem"
 
-        xrefs = _build_xrefs(pubchem_dir)
+        xrefs = _build_xrefs(pubchem_dir, progress)
         xrefs = serialize_raw_attrs(xrefs)
 
         xrefs_path = output_dir / f"{SOURCE_ID}_xrefs.parquet"
@@ -46,28 +56,26 @@ class PubChemAdapter:
         return manifest
 
 
-def _build_xrefs(pubchem_dir: Path) -> pd.DataFrame:
-    rows: list[dict] = []
+def _build_xrefs(
+    pubchem_dir: Path,
+    progress: ProgressCallback = _noop_progress,
+) -> pd.DataFrame:
+    parts: list[pd.DataFrame] = []
 
     sid_map_path = pubchem_dir / "SID-Map"
     if sid_map_path.exists():
-        sids = pd.read_csv(
-            sid_map_path,
-            sep="\t",
-            header=None,
-            names=["SID", "source", "registry_id", "cid"],
-        )
-        chebi_sids = sids[sids["source"] == "ChEBI"].copy()
-        for _, row in chebi_sids.iterrows():
-            if pd.notna(row["cid"]):
-                rows.append(
-                    {
-                        "source_id": SOURCE_ID,
-                        "native_id": str(int(row["cid"])),
-                        "target_source": "chebi",
-                        "target_id": str(row["registry_id"]),
-                    }
-                )
+        chebi_sids = _read_chebi_sids(sid_map_path, progress)
+        if not chebi_sids.empty:
+            chebi_xrefs = pd.DataFrame(
+                {
+                    "source_id": SOURCE_ID,
+                    "native_id": chebi_sids["cid"].astype(int).astype(str),
+                    "target_source": "chebi",
+                    "target_id": chebi_sids["registry_id"].astype(str),
+                }
+            )
+            parts.append(chebi_xrefs)
+        progress(len(chebi_sids), len(chebi_sids))
 
     cid_mesh_path = pubchem_dir / "CID-MeSH.txt"
     if cid_mesh_path.exists():
@@ -76,14 +84,50 @@ def _build_xrefs(pubchem_dir: Path) -> pd.DataFrame:
             sep="\t",
             names=["cid", "mesh_term", "mesh_term_alt"],
         )
-        for _, row in cid_mesh.iterrows():
-            rows.append(
-                {
-                    "source_id": SOURCE_ID,
-                    "native_id": str(row["cid"]),
-                    "target_source": "mesh_term",
-                    "target_id": str(row["mesh_term"]),
-                }
-            )
+        mesh_xrefs = pd.DataFrame(
+            {
+                "source_id": SOURCE_ID,
+                "native_id": cid_mesh["cid"].astype(str),
+                "target_source": "mesh_term",
+                "target_id": cid_mesh["mesh_term"].astype(str),
+            }
+        )
+        parts.append(mesh_xrefs)
 
-    return pd.DataFrame(rows)
+    if parts:
+        return pd.concat(parts, ignore_index=True)
+    return pd.DataFrame()
+
+
+def _read_chebi_sids(
+    sid_map_path: Path,
+    progress: ProgressCallback = _noop_progress,
+) -> pd.DataFrame:
+    """Read only ChEBI rows from the SID-Map using chunked filtering.
+
+    The SID-Map is 15GB / 318M rows but only ~188K are ChEBI.
+    Chunked reading avoids loading the full file into memory.
+    """
+    chunks: list[pd.DataFrame] = []
+    chunk_size = 5_000_000
+    reader = pd.read_csv(
+        sid_map_path,
+        sep="\t",
+        header=None,
+        names=["SID", "source", "registry_id", "cid"],
+        dtype={"registry_id": str, "SID": str},
+        chunksize=chunk_size,
+    )
+    rows_read = 0
+    total_estimate = 318_000_000
+    for chunk in reader:
+        chebi = chunk[chunk["source"] == "ChEBI"].dropna(subset=["cid"])
+        if not chebi.empty:
+            chunks.append(chebi)
+        rows_read += len(chunk)
+        progress(rows_read, total_estimate)
+
+    progress(total_estimate, total_estimate)
+    if chunks:
+        return pd.concat(chunks, ignore_index=True)
+    return pd.DataFrame(columns=["SID", "source", "registry_id", "cid"])

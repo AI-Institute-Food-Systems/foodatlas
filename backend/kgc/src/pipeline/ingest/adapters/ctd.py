@@ -8,7 +8,12 @@ from typing import TYPE_CHECKING
 import pandas as pd
 
 from ....models.ingest import SourceManifest
-from ..protocol import serialize_raw_attrs, write_manifest
+from ..protocol import (
+    ProgressCallback,
+    _noop_progress,
+    serialize_raw_attrs,
+    write_manifest,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -36,17 +41,28 @@ class CTDAdapter:
     def source_id(self) -> str:
         return SOURCE_ID
 
-    def ingest(self, raw_dir: Path, output_dir: Path) -> SourceManifest:
+    def ingest(
+        self,
+        raw_dir: Path,
+        output_dir: Path,
+        progress: ProgressCallback = _noop_progress,
+    ) -> SourceManifest:
         output_dir.mkdir(parents=True, exist_ok=True)
         ctd_dir = raw_dir / "CTD"
 
         chemdis = _load_ctd_csv(ctd_dir / "CTD_chemicals_diseases.csv")
         diseases = _load_ctd_csv(ctd_dir / "CTD_diseases.csv")
 
+        total = len(diseases) + len(chemdis)
+        progress(0, total)
+
         nodes, xrefs = _build_disease_nodes(diseases)
         disease_edges = _build_disease_edges(diseases)
+        progress(len(diseases), total)
+
         chemdis_edges = _build_chemdis_edges(chemdis)
         edges = pd.concat([disease_edges, chemdis_edges], ignore_index=True)
+        progress(total, total)
 
         nodes = serialize_raw_attrs(nodes)
         edges = serialize_raw_attrs(edges)

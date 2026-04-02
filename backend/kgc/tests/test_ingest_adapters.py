@@ -10,8 +10,12 @@ from src.pipeline.ingest.adapters.chebi import ChEBIAdapter
 from src.pipeline.ingest.adapters.ctd import CTDAdapter
 from src.pipeline.ingest.adapters.fdc import FDCAdapter
 from src.pipeline.ingest.adapters.flavordb import FlavorDBAdapter
-from src.pipeline.ingest.adapters.foodon import FoodOnAdapter
-from src.pipeline.ingest.adapters.mesh import MeSHAdapter
+from src.pipeline.ingest.adapters.foodon import (
+    FoodOnAdapter,
+    _remove_brackets,
+    _remove_suffix,
+)
+from src.pipeline.ingest.adapters.mesh import MeSHAdapter, _ensure_list
 from src.pipeline.ingest.adapters.pubchem import PubChemAdapter
 from src.pipeline.ingest.protocol import (
     EDGES_COLUMNS,
@@ -147,3 +151,21 @@ def test_pubchem_build_xrefs(tmp_path: Path) -> None:
     xrefs = pd.read_parquet(out_dir / "pubchem_xrefs.parquet")
     chebi_xrefs = xrefs[xrefs["target_source"] == "chebi"]
     assert len(chebi_xrefs) == 2
+
+
+def test_foodon_remove_brackets() -> None:
+    assert _remove_brackets("<http://example.org>") == "http://example.org"
+    assert _remove_brackets("no_brackets") == "no_brackets"
+    assert pd.isna(_remove_brackets(pd.NA))
+
+
+def test_foodon_remove_suffix() -> None:
+    assert _remove_suffix("apple@en") == "apple"
+    assert _remove_suffix("val^^xsd:string") == "val"
+    assert _remove_suffix("plain") == "plain"
+
+
+def test_mesh_ensure_list() -> None:
+    assert _ensure_list([1, 2]) == [1, 2]
+    assert _ensure_list({"key": "val"}) == [{"key": "val"}]
+    assert _ensure_list("text") == ["text"]
