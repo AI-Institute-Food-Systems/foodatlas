@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from ...stores.entity_store import EntityStore
 from ...stores.schema import FILE_ENTITIES, FILE_LUT_CHEMICAL, FILE_LUT_FOOD
+from .link_xrefs import link_mesh_to_chebi, link_pubchem_to_chebi
 from .lut import EntityLUT
 from .resolve_primary import (
     create_chemicals_from_chebi,
@@ -81,6 +82,8 @@ class EntityResolver:
             sources, self._entity_store, self._corrections, self._linked_native_ids
         )
         link_fdc_nutrients(sources, self._entity_store, self._linked_native_ids)
+        link_pubchem_to_chebi(sources, self._entity_store)
+        link_mesh_to_chebi(sources, self._entity_store)
         logger.info("Pass 2 complete: %d entities.", len(self._entity_store._entities))
 
     def _pass3_unlinked(self, sources: dict[str, dict[str, pd.DataFrame]]) -> None:

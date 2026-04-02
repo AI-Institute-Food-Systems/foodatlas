@@ -5,7 +5,9 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+from .chemical_disease import merge_ctd_triplets
 from .chemical_ontology import create_chemical_ontology
+from .disease_ontology import create_disease_ontology
 from .flavor import apply_flavor_descriptions
 from .food_chemical import merge_fdc_triplets
 from .food_ontology import create_food_ontology
@@ -33,6 +35,10 @@ def build_triplets(
     chem_onto = create_chemical_ontology(kg.entities, sources)
     kg.triplets.add_ontology(chem_onto)
 
+    disease_onto = create_disease_ontology(kg.entities, sources)
+    kg.triplets.add_ontology(disease_onto)
+
     merge_fdc_triplets(kg, sources)
+    merge_ctd_triplets(kg, sources)
     apply_flavor_descriptions(kg, sources)
     logger.info("Triplet build complete.")
