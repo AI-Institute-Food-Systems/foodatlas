@@ -6,13 +6,27 @@ import json
 from typing import TYPE_CHECKING
 
 import pandas as pd
+import pytest
 from src.pipeline.entities.link_xrefs import link_mesh_to_chebi, link_pubchem_to_chebi
+from src.stores.entity_registry import EntityRegistry
 from src.stores.entity_store import EntityStore
-from src.stores.schema import FILE_ENTITIES, FILE_LUT_CHEMICAL, FILE_LUT_FOOD
+from src.stores.schema import (
+    FILE_ENTITIES,
+    FILE_LUT_CHEMICAL,
+    FILE_LUT_FOOD,
+    REGISTRY_COLUMNS,
+)
 from src.utils.json_io import write_json
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+
+@pytest.fixture()
+def registry(tmp_path: Path) -> EntityRegistry:
+    path = tmp_path / "entity_registry.parquet"
+    pd.DataFrame(columns=REGISTRY_COLUMNS).to_parquet(path, index=False)
+    return EntityRegistry(path)
 
 
 def _make_store(tmp_path: Path, entities: list[dict]) -> EntityStore:
@@ -32,7 +46,7 @@ def _make_store(tmp_path: Path, entities: list[dict]) -> EntityStore:
     )
 
 
-def test_link_pubchem_to_chebi(tmp_path: Path) -> None:
+def test_link_pubchem_to_chebi(tmp_path: Path, registry: EntityRegistry) -> None:
     store = _make_store(
         tmp_path,
         [
@@ -60,17 +74,19 @@ def test_link_pubchem_to_chebi(tmp_path: Path) -> None:
             ),
         },
     }
-    link_pubchem_to_chebi(sources, store)
+    link_pubchem_to_chebi(sources, store, registry, merges={})
     ext = store._entities.at["e1", "external_ids"]
     assert 2244 in ext["pubchem_compound"]
 
 
-def test_link_pubchem_no_pubchem_source(tmp_path: Path) -> None:
+def test_link_pubchem_no_pubchem_source(
+    tmp_path: Path, registry: EntityRegistry
+) -> None:
     store = _make_store(tmp_path, [])
-    link_pubchem_to_chebi({}, store)
+    link_pubchem_to_chebi({}, store, registry, merges={})
 
 
-def test_link_mesh_to_chebi(tmp_path: Path) -> None:
+def test_link_mesh_to_chebi(tmp_path: Path, registry: EntityRegistry) -> None:
     store = _make_store(
         tmp_path,
         [
@@ -113,11 +129,13 @@ def test_link_mesh_to_chebi(tmp_path: Path) -> None:
             ),
         },
     }
-    link_mesh_to_chebi(sources, store)
+    link_mesh_to_chebi(sources, store, registry, merges={})
     ext = store._entities.at["e1", "external_ids"]
     assert "D001241" in ext["mesh"]
 
 
-def test_link_mesh_no_mesh_source(tmp_path: Path) -> None:
+def test_link_mesh_no_mesh_source(tmp_path: Path, registry: EntityRegistry) -> None:
     store = _make_store(tmp_path, [])
-    link_mesh_to_chebi({"pubchem": {"xrefs": pd.DataFrame()}}, store)
+    link_mesh_to_chebi(
+        {"pubchem": {"xrefs": pd.DataFrame()}}, store, registry, merges={}
+    )

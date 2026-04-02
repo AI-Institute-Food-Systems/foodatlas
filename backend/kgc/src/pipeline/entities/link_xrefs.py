@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 import pandas as pd
 
 if TYPE_CHECKING:
+    from ...stores.entity_registry import EntityRegistry
     from ...stores.entity_store import EntityStore
 
 logger = logging.getLogger(__name__)
@@ -33,6 +34,8 @@ def _build_external_index_int(store: EntityStore, key: str) -> dict[int, str]:
 def link_pubchem_to_chebi(
     sources: dict[str, dict[str, pd.DataFrame]],
     store: EntityStore,
+    registry: EntityRegistry,
+    merges: dict[str, str],
 ) -> None:
     """Add pubchem_compound IDs to ChEBI entities via PubChem xrefs."""
     pubchem = sources.get("pubchem")
@@ -57,6 +60,9 @@ def link_pubchem_to_chebi(
         pc_cid = int(xref["native_id"])
         if pc_cid not in ext["pubchem_compound"]:
             ext["pubchem_compound"].append(pc_cid)
+            old = registry.register_alias("pubchem_compound", str(pc_cid), fa_id)
+            if old:
+                merges[old] = fa_id
             linked += 1
     logger.info("Pass 2: linked %d PubChem CIDs to ChEBI.", linked)
 
@@ -64,6 +70,8 @@ def link_pubchem_to_chebi(
 def link_mesh_to_chebi(
     sources: dict[str, dict[str, pd.DataFrame]],
     store: EntityStore,
+    registry: EntityRegistry,
+    merges: dict[str, str],
 ) -> None:
     """Add MeSH IDs to ChEBI entities via PubChem CID → MeSH name → MeSH ID."""
     pubchem = sources.get("pubchem")
@@ -101,5 +109,8 @@ def link_mesh_to_chebi(
                     ext["mesh"] = []
                 if mesh_id not in ext["mesh"]:
                     ext["mesh"].append(mesh_id)
+                    old = registry.register_alias("mesh", str(mesh_id), fa_id)
+                    if old:
+                        merges[old] = fa_id
                     linked += 1
     logger.info("Pass 2: linked %d MeSH IDs to ChEBI.", linked)

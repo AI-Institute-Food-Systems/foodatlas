@@ -11,6 +11,7 @@ from ...models.entity import DiseaseEntity, FoodEntity
 
 if TYPE_CHECKING:
     from ...config.corrections import Corrections
+    from ...stores.entity_registry import EntityRegistry
     from ...stores.entity_store import EntityStore
     from .lut import EntityLUT
 
@@ -74,6 +75,7 @@ def create_foods_from_foodon(
     sources: dict[str, dict[str, pd.DataFrame]],
     store: EntityStore,
     lut: EntityLUT,
+    registry: EntityRegistry,
 ) -> None:
     """Create food entities from FoodOn nodes."""
     foodon = sources.get("foodon")
@@ -85,11 +87,17 @@ def create_foods_from_foodon(
 
     rows: list[dict] = []
     for _, row in nodes.iterrows():
+        native = str(row["native_id"])
+        fa_id = registry.resolve("foodon", native)
+        if not fa_id:
+            fa_id = f"e{registry.next_eid}"
+            registry.register("foodon", native, fa_id)
+
         syns = _get_list(row, "synonyms")
         syn_types = _get_list(row, "synonym_types")
         name = pick_common_name(syns, syn_types)
         entity = FoodEntity(
-            foodatlas_id=f"e{store._curr_eid}",
+            foodatlas_id=fa_id,
             common_name=name,
             synonyms=[s.lower() for s in syns],
             external_ids={"foodon": [row["native_id"]]},
@@ -97,8 +105,8 @@ def create_foods_from_foodon(
         rows.append(entity.model_dump(by_alias=True))
         for s in entity.synonyms:
             lut.add("food", s, entity.foodatlas_id)
-        store._curr_eid += 1
 
+    store._curr_eid = registry.next_eid
     _append_entities(store, rows)
     logger.info("Pass 1: %d food entities from FoodOn.", len(rows))
 
@@ -108,27 +116,28 @@ def create_chemicals_from_chebi(
     store: EntityStore,
     lut: EntityLUT,
     corrections: Corrections,
+    registry: EntityRegistry,
 ) -> None:
-    """Create chemical entities from ChEBI nodes (vectorized)."""
+    """Create chemical entities from ChEBI nodes."""
     chebi = sources.get("chebi")
     if chebi is None:
         return
     nodes = chebi["nodes"]
     drop_names = set(corrections.chebi_lut.drop_names)
-    n = len(nodes)
-    start_eid = store._curr_eid
-
-    fa_ids = [f"e{start_eid + i}" for i in range(n)]
-    store._curr_eid += n
 
     rows: list[dict] = []
-    for i, (_, row) in enumerate(nodes.iterrows()):
+    for _, row in nodes.iterrows():
+        native = str(int(row["native_id"]))
+        fa_id = registry.resolve("chebi", native)
+        if not fa_id:
+            fa_id = f"e{registry.next_eid}"
+            registry.register("chebi", native, fa_id)
+
         syns = _get_list(row, "synonyms")
         syn_types = _get_list(row, "synonym_types")
         star = _get_star(row)
         name = pick_common_name(syns, syn_types, star)
         filtered = [s.lower() for s in syns if s.lower() not in drop_names]
-        fa_id = fa_ids[i]
         rows.append(
             {
                 "foodatlas_id": fa_id,
@@ -142,6 +151,7 @@ def create_chemicals_from_chebi(
         for s in filtered:
             lut.add("chemical", s, fa_id)
 
+    store._curr_eid = registry.next_eid
     _append_entities(store, rows)
     logger.info("Pass 1: %d chemical entities from ChEBI.", len(rows))
 
@@ -150,6 +160,7 @@ def create_diseases_from_ctd(
     sources: dict[str, dict[str, pd.DataFrame]],
     store: EntityStore,
     lut: EntityLUT,
+    registry: EntityRegistry,
 ) -> None:
     """Create disease entities from CTD nodes."""
     ctd = sources.get("ctd")
@@ -159,10 +170,16 @@ def create_diseases_from_ctd(
 
     rows: list[dict] = []
     for _, row in nodes.iterrows():
+        native = str(row["native_id"])
+        fa_id = registry.resolve("ctd", native)
+        if not fa_id:
+            fa_id = f"e{registry.next_eid}"
+            registry.register("ctd", native, fa_id)
+
         syns = _get_list(row, "synonyms")
         name = row["name"] if row["name"] else (syns[0] if syns else "")
         entity = DiseaseEntity(
-            foodatlas_id=f"e{store._curr_eid}",
+            foodatlas_id=fa_id,
             common_name=name.lower(),
             synonyms=[s.lower() for s in syns],
             external_ids={"ctd": [row["native_id"]]},
@@ -170,7 +187,7 @@ def create_diseases_from_ctd(
         rows.append(entity.model_dump(by_alias=True))
         for s in entity.synonyms:
             lut.add("disease", s, entity.foodatlas_id)
-        store._curr_eid += 1
 
+    store._curr_eid = registry.next_eid
     _append_entities(store, rows)
     logger.info("Pass 1: %d disease entities from CTD.", len(rows))

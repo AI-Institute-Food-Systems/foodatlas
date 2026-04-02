@@ -6,6 +6,7 @@ import json
 from typing import TYPE_CHECKING
 
 import pandas as pd
+import pytest
 from src.config.corrections import Corrections
 from src.pipeline.entities.lut import EntityLUT
 from src.pipeline.entities.resolve_secondary import (
@@ -16,12 +17,25 @@ from src.pipeline.entities.resolve_secondary import (
     link_fdc_foods_to_foodon,
     link_fdc_nutrients,
 )
+from src.stores.entity_registry import EntityRegistry
 from src.stores.entity_store import EntityStore
-from src.stores.schema import FILE_ENTITIES, FILE_LUT_CHEMICAL, FILE_LUT_FOOD
+from src.stores.schema import (
+    FILE_ENTITIES,
+    FILE_LUT_CHEMICAL,
+    FILE_LUT_FOOD,
+    REGISTRY_COLUMNS,
+)
 from src.utils.json_io import write_json
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+
+@pytest.fixture()
+def registry(tmp_path: Path) -> EntityRegistry:
+    path = tmp_path / "entity_registry.parquet"
+    pd.DataFrame(columns=REGISTRY_COLUMNS).to_parquet(path, index=False)
+    return EntityRegistry(path)
 
 
 def _make_store_with_entities(tmp_path: Path, entities: list[dict]) -> EntityStore:
@@ -42,7 +56,7 @@ def _make_store_with_entities(tmp_path: Path, entities: list[dict]) -> EntitySto
     return store
 
 
-def test_link_cdno_to_chebi(tmp_path: Path) -> None:
+def test_link_cdno_to_chebi(tmp_path: Path, registry: EntityRegistry) -> None:
     store = _make_store_with_entities(
         tmp_path,
         [
@@ -70,13 +84,13 @@ def test_link_cdno_to_chebi(tmp_path: Path) -> None:
             ),
         }
     }
-    link_cdno_to_chebi(sources, store)
+    link_cdno_to_chebi(sources, store, registry, {})
     ext = store._entities.at["e1", "external_ids"]
     assert "cdno" in ext
     assert "CDNO_001" in ext["cdno"]
 
 
-def test_link_fdc_foods_to_foodon(tmp_path: Path) -> None:
+def test_link_fdc_foods_to_foodon(tmp_path: Path, registry: EntityRegistry) -> None:
     store = _make_store_with_entities(
         tmp_path,
         [
@@ -106,14 +120,14 @@ def test_link_fdc_foods_to_foodon(tmp_path: Path) -> None:
         }
     }
     corrections = Corrections()
-    link_fdc_foods_to_foodon(sources, store, corrections, linked)
+    link_fdc_foods_to_foodon(sources, store, corrections, linked, registry, {})
     ext = store._entities.at["e1", "external_ids"]
     assert "fdc" in ext
     assert 100 in ext["fdc"]
     assert "food:100" in linked
 
 
-def test_link_fdc_nutrients(tmp_path: Path) -> None:
+def test_link_fdc_nutrients(tmp_path: Path, registry: EntityRegistry) -> None:
     store = _make_store_with_entities(
         tmp_path,
         [
@@ -149,13 +163,13 @@ def test_link_fdc_nutrients(tmp_path: Path) -> None:
             ),
         },
     }
-    link_fdc_nutrients(sources, store, linked)
+    link_fdc_nutrients(sources, store, linked, registry, {})
     ext = store._entities.at["e1", "external_ids"]
     assert "fdc_nutrient" in ext
     assert 1001 in ext["fdc_nutrient"]
 
 
-def test_create_unlinked_cdno(tmp_path: Path) -> None:
+def test_create_unlinked_cdno(tmp_path: Path, registry: EntityRegistry) -> None:
     store = _make_store_with_entities(tmp_path, [])
     lut = EntityLUT()
     sources: dict[str, dict[str, pd.DataFrame]] = {
@@ -171,12 +185,12 @@ def test_create_unlinked_cdno(tmp_path: Path) -> None:
             ),
         },
     }
-    create_unlinked_cdno(sources, store, lut)
+    create_unlinked_cdno(sources, store, lut, registry)
     assert len(store._entities) == 1
     assert store._entities.iloc[0]["common_name"] == "new compound"
 
 
-def test_create_unlinked_fdc_foods(tmp_path: Path) -> None:
+def test_create_unlinked_fdc_foods(tmp_path: Path, registry: EntityRegistry) -> None:
     store = _make_store_with_entities(tmp_path, [])
     lut = EntityLUT()
     linked: set[str] = {"food:100"}  # already linked
@@ -190,12 +204,14 @@ def test_create_unlinked_fdc_foods(tmp_path: Path) -> None:
             ),
         },
     }
-    create_unlinked_fdc_foods(sources, store, lut, linked)
+    create_unlinked_fdc_foods(sources, store, lut, linked, registry)
     assert len(store._entities) == 1
     assert store._entities.iloc[0]["common_name"] == "unlinked"
 
 
-def test_create_unlinked_fdc_nutrients(tmp_path: Path) -> None:
+def test_create_unlinked_fdc_nutrients(
+    tmp_path: Path, registry: EntityRegistry
+) -> None:
     store = _make_store_with_entities(tmp_path, [])
     lut = EntityLUT()
     linked: set[str] = set()
@@ -212,6 +228,6 @@ def test_create_unlinked_fdc_nutrients(tmp_path: Path) -> None:
             ),
         },
     }
-    create_unlinked_fdc_nutrients(sources, store, lut, linked)
+    create_unlinked_fdc_nutrients(sources, store, lut, linked, registry)
     assert len(store._entities) == 1
     assert store._entities.iloc[0]["entity_type"] == "chemical"

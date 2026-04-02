@@ -11,12 +11,14 @@ from src.models.settings import KGCSettings
 from src.pipeline.scaffold import (
     create_empty_entity_files,
     create_empty_triplet_files,
+    ensure_registry_exists,
 )
 from src.stores.schema import (
     FILE_ENTITIES,
     FILE_LUT_CHEMICAL,
     FILE_LUT_FOOD,
     FILE_METADATA_CONTAINS,
+    FILE_REGISTRY,
     FILE_RELATIONSHIPS,
     FILE_RETIRED,
     FILE_TRIPLETS,
@@ -146,3 +148,41 @@ class TestCreateEmptyTripletFiles:
         create_empty_triplet_files(settings)
         df = pd.read_parquet(kg_dir / FILE_TRIPLETS)
         assert len(df) == 0
+
+
+class TestEnsureRegistryExists:
+    def test_creates_empty_registry(self, settings: KGCSettings, kg_dir: Path) -> None:
+        kg_dir.mkdir(parents=True, exist_ok=True)
+        ensure_registry_exists(settings)
+        path = kg_dir / FILE_REGISTRY
+        assert path.exists()
+        df = pd.read_parquet(path)
+        assert len(df) == 0
+
+    def test_does_not_overwrite_existing(
+        self, settings: KGCSettings, kg_dir: Path
+    ) -> None:
+        kg_dir.mkdir(parents=True, exist_ok=True)
+        path = kg_dir / FILE_REGISTRY
+        existing = pd.DataFrame(
+            [{"source": "foodon", "native_id": "F1", "foodatlas_id": "e1"}]
+        )
+        existing.to_parquet(path, index=False)
+
+        ensure_registry_exists(settings)
+        df = pd.read_parquet(path)
+        assert len(df) == 1
+
+    def test_entity_files_do_not_touch_registry(
+        self, settings: KGCSettings, kg_dir: Path
+    ) -> None:
+        kg_dir.mkdir(parents=True, exist_ok=True)
+        path = kg_dir / FILE_REGISTRY
+        existing = pd.DataFrame(
+            [{"source": "foodon", "native_id": "F1", "foodatlas_id": "e1"}]
+        )
+        existing.to_parquet(path, index=False)
+
+        create_empty_entity_files(settings)
+        df = pd.read_parquet(path)
+        assert len(df) == 1

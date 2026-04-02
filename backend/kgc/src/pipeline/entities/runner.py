@@ -7,8 +7,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ...config.corrections import load_corrections
+from ...stores.entity_registry import EntityRegistry
+from ...stores.schema import FILE_REGISTRY
 from ..ingest_loader import load_ingest_output
-from ..scaffold import create_empty_entity_files
+from ..scaffold import create_empty_entity_files, ensure_registry_exists
 from .resolver import EntityResolver
 from .subtree_filter import filter_sources
 
@@ -34,8 +36,11 @@ class EntityRunner:
 
         logger.info("=== ENTITY RESOLUTION ===")
         kg_dir = Path(self._settings.kg_dir)
+        ensure_registry_exists(self._settings)
+        registry = EntityRegistry(kg_dir / FILE_REGISTRY)
+
         create_empty_entity_files(self._settings)
-        resolver = EntityResolver(kg_dir, corrections)
+        resolver = EntityResolver(kg_dir, corrections, registry)
         resolver.resolve(sources)
         resolver.entity_store.save(kg_dir)
 

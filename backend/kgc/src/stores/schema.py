@@ -20,6 +20,10 @@ RELATIONSHIP_COLUMNS = ["foodatlas_id", "name"]
 LUT_COLUMNS = ["name", "foodatlas_id"]
 RETIRED_COLUMNS = ["foodatlas_id", "action", "destination"]
 
+FILE_REGISTRY = "entity_registry.parquet"
+FILE_BUILD_DIFF = "_build_diff.json"
+REGISTRY_COLUMNS = ["source", "native_id", "foodatlas_id"]
+
 
 def _get_columns(model: type[BaseModel]) -> list[str]:
     """Get column names from a model, respecting aliases."""

@@ -11,6 +11,7 @@ from ...models.entity import ChemicalEntity, FoodEntity
 
 if TYPE_CHECKING:
     from ...config.corrections import Corrections
+    from ...stores.entity_registry import EntityRegistry
     from ...stores.entity_store import EntityStore
     from .lut import EntityLUT
 
@@ -60,6 +61,8 @@ def _build_external_index(store: EntityStore, key: str) -> dict[str, str]:
 def link_cdno_to_chebi(
     sources: dict[str, dict[str, pd.DataFrame]],
     store: EntityStore,
+    registry: EntityRegistry,
+    merges: dict[str, str],
 ) -> None:
     """Link CDNO entries to existing ChEBI entities via xrefs."""
     cdno = sources.get("cdno")
@@ -79,6 +82,9 @@ def link_cdno_to_chebi(
             if "cdno" not in ext:
                 ext["cdno"] = []
             ext["cdno"].append(xref["native_id"])
+            old = registry.register_alias("cdno", str(xref["native_id"]), fa_id)
+            if old:
+                merges[old] = fa_id
             linked += 1
     logger.info("Pass 2: linked %d CDNO → ChEBI.", linked)
 
@@ -88,6 +94,8 @@ def link_fdc_foods_to_foodon(
     store: EntityStore,
     corrections: Corrections,
     linked_ids: set[str],
+    registry: EntityRegistry,
+    merges: dict[str, str],
 ) -> None:
     """Link FDC food entries to existing FoodOn entities via xrefs."""
     fdc = sources.get("fdc")
@@ -113,6 +121,9 @@ def link_fdc_foods_to_foodon(
             if "fdc" not in ext:
                 ext["fdc"] = []
             ext["fdc"].append(fdc_id)
+            old = registry.register_alias("fdc", str(fdc_id), fa_id)
+            if old:
+                merges[old] = fa_id
             linked += 1
             linked_ids.add(fdc_native)
     logger.info("Pass 2: linked %d FDC foods → FoodOn.", linked)
@@ -122,6 +133,8 @@ def link_fdc_nutrients(
     sources: dict[str, dict[str, pd.DataFrame]],
     store: EntityStore,
     linked_ids: set[str],
+    registry: EntityRegistry,
+    merges: dict[str, str],
 ) -> None:
     """Link FDC nutrients to existing entities via CDNO xrefs."""
     fdc = sources.get("fdc")
@@ -154,6 +167,9 @@ def link_fdc_nutrients(
                 if "fdc_nutrient" not in ext:
                     ext["fdc_nutrient"] = []
                 ext["fdc_nutrient"].append(int(nutrient_id))
+                old = registry.register_alias("fdc_nutrient", str(nutrient_id), fa_id)
+                if old:
+                    merges[old] = fa_id
                 linked += 1
                 linked_ids.add(row["native_id"])
     logger.info("Pass 2: linked %d FDC nutrients.", linked)
@@ -166,6 +182,7 @@ def create_unlinked_cdno(
     sources: dict[str, dict[str, pd.DataFrame]],
     store: EntityStore,
     lut: EntityLUT,
+    registry: EntityRegistry,
 ) -> None:
     """Create chemical entities for CDNO entries not linked to ChEBI."""
     cdno = sources.get("cdno")
@@ -177,8 +194,13 @@ def create_unlinked_cdno(
     unlinked = nodes[~nodes["native_id"].isin(linked_ids)]
     rows: list[dict] = []
     for _, row in unlinked.iterrows():
+        native = str(row["native_id"])
+        fa_id = registry.resolve("cdno", native)
+        if not fa_id:
+            fa_id = f"e{registry.next_eid}"
+            registry.register("cdno", native, fa_id)
         entity = ChemicalEntity(
-            foodatlas_id=f"e{store._curr_eid}",
+            foodatlas_id=fa_id,
             common_name=row["name"],
             synonyms=[row["name"]] if row["name"] else [],
             external_ids={"cdno": [row["native_id"]]},
@@ -186,7 +208,7 @@ def create_unlinked_cdno(
         rows.append(entity.model_dump(by_alias=True))
         if entity.common_name:
             lut.add("chemical", entity.common_name, entity.foodatlas_id)
-        store._curr_eid += 1
+    store._curr_eid = registry.next_eid
     _append_entities(store, rows)
     logger.info("Pass 3: %d unlinked CDNO entities.", len(rows))
 
@@ -196,6 +218,7 @@ def create_unlinked_fdc_foods(
     store: EntityStore,
     lut: EntityLUT,
     linked_ids: set[str],
+    registry: EntityRegistry,
 ) -> None:
     """Create food entities for FDC foods not linked to FoodOn."""
     fdc = sources.get("fdc")
@@ -207,8 +230,13 @@ def create_unlinked_fdc_foods(
     rows: list[dict] = []
     for _, row in unlinked.iterrows():
         fdc_id = int(row["native_id"].split(":")[-1])
+        native = str(fdc_id)
+        fa_id = registry.resolve("fdc", native)
+        if not fa_id:
+            fa_id = f"e{registry.next_eid}"
+            registry.register("fdc", native, fa_id)
         entity = FoodEntity(
-            foodatlas_id=f"e{store._curr_eid}",
+            foodatlas_id=fa_id,
             common_name=row["name"],
             synonyms=[row["name"]] if row["name"] else [],
             external_ids={"fdc": [fdc_id]},
@@ -216,7 +244,7 @@ def create_unlinked_fdc_foods(
         rows.append(entity.model_dump(by_alias=True))
         if entity.common_name:
             lut.add("food", entity.common_name, entity.foodatlas_id)
-        store._curr_eid += 1
+    store._curr_eid = registry.next_eid
     _append_entities(store, rows)
     logger.info("Pass 3: %d unlinked FDC food entities.", len(rows))
 
@@ -226,6 +254,7 @@ def create_unlinked_fdc_nutrients(
     store: EntityStore,
     lut: EntityLUT,
     linked_ids: set[str],
+    registry: EntityRegistry,
 ) -> None:
     """Create chemical entities for FDC nutrients not linked elsewhere."""
     fdc = sources.get("fdc")
@@ -237,8 +266,13 @@ def create_unlinked_fdc_nutrients(
     rows: list[dict] = []
     for _, row in unlinked.iterrows():
         nutrient_id = int(row["native_id"].split(":")[-1])
+        native = str(nutrient_id)
+        fa_id = registry.resolve("fdc_nutrient", native)
+        if not fa_id:
+            fa_id = f"e{registry.next_eid}"
+            registry.register("fdc_nutrient", native, fa_id)
         entity = ChemicalEntity(
-            foodatlas_id=f"e{store._curr_eid}",
+            foodatlas_id=fa_id,
             common_name=row["name"],
             synonyms=[row["name"]] if row["name"] else [],
             external_ids={"fdc_nutrient": [nutrient_id]},
@@ -246,6 +280,6 @@ def create_unlinked_fdc_nutrients(
         rows.append(entity.model_dump(by_alias=True))
         if entity.common_name:
             lut.add("chemical", entity.common_name, entity.foodatlas_id)
-        store._curr_eid += 1
+    store._curr_eid = registry.next_eid
     _append_entities(store, rows)
     logger.info("Pass 3: %d unlinked FDC nutrient entities.", len(rows))

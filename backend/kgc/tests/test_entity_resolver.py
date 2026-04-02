@@ -5,13 +5,27 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pandas as pd
+import pytest
 from src.config.corrections import Corrections
 from src.pipeline.entities.resolver import EntityResolver
-from src.stores.schema import FILE_ENTITIES, FILE_LUT_CHEMICAL, FILE_LUT_FOOD
+from src.stores.entity_registry import EntityRegistry
+from src.stores.schema import (
+    FILE_ENTITIES,
+    FILE_LUT_CHEMICAL,
+    FILE_LUT_FOOD,
+    REGISTRY_COLUMNS,
+)
 from src.utils.json_io import write_json
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+
+@pytest.fixture()
+def registry(tmp_path: Path) -> EntityRegistry:
+    path = tmp_path / "entity_registry.parquet"
+    pd.DataFrame(columns=REGISTRY_COLUMNS).to_parquet(path, index=False)
+    return EntityRegistry(path)
 
 
 def _setup_kg_dir(tmp_path: Path) -> Path:
@@ -105,10 +119,10 @@ def _make_ctd_source() -> dict[str, pd.DataFrame]:
     }
 
 
-def test_resolver_creates_entities(tmp_path: Path) -> None:
+def test_resolver_creates_entities(tmp_path: Path, registry: EntityRegistry) -> None:
     kg_dir = _setup_kg_dir(tmp_path)
     corrections = Corrections()
-    resolver = EntityResolver(kg_dir, corrections)
+    resolver = EntityResolver(kg_dir, corrections, registry)
 
     sources = {
         "foodon": _make_foodon_source(),
@@ -122,9 +136,9 @@ def test_resolver_creates_entities(tmp_path: Path) -> None:
     assert types == {"food", "chemical", "disease"}
 
 
-def test_resolver_builds_lut(tmp_path: Path) -> None:
+def test_resolver_builds_lut(tmp_path: Path, registry: EntityRegistry) -> None:
     kg_dir = _setup_kg_dir(tmp_path)
-    resolver = EntityResolver(kg_dir, Corrections())
+    resolver = EntityResolver(kg_dir, Corrections(), registry)
     sources = {"foodon": _make_foodon_source()}
     resolver.resolve(sources)
 
@@ -132,9 +146,9 @@ def test_resolver_builds_lut(tmp_path: Path) -> None:
     assert "apple" in resolver.entity_store._lut_food
 
 
-def test_resolver_pass3_unlinked_fdc(tmp_path: Path) -> None:
+def test_resolver_pass3_unlinked_fdc(tmp_path: Path, registry: EntityRegistry) -> None:
     kg_dir = _setup_kg_dir(tmp_path)
-    resolver = EntityResolver(kg_dir, Corrections())
+    resolver = EntityResolver(kg_dir, Corrections(), registry)
     sources = {
         "fdc": {
             "nodes": pd.DataFrame(
@@ -160,8 +174,8 @@ def test_resolver_pass3_unlinked_fdc(tmp_path: Path) -> None:
     assert store._entities.iloc[0]["entity_type"] == "food"
 
 
-def test_resolver_empty_sources(tmp_path: Path) -> None:
+def test_resolver_empty_sources(tmp_path: Path, registry: EntityRegistry) -> None:
     kg_dir = _setup_kg_dir(tmp_path)
-    resolver = EntityResolver(kg_dir, Corrections())
+    resolver = EntityResolver(kg_dir, Corrections(), registry)
     store = resolver.resolve({})
     assert len(store._entities) == 0

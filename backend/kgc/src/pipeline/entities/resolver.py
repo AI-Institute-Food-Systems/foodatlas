@@ -6,7 +6,13 @@ import logging
 from typing import TYPE_CHECKING
 
 from ...stores.entity_store import EntityStore
-from ...stores.schema import FILE_ENTITIES, FILE_LUT_CHEMICAL, FILE_LUT_FOOD
+from ...stores.registry_diff import build_retired_df, compute_diff, write_diff_report
+from ...stores.schema import (
+    FILE_ENTITIES,
+    FILE_LUT_CHEMICAL,
+    FILE_LUT_FOOD,
+    FILE_RETIRED,
+)
 from .link_xrefs import link_mesh_to_chebi, link_pubchem_to_chebi
 from .lut import EntityLUT
 from .resolve_primary import (
@@ -29,6 +35,7 @@ if TYPE_CHECKING:
     import pandas as pd
 
     from ...config.corrections import Corrections
+    from ...stores.entity_registry import EntityRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -41,9 +48,14 @@ class EntityResolver:
     Pass 3: Create entities for unlinked secondary records.
     """
 
-    def __init__(self, kg_dir: Path, corrections: Corrections) -> None:
+    def __init__(
+        self, kg_dir: Path, corrections: Corrections, registry: EntityRegistry
+    ) -> None:
         self._kg_dir = kg_dir
         self._corrections = corrections
+        self._registry = registry
+        self._old_ids: set[str] = registry.all_ids()
+        self._merges: dict[str, str] = {}
         self._entity_store = EntityStore(
             path_entities=kg_dir / FILE_ENTITIES,
             path_lut_food=kg_dir / FILE_LUT_FOOD,
@@ -66,36 +78,60 @@ class EntityResolver:
         self._pass2_link(sources)
         self._pass3_unlinked(sources)
         self._rebuild_store_luts()
+        self._finalize_registry()
         return self._entity_store
 
     def _pass1_primary(self, sources: dict[str, dict[str, pd.DataFrame]]) -> None:
-        create_foods_from_foodon(sources, self._entity_store, self._lut)
+        create_foods_from_foodon(sources, self._entity_store, self._lut, self._registry)
         create_chemicals_from_chebi(
-            sources, self._entity_store, self._lut, self._corrections
+            sources, self._entity_store, self._lut, self._corrections, self._registry
         )
-        create_diseases_from_ctd(sources, self._entity_store, self._lut)
+        create_diseases_from_ctd(sources, self._entity_store, self._lut, self._registry)
         logger.info("Pass 1 complete: %d entities.", len(self._entity_store._entities))
 
     def _pass2_link(self, sources: dict[str, dict[str, pd.DataFrame]]) -> None:
-        link_cdno_to_chebi(sources, self._entity_store)
+        reg, m = self._registry, self._merges
+        link_cdno_to_chebi(sources, self._entity_store, reg, m)
         link_fdc_foods_to_foodon(
-            sources, self._entity_store, self._corrections, self._linked_native_ids
+            sources,
+            self._entity_store,
+            self._corrections,
+            self._linked_native_ids,
+            reg,
+            m,
         )
-        link_fdc_nutrients(sources, self._entity_store, self._linked_native_ids)
-        link_pubchem_to_chebi(sources, self._entity_store)
-        link_mesh_to_chebi(sources, self._entity_store)
+        link_fdc_nutrients(sources, self._entity_store, self._linked_native_ids, reg, m)
+        link_pubchem_to_chebi(sources, self._entity_store, reg, m)
+        link_mesh_to_chebi(sources, self._entity_store, reg, m)
         logger.info("Pass 2 complete: %d entities.", len(self._entity_store._entities))
 
     def _pass3_unlinked(self, sources: dict[str, dict[str, pd.DataFrame]]) -> None:
-        create_unlinked_cdno(sources, self._entity_store, self._lut)
+        create_unlinked_cdno(sources, self._entity_store, self._lut, self._registry)
         create_unlinked_fdc_foods(
-            sources, self._entity_store, self._lut, self._linked_native_ids
+            sources,
+            self._entity_store,
+            self._lut,
+            self._linked_native_ids,
+            self._registry,
         )
         create_unlinked_fdc_nutrients(
-            sources, self._entity_store, self._lut, self._linked_native_ids
+            sources,
+            self._entity_store,
+            self._lut,
+            self._linked_native_ids,
+            self._registry,
         )
         logger.info("Pass 3 complete: %d entities.", len(self._entity_store._entities))
 
     def _rebuild_store_luts(self) -> None:
         self._entity_store._lut_food = self._lut.get_food_lut()
         self._entity_store._lut_chemical = self._lut.get_chemical_lut()
+
+    def _finalize_registry(self) -> None:
+        """Compute diff, write retired.parquet and diff report, save registry."""
+        new_ids = self._registry.all_ids()
+        diff = compute_diff(self._old_ids, new_ids, self._merges)
+        retired_df = build_retired_df(diff)
+        retired_df.to_parquet(self._kg_dir / FILE_RETIRED, index=False)
+        write_diff_report(diff, self._kg_dir)
+        self._registry.save()

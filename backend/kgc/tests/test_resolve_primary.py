@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pandas as pd
+import pytest
 from src.config.corrections import ChebiLutCorrections, Corrections
 from src.pipeline.entities.lut import EntityLUT
 from src.pipeline.entities.resolve_primary import (
@@ -13,12 +14,25 @@ from src.pipeline.entities.resolve_primary import (
     create_foods_from_foodon,
     pick_common_name,
 )
+from src.stores.entity_registry import EntityRegistry
 from src.stores.entity_store import EntityStore
-from src.stores.schema import FILE_ENTITIES, FILE_LUT_CHEMICAL, FILE_LUT_FOOD
+from src.stores.schema import (
+    FILE_ENTITIES,
+    FILE_LUT_CHEMICAL,
+    FILE_LUT_FOOD,
+    REGISTRY_COLUMNS,
+)
 from src.utils.json_io import write_json
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+
+@pytest.fixture()
+def registry(tmp_path: Path) -> EntityRegistry:
+    path = tmp_path / "entity_registry.parquet"
+    pd.DataFrame(columns=REGISTRY_COLUMNS).to_parquet(path, index=False)
+    return EntityRegistry(path)
 
 
 def _make_store(tmp_path: Path) -> EntityStore:
@@ -54,7 +68,7 @@ def test_pick_common_name_empty() -> None:
     assert pick_common_name([], []) == ""
 
 
-def test_create_foods_from_foodon(tmp_path: Path) -> None:
+def test_create_foods_from_foodon(tmp_path: Path, registry: EntityRegistry) -> None:
     store = _make_store(tmp_path)
     lut = EntityLUT()
     sources = {
@@ -75,7 +89,7 @@ def test_create_foods_from_foodon(tmp_path: Path) -> None:
             ),
         }
     }
-    create_foods_from_foodon(sources, store, lut)
+    create_foods_from_foodon(sources, store, lut, registry)
     assert len(store._entities) == 1
     row = store._entities.iloc[0]
     assert row["entity_type"] == "food"
@@ -84,7 +98,7 @@ def test_create_foods_from_foodon(tmp_path: Path) -> None:
     assert lut.lookup("food", "apples") == ["e1"]
 
 
-def test_create_chemicals_from_chebi(tmp_path: Path) -> None:
+def test_create_chemicals_from_chebi(tmp_path: Path, registry: EntityRegistry) -> None:
     store = _make_store(tmp_path)
     lut = EntityLUT()
     sources = {
@@ -105,7 +119,7 @@ def test_create_chemicals_from_chebi(tmp_path: Path) -> None:
         }
     }
     corrections = Corrections(chebi_lut=ChebiLutCorrections(drop_names=["ash"]))
-    create_chemicals_from_chebi(sources, store, lut, corrections)
+    create_chemicals_from_chebi(sources, store, lut, corrections, registry)
     assert len(store._entities) == 1
     row = store._entities.iloc[0]
     assert row["entity_type"] == "chemical"
@@ -113,7 +127,7 @@ def test_create_chemicals_from_chebi(tmp_path: Path) -> None:
     assert "caffeine" in row["synonyms"]
 
 
-def test_create_diseases_from_ctd(tmp_path: Path) -> None:
+def test_create_diseases_from_ctd(tmp_path: Path, registry: EntityRegistry) -> None:
     store = _make_store(tmp_path)
     lut = EntityLUT()
     sources = {
@@ -133,7 +147,7 @@ def test_create_diseases_from_ctd(tmp_path: Path) -> None:
             ),
         }
     }
-    create_diseases_from_ctd(sources, store, lut)
+    create_diseases_from_ctd(sources, store, lut, registry)
     assert len(store._entities) == 1
     row = store._entities.iloc[0]
     assert row["entity_type"] == "disease"

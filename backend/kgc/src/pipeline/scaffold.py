@@ -11,9 +11,11 @@ from ..stores.schema import (
     FILE_LUT_CHEMICAL,
     FILE_LUT_FOOD,
     FILE_METADATA_CONTAINS,
+    FILE_REGISTRY,
     FILE_RELATIONSHIPS,
     FILE_RETIRED,
     FILE_TRIPLETS,
+    REGISTRY_COLUMNS,
 )
 from ..utils.json_io import write_json
 
@@ -24,8 +26,24 @@ def _build_default_relationships() -> list[dict[str, str]]:
     ]
 
 
+def ensure_registry_exists(settings: KGCSettings) -> None:
+    """Create empty ``entity_registry.parquet`` if it does not exist.
+
+    The registry persists across builds and must never be overwritten.
+    """
+    kg_dir = Path(settings.kg_dir)
+    kg_dir.mkdir(parents=True, exist_ok=True)
+    path = kg_dir / FILE_REGISTRY
+    if not path.exists():
+        pd.DataFrame(columns=REGISTRY_COLUMNS).to_parquet(path, index=False)
+
+
 def create_empty_entity_files(settings: KGCSettings) -> None:
-    """Create empty entity-related KG files (entities + LUTs)."""
+    """Create empty entity-related KG files (entities + LUTs).
+
+    Note: This function must NEVER touch ``entity_registry.parquet``,
+    which persists across builds for stable entity ID assignment.
+    """
     kg_dir = Path(settings.kg_dir)
     kg_dir.mkdir(parents=True, exist_ok=True)
 
