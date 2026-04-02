@@ -1,11 +1,11 @@
 """TripletStore — runtime container wrapping a pandas DataFrame."""
 
+import json
 import logging
 from pathlib import Path
 
 import pandas as pd
 
-from ..utils.json_io import read_json, write_json
 from .schema import FILE_TRIPLETS, INDEX_COL
 
 logger = logging.getLogger(__name__)
@@ -16,9 +16,9 @@ FAID_PREFIX = "t"
 class TripletStore:
     """Manages relationship triplets in the knowledge graph.
 
-    Each triplet is (head_id, relationship_id, tail_id) with associated
-    metadata_ids. A lookup dict maps composite keys to metadata lists for
-    fast deduplication.
+    Each triplet is (head_id, relationship_id, tail_id) with a source
+    label and optional metadata_ids. A lookup dict maps composite keys
+    to metadata lists for fast deduplication.
     """
 
     @staticmethod
@@ -35,10 +35,16 @@ class TripletStore:
         self._load()
 
     def _load(self) -> None:
-        records = read_json(self.path_triplets)
-        self._triplets = pd.DataFrame(records)
-        if not self._triplets.empty:
-            self._triplets = self._triplets.set_index(INDEX_COL)
+        if self.path_triplets.exists() and self.path_triplets.stat().st_size > 0:
+            self._triplets = pd.read_parquet(self.path_triplets)
+            if INDEX_COL in self._triplets.columns:
+                self._triplets = self._triplets.set_index(INDEX_COL)
+            if "metadata_ids" in self._triplets.columns:
+                self._triplets["metadata_ids"] = self._triplets["metadata_ids"].apply(
+                    lambda x: json.loads(x) if isinstance(x, str) else x
+                )
+        else:
+            self._triplets = pd.DataFrame()
 
         if self._triplets.empty:
             self._curr_tid = 1
@@ -49,12 +55,29 @@ class TripletStore:
         self._key_to_metadata = {}
         for _, row in self._triplets.iterrows():
             key = self._make_key(row["head_id"], row["relationship_id"], row["tail_id"])
-            self._key_to_metadata[key] = row["metadata_ids"]
+            self._key_to_metadata[key] = row.get("metadata_ids", []) or []
 
     def save(self, path_output_dir: Path) -> None:
         path_output_dir = Path(path_output_dir)
-        records = self._triplets.reset_index().to_dict(orient="records")
-        write_json(path_output_dir / FILE_TRIPLETS, records)
+        df = self._triplets.reset_index()
+        if "metadata_ids" in df.columns:
+            df["metadata_ids"] = df["metadata_ids"].apply(
+                lambda x: json.dumps(x) if isinstance(x, list) else x
+            )
+        df.to_parquet(path_output_dir / FILE_TRIPLETS, index=False)
+
+    def add_ontology(self, triplets: pd.DataFrame) -> None:
+        """Add pre-built ontology triplets (no metadata_ids)."""
+        if triplets.empty:
+            return
+        if "metadata_ids" not in triplets.columns:
+            triplets["metadata_ids"] = None
+        if INDEX_COL in triplets.columns:
+            triplets = triplets.set_index(INDEX_COL)
+        for _, row in triplets.iterrows():
+            key = self._make_key(row["head_id"], row["relationship_id"], row["tail_id"])
+            self._key_to_metadata[key] = []
+        self._triplets = pd.concat([self._triplets, triplets])
 
     def create(self, metadata: pd.DataFrame) -> pd.Series:
         """Create new triplet entries from metadata rows.
@@ -74,12 +97,14 @@ class TripletStore:
 
     def _insert_or_merge(self, metadata: pd.DataFrame) -> pd.DataFrame:
         """Insert new triplets or merge metadata into existing ones."""
+        source = metadata.get("source", pd.Series([""] * len(metadata)))
         rows: list[dict] = []
-        for (head_id, rel_id, tail_id), meta_id in zip(
+        for (head_id, rel_id, tail_id, src), meta_id in zip(
             zip(
                 metadata["head_id"],
                 metadata["relationship_id"],
                 metadata["tail_id"],
+                source,
                 strict=False,
             ),
             metadata.index,
@@ -95,6 +120,7 @@ class TripletStore:
                     "head_id": head_id,
                     "relationship_id": rel_id,
                     "tail_id": tail_id,
+                    "source": src,
                     "metadata_ids": None,
                 }
             )
@@ -107,7 +133,13 @@ class TripletStore:
             return new_triplets
 
         empty = pd.DataFrame(
-            columns=["head_id", "relationship_id", "tail_id", "metadata_ids"]
+            columns=[
+                "head_id",
+                "relationship_id",
+                "tail_id",
+                "source",
+                "metadata_ids",
+            ]
         )
         empty.index.name = INDEX_COL
         return empty
@@ -119,7 +151,9 @@ class TripletStore:
                 set(
                     self._key_to_metadata[
                         self._make_key(
-                            row["head_id"], row["relationship_id"], row["tail_id"]
+                            row["head_id"],
+                            row["relationship_id"],
+                            row["tail_id"],
                         )
                     ]
                 )

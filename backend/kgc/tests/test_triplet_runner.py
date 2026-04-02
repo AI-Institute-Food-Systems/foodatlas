@@ -44,7 +44,7 @@ def test_run_calls_build_and_save(
 
     mock_loader.assert_called_once_with(settings)
     mock_scaffold.assert_called_once_with(settings)
-    mock_build.assert_called_once_with(kg, sources, settings)
+    mock_build.assert_called_once_with(kg, sources)
     kg.save.assert_called_once()
 
 

@@ -17,11 +17,11 @@ def triplets_dir(tmp_path: Path) -> Path:
             "head_id": "e0",
             "relationship_id": "r1",
             "tail_id": "e1",
-            "metadata_ids": ["mc0"],
+            "source": "fdc",
+            "metadata_ids": json.dumps(["mc0"]),
         },
     ]
-    with (tmp_path / FILE_TRIPLETS).open("w") as f:
-        json.dump(data, f)
+    pd.DataFrame(data).to_parquet(tmp_path / FILE_TRIPLETS, index=False)
     return tmp_path
 
 
@@ -98,6 +98,28 @@ class TestTripletStoreGetByRelationship:
     def test_empty_for_unknown_relationship(self, triplets: TripletStore) -> None:
         result = triplets.get_by_relationship_id("r999")
         assert len(result) == 0
+
+
+class TestTripletStoreAddOntology:
+    def test_add_ontology_triplets(self, triplets: TripletStore) -> None:
+        onto = pd.DataFrame(
+            [
+                {
+                    "foodatlas_id": "fo1",
+                    "head_id": "e10",
+                    "relationship_id": "r2",
+                    "tail_id": "e20",
+                    "source": "foodon",
+                }
+            ]
+        )
+        triplets.add_ontology(onto)
+        assert len(triplets._triplets) == 2
+        assert "e10_r2_e20" in triplets._key_to_metadata
+
+    def test_add_empty_ontology(self, triplets: TripletStore) -> None:
+        triplets.add_ontology(pd.DataFrame())
+        assert len(triplets._triplets) == 1
 
 
 class TestTripletStoreSaveReload:

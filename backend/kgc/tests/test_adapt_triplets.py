@@ -2,17 +2,15 @@
 
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING
 
 import pandas as pd
-from src.models.settings import KGCSettings
 from src.pipeline.triplets.chemical_ontology import create_chemical_ontology
 from src.pipeline.triplets.food_ontology import create_food_ontology
 from src.stores.entity_store import EntityStore
 from src.stores.schema import (
-    FILE_CHEMICAL_ONTOLOGY,
     FILE_ENTITIES,
-    FILE_FOOD_ONTOLOGY,
     FILE_LUT_CHEMICAL,
     FILE_LUT_FOOD,
 )
@@ -25,7 +23,11 @@ if TYPE_CHECKING:
 def _make_store(tmp_path: Path, entities: list[dict]) -> EntityStore:
     kg_dir = tmp_path / "kg"
     kg_dir.mkdir(exist_ok=True)
-    write_json(kg_dir / FILE_ENTITIES, entities)
+    df = pd.DataFrame(entities)
+    for col in df.columns:
+        if df[col].apply(lambda x: isinstance(x, (list, dict))).any():
+            df[col] = df[col].apply(json.dumps)
+    df.to_parquet(kg_dir / FILE_ENTITIES, index=False)
     write_json(kg_dir / FILE_LUT_FOOD, {})
     write_json(kg_dir / FILE_LUT_CHEMICAL, {})
     return EntityStore(
@@ -46,7 +48,6 @@ def test_food_ontology_from_edges(tmp_path: Path) -> None:
                 "synonyms": ["apple"],
                 "external_ids": {"foodon": ["F1"]},
                 "scientific_name": "",
-                "synonyms_display": {},
             },
             {
                 "foodatlas_id": "e2",
@@ -55,7 +56,6 @@ def test_food_ontology_from_edges(tmp_path: Path) -> None:
                 "synonyms": ["fruit"],
                 "external_ids": {"foodon": ["F2"]},
                 "scientific_name": "",
-                "synonyms_display": {},
             },
         ],
     )
@@ -74,20 +74,15 @@ def test_food_ontology_from_edges(tmp_path: Path) -> None:
             ),
         }
     }
-    settings = KGCSettings(kg_dir=str(tmp_path / "kg"))
-    result = create_food_ontology(store, sources, settings)
+    result = create_food_ontology(store, sources)
     assert len(result) == 1
     assert result.iloc[0]["head_id"] == "e1"
     assert result.iloc[0]["tail_id"] == "e2"
-    assert (tmp_path / "kg" / FILE_FOOD_ONTOLOGY).exists()
+    assert result.iloc[0]["source"] == "foodon"
 
 
 def test_food_ontology_no_foodon() -> None:
-    result = create_food_ontology(
-        EntityStore.__new__(EntityStore),
-        {},
-        KGCSettings.__new__(KGCSettings),
-    )
+    result = create_food_ontology(EntityStore.__new__(EntityStore), {})
     assert result.empty
 
 
@@ -102,7 +97,6 @@ def test_chemical_ontology_from_edges(tmp_path: Path) -> None:
                 "synonyms": ["water"],
                 "external_ids": {"chebi": [100]},
                 "scientific_name": "",
-                "synonyms_display": {},
             },
             {
                 "foodatlas_id": "e2",
@@ -111,7 +105,6 @@ def test_chemical_ontology_from_edges(tmp_path: Path) -> None:
                 "synonyms": ["molecule"],
                 "external_ids": {"chebi": [200]},
                 "scientific_name": "",
-                "synonyms_display": {},
             },
         ],
     )
@@ -130,16 +123,11 @@ def test_chemical_ontology_from_edges(tmp_path: Path) -> None:
             ),
         }
     }
-    settings = KGCSettings(kg_dir=str(tmp_path / "kg"))
-    result = create_chemical_ontology(store, sources, settings)
+    result = create_chemical_ontology(store, sources)
     assert len(result) == 1
-    assert (tmp_path / "kg" / FILE_CHEMICAL_ONTOLOGY).exists()
+    assert result.iloc[0]["source"] == "chebi"
 
 
 def test_chemical_ontology_no_chebi() -> None:
-    result = create_chemical_ontology(
-        EntityStore.__new__(EntityStore),
-        {},
-        KGCSettings.__new__(KGCSettings),
-    )
+    result = create_chemical_ontology(EntityStore.__new__(EntityStore), {})
     assert result.empty

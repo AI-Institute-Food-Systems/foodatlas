@@ -165,12 +165,14 @@ class TestResolveGroupEids:
                 "common_name": "dairy food product",
                 "synonyms": ["dairy food product"],
                 "external_ids": {},
-                "_synonyms_display": [],
                 "scientific_name": "",
             }
         ]
-        with (tmp_path / FILE_ENTITIES).open("w") as f:
-            json.dump(entities, f)
+        df = pd.DataFrame(entities)
+        for col in df.columns:
+            if df[col].apply(lambda x: isinstance(x, (list, dict))).any():
+                df[col] = df[col].apply(json.dumps)
+        df.to_parquet(tmp_path / FILE_ENTITIES, index=False)
         with (tmp_path / FILE_LUT_FOOD).open("w") as f:
             json.dump({"dairy food product": ["e0"]}, f)
         with (tmp_path / FILE_LUT_CHEMICAL).open("w") as f:

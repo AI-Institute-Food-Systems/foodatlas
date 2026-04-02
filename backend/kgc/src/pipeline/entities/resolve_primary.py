@@ -137,7 +137,6 @@ def create_chemicals_from_chebi(
                 "scientific_name": "",
                 "synonyms": filtered,
                 "external_ids": {"chebi": [int(row["native_id"])]},
-                "_synonyms_display": {},
             }
         )
         for s in filtered:

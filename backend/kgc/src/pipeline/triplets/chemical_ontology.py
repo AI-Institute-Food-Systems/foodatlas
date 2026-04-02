@@ -3,16 +3,11 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pandas as pd
 
-from ...stores.schema import FILE_CHEMICAL_ONTOLOGY
-from ...utils.json_io import write_json
-
 if TYPE_CHECKING:
-    from ...models.settings import KGCSettings
     from ...stores.entity_store import EntityStore
 
 logger = logging.getLogger(__name__)
@@ -21,7 +16,6 @@ logger = logging.getLogger(__name__)
 def create_chemical_ontology(
     entity_store: EntityStore,
     sources: dict[str, dict[str, pd.DataFrame]],
-    settings: KGCSettings,
 ) -> pd.DataFrame:
     """Generate is_a triplets from Phase 1 ChEBI edges."""
     chebi = sources.get("chebi")
@@ -51,8 +45,6 @@ def create_chemical_ontology(
     if not is_a.empty:
         is_a["foodatlas_id"] = [f"co{i}" for i in range(1, len(is_a) + 1)]
 
-    kg_dir = Path(settings.kg_dir)
-    write_json(kg_dir / FILE_CHEMICAL_ONTOLOGY, is_a.to_dict(orient="records"))
     logger.info("Created %d chemical ontology triplets.", len(is_a))
     return is_a
 

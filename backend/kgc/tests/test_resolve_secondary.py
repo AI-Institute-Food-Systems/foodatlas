@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING
 
 import pandas as pd
@@ -26,7 +27,11 @@ if TYPE_CHECKING:
 def _make_store_with_entities(tmp_path: Path, entities: list[dict]) -> EntityStore:
     kg_dir = tmp_path / "kg"
     kg_dir.mkdir(exist_ok=True)
-    write_json(kg_dir / FILE_ENTITIES, entities)
+    df = pd.DataFrame(entities)
+    for col in df.columns:
+        if df[col].apply(lambda x: isinstance(x, (list, dict))).any():
+            df[col] = df[col].apply(json.dumps)
+    df.to_parquet(kg_dir / FILE_ENTITIES, index=False)
     write_json(kg_dir / FILE_LUT_FOOD, {})
     write_json(kg_dir / FILE_LUT_CHEMICAL, {})
     store = EntityStore(
@@ -48,7 +53,6 @@ def test_link_cdno_to_chebi(tmp_path: Path) -> None:
                 "synonyms": ["caffeine"],
                 "external_ids": {"chebi": [2345]},
                 "scientific_name": "",
-                "synonyms_display": {},
             },
         ],
     )
@@ -83,7 +87,6 @@ def test_link_fdc_foods_to_foodon(tmp_path: Path) -> None:
                 "synonyms": ["apple"],
                 "external_ids": {"foodon": ["http://foodon/F1"]},
                 "scientific_name": "",
-                "synonyms_display": {},
             },
         ],
     )
@@ -121,7 +124,6 @@ def test_link_fdc_nutrients(tmp_path: Path) -> None:
                 "synonyms": ["vitamin c"],
                 "external_ids": {"cdno": ["CDNO_X"]},
                 "scientific_name": "",
-                "synonyms_display": {},
             },
         ],
     )

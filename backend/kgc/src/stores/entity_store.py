@@ -1,5 +1,6 @@
 """EntityStore — runtime container wrapping a pandas DataFrame."""
 
+import json
 import logging
 from collections import OrderedDict
 from pathlib import Path
@@ -59,10 +60,20 @@ class EntityStore:
         self._load()
 
     def _load(self) -> None:
-        records = read_json(self.path_entities)
-        self._entities = pd.DataFrame(records)
-        if not self._entities.empty:
-            self._entities = self._entities.set_index(INDEX_COL)
+        if self.path_entities.exists() and self.path_entities.stat().st_size > 0:
+            self._entities = pd.read_parquet(self.path_entities)
+            if INDEX_COL in self._entities.columns:
+                self._entities = self._entities.set_index(INDEX_COL)
+            for col in self._entities.columns:
+                sample = (
+                    self._entities[col].dropna().iloc[0]
+                    if not self._entities[col].dropna().empty
+                    else None
+                )
+                if isinstance(sample, str) and sample[:1] in ("[", "{"):
+                    self._entities[col] = self._entities[col].apply(json.loads)
+        else:
+            self._entities = pd.DataFrame()
 
         self._lut_food = _load_lut(self.path_lut_food)
         self._lut_chemical = _load_lut(self.path_lut_chemical)
@@ -75,8 +86,11 @@ class EntityStore:
 
     def save(self, path_output_dir: Path) -> None:
         path_output_dir = Path(path_output_dir)
-        records = self._entities.reset_index().to_dict(orient="records")
-        write_json(path_output_dir / FILE_ENTITIES, records)
+        df = self._entities.reset_index()
+        for col in df.columns:
+            if df[col].apply(lambda x: isinstance(x, (list, dict))).any():
+                df[col] = df[col].apply(json.dumps)
+        df.to_parquet(path_output_dir / FILE_ENTITIES, index=False)
         _save_lut(self._lut_food, path_output_dir / FILE_LUT_FOOD)
         _save_lut(self._lut_chemical, path_output_dir / FILE_LUT_CHEMICAL)
 

@@ -96,7 +96,7 @@ class PipelineRunner:
         }
 
         kg_dir = Path(self._settings.kg_dir)
-        entities_path = kg_dir / "entities.json"
+        entities_path = kg_dir / "entities.parquet"
         if entities_path.exists():
             h = hashlib.sha256(entities_path.read_bytes()).hexdigest()[:12]
             version_info["entities_hash"] = h

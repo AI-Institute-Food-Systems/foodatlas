@@ -33,7 +33,7 @@ class TripletRunner:
         create_empty_triplet_files(self._settings)
         kg = KnowledgeGraph(self._settings)
 
-        build_triplets(kg, sources, self._settings)
+        build_triplets(kg, sources)
         self._expand_from_metadata(kg)
 
         kg.save()

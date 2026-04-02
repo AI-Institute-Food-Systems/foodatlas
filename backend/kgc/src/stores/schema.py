@@ -1,4 +1,4 @@
-"""Schema constants and column definitions for KG JSON files."""
+"""Schema constants and column definitions for KG files."""
 
 from pydantic import BaseModel
 
@@ -8,15 +8,13 @@ from ..models.triplet import Triplet
 
 INDEX_COL = "foodatlas_id"
 
-FILE_ENTITIES = "entities.json"
-FILE_TRIPLETS = "triplets.json"
-FILE_METADATA_CONTAINS = "metadata_contains.json"
-FILE_RELATIONSHIPS = "relationships.json"
-FILE_LUT_FOOD = "lookup_table_food.json"
-FILE_LUT_CHEMICAL = "lookup_table_chemical.json"
-FILE_RETIRED = "retired.json"
-FILE_FOOD_ONTOLOGY = "food_ontology.json"
-FILE_CHEMICAL_ONTOLOGY = "chemical_ontology.json"
+FILE_ENTITIES = "entities.parquet"
+FILE_TRIPLETS = "triplets.parquet"
+FILE_METADATA_CONTAINS = "metadata_contains.parquet"
+FILE_RELATIONSHIPS = "relationships.parquet"
+FILE_LUT_FOOD = "_lookup_table_food.json"
+FILE_LUT_CHEMICAL = "_lookup_table_chemical.json"
+FILE_RETIRED = "retired.parquet"
 
 RELATIONSHIP_COLUMNS = ["foodatlas_id", "name"]
 LUT_COLUMNS = ["name", "foodatlas_id"]

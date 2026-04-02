@@ -1,6 +1,8 @@
-"""Create empty KG files as JSON."""
+"""Create empty KG files (parquet for data, JSON for config)."""
 
 from pathlib import Path
+
+import pandas as pd
 
 from ..models.relationship import RelationshipType
 from ..models.settings import KGCSettings
@@ -27,7 +29,7 @@ def create_empty_entity_files(settings: KGCSettings) -> None:
     kg_dir = Path(settings.kg_dir)
     kg_dir.mkdir(parents=True, exist_ok=True)
 
-    write_json(kg_dir / FILE_ENTITIES, [])
+    pd.DataFrame().to_parquet(kg_dir / FILE_ENTITIES)
     write_json(kg_dir / FILE_LUT_FOOD, {})
     write_json(kg_dir / FILE_LUT_CHEMICAL, {})
 
@@ -37,7 +39,9 @@ def create_empty_triplet_files(settings: KGCSettings) -> None:
     kg_dir = Path(settings.kg_dir)
     kg_dir.mkdir(parents=True, exist_ok=True)
 
-    write_json(kg_dir / FILE_RELATIONSHIPS, _build_default_relationships())
-    write_json(kg_dir / FILE_TRIPLETS, [])
-    write_json(kg_dir / FILE_METADATA_CONTAINS, [])
-    write_json(kg_dir / FILE_RETIRED, [])
+    pd.DataFrame(_build_default_relationships()).to_parquet(
+        kg_dir / FILE_RELATIONSHIPS, index=False
+    )
+    pd.DataFrame().to_parquet(kg_dir / FILE_TRIPLETS)
+    pd.DataFrame().to_parquet(kg_dir / FILE_METADATA_CONTAINS)
+    pd.DataFrame().to_parquet(kg_dir / FILE_RETIRED)

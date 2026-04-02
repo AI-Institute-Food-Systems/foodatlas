@@ -1,11 +1,11 @@
 """MetadataContainsStore — runtime container wrapping a pandas DataFrame."""
 
+import json
 import logging
 from pathlib import Path
 
 import pandas as pd
 
-from ..utils.json_io import read_json, write_json
 from .schema import (
     FILE_METADATA_CONTAINS,
     INDEX_COL,
@@ -34,10 +34,17 @@ class MetadataContainsStore:
         self._load()
 
     def _load(self) -> None:
-        records = read_json(self.path_metadata_contains)
-        self._records = pd.DataFrame(records)
-        if not self._records.empty:
-            self._records = self._records.set_index(INDEX_COL)
+        path = self.path_metadata_contains
+        if path.exists() and path.stat().st_size > 0:
+            self._records = pd.read_parquet(path)
+            if INDEX_COL in self._records.columns:
+                self._records = self._records.set_index(INDEX_COL)
+            if "reference" in self._records.columns:
+                self._records["reference"] = self._records["reference"].apply(
+                    lambda x: json.loads(x) if isinstance(x, str) else x
+                )
+        else:
+            self._records = pd.DataFrame()
 
         if self._records.empty:
             self._curr_mcid = 1
@@ -47,8 +54,12 @@ class MetadataContainsStore:
 
     def save(self, path_output_dir: Path) -> None:
         path_output_dir = Path(path_output_dir)
-        records = self._records.reset_index().to_dict(orient="records")
-        write_json(path_output_dir / FILE_METADATA_CONTAINS, records)
+        df = self._records.reset_index()
+        if "reference" in df.columns:
+            df["reference"] = df["reference"].apply(
+                lambda x: json.dumps(x) if isinstance(x, list) else x
+            )
+        df.to_parquet(path_output_dir / FILE_METADATA_CONTAINS, index=False)
 
     def create(self, metadata: pd.DataFrame) -> pd.DataFrame:
         """Add new metadata entries with auto-generated IDs."""

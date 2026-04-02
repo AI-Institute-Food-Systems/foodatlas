@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+import pandas as pd
 import pytest
 from src.models.relationship import RelationshipType
 from src.models.settings import KGCSettings
@@ -44,10 +45,12 @@ class TestCreateEmptyEntityFiles:
         for f in (FILE_ENTITIES, FILE_LUT_FOOD, FILE_LUT_CHEMICAL):
             assert (kg_dir / f).exists(), f"Missing: {f}"
 
-    def test_entities_is_empty_list(self, settings: KGCSettings, kg_dir: Path) -> None:
+    def test_entities_is_empty_parquet(
+        self, settings: KGCSettings, kg_dir: Path
+    ) -> None:
         create_empty_entity_files(settings)
-        data = _load_json(kg_dir / FILE_ENTITIES)
-        assert data == []
+        df = pd.read_parquet(kg_dir / FILE_ENTITIES)
+        assert len(df) == 0
 
     def test_lut_files_are_empty_json(
         self, settings: KGCSettings, kg_dir: Path
@@ -79,8 +82,8 @@ class TestCreateEmptyEntityFiles:
     def test_idempotent(self, settings: KGCSettings, kg_dir: Path) -> None:
         create_empty_entity_files(settings)
         create_empty_entity_files(settings)
-        data = _load_json(kg_dir / FILE_ENTITIES)
-        assert data == []
+        df = pd.read_parquet(kg_dir / FILE_ENTITIES)
+        assert len(df) == 0
 
 
 class TestCreateEmptyTripletFiles:
@@ -99,26 +102,30 @@ class TestCreateEmptyTripletFiles:
         self, settings: KGCSettings, kg_dir: Path
     ) -> None:
         create_empty_triplet_files(settings)
-        data = _load_json(kg_dir / FILE_RELATIONSHIPS)
-        assert len(data) == len(RelationshipType)
-        assert [r["foodatlas_id"] for r in data] == [
-            rt.value for rt in RelationshipType
-        ]
+        df = pd.read_parquet(kg_dir / FILE_RELATIONSHIPS)
+        assert len(df) == len(RelationshipType)
+        assert df["foodatlas_id"].tolist() == [rt.value for rt in RelationshipType]
 
-    def test_triplets_is_empty_list(self, settings: KGCSettings, kg_dir: Path) -> None:
+    def test_triplets_is_empty_parquet(
+        self, settings: KGCSettings, kg_dir: Path
+    ) -> None:
         create_empty_triplet_files(settings)
-        data = _load_json(kg_dir / FILE_TRIPLETS)
-        assert data == []
+        df = pd.read_parquet(kg_dir / FILE_TRIPLETS)
+        assert len(df) == 0
 
-    def test_metadata_is_empty_list(self, settings: KGCSettings, kg_dir: Path) -> None:
+    def test_metadata_is_empty_parquet(
+        self, settings: KGCSettings, kg_dir: Path
+    ) -> None:
         create_empty_triplet_files(settings)
-        data = _load_json(kg_dir / FILE_METADATA_CONTAINS)
-        assert data == []
+        df = pd.read_parquet(kg_dir / FILE_METADATA_CONTAINS)
+        assert len(df) == 0
 
-    def test_retired_is_empty_list(self, settings: KGCSettings, kg_dir: Path) -> None:
+    def test_retired_is_empty_parquet(
+        self, settings: KGCSettings, kg_dir: Path
+    ) -> None:
         create_empty_triplet_files(settings)
-        data = _load_json(kg_dir / FILE_RETIRED)
-        assert data == []
+        df = pd.read_parquet(kg_dir / FILE_RETIRED)
+        assert len(df) == 0
 
     def test_does_not_create_entity_files(
         self, settings: KGCSettings, kg_dir: Path
@@ -137,5 +144,5 @@ class TestCreateEmptyTripletFiles:
     def test_idempotent(self, settings: KGCSettings, kg_dir: Path) -> None:
         create_empty_triplet_files(settings)
         create_empty_triplet_files(settings)
-        data = _load_json(kg_dir / FILE_TRIPLETS)
-        assert data == []
+        df = pd.read_parquet(kg_dir / FILE_TRIPLETS)
+        assert len(df) == 0

@@ -65,27 +65,6 @@ class TestEntity:
                 common_name="sweet",
             )
 
-    def test_entity_dump_aliases(self):
-        e = FoodEntity(
-            foodatlas_id="e1",
-            common_name="apple",
-            synonyms_display={"foodon": ["apple"]},
-        )
-        dumped = e.model_dump(by_alias=True)
-        assert "_synonyms_display" in dumped
-        assert "synonyms_display" not in dumped
-        assert dumped["_synonyms_display"] == {"foodon": ["apple"]}
-
-    def test_entity_construct_by_alias(self):
-        e = FoodEntity.model_validate(
-            {
-                "foodatlas_id": "e1",
-                "common_name": "apple",
-                "_synonyms_display": {"foodon": ["a"]},
-            }
-        )
-        assert e.synonyms_display == {"foodon": ["a"]}
-
 
 class TestTriplet:
     def test_triplet(self):

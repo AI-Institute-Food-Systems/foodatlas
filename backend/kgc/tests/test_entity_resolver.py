@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 def _setup_kg_dir(tmp_path: Path) -> Path:
     kg_dir = tmp_path / "kg"
     kg_dir.mkdir()
-    write_json(kg_dir / FILE_ENTITIES, [])
+    pd.DataFrame().to_parquet(kg_dir / FILE_ENTITIES)
     write_json(kg_dir / FILE_LUT_FOOD, {})
     write_json(kg_dir / FILE_LUT_CHEMICAL, {})
     return kg_dir

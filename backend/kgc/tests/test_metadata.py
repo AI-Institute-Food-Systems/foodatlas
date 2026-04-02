@@ -19,7 +19,7 @@ def metadata_dir(tmp_path: Path) -> Path:
             "food_part": "peel",
             "food_processing": "raw",
             "source": "fdc",
-            "reference": ["ref1"],
+            "reference": json.dumps(["ref1"]),
             "entity_linking_method": "exact",
             "quality_score": 0.95,
             "_food_name": "apple",
@@ -28,8 +28,7 @@ def metadata_dir(tmp_path: Path) -> Path:
             "_food_part": "peel",
         },
     ]
-    with (tmp_path / FILE_METADATA_CONTAINS).open("w") as f:
-        json.dump(data, f)
+    pd.DataFrame(data).to_parquet(tmp_path / FILE_METADATA_CONTAINS, index=False)
     return tmp_path
 
 

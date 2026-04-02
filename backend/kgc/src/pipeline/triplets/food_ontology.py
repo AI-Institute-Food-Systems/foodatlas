@@ -3,16 +3,11 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pandas as pd
 
-from ...stores.schema import FILE_FOOD_ONTOLOGY
-from ...utils.json_io import write_json
-
 if TYPE_CHECKING:
-    from ...models.settings import KGCSettings
     from ...stores.entity_store import EntityStore
 
 logger = logging.getLogger(__name__)
@@ -21,7 +16,6 @@ logger = logging.getLogger(__name__)
 def create_food_ontology(
     entity_store: EntityStore,
     sources: dict[str, dict[str, pd.DataFrame]],
-    settings: KGCSettings,
 ) -> pd.DataFrame:
     """Generate is_a triplets from Phase 1 FoodOn edges."""
     foodon = sources.get("foodon")
@@ -53,8 +47,6 @@ def create_food_ontology(
             f"fo{i}" for i in range(1, len(food_ontology) + 1)
         ]
 
-    kg_dir = Path(settings.kg_dir)
-    write_json(kg_dir / FILE_FOOD_ONTOLOGY, food_ontology.to_dict(orient="records"))
     logger.info("Created %d food ontology triplets.", len(food_ontology))
     return food_ontology
 

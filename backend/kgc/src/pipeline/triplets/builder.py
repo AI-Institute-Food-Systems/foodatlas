@@ -13,7 +13,6 @@ from .food_ontology import create_food_ontology
 if TYPE_CHECKING:
     import pandas as pd
 
-    from ...models.settings import KGCSettings
     from .knowledge_graph import KnowledgeGraph
 
 logger = logging.getLogger(__name__)
@@ -22,15 +21,18 @@ logger = logging.getLogger(__name__)
 def build_triplets(
     kg: KnowledgeGraph,
     sources: dict[str, dict[str, pd.DataFrame]],
-    settings: KGCSettings,
 ) -> None:
     """Orchestrate triplet creation from resolved entities + Phase 1 edges.
 
     Mutates *kg* in memory. The caller is responsible for calling
     ``kg.save()`` after all triplet operations are complete.
     """
-    create_food_ontology(kg.entities, sources, settings)
-    create_chemical_ontology(kg.entities, sources, settings)
+    food_onto = create_food_ontology(kg.entities, sources)
+    kg.triplets.add_ontology(food_onto)
+
+    chem_onto = create_chemical_ontology(kg.entities, sources)
+    kg.triplets.add_ontology(chem_onto)
+
     merge_fdc_triplets(kg, sources)
     apply_flavor_descriptions(kg, sources)
     logger.info("Triplet build complete.")

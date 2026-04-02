@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 
+import pandas as pd
 import pytest
 from src.models.settings import KGCSettings
 from src.pipeline.triplets.knowledge_graph import KnowledgeGraph
@@ -14,6 +15,15 @@ from src.stores.schema import (
     FILE_METADATA_CONTAINS,
     FILE_TRIPLETS,
 )
+
+
+def _write_entities_parquet(path: Path, entities: list[dict]) -> None:
+    """Write entity records as parquet with JSON-serialized complex columns."""
+    df = pd.DataFrame(entities)
+    for col in df.columns:
+        if df[col].apply(lambda x: isinstance(x, (list, dict))).any():
+            df[col] = df[col].apply(json.dumps)
+    df.to_parquet(path, index=False)
 
 
 def _write_lut(path: Path, lut: dict[str, list[str]]) -> None:
@@ -36,7 +46,6 @@ def _make_kg_dir(tmp_path: Path) -> Path:
             "scientific_name": "malus domestica",
             "synonyms": ["apple", "apples"],
             "external_ids": {"ncbi_taxon_id": 12345},
-            "_synonyms_display": ["apple"],
         },
         {
             "foodatlas_id": "e1",
@@ -45,10 +54,9 @@ def _make_kg_dir(tmp_path: Path) -> Path:
             "scientific_name": "ascorbic acid",
             "synonyms": ["vitamin c", "ascorbic acid"],
             "external_ids": {"pubchem_cid": 54670067},
-            "_synonyms_display": ["vitamin c"],
         },
     ]
-    _write_json(tmp_path / FILE_ENTITIES, entities)
+    _write_entities_parquet(tmp_path / FILE_ENTITIES, entities)
 
     triplets = [
         {
@@ -56,10 +64,11 @@ def _make_kg_dir(tmp_path: Path) -> Path:
             "head_id": "e0",
             "relationship_id": "r1",
             "tail_id": "e1",
-            "metadata_ids": ["mc0"],
+            "source": "fdc",
+            "metadata_ids": json.dumps(["mc0"]),
         },
     ]
-    _write_json(tmp_path / FILE_TRIPLETS, triplets)
+    pd.DataFrame(triplets).to_parquet(tmp_path / FILE_TRIPLETS, index=False)
 
     metadata = [
         {
@@ -69,7 +78,7 @@ def _make_kg_dir(tmp_path: Path) -> Path:
             "food_part": "peel",
             "food_processing": "raw",
             "source": "fdc",
-            "reference": ["ref1"],
+            "reference": json.dumps(["ref1"]),
             "entity_linking_method": "exact",
             "quality_score": 0.95,
             "_food_name": "apple",
@@ -78,7 +87,7 @@ def _make_kg_dir(tmp_path: Path) -> Path:
             "_food_part": "peel",
         },
     ]
-    _write_json(tmp_path / FILE_METADATA_CONTAINS, metadata)
+    pd.DataFrame(metadata).to_parquet(tmp_path / FILE_METADATA_CONTAINS, index=False)
 
     _write_lut(
         tmp_path / FILE_LUT_FOOD,
@@ -102,8 +111,8 @@ def entities_dir_populated(tmp_path: Path) -> Path:
 
 @pytest.fixture()
 def entities_dir_empty(tmp_path: Path) -> Path:
-    """Directory with empty JSON files using correct schema."""
-    _write_json(tmp_path / FILE_ENTITIES, [])
+    """Directory with empty parquet + JSON LUT files."""
+    pd.DataFrame().to_parquet(tmp_path / FILE_ENTITIES)
     _write_lut(tmp_path / FILE_LUT_FOOD, {})
     _write_lut(tmp_path / FILE_LUT_CHEMICAL, {})
     return tmp_path
