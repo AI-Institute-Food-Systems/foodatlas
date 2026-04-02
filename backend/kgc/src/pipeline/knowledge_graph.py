@@ -6,12 +6,12 @@ from pathlib import Path
 import pandas as pd
 from pympler import asizeof
 
-from ...models.relationship import RelationshipType
-from ...models.settings import KGCSettings
-from ...stores.entity_store import EntityStore
-from ...stores.evidence_store import EvidenceStore
-from ...stores.extraction_store import ExtractionStore
-from ...stores.schema import (
+from ..models.relationship import RelationshipType
+from ..models.settings import KGCSettings
+from ..stores.entity_store import EntityStore
+from ..stores.evidence_store import EvidenceStore
+from ..stores.extraction_store import ExtractionStore
+from ..stores.schema import (
     FILE_ENTITIES,
     FILE_EVIDENCE,
     FILE_EXTRACTIONS,
@@ -19,7 +19,7 @@ from ...stores.schema import (
     FILE_LUT_FOOD,
     FILE_TRIPLETS,
 )
-from ...stores.triplet_store import TripletStore
+from ..stores.triplet_store import TripletStore
 
 logger = logging.getLogger(__name__)
 

@@ -13,7 +13,8 @@ class PipelineStage(Enum):
     INGEST = 0
     ENTITIES = 1
     TRIPLETS = 2
-    POSTPROCESSING = 3
+    IE = 3
+    POSTPROCESSING = 4
 
 
 ALL_STAGES: list[PipelineStage] = sorted(PipelineStage, key=lambda s: s.value)

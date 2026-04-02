@@ -1,7 +1,7 @@
 """Tests for ie_resolver — LUT-only entity resolution."""
 
 import pandas as pd
-from src.pipeline.triplets.ie_resolver import resolve_ie_metadata
+from src.pipeline.ie.resolver import resolve_ie_metadata
 from src.stores.entity_store import EntityStore
 
 

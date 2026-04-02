@@ -12,7 +12,7 @@ from ...stores.schema import FILE_REGISTRY
 from ..ingest_loader import load_ingest_output
 from ..scaffold import create_empty_entity_files, ensure_registry_exists
 from .resolver import EntityResolver
-from .subtree_filter import filter_sources
+from .utils.subtree_filter import filter_sources
 
 if TYPE_CHECKING:
     from ...models.settings import KGCSettings

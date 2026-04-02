@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
-from .ie_constants import GREEK_LETTERS, PUNCTUATIONS
+from .constants import GREEK_LETTERS, PUNCTUATIONS
 
 if TYPE_CHECKING:
     from pathlib import Path

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
-from src.pipeline.triplets.ie_loader import (
+from src.pipeline.ie.loader import (
     _parse_tuple,
     load_ie_raw,
     standardize_name,

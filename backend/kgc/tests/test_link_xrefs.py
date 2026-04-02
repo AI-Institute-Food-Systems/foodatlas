@@ -6,7 +6,10 @@ import json
 from typing import TYPE_CHECKING
 
 import pandas as pd
-from src.pipeline.entities.link_xrefs import link_mesh_to_chebi, link_pubchem_to_chebi
+from src.pipeline.entities.utils.link_xrefs import (
+    link_mesh_to_chebi,
+    link_pubchem_to_chebi,
+)
 from src.stores.entity_store import EntityStore
 from src.stores.schema import (
     FILE_ENTITIES,

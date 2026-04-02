@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING
 import pandas as pd
 import pytest
 from src.config.corrections import Corrections
-from src.pipeline.entities.lut import EntityLUT
 from src.pipeline.entities.resolve_secondary import (
     create_unlinked_cdno,
     create_unlinked_fdc_foods,
@@ -17,6 +16,7 @@ from src.pipeline.entities.resolve_secondary import (
     link_fdc_foods_to_foodon,
     link_fdc_nutrients,
 )
+from src.pipeline.entities.utils.lut import EntityLUT
 from src.stores.entity_registry import EntityRegistry
 from src.stores.entity_store import EntityStore
 from src.stores.schema import (

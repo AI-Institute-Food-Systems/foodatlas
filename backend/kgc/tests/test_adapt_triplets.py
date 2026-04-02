@@ -6,8 +6,8 @@ import json
 from typing import TYPE_CHECKING
 
 import pandas as pd
-from src.pipeline.triplets.chemical_ontology import create_chemical_ontology
-from src.pipeline.triplets.food_ontology import create_food_ontology
+from src.pipeline.triplets.chemical_chemical import create_chemical_ontology
+from src.pipeline.triplets.food_food import create_food_ontology
 from src.stores.entity_store import EntityStore
 from src.stores.schema import (
     FILE_ENTITIES,

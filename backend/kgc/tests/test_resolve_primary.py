@@ -7,13 +7,13 @@ from typing import TYPE_CHECKING
 import pandas as pd
 import pytest
 from src.config.corrections import ChebiLutCorrections, Corrections
-from src.pipeline.entities.lut import EntityLUT
 from src.pipeline.entities.resolve_primary import (
     create_chemicals_from_chebi,
     create_diseases_from_ctd,
     create_foods_from_foodon,
     pick_common_name,
 )
+from src.pipeline.entities.utils.lut import EntityLUT
 from src.stores.entity_registry import EntityRegistry
 from src.stores.entity_store import EntityStore
 from src.stores.schema import (

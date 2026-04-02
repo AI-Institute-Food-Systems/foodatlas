@@ -13,8 +13,6 @@ from ...stores.schema import (
     FILE_LUT_FOOD,
     FILE_RETIRED,
 )
-from .link_xrefs import link_mesh_to_chebi, link_pubchem_to_chebi
-from .lut import EntityLUT
 from .resolve_primary import (
     create_chemicals_from_chebi,
     create_diseases_from_ctd,
@@ -28,6 +26,8 @@ from .resolve_secondary import (
     link_fdc_foods_to_foodon,
     link_fdc_nutrients,
 )
+from .utils.link_xrefs import link_mesh_to_chebi, link_pubchem_to_chebi
+from .utils.lut import EntityLUT
 
 if TYPE_CHECKING:
     from pathlib import Path

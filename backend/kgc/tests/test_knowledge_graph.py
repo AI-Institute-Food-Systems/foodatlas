@@ -3,7 +3,7 @@
 from pathlib import Path
 
 from src.models.settings import KGCSettings
-from src.pipeline.triplets.knowledge_graph import KnowledgeGraph
+from src.pipeline.knowledge_graph import KnowledgeGraph
 
 
 class TestKGLoad:

@@ -5,17 +5,17 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+from ..postprocessing.flavor import apply_flavor_descriptions
+from .chemical_chemical import create_chemical_ontology
 from .chemical_disease import merge_ctd_triplets
-from .chemical_ontology import create_chemical_ontology
-from .disease_ontology import create_disease_ontology
-from .flavor import apply_flavor_descriptions
+from .disease_disease import create_disease_ontology
 from .food_chemical import merge_fdc_triplets
-from .food_ontology import create_food_ontology
+from .food_food import create_food_ontology
 
 if TYPE_CHECKING:
     import pandas as pd
 
-    from .knowledge_graph import KnowledgeGraph
+    from ..knowledge_graph import KnowledgeGraph
 
 logger = logging.getLogger(__name__)
 

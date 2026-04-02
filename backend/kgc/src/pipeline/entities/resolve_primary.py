@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from ...config.corrections import Corrections
     from ...stores.entity_registry import EntityRegistry
     from ...stores.entity_store import EntityStore
-    from .lut import EntityLUT
+    from .utils.lut import EntityLUT
 
 logger = logging.getLogger(__name__)
 

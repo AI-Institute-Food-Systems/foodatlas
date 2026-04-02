@@ -67,7 +67,7 @@ def cli(
     "stages",
     multiple=True,
     type=click.Choice(_VALID_STAGES, case_sensitive=False),
-    help="Stage name or number (0-3, repeatable). Omit for all.",
+    help="Stage name or number (0-4, repeatable). Omit for all.",
 )
 @click.option(
     "--source",

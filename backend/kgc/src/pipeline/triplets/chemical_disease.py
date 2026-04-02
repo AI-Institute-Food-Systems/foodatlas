@@ -10,7 +10,7 @@ import pandas as pd
 from ...models.relationship import RelationshipType
 
 if TYPE_CHECKING:
-    from .knowledge_graph import KnowledgeGraph
+    from ..knowledge_graph import KnowledgeGraph
 
 logger = logging.getLogger(__name__)
 

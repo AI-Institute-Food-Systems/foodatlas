@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 import pandas as pd
 
 if TYPE_CHECKING:
-    from .knowledge_graph import KnowledgeGraph
+    from ..knowledge_graph import KnowledgeGraph
 
 logger = logging.getLogger(__name__)
 

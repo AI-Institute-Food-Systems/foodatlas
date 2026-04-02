@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 
 from ..utils.json_io import write_json
 from .entities.runner import EntityRunner
+from .ie.runner import IERunner
 from .ingest.runner import IngestRunner
 from .stages import ALL_STAGES, PipelineStage
 from .triplets.runner import TripletRunner
@@ -80,6 +81,10 @@ class PipelineRunner:
         runner = TripletRunner(self._settings)
         runner.run()
 
+    def _run_ie(self) -> None:
+        runner = IERunner(self._settings)
+        runner.run()
+
     def _run_postprocessing(self) -> None:
         logger.info("Postprocessing is deferred — not yet implemented.")
 
@@ -110,5 +115,6 @@ _STAGE_HANDLERS: dict[PipelineStage, Callable[[PipelineRunner], None]] = {
     PipelineStage.INGEST: PipelineRunner._run_ingest,
     PipelineStage.ENTITIES: PipelineRunner._run_entities,
     PipelineStage.TRIPLETS: PipelineRunner._run_triplets,
+    PipelineStage.IE: PipelineRunner._run_ie,
     PipelineStage.POSTPROCESSING: PipelineRunner._run_postprocessing,
 }

@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 import pandas as pd
-from src.pipeline.triplets.ie_report import (
+from src.pipeline.ie.report import (
     write_resolution_stats,
     write_unresolved_report,
 )

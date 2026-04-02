@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 
 import pandas as pd
 from src.pipeline.triplets.chemical_disease import merge_ctd_triplets
-from src.pipeline.triplets.disease_ontology import create_disease_ontology
+from src.pipeline.triplets.disease_disease import create_disease_ontology
 from src.stores.entity_store import EntityStore
 from src.stores.schema import FILE_ENTITIES, FILE_LUT_CHEMICAL, FILE_LUT_FOOD
 from src.utils.json_io import write_json
