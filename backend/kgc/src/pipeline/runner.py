@@ -9,11 +9,11 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from ..construct.entity_runner import EntityRunner
-from ..construct.triplet_runner import TripletRunner
-from ..ingest.runner import IngestRunner
 from ..utils.json_io import write_json
+from .entities.runner import EntityRunner
+from .ingest.runner import IngestRunner
 from .stages import ALL_STAGES, PipelineStage
+from .triplets.runner import TripletRunner
 
 if TYPE_CHECKING:
     from collections.abc import Callable

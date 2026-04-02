@@ -1,1 +1,1 @@
-"""Pipeline runner and stage definitions."""
+"""KGC pipeline — orchestration and stage implementations."""

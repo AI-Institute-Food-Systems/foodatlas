@@ -5,9 +5,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pandas as pd
-from src.construct.triplets.chemical_ontology import create_chemical_ontology
-from src.construct.triplets.food_ontology import create_food_ontology
 from src.models.settings import KGCSettings
+from src.pipeline.triplets.chemical_ontology import create_chemical_ontology
+from src.pipeline.triplets.food_ontology import create_food_ontology
 from src.stores.entity_store import EntityStore
 from src.stores.schema import (
     FILE_CHEMICAL_ONTOLOGY,

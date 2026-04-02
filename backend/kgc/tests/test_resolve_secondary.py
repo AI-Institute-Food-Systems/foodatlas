@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 from src.config.corrections import Corrections
-from src.construct.entity_lut import EntityLUT
-from src.construct.resolve_secondary import (
+from src.pipeline.entities.lut import EntityLUT
+from src.pipeline.entities.resolve_secondary import (
     create_unlinked_cdno,
     create_unlinked_fdc_foods,
     create_unlinked_fdc_nutrients,

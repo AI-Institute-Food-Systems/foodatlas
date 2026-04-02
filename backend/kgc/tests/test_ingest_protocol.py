@@ -5,14 +5,14 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING
 
-from src.ingest.protocol import (
+from src.models.ingest import SourceManifest
+from src.pipeline.ingest.protocol import (
     EDGES_COLUMNS,
     NODES_COLUMNS,
     XREFS_COLUMNS,
     SourceAdapter,
     write_manifest,
 )
-from src.models.ingest import SourceManifest
 
 if TYPE_CHECKING:
     from pathlib import Path

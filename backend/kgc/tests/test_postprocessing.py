@@ -2,13 +2,13 @@
 
 import pandas as pd
 import pytest
-from src.postprocessing.common_name import (
+from src.pipeline.postprocessing.common_name import (
     _is_internal_mention,
     count_synonym_mentions,
     update_common_names,
 )
-from src.postprocessing.grouping.foods import clean_groups
-from src.postprocessing.synonyms_display import (
+from src.pipeline.postprocessing.grouping.foods import clean_groups
+from src.pipeline.postprocessing.synonyms_display import (
     build_synonyms_display,
     remove_plural_synonyms,
 )

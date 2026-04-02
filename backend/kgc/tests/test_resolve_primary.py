@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 from src.config.corrections import ChebiLutCorrections, Corrections
-from src.construct.entity_lut import EntityLUT
-from src.construct.resolve_primary import (
+from src.pipeline.entities.lut import EntityLUT
+from src.pipeline.entities.resolve_primary import (
     create_chemicals_from_chebi,
     create_diseases_from_ctd,
     create_foods_from_foodon,

@@ -7,8 +7,8 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-from src.construct.triplet_runner import TripletRunner
 from src.models.settings import KGCSettings
+from src.pipeline.triplets.runner import TripletRunner
 
 
 @pytest.fixture
@@ -23,10 +23,10 @@ def settings(tmp_path: Path) -> KGCSettings:
     )
 
 
-@patch("src.construct.triplet_runner.load_ingest_output")
-@patch("src.construct.triplet_runner.create_empty_triplet_files")
-@patch("src.construct.triplet_runner.KnowledgeGraph")
-@patch("src.construct.triplet_runner.build_triplets")
+@patch("src.pipeline.triplets.runner.load_ingest_output")
+@patch("src.pipeline.triplets.runner.create_empty_triplet_files")
+@patch("src.pipeline.triplets.runner.KnowledgeGraph")
+@patch("src.pipeline.triplets.runner.build_triplets")
 def test_run_calls_build_and_save(
     mock_build: MagicMock,
     mock_kg_cls: MagicMock,
@@ -48,10 +48,10 @@ def test_run_calls_build_and_save(
     kg.save.assert_called_once()
 
 
-@patch("src.construct.triplet_runner.load_ingest_output")
-@patch("src.construct.triplet_runner.create_empty_triplet_files")
-@patch("src.construct.triplet_runner.KnowledgeGraph")
-@patch("src.construct.triplet_runner.build_triplets")
+@patch("src.pipeline.triplets.runner.load_ingest_output")
+@patch("src.pipeline.triplets.runner.create_empty_triplet_files")
+@patch("src.pipeline.triplets.runner.KnowledgeGraph")
+@patch("src.pipeline.triplets.runner.build_triplets")
 def test_run_skips_expansion_when_no_metadata(
     mock_build: MagicMock,
     mock_kg_cls: MagicMock,
@@ -70,10 +70,10 @@ def test_run_skips_expansion_when_no_metadata(
     kg.save.assert_called_once()
 
 
-@patch("src.construct.triplet_runner.load_ingest_output")
-@patch("src.construct.triplet_runner.create_empty_triplet_files")
-@patch("src.construct.triplet_runner.KnowledgeGraph")
-@patch("src.construct.triplet_runner.build_triplets")
+@patch("src.pipeline.triplets.runner.load_ingest_output")
+@patch("src.pipeline.triplets.runner.create_empty_triplet_files")
+@patch("src.pipeline.triplets.runner.KnowledgeGraph")
+@patch("src.pipeline.triplets.runner.build_triplets")
 def test_run_expands_when_metadata_exists(
     mock_build: MagicMock,
     mock_kg_cls: MagicMock,

@@ -5,7 +5,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pandas as pd
-from src.ingest.adapters.ctd import CTDAdapter, _load_ctd_csv, _split_pipe_columns
+from src.pipeline.ingest.adapters.ctd import (
+    CTDAdapter,
+    _load_ctd_csv,
+    _split_pipe_columns,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path

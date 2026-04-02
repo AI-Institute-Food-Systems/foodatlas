@@ -5,15 +5,15 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pandas as pd
-from src.ingest.adapters.cdno import CDNOAdapter
-from src.ingest.adapters.chebi import ChEBIAdapter
-from src.ingest.adapters.ctd import CTDAdapter
-from src.ingest.adapters.fdc import FDCAdapter
-from src.ingest.adapters.flavordb import FlavorDBAdapter
-from src.ingest.adapters.foodon import FoodOnAdapter
-from src.ingest.adapters.mesh import MeSHAdapter
-from src.ingest.adapters.pubchem import PubChemAdapter
-from src.ingest.protocol import (
+from src.pipeline.ingest.adapters.cdno import CDNOAdapter
+from src.pipeline.ingest.adapters.chebi import ChEBIAdapter
+from src.pipeline.ingest.adapters.ctd import CTDAdapter
+from src.pipeline.ingest.adapters.fdc import FDCAdapter
+from src.pipeline.ingest.adapters.flavordb import FlavorDBAdapter
+from src.pipeline.ingest.adapters.foodon import FoodOnAdapter
+from src.pipeline.ingest.adapters.mesh import MeSHAdapter
+from src.pipeline.ingest.adapters.pubchem import PubChemAdapter
+from src.pipeline.ingest.protocol import (
     EDGES_COLUMNS,
     NODES_COLUMNS,
     XREFS_COLUMNS,

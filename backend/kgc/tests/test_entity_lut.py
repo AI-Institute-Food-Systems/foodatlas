@@ -1,6 +1,6 @@
 """Tests for the EntityLUT (placeholder-free disambiguation)."""
 
-from src.construct.entity_lut import EntityLUT
+from src.pipeline.entities.lut import EntityLUT
 
 
 def test_add_and_lookup() -> None:

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-from src.ingest.runner import ALL_ADAPTERS, IngestRunner
 from src.models.ingest import SourceManifest
 from src.models.settings import KGCSettings
+from src.pipeline.ingest.runner import ALL_ADAPTERS, IngestRunner
 
 
 def test_all_adapters_registered() -> None:
@@ -18,7 +18,7 @@ def test_all_adapters_unique_source_ids() -> None:
     assert len(ids) == len(set(ids))
 
 
-@patch("src.ingest.runner.ProcessPoolExecutor")
+@patch("src.pipeline.ingest.runner.ProcessPoolExecutor")
 def test_ingest_runner_run(mock_pool_cls: MagicMock) -> None:
     settings = KGCSettings(
         data_dir="/tmp/data",
@@ -35,7 +35,7 @@ def test_ingest_runner_run(mock_pool_cls: MagicMock) -> None:
     mock_pool.submit.return_value = mock_future
     mock_pool_cls.return_value = mock_pool
 
-    with patch("src.ingest.runner.as_completed", return_value=[mock_future]):
+    with patch("src.pipeline.ingest.runner.as_completed", return_value=[mock_future]):
         results = runner.run()
 
     assert "test" in results

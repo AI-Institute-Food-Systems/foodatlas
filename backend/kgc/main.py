@@ -7,8 +7,8 @@ import logging
 from pathlib import Path
 
 import click
-from src.ingest.runner import ALL_ADAPTERS
 from src.models.settings import KGCSettings
+from src.pipeline.ingest.runner import ALL_ADAPTERS
 from src.pipeline.runner import PipelineRunner
 from src.pipeline.stages import PipelineStage
 

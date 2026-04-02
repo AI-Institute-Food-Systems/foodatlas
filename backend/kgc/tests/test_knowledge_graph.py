@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
-from src.constructor.knowledge_graph import KnowledgeGraph
 from src.models.settings import KGCSettings
+from src.pipeline.triplets.knowledge_graph import KnowledgeGraph
 
 
 class TestKGLoad:

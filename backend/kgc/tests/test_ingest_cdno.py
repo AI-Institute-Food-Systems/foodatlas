@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pandas as pd
-from src.ingest.adapters.cdno import CDNOAdapter
+from src.pipeline.ingest.adapters.cdno import CDNOAdapter
 
 if TYPE_CHECKING:
     from pathlib import Path

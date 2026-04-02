@@ -5,12 +5,12 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from src.integration.scaffold import (
+from src.models.relationship import RelationshipType
+from src.models.settings import KGCSettings
+from src.pipeline.scaffold import (
     create_empty_entity_files,
     create_empty_triplet_files,
 )
-from src.models.relationship import RelationshipType
-from src.models.settings import KGCSettings
 from src.stores.schema import (
     FILE_ENTITIES,
     FILE_LUT_CHEMICAL,

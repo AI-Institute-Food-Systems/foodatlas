@@ -2,7 +2,7 @@
 
 import pandas as pd
 from src.config.corrections import OntologyRoots
-from src.construct.subtree_filter import _compute_descendants, filter_sources
+from src.pipeline.entities.subtree_filter import _compute_descendants, filter_sources
 
 
 def _make_edges(pairs: list[tuple[str, str]], edge_type: str = "is_a") -> pd.DataFrame:

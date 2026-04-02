@@ -6,7 +6,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 from src.models.settings import KGCSettings
-from src.postprocessing.grouping.chemicals import (
+from src.pipeline.postprocessing.grouping.chemicals import (
     _assign_label,
     _build_chebi_to_group,
     _build_is_a_map,
@@ -16,12 +16,12 @@ from src.postprocessing.grouping.chemicals import (
     _traverse_cdno_hierarchy,
     generate_chemical_groups_cdno,
 )
-from src.postprocessing.grouping.foods import (
+from src.pipeline.postprocessing.grouping.foods import (
     _build_group_mapping,
     _resolve_group_eids,
     _traverse_hierarchy,
 )
-from src.postprocessing.grouping.mesh import (
+from src.pipeline.postprocessing.grouping.mesh import (
     _add_tree_levels,
     _assign_categories,
     _build_tree_number_to_category,

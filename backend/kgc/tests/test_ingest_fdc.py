@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 import pytest
-from src.ingest.adapters.fdc import FDCAdapter
+from src.pipeline.ingest.adapters.fdc import FDCAdapter
 
 if TYPE_CHECKING:
     from pathlib import Path

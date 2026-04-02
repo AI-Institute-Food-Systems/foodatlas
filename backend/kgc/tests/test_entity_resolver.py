@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 from src.config.corrections import Corrections
-from src.construct.entity_resolver import EntityResolver
+from src.pipeline.entities.resolver import EntityResolver
 from src.stores.schema import FILE_ENTITIES, FILE_LUT_CHEMICAL, FILE_LUT_FOOD
 from src.utils.json_io import write_json
 

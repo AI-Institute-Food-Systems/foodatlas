@@ -116,46 +116,33 @@ kgc/
 ├── src/
 │   ├── config/                    # Settings, defaults.json, corrections.yaml
 │   ├── models/                    # Pydantic data models
-│   │   ├── entity.py              # Entity (food/chemical/disease)
-│   │   ├── relationship.py        # RelationshipType enum
-│   │   ├── triplet.py             # Triplet (head, rel, tail)
-│   │   ├── metadata.py            # MetadataContains/Disease/Flavor
-│   │   ├── settings.py            # KGCSettings (env prefix KGC_)
-│   │   └── version.py             # Version tracking
-│   ├── stores/                    # Runtime DataFrame containers
-│   │   ├── schema.py              # Column defs derived from models
-│   │   ├── entity_store.py        # EntityStore with synonym LUTs
-│   │   ├── triplet_store.py       # TripletStore with deduplication
-│   │   └── metadata_store.py      # MetadataContainsStore
-│   ├── pipeline/                  # Execution orchestration
-│   │   ├── stages.py              # PipelineStage enum (0-3)
-│   │   └── runner.py              # PipelineRunner
-│   ├── ingest/                    # Phase 1: source adapters
-│   │   ├── protocol.py            # SourceAdapter protocol + parquet schema
-│   │   ├── runner.py              # IngestRunner
-│   │   └── adapters/              # Per-source adapters (foodon, chebi, fdc, ...)
-│   ├── construct/                 # Phase 2: entity resolution + triplet building
-│   │   ├── entity_runner.py       # EntityRunner (ENTITIES stage)
-│   │   ├── triplet_runner.py      # TripletRunner (TRIPLETS stage)
-│   │   ├── ingest_loader.py       # Shared Phase 1 parquet loader
-│   │   ├── entity_resolver.py     # 3-pass entity resolution
-│   │   ├── entity_lut.py          # Ambiguity-aware synonym LUT
-│   │   ├── resolve_primary.py     # Pass 1: authoritative sources
-│   │   ├── resolve_secondary.py   # Pass 2+3: link + create unlinked
-│   │   ├── subtree_filter.py      # Ontology subtree filtering (DFS)
-│   │   ├── triplet_builder.py     # Orchestrates triplet creation
-│   │   └── triplets/              # Per-domain triplet builders
-│   ├── constructor/               # Core KG building
-│   │   ├── knowledge_graph.py     # KG orchestrator (load/save all stores)
-│   │   └── disambiguation.py      # Entity synonym resolution
-│   ├── discovery/                 # Runtime entity creation
-│   │   ├── query.py               # API stubs for NCBI & PubChem
-│   │   ├── food.py                # Food entities from NCBI Taxonomy
-│   │   └── chemical.py            # Chemical entities from PubChem
-│   ├── integration/               # Scaffold for empty KG files
-│   ├── preprocessing/             # Text normalization (names, concentrations, units)
-│   ├── postprocessing/            # Common names, synonyms display, grouping
-│   └── utils/                     # Shared helpers
+│   ├── stores/                    # Runtime DataFrame containers (EntityStore, TripletStore, MetadataStore)
+│   ├── utils/                     # Shared helpers (JSON I/O, constants)
+│   └── pipeline/                  # Orchestration + stage implementations
+│       ├── stages.py              # PipelineStage enum (0-3)
+│       ├── runner.py              # PipelineRunner orchestrator
+│       ├── scaffold.py            # Create empty KG files
+│       ├── ingest_loader.py       # Shared Phase 1 parquet loader
+│       ├── ingest/                # Stage 0: source adapters
+│       │   ├── protocol.py        # SourceAdapter protocol + parquet schema
+│       │   ├── runner.py          # IngestRunner
+│       │   └── adapters/          # Per-source (foodon, chebi, fdc, ctd, ...)
+│       ├── entities/              # Stage 1: entity resolution
+│       │   ├── runner.py          # EntityRunner
+│       │   ├── resolver.py        # 3-pass entity resolution
+│       │   ├── lut.py             # Ambiguity-aware synonym LUT
+│       │   ├── resolve_primary.py # Pass 1: authoritative sources
+│       │   ├── resolve_secondary.py # Pass 2+3: link + create unlinked
+│       │   └── subtree_filter.py  # Ontology subtree filtering (DFS)
+│       ├── triplets/              # Stage 2: triplet construction
+│       │   ├── runner.py          # TripletRunner
+│       │   ├── builder.py         # Orchestrates triplet creation
+│       │   ├── knowledge_graph.py # KG container (load/save all stores)
+│       │   ├── food_ontology.py   # Food is_a triplets
+│       │   ├── chemical_ontology.py # Chemical is_a triplets
+│       │   ├── food_chemical.py   # Food-chemical CONTAINS triplets
+│       │   └── flavor.py          # Flavor descriptions
+│       └── postprocessing/        # Stage 3: deferred
 ├── data/                          # Reference data sources
 ├── outputs/                       # Generated output directory
 └── tests/

@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
-from src.construct.entity_runner import EntityRunner
 from src.models.settings import KGCSettings
+from src.pipeline.entities.runner import EntityRunner
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -25,11 +25,11 @@ def settings(tmp_path: Path) -> KGCSettings:
     )
 
 
-@patch("src.construct.entity_runner.load_ingest_output")
-@patch("src.construct.entity_runner.load_corrections")
-@patch("src.construct.entity_runner.filter_sources")
-@patch("src.construct.entity_runner.create_empty_entity_files")
-@patch("src.construct.entity_runner.EntityResolver")
+@patch("src.pipeline.entities.runner.load_ingest_output")
+@patch("src.pipeline.entities.runner.load_corrections")
+@patch("src.pipeline.entities.runner.filter_sources")
+@patch("src.pipeline.entities.runner.create_empty_entity_files")
+@patch("src.pipeline.entities.runner.EntityResolver")
 def test_run_calls_all_steps(
     mock_resolver_cls: MagicMock,
     mock_scaffold: MagicMock,
@@ -55,11 +55,11 @@ def test_run_calls_all_steps(
     resolver.entity_store.save.assert_called_once()
 
 
-@patch("src.construct.entity_runner.load_ingest_output")
-@patch("src.construct.entity_runner.load_corrections")
-@patch("src.construct.entity_runner.filter_sources")
-@patch("src.construct.entity_runner.create_empty_entity_files")
-@patch("src.construct.entity_runner.EntityResolver")
+@patch("src.pipeline.entities.runner.load_ingest_output")
+@patch("src.pipeline.entities.runner.load_corrections")
+@patch("src.pipeline.entities.runner.filter_sources")
+@patch("src.pipeline.entities.runner.create_empty_entity_files")
+@patch("src.pipeline.entities.runner.EntityResolver")
 def test_run_passes_sources_to_filter_and_resolver(
     mock_resolver_cls: MagicMock,
     mock_scaffold: MagicMock,
