@@ -26,14 +26,13 @@ def create_chemical_ontology(
     is_a_edges = edges[edges["edge_type"] == "is_a"]
     chebi2fa = _build_chebi_to_fa_map(entity_store)
 
-    rows: list[dict[str, str | None]] = []
+    rows: list[dict[str, str]] = []
     for _, edge in is_a_edges.iterrows():
         head_id = int(edge["head_native_id"])
         tail_id = int(edge["tail_native_id"])
         if head_id in chebi2fa and tail_id in chebi2fa:
             rows.append(
                 {
-                    "foodatlas_id": None,
                     "head_id": chebi2fa[tail_id],
                     "relationship_id": "r2",
                     "tail_id": chebi2fa[head_id],
@@ -42,8 +41,6 @@ def create_chemical_ontology(
             )
 
     is_a = pd.DataFrame(rows)
-    if not is_a.empty:
-        is_a["foodatlas_id"] = [f"co{i}" for i in range(1, len(is_a) + 1)]
 
     logger.info("Created %d chemical ontology triplets.", len(is_a))
     return is_a

@@ -6,9 +6,9 @@ import logging
 from collections import defaultdict
 from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    import pandas as pd
+import pandas as pd
 
+if TYPE_CHECKING:
     from .knowledge_graph import KnowledgeGraph
 
 logger = logging.getLogger(__name__)
@@ -48,13 +48,15 @@ def apply_flavor_descriptions(
             for flavor in raw.get("flavors", []):
                 descs_by_entity[fa_id].add(flavor)
 
+    flavor_series = pd.Series(
+        {fa_id: sorted(descs) for fa_id, descs in descs_by_entity.items()},
+        name="_flavor_descriptions",
+        dtype=object,
+    )
     ents = kg.entities._entities
-    if "_flavor_descriptions" not in ents.columns:
-        ents["_flavor_descriptions"] = None
-
-    n_updated = 0
-    for fa_id, descs in descs_by_entity.items():
-        ents.at[fa_id, "_flavor_descriptions"] = sorted(descs)
-        n_updated += 1
+    if "_flavor_descriptions" in ents.columns:
+        ents.drop(columns=["_flavor_descriptions"], inplace=True)
+    ents["_flavor_descriptions"] = flavor_series
+    n_updated = len(descs_by_entity)
 
     logger.info("Applied flavor descriptions to %d chemical entities.", n_updated)

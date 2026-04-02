@@ -60,7 +60,6 @@ def merge_ctd_triplets(
             for disease_id in disease_ids:
                 rows.append(
                     {
-                        "foodatlas_id": f"cd{len(rows) + 1}",
                         "head_id": chem_id,
                         "relationship_id": rel_id,
                         "tail_id": disease_id,

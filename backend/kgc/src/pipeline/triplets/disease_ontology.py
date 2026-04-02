@@ -26,14 +26,13 @@ def create_disease_ontology(
     is_a_edges = edges[edges["edge_type"] == "is_a"]
     disease2fa = _build_disease_to_fa_map(entity_store)
 
-    rows: list[dict[str, str | None]] = []
+    rows: list[dict[str, str]] = []
     for _, edge in is_a_edges.iterrows():
         head = str(edge["head_native_id"])
         tail = str(edge["tail_native_id"])
         if head in disease2fa and tail in disease2fa:
             rows.append(
                 {
-                    "foodatlas_id": None,
                     "head_id": disease2fa[head],
                     "relationship_id": "r2",
                     "tail_id": disease2fa[tail],
@@ -42,10 +41,6 @@ def create_disease_ontology(
             )
 
     disease_ontology = pd.DataFrame(rows)
-    if not disease_ontology.empty:
-        disease_ontology["foodatlas_id"] = [
-            f"do{i}" for i in range(1, len(disease_ontology) + 1)
-        ]
 
     logger.info("Created %d disease ontology triplets.", len(disease_ontology))
     return disease_ontology

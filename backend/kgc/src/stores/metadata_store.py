@@ -1,5 +1,6 @@
 """MetadataContainsStore — runtime container wrapping a pandas DataFrame."""
 
+import hashlib
 import json
 import logging
 from pathlib import Path
@@ -18,18 +19,25 @@ COLUMNS = METADATA_CONTAINS_COLUMNS
 FAID_PREFIX = "mc"
 
 
+def _content_hash(food_name: str, chem_name: str, source: str, ref: str) -> str:
+    """Deterministic ID from metadata content."""
+    key = f"{food_name}:{chem_name}:{source}:{ref}"
+    digest = hashlib.sha256(key.encode()).hexdigest()[:12]
+    return f"{FAID_PREFIX}{digest}"
+
+
 class MetadataContainsStore:
     """Manages metadata records for "contains" relationship triplets.
 
-    Stores concentration, food parts, processing, sources, and quality
-    scores with auto-generated IDs (prefix "mc").
+    IDs are content-addressed (deterministic hash of food name, chemical
+    name, source, and reference) so the same evidence always gets the
+    same ID regardless of creation order.
     """
 
     def __init__(self, path_metadata_contains: Path) -> None:
         self.path_metadata_contains = Path(path_metadata_contains)
 
         self._records: pd.DataFrame = pd.DataFrame()
-        self._curr_mcid: int = 1
 
         self._load()
 
@@ -46,12 +54,6 @@ class MetadataContainsStore:
         else:
             self._records = pd.DataFrame()
 
-        if self._records.empty:
-            self._curr_mcid = 1
-        else:
-            max_mcid = self._records.index.str.slice(2).astype(int).max()
-            self._curr_mcid = max_mcid + 1 if pd.notna(max_mcid) else 1
-
     def save(self, path_output_dir: Path) -> None:
         path_output_dir = Path(path_output_dir)
         df = self._records.reset_index()
@@ -62,14 +64,21 @@ class MetadataContainsStore:
         df.to_parquet(path_output_dir / FILE_METADATA_CONTAINS, index=False)
 
     def create(self, metadata: pd.DataFrame) -> pd.DataFrame:
-        """Add new metadata entries with auto-generated IDs."""
+        """Add new metadata entries with content-addressed IDs."""
         metadata = metadata.reset_index(drop=True)
-        metadata[INDEX_COL] = FAID_PREFIX + (self._curr_mcid + metadata.index).astype(
-            str
+
+        ids = metadata.apply(
+            lambda r: _content_hash(
+                str(r.get("_food_name", "")),
+                str(r.get("_chemical_name", "")),
+                str(r.get("source", "")),
+                str(r.get("reference", "")),
+            ),
+            axis=1,
         )
+        metadata[INDEX_COL] = ids
         metadata = metadata[COLUMNS].set_index(INDEX_COL)
 
-        self._curr_mcid += len(metadata)
         self._records = pd.concat([self._records, metadata])
         return metadata
 

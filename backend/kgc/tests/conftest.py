@@ -60,7 +60,6 @@ def _make_kg_dir(tmp_path: Path) -> Path:
 
     triplets = [
         {
-            "foodatlas_id": "t0",
             "head_id": "e0",
             "relationship_id": "r1",
             "tail_id": "e1",

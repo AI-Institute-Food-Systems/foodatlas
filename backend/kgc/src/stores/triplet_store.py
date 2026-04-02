@@ -6,19 +6,19 @@ from pathlib import Path
 
 import pandas as pd
 
-from .schema import FILE_TRIPLETS, INDEX_COL
+from .schema import FILE_TRIPLETS
 
 logger = logging.getLogger(__name__)
 
-FAID_PREFIX = "t"
+_KEY_COL = "_key"
 
 
 class TripletStore:
     """Manages relationship triplets in the knowledge graph.
 
-    Each triplet is (head_id, relationship_id, tail_id) with a source
-    label and optional metadata_ids. A lookup dict maps composite keys
-    to metadata lists for fast deduplication.
+    Each triplet is identified by its composite key
+    ``(head_id, relationship_id, tail_id)`` — no separate ID column.
+    A lookup dict maps composite keys to metadata lists for deduplication.
     """
 
     @staticmethod
@@ -30,36 +30,33 @@ class TripletStore:
 
         self._triplets: pd.DataFrame = pd.DataFrame()
         self._key_to_metadata: dict[str, list[str]] = {}
-        self._curr_tid: int = 1
 
         self._load()
 
     def _load(self) -> None:
         if self.path_triplets.exists() and self.path_triplets.stat().st_size > 0:
             self._triplets = pd.read_parquet(self.path_triplets)
-            if INDEX_COL in self._triplets.columns:
-                self._triplets = self._triplets.set_index(INDEX_COL)
             if "metadata_ids" in self._triplets.columns:
                 self._triplets["metadata_ids"] = self._triplets["metadata_ids"].apply(
                     lambda x: json.loads(x) if isinstance(x, str) else x
                 )
+            self._triplets[_KEY_COL] = self._triplets.apply(
+                lambda r: self._make_key(
+                    r["head_id"], r["relationship_id"], r["tail_id"]
+                ),
+                axis=1,
+            )
+            self._triplets = self._triplets.set_index(_KEY_COL)
         else:
             self._triplets = pd.DataFrame()
 
-        if self._triplets.empty:
-            self._curr_tid = 1
-        else:
-            max_tid = self._triplets.index.str.slice(1).astype(int).max()
-            self._curr_tid = max_tid + 1 if pd.notna(max_tid) else 1
-
         self._key_to_metadata = {}
-        for _, row in self._triplets.iterrows():
-            key = self._make_key(row["head_id"], row["relationship_id"], row["tail_id"])
+        for key, row in self._triplets.iterrows():
             self._key_to_metadata[key] = row.get("metadata_ids", []) or []
 
     def save(self, path_output_dir: Path) -> None:
         path_output_dir = Path(path_output_dir)
-        df = self._triplets.reset_index()
+        df = self._triplets.reset_index(drop=True)
         if "metadata_ids" in df.columns:
             df["metadata_ids"] = df["metadata_ids"].apply(
                 lambda x: json.dumps(x) if isinstance(x, list) else x
@@ -72,10 +69,15 @@ class TripletStore:
             return
         if "metadata_ids" not in triplets.columns:
             triplets["metadata_ids"] = None
-        if INDEX_COL in triplets.columns:
-            triplets = triplets.set_index(INDEX_COL)
-        for _, row in triplets.iterrows():
-            key = self._make_key(row["head_id"], row["relationship_id"], row["tail_id"])
+        # Drop any legacy ID column.
+        if "foodatlas_id" in triplets.columns:
+            triplets = triplets.drop(columns=["foodatlas_id"])
+        triplets[_KEY_COL] = triplets.apply(
+            lambda r: self._make_key(r["head_id"], r["relationship_id"], r["tail_id"]),
+            axis=1,
+        )
+        triplets = triplets.set_index(_KEY_COL)
+        for key in triplets.index:
             self._key_to_metadata[key] = []
         self._triplets = pd.concat([self._triplets, triplets])
 
@@ -116,7 +118,7 @@ class TripletStore:
                 continue
             rows.append(
                 {
-                    INDEX_COL: f"{FAID_PREFIX}{self._curr_tid}",
+                    _KEY_COL: key,
                     "head_id": head_id,
                     "relationship_id": rel_id,
                     "tail_id": tail_id,
@@ -124,11 +126,10 @@ class TripletStore:
                     "metadata_ids": None,
                 }
             )
-            self._curr_tid += 1
             self._key_to_metadata[key] = [meta_id]
 
         if rows:
-            new_triplets = pd.DataFrame(rows).set_index(INDEX_COL)
+            new_triplets = pd.DataFrame(rows).set_index(_KEY_COL)
             self._triplets = pd.concat([self._triplets, new_triplets])
             return new_triplets
 
@@ -141,7 +142,7 @@ class TripletStore:
                 "metadata_ids",
             ]
         )
-        empty.index.name = INDEX_COL
+        empty.index.name = _KEY_COL
         return empty
 
     def _resolve_all_metadata(self) -> None:

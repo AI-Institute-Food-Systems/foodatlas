@@ -6,14 +6,13 @@ from pathlib import Path
 import pandas as pd
 import pytest
 from src.stores.schema import FILE_TRIPLETS
-from src.stores.triplet_store import FAID_PREFIX, TripletStore
+from src.stores.triplet_store import TripletStore
 
 
 @pytest.fixture()
 def triplets_dir(tmp_path: Path) -> Path:
     data = [
         {
-            "foodatlas_id": "t0",
             "head_id": "e0",
             "relationship_id": "r1",
             "tail_id": "e1",
@@ -34,14 +33,11 @@ class TestTripletStoreLoad:
     def test_loads_triplets(self, triplets: TripletStore) -> None:
         assert len(triplets._triplets) == 1
 
-    def test_curr_tid_increments(self, triplets: TripletStore) -> None:
-        assert triplets._curr_tid == 1
+    def test_composite_key_index(self, triplets: TripletStore) -> None:
+        assert "e0_r1_e1" in triplets._triplets.index
 
     def test_hash_table_built(self, triplets: TripletStore) -> None:
         assert "e0_r1_e1" in triplets._key_to_metadata
-
-    def test_faid_prefix(self) -> None:
-        assert FAID_PREFIX == "t"
 
 
 class TestTripletStoreCreate:
@@ -73,11 +69,11 @@ class TestTripletStoreCreate:
         )
         triplets.create(metadata)
         assert len(triplets._triplets) == 1
-        row = triplets._triplets.loc["t0"]
+        row = triplets._triplets.loc["e0_r1_e1"]
         assert "mc0" in row["metadata_ids"]
         assert "mc1" in row["metadata_ids"]
 
-    def test_id_generation(self, triplets: TripletStore) -> None:
+    def test_composite_key_used(self, triplets: TripletStore) -> None:
         metadata = pd.DataFrame(
             [
                 {"head_id": "e10", "relationship_id": "r1", "tail_id": "e11"},
@@ -86,8 +82,8 @@ class TestTripletStoreCreate:
             index=pd.Index(["mc10", "mc11"], name="foodatlas_id"),
         )
         triplets.create(metadata)
-        assert "t1" in triplets._triplets.index
-        assert "t2" in triplets._triplets.index
+        assert "e10_r1_e11" in triplets._triplets.index
+        assert "e12_r1_e13" in triplets._triplets.index
 
 
 class TestTripletStoreGetByRelationship:
@@ -105,7 +101,6 @@ class TestTripletStoreAddOntology:
         onto = pd.DataFrame(
             [
                 {
-                    "foodatlas_id": "fo1",
                     "head_id": "e10",
                     "relationship_id": "r2",
                     "tail_id": "e20",

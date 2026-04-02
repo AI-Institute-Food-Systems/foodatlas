@@ -43,15 +43,14 @@ class TestMetadataContainsStoreLoad:
     def test_loads_metadata(self, metadata: MetadataContainsStore) -> None:
         assert len(metadata._records) == 1
 
-    def test_curr_mcid_increments(self, metadata: MetadataContainsStore) -> None:
-        assert metadata._curr_mcid == 1
-
     def test_faid_prefix(self) -> None:
         assert FAID_PREFIX == "mc"
 
 
 class TestMetadataContainsStoreCreate:
-    def test_creates_with_auto_ids(self, metadata: MetadataContainsStore) -> None:
+    def test_creates_with_content_hash_ids(
+        self, metadata: MetadataContainsStore
+    ) -> None:
         new_meta = pd.DataFrame(
             [
                 {
@@ -71,44 +70,28 @@ class TestMetadataContainsStoreCreate:
             ]
         )
         result = metadata.create(new_meta)
-        assert "mc1" in result.index
+        assert len(result) == 1
+        assert result.index[0].startswith("mc")
         assert len(metadata._records) == 2
 
-    def test_id_counter_advances(self, metadata: MetadataContainsStore) -> None:
-        new_meta = pd.DataFrame(
-            [
-                {
-                    "conc_value": 3.0,
-                    "conc_unit": "ug/g",
-                    "food_part": "",
-                    "food_processing": "",
-                    "source": "lit",
-                    "reference": ["ref3"],
-                    "entity_linking_method": "exact",
-                    "quality_score": 0.9,
-                    "_food_name": "cherry",
-                    "_chemical_name": "anthocyanin",
-                    "_conc": "3.0 ug/g",
-                    "_food_part": "",
-                },
-                {
-                    "conc_value": 4.0,
-                    "conc_unit": "mg/g",
-                    "food_part": "",
-                    "food_processing": "",
-                    "source": "lit",
-                    "reference": ["ref4"],
-                    "entity_linking_method": "exact",
-                    "quality_score": 0.7,
-                    "_food_name": "grape",
-                    "_chemical_name": "resveratrol",
-                    "_conc": "4.0 mg/g",
-                    "_food_part": "",
-                },
-            ]
-        )
-        metadata.create(new_meta)
-        assert metadata._curr_mcid == 3
+    def test_deterministic_ids(self, metadata: MetadataContainsStore) -> None:
+        row = {
+            "conc_value": 3.0,
+            "conc_unit": "ug/g",
+            "food_part": "",
+            "food_processing": "",
+            "source": "lit",
+            "reference": ["ref3"],
+            "entity_linking_method": "exact",
+            "quality_score": 0.9,
+            "_food_name": "cherry",
+            "_chemical_name": "anthocyanin",
+            "_conc": "3.0 ug/g",
+            "_food_part": "",
+        }
+        result1 = metadata.create(pd.DataFrame([row]))
+        result2 = metadata.create(pd.DataFrame([row]))
+        assert result1.index[0] == result2.index[0]
 
 
 class TestMetadataContainsStoreGet:
