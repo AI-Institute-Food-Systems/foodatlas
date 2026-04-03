@@ -115,7 +115,7 @@ def _create_bars(source_ids: list[str]) -> dict[str, tqdm[Any]]:
             total=0,
             desc=f"{sid:<10}",
             position=i,
-            leave=True,
+            leave=False,
             unit=" rows",
             bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt}{unit} [{elapsed}]",
         )
@@ -129,17 +129,18 @@ def _drain_queue(
 ) -> None:
     """Read progress messages until all adapters finish or error."""
     done_count = 0
+    finished: list[str] = []
     while done_count < n_adapters:
         source_id, current, total = queue.get()
         bar = bars[source_id]
         if current == -1:
             if bar.total and bar.n < bar.total:
                 bar.update(bar.total - bar.n)
-            bar.close()
+            finished.append(source_id)
             done_count += 1
         elif current == -2:
             bar.set_postfix_str("ERROR")
-            bar.close()
+            finished.append(source_id)
             done_count += 1
         else:
             if total > 0 and bar.total != total:
@@ -147,6 +148,13 @@ def _drain_queue(
                 bar.refresh()
             bar.n = current
             bar.refresh()
+
+    for bar in bars.values():
+        bar.close()
+    for sid in finished:
+        bar = bars[sid]
+        total = bar.total or 0
+        tqdm.write(f"{sid:<10}: {total} rows")
 
 
 def _run_with_progress(
@@ -183,6 +191,5 @@ def _run_with_progress(
         else:
             results[sid] = result
 
-    tqdm.write("")
     root_logger.setLevel(prev_level)
     return results
