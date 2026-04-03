@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
+from ..models.extraction import Extraction
 from .schema import EXTRACTION_COLUMNS, FILE_EXTRACTIONS
 
 if TYPE_CHECKING:
@@ -32,6 +33,7 @@ class ExtractionStore:
     def __init__(self, path: Path) -> None:
         self._path = path
         self._records: pd.DataFrame = pd.DataFrame()
+        self._seen: set[str] = set()
         self._load()
 
     def _load(self) -> None:
@@ -39,6 +41,7 @@ class ExtractionStore:
             self._records = pd.read_parquet(self._path)
             if "extraction_id" in self._records.columns:
                 self._records = self._records.set_index("extraction_id")
+            self._seen = set(self._records.index)
 
     def save(self, path_output_dir: Path) -> None:
         df = self._records.reset_index()
@@ -51,6 +54,9 @@ class ExtractionStore:
         ``extraction_id`` which is auto-generated).
         """
         rows = rows.copy()
+        for col, field in Extraction.model_fields.items():
+            if col not in rows.columns and field.default is not None:
+                rows[col] = field.default
         rows["extraction_id"] = rows.apply(
             lambda r: extraction_id(
                 str(r.get("evidence_id", "")),
@@ -61,7 +67,11 @@ class ExtractionStore:
             axis=1,
         )
         rows = rows[EXTRACTION_COLUMNS].set_index("extraction_id")
-        self._records = pd.concat([self._records, rows])
+        new = rows[~rows.index.isin(self._seen)]
+        if not new.empty:
+            new = new[~new.index.duplicated(keep="first")]
+            self._records = pd.concat([self._records, new])
+            self._seen.update(new.index)
         return rows
 
     def get(self, extraction_ids: list[str]) -> pd.DataFrame:

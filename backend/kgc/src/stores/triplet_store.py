@@ -36,6 +36,9 @@ class TripletStore:
     def _load(self) -> None:
         if self.path_triplets.exists() and self.path_triplets.stat().st_size > 0:
             self._triplets = pd.read_parquet(self.path_triplets)
+            if self._triplets.empty or "head_id" not in self._triplets.columns:
+                self._triplets = pd.DataFrame()
+                return
             if "extraction_ids" in self._triplets.columns:
                 self._triplets["extraction_ids"] = self._triplets[
                     "extraction_ids"
