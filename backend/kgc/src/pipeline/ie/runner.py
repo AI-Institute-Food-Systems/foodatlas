@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ..knowledge_graph import KnowledgeGraph
+from ..triplets.ambiguity import AmbiguityReport, write_ambiguity_report
 from .loader import load_ie_raw
 from .report import write_resolution_stats, write_unresolved_report
 from .resolver import resolve_ie_metadata
@@ -64,3 +65,5 @@ class IERunner:
             kg_dir,
         )
         write_resolution_stats(result.stats, kg_dir)
+        if result.ambiguity:
+            write_ambiguity_report(AmbiguityReport(records=result.ambiguity), kg_dir)

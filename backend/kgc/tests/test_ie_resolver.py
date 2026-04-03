@@ -84,6 +84,14 @@ class TestResolveIeMetadata:
         # Should produce 2 rows (one per head_id).
         assert len(result.resolved) == 2
 
+        # Ambiguity should be tracked.
+        assert len(result.ambiguity) == 1
+        assert result.ambiguity[0].name_or_id == "fruit"
+        assert result.ambiguity[0].candidate_ids == ["e0", "e99"]
+        assert result.ambiguity[0].entity_type == "food"
+        assert result.stats["ambiguous_food_names"] == 1
+        assert result.stats["rows_from_ambiguity"] == 1
+
     def test_stats_correctness(self, entity_store_populated: EntityStore) -> None:
         meta = self._make_metadata(
             [

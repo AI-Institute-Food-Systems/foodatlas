@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from src.models.settings import KGCSettings
+from src.pipeline.triplets.ambiguity import AmbiguityReport
 from src.pipeline.triplets.runner import TripletRunner
 
 
@@ -33,6 +34,7 @@ def test_run_calls_build_and_save(
 ) -> None:
     sources = {"fdc": {"edges": MagicMock()}}
     mock_loader.return_value = sources
+    mock_build.return_value = AmbiguityReport()
     kg = MagicMock()
     mock_kg_cls.return_value = kg
 

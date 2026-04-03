@@ -28,17 +28,22 @@ def create_chemical_ontology(
 
     rows: list[dict[str, str]] = []
     for _, edge in is_a_edges.iterrows():
-        head_id = int(edge["head_native_id"])
-        tail_id = int(edge["tail_native_id"])
-        if head_id in chebi2fa and tail_id in chebi2fa:
-            rows.append(
-                {
-                    "head_id": chebi2fa[tail_id],
-                    "relationship_id": "r2",
-                    "tail_id": chebi2fa[head_id],
-                    "source": "chebi",
-                }
-            )
+        head_key = int(edge["head_native_id"])
+        tail_key = int(edge["tail_native_id"])
+        head_ids = chebi2fa.get(tail_key, [])
+        tail_ids = chebi2fa.get(head_key, [])
+        if not head_ids or not tail_ids:
+            continue
+        for head_id in head_ids:
+            for tail_id in tail_ids:
+                rows.append(
+                    {
+                        "head_id": head_id,
+                        "relationship_id": "r2",
+                        "tail_id": tail_id,
+                        "source": "chebi",
+                    }
+                )
 
     is_a = pd.DataFrame(rows)
 
@@ -46,10 +51,14 @@ def create_chemical_ontology(
     return is_a
 
 
-def _build_chebi_to_fa_map(entity_store: EntityStore) -> dict[int, str]:
-    chebi2fa: dict[int, str] = {}
+def _build_chebi_to_fa_map(entity_store: EntityStore) -> dict[int, list[str]]:
+    chebi2fa: dict[int, list[str]] = {}
     for faid, row in entity_store._entities.iterrows():
         if "chebi" not in row["external_ids"]:
             continue
-        chebi2fa[int(row["external_ids"]["chebi"][0])] = str(faid)
+        for chebi_id in row["external_ids"]["chebi"]:
+            key = int(chebi_id)
+            if key not in chebi2fa:
+                chebi2fa[key] = []
+            chebi2fa[key].append(str(faid))
     return chebi2fa

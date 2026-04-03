@@ -43,9 +43,9 @@ def merge_fdc_triplets(
         food_id = int(edge["head_native_id"].split(":")[-1])
         nutrient_id = int(edge["tail_native_id"].split(":")[-1])
 
-        head_id = fdc2fa["food"].get(food_id)
-        tail_id = fdc2fa["nutrient"].get(nutrient_id)
-        if head_id is None or tail_id is None:
+        head_ids = fdc2fa["food"].get(food_id, [])
+        tail_ids = fdc2fa["nutrient"].get(nutrient_id, [])
+        if not head_ids or not tail_ids:
             continue
 
         attrs = edge["raw_attrs"] if isinstance(edge["raw_attrs"], dict) else {}
@@ -58,22 +58,24 @@ def merge_fdc_triplets(
                 "url": f"https://fdc.nal.usda.gov/fdc-app.html#/food-details/{food_id}/nutrients"
             }
         )
-        rows.append(
-            {
-                "source_type": "fdc",
-                "reference": ref,
-                "extractor": "fdc",
-                "head_name_raw": f"FDC:{food_id}",
-                "tail_name_raw": f"FDC_NUTRIENT:{nutrient_id}",
-                "conc_value": amount,
-                "conc_unit": conc_unit,
-                "food_part": "",
-                "food_processing": "",
-                "quality_score": None,
-                "_head_id": head_id,
-                "_tail_id": tail_id,
-            }
-        )
+        for head_id in head_ids:
+            for tail_id in tail_ids:
+                rows.append(
+                    {
+                        "source_type": "fdc",
+                        "reference": ref,
+                        "extractor": "fdc",
+                        "head_name_raw": f"FDC:{food_id}",
+                        "tail_name_raw": f"FDC_NUTRIENT:{nutrient_id}",
+                        "conc_value": amount,
+                        "conc_unit": conc_unit,
+                        "food_part": "",
+                        "food_processing": "",
+                        "quality_score": None,
+                        "_head_id": head_id,
+                        "_tail_id": tail_id,
+                    }
+                )
 
     if not rows:
         logger.info("No FDC data to merge.")
@@ -98,15 +100,21 @@ def merge_fdc_triplets(
 
 def _build_fdc_maps(
     entities: pd.DataFrame,
-) -> dict[str, dict[int, str]]:
-    food_map: dict[int, str] = {}
-    nutrient_map: dict[int, str] = {}
+) -> dict[str, dict[int, list[str]]]:
+    food_map: dict[int, list[str]] = {}
+    nutrient_map: dict[int, list[str]] = {}
     for eid, row in entities.iterrows():
         ext = row["external_ids"]
         for fdc_id in ext.get("fdc", []):
-            food_map[int(fdc_id)] = str(eid)
+            key = int(fdc_id)
+            if key not in food_map:
+                food_map[key] = []
+            food_map[key].append(str(eid))
         for n_id in ext.get("fdc_nutrient", []):
-            nutrient_map[int(n_id)] = str(eid)
+            key = int(n_id)
+            if key not in nutrient_map:
+                nutrient_map[key] = []
+            nutrient_map[key].append(str(eid))
     return {"food": food_map, "nutrient": nutrient_map}
 
 

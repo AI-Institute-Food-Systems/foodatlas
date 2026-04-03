@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ..knowledge_graph import KnowledgeGraph
 from ..load_sources import load_sources
 from ..scaffold import create_empty_triplet_files
+from .ambiguity import write_ambiguity_report
 from .builder import build_triplets
 
 if TYPE_CHECKING:
@@ -29,10 +31,11 @@ class TripletRunner:
         create_empty_triplet_files(self._settings)
         kg = KnowledgeGraph(self._settings)
 
-        build_triplets(kg, sources)
+        report = build_triplets(kg, sources)
 
         kg.save()
         self._validate(kg)
+        write_ambiguity_report(report, Path(self._settings.kg_dir))
         logger.info("Triplet stage complete.")
 
     def _validate(self, kg: KnowledgeGraph) -> None:

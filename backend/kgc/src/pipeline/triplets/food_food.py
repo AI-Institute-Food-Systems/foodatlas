@@ -28,17 +28,20 @@ def create_food_ontology(
 
     rows: list[dict[str, str]] = []
     for _, edge in is_a_edges.iterrows():
-        head = edge["head_native_id"]
-        tail = edge["tail_native_id"]
-        if head in foodon2fa and tail in foodon2fa:
-            rows.append(
-                {
-                    "head_id": foodon2fa[head],
-                    "relationship_id": "r2",
-                    "tail_id": foodon2fa[tail],
-                    "source": "foodon",
-                }
-            )
+        head_ids = foodon2fa.get(edge["head_native_id"], [])
+        tail_ids = foodon2fa.get(edge["tail_native_id"], [])
+        if not head_ids or not tail_ids:
+            continue
+        for head_id in head_ids:
+            for tail_id in tail_ids:
+                rows.append(
+                    {
+                        "head_id": head_id,
+                        "relationship_id": "r2",
+                        "tail_id": tail_id,
+                        "source": "foodon",
+                    }
+                )
 
     food_ontology = pd.DataFrame(rows)
 
@@ -46,10 +49,13 @@ def create_food_ontology(
     return food_ontology
 
 
-def _build_foodon_to_fa_map(entity_store: EntityStore) -> dict[str, str]:
-    foodon2fa: dict[str, str] = {}
+def _build_foodon_to_fa_map(entity_store: EntityStore) -> dict[str, list[str]]:
+    foodon2fa: dict[str, list[str]] = {}
     for faid, row in entity_store._entities.iterrows():
         if "foodon" not in row["external_ids"]:
             continue
-        foodon2fa[row["external_ids"]["foodon"][0]] = str(faid)
+        for foodon_id in row["external_ids"]["foodon"]:
+            if foodon_id not in foodon2fa:
+                foodon2fa[foodon_id] = []
+            foodon2fa[foodon_id].append(str(faid))
     return foodon2fa
