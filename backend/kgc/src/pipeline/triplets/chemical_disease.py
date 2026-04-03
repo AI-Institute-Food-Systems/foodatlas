@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import TYPE_CHECKING
 
 import pandas as pd
+from tqdm import tqdm
 
 from ...models.relationship import RelationshipType
 
@@ -26,8 +28,9 @@ def merge_ctd_triplets(
 ) -> None:
     """Create chemical-disease triplets from CTD direct-evidence edges.
 
-    Resolves CTD chemical IDs (MeSH) to entity IDs via
-    ``external_ids["mesh"]``, and disease IDs via ``external_ids["ctd"]``.
+    Creates evidence, extraction (with ambiguity candidates), and triplet
+    records.  Resolves CTD chemical IDs (MeSH) via ``external_ids["mesh"]``
+    and disease IDs via ``external_ids["ctd"]``.
     """
     ctd = sources.get("ctd")
     if ctd is None:
@@ -45,7 +48,9 @@ def merge_ctd_triplets(
     disease2fa = _build_disease_to_fa(kg.entities._entities)
 
     rows: list[dict] = []
-    for _, edge in direct.iterrows():
+    for _, edge in tqdm(
+        direct.iterrows(), total=len(direct), desc="ctd chemdis", leave=False
+    ):
         chem_ids = mesh2fa.get(edge["head_native_id"], [])
         disease_ids = disease2fa.get(edge["tail_native_id"], [])
         if not chem_ids or not disease_ids:
@@ -56,20 +61,44 @@ def merge_ctd_triplets(
         if rel_id is None:
             continue
 
+        pubmed_ids = edge["raw_attrs"].get("PubMedIDs", [])
+        ref = json.dumps({"ctd_direct_evidence": evidence, "pubmed": pubmed_ids})
+
         for chem_id in chem_ids:
             for disease_id in disease_ids:
                 rows.append(
                     {
-                        "head_id": chem_id,
-                        "relationship_id": rel_id,
-                        "tail_id": disease_id,
-                        "source": "ctd",
+                        "source_type": "ctd",
+                        "reference": ref,
+                        "extractor": "ctd",
+                        "head_name_raw": str(edge["head_native_id"]),
+                        "tail_name_raw": str(edge["tail_native_id"]),
+                        "head_candidates": chem_ids,
+                        "tail_candidates": disease_ids,
+                        "_head_id": chem_id,
+                        "_tail_id": disease_id,
+                        "_rel_id": rel_id,
                     }
                 )
 
-    triplets = pd.DataFrame(rows)
-    kg.triplets.add_ontology(triplets)
-    logger.info("Created %d chemical-disease triplets.", len(triplets))
+    if not rows:
+        logger.info("No CTD data to merge.")
+        return
+
+    df = pd.DataFrame(rows)
+
+    ev_result = kg.evidence.create(df[["source_type", "reference"]])
+    df["evidence_id"] = ev_result.index
+    extractions = kg.extractions.create(df)
+
+    triplet_input = df[["_head_id", "_tail_id", "_rel_id"]].copy()
+    triplet_input.columns = ["head_id", "tail_id", "relationship_id"]
+    triplet_input.index = extractions.index
+    triplets = kg.triplets.create(triplet_input)
+
+    logger.info(
+        "Merged %d CTD extractions, %d triplets.", len(extractions), len(triplets)
+    )
 
 
 def _build_mesh_to_fa(entities: pd.DataFrame) -> dict[str, list[str]]:

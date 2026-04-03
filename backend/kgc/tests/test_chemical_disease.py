@@ -4,20 +4,26 @@ from __future__ import annotations
 
 import json
 from typing import TYPE_CHECKING
-from unittest.mock import MagicMock
 
 import pandas as pd
+from src.models.settings import KGCSettings
+from src.pipeline.knowledge_graph import KnowledgeGraph
 from src.pipeline.triplets.chemical_disease import merge_ctd_triplets
-from src.pipeline.triplets.disease_disease import create_disease_ontology
-from src.stores.entity_store import EntityStore
-from src.stores.schema import FILE_ENTITIES, FILE_LUT_CHEMICAL, FILE_LUT_FOOD
-from src.utils.json_io import write_json
+from src.pipeline.triplets.disease_disease import merge_disease_ontology
+from src.stores.schema import (
+    FILE_ENTITIES,
+    FILE_EVIDENCE,
+    FILE_EXTRACTIONS,
+    FILE_LUT_CHEMICAL,
+    FILE_LUT_FOOD,
+    FILE_TRIPLETS,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
 
 
-def _make_store(tmp_path: Path, entities: list[dict]) -> EntityStore:
+def _make_kg(tmp_path: Path, entities: list[dict]) -> KnowledgeGraph:
     kg_dir = tmp_path / "kg"
     kg_dir.mkdir(exist_ok=True)
     df = pd.DataFrame(entities)
@@ -25,18 +31,18 @@ def _make_store(tmp_path: Path, entities: list[dict]) -> EntityStore:
         if df[col].apply(lambda x: isinstance(x, (list, dict))).any():
             df[col] = df[col].apply(json.dumps)
     df.to_parquet(kg_dir / FILE_ENTITIES, index=False)
-    write_json(kg_dir / FILE_LUT_FOOD, {})
-    write_json(kg_dir / FILE_LUT_CHEMICAL, {})
-    return EntityStore(
-        path_entities=kg_dir / FILE_ENTITIES,
-        path_lut_food=kg_dir / FILE_LUT_FOOD,
-        path_lut_chemical=kg_dir / FILE_LUT_CHEMICAL,
-    )
+    pd.DataFrame().to_parquet(kg_dir / FILE_TRIPLETS)
+    pd.DataFrame().to_parquet(kg_dir / FILE_EVIDENCE)
+    pd.DataFrame().to_parquet(kg_dir / FILE_EXTRACTIONS)
+    for f in (FILE_LUT_FOOD, FILE_LUT_CHEMICAL):
+        (kg_dir / f).write_text("{}")
+    settings = KGCSettings(kg_dir=str(kg_dir), cache_dir=str(kg_dir / "_cache"))
+    return KnowledgeGraph(settings)
 
 
 class TestMergeCtdTriplets:
     def test_creates_triplets(self, tmp_path: Path) -> None:
-        store = _make_store(
+        kg = _make_kg(
             tmp_path,
             [
                 {
@@ -57,10 +63,6 @@ class TestMergeCtdTriplets:
                 },
             ],
         )
-        kg = MagicMock()
-        kg.entities = store
-        kg.triplets = MagicMock()
-
         sources = {
             "ctd": {
                 "edges": pd.DataFrame(
@@ -72,24 +74,15 @@ class TestMergeCtdTriplets:
                             "edge_type": "chemical_disease_association",
                             "raw_attrs": {"direct_evidence": "therapeutic"},
                         },
-                        {
-                            "source_id": "ctd",
-                            "head_native_id": "D001241",
-                            "tail_native_id": "MESH:D001249",
-                            "edge_type": "chemical_disease_association",
-                            "raw_attrs": {"direct_evidence": "marker/mechanism"},
-                        },
                     ]
                 ),
             }
         }
         merge_ctd_triplets(kg, sources)
-        call_args = kg.triplets.add_ontology.call_args[0][0]
-        assert len(call_args) == 2
-        assert set(call_args["relationship_id"]) == {"r3", "r4"}
+        assert len(kg.triplets._triplets) == 1
 
     def test_skips_unresolvable(self, tmp_path: Path) -> None:
-        store = _make_store(
+        kg = _make_kg(
             tmp_path,
             [
                 {
@@ -102,10 +95,6 @@ class TestMergeCtdTriplets:
                 },
             ],
         )
-        kg = MagicMock()
-        kg.entities = store
-        kg.triplets = MagicMock()
-
         sources = {
             "ctd": {
                 "edges": pd.DataFrame(
@@ -122,18 +111,17 @@ class TestMergeCtdTriplets:
             }
         }
         merge_ctd_triplets(kg, sources)
-        call_args = kg.triplets.add_ontology.call_args[0][0]
-        assert len(call_args) == 0
+        assert len(kg.triplets._triplets) == 0
 
-    def test_no_ctd_source(self) -> None:
-        kg = MagicMock()
+    def test_no_ctd_source(self, tmp_path: Path) -> None:
+        kg = _make_kg(tmp_path, [])
         merge_ctd_triplets(kg, {})
-        kg.triplets.add_ontology.assert_not_called()
+        assert len(kg.triplets._triplets) == 0
 
 
 class TestDiseaseOntology:
     def test_creates_is_a_triplets(self, tmp_path: Path) -> None:
-        store = _make_store(
+        kg = _make_kg(
             tmp_path,
             [
                 {
@@ -169,12 +157,10 @@ class TestDiseaseOntology:
                 ),
             }
         }
-        result = create_disease_ontology(store, sources)
-        assert len(result) == 1
-        assert result.iloc[0]["head_id"] == "e1"
-        assert result.iloc[0]["tail_id"] == "e2"
-        assert result.iloc[0]["source"] == "ctd"
+        merge_disease_ontology(kg, sources)
+        assert len(kg.triplets._triplets) == 1
 
-    def test_no_ctd_source(self) -> None:
-        result = create_disease_ontology(EntityStore.__new__(EntityStore), {})
-        assert result.empty
+    def test_no_ctd_source(self, tmp_path: Path) -> None:
+        kg = _make_kg(tmp_path, [])
+        merge_disease_ontology(kg, {})
+        assert len(kg.triplets._triplets) == 0

@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING, Any
 import pandas as pd
 
 from ...models.relationship import RelationshipType
-from ..triplets.ambiguity import AmbiguityRecord
 
 if TYPE_CHECKING:
     from ...stores.entity_store import EntityStore
@@ -24,7 +23,6 @@ class IEResolutionResult:
     resolved: pd.DataFrame
     unresolved_food: set[str] = field(default_factory=set)
     unresolved_chemical: set[str] = field(default_factory=set)
-    ambiguity: list[AmbiguityRecord] = field(default_factory=list)
     stats: dict[str, Any] = field(default_factory=dict)
 
 
@@ -57,7 +55,6 @@ def resolve_ie_metadata(
     unresolved_food = {n for n, ids in food_map.items() if not ids}
     unresolved_chem = {n for n, ids in chem_map.items() if not ids}
 
-    # Identify ambiguous names before exploding.
     ambiguous_foods = {n: ids for n, ids in food_map.items() if len(ids) > 1}
     ambiguous_chems = {n: ids for n, ids in chem_map.items() if len(ids) > 1}
 
@@ -65,45 +62,14 @@ def resolve_ie_metadata(
     df = metadata.copy()
     df["head_id"] = df["_food_name"].map(food_map)
     df["tail_id"] = df["_chemical_name"].map(chem_map)
+    df["head_candidates"] = df["head_id"]  # full candidate lists before explode
+    df["tail_candidates"] = df["tail_id"]
 
     # Keep only rows where both resolved.
     resolved = df[df["head_id"].apply(bool) & df["tail_id"].apply(bool)].copy()
     pre_explode = len(resolved)
     resolved = resolved.explode("head_id").explode("tail_id")
     resolved["relationship_id"] = RelationshipType.CONTAINS
-
-    # Build ambiguity records.
-    ambiguity: list[AmbiguityRecord] = []
-    for name, ids in ambiguous_foods.items():
-        names = [
-            str(entity_store.get_entity(eid)["common_name"])
-            for eid in ids
-            if eid in entity_store._entities.index
-        ]
-        ambiguity.append(
-            AmbiguityRecord(
-                name_or_id=name,
-                entity_type="food",
-                candidate_ids=ids,
-                candidate_names=names,
-                source="ie",
-            )
-        )
-    for name, ids in ambiguous_chems.items():
-        names = [
-            str(entity_store.get_entity(eid)["common_name"])
-            for eid in ids
-            if eid in entity_store._entities.index
-        ]
-        ambiguity.append(
-            AmbiguityRecord(
-                name_or_id=name,
-                entity_type="chemical",
-                candidate_ids=ids,
-                candidate_names=names,
-                source="ie",
-            )
-        )
 
     stats = {
         "total_ie_rows": len(metadata),
@@ -135,7 +101,6 @@ def resolve_ie_metadata(
         resolved=resolved,
         unresolved_food=unresolved_food,
         unresolved_chemical=unresolved_chem,
-        ambiguity=ambiguity,
         stats=stats,
     )
 

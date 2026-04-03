@@ -7,6 +7,7 @@ import logging
 from typing import TYPE_CHECKING
 
 import pandas as pd
+from pydantic_core import PydanticUndefined
 
 from ..models.extraction import Extraction
 from .schema import EXTRACTION_COLUMNS, FILE_EXTRACTIONS
@@ -55,7 +56,11 @@ class ExtractionStore:
         """
         rows = rows.copy()
         for col, field in Extraction.model_fields.items():
-            if col not in rows.columns and field.default is not None:
+            if col in rows.columns:
+                continue
+            if field.default_factory is not None:
+                rows[col] = [field.default_factory() for _ in range(len(rows))]
+            elif field.default is not PydanticUndefined:
                 rows[col] = field.default
         rows["extraction_id"] = rows.apply(
             lambda r: extraction_id(

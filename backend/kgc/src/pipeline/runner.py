@@ -13,6 +13,9 @@ from ..utils.json_io import write_json
 from .entities.runner import EntityRunner
 from .ie.runner import IERunner
 from .ingest.runner import IngestRunner
+from .knowledge_graph import KnowledgeGraph
+from .load_sources import load_sources
+from .postprocessing.flavor import apply_flavor_descriptions
 from .stages import ALL_STAGES, PipelineStage
 from .triplets.runner import TripletRunner
 
@@ -86,7 +89,10 @@ class PipelineRunner:
         runner.run()
 
     def _run_postprocessing(self) -> None:
-        logger.info("Postprocessing is deferred — not yet implemented.")
+        sources = load_sources(self._settings)
+        kg = KnowledgeGraph(self._settings)
+        apply_flavor_descriptions(kg, sources)
+        kg.save()
 
     # ------------------------------------------------------------------
     # Helpers

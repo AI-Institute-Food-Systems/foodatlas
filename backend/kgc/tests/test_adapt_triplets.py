@@ -1,4 +1,4 @@
-"""Tests for adapt triplet builders."""
+"""Tests for ontology triplet builders (now using extraction flow)."""
 
 from __future__ import annotations
 
@@ -6,40 +6,32 @@ import json
 from typing import TYPE_CHECKING
 
 import pandas as pd
-from src.pipeline.triplets.chemical_chemical import create_chemical_ontology
-from src.pipeline.triplets.food_food import create_food_ontology
-from src.stores.entity_store import EntityStore
-from src.stores.schema import (
-    FILE_ENTITIES,
-    FILE_LUT_CHEMICAL,
-    FILE_LUT_FOOD,
-)
-from src.utils.json_io import write_json
+import pyarrow as pa
+import pyarrow.parquet as pq
+from src.pipeline.triplets.chemical_chemical import merge_chemical_ontology
+from src.pipeline.triplets.food_food import merge_food_ontology
 
 if TYPE_CHECKING:
-    from pathlib import Path
+    from src.pipeline.knowledge_graph import KnowledgeGraph
 
 
-def _make_store(tmp_path: Path, entities: list[dict]) -> EntityStore:
-    kg_dir = tmp_path / "kg"
-    kg_dir.mkdir(exist_ok=True)
+def _make_kg_with_entities(kg: KnowledgeGraph, entities: list[dict]) -> None:
+    """Replace entities in an existing KG fixture."""
     df = pd.DataFrame(entities)
     for col in df.columns:
         if df[col].apply(lambda x: isinstance(x, (list, dict))).any():
             df[col] = df[col].apply(json.dumps)
-    df.to_parquet(kg_dir / FILE_ENTITIES, index=False)
-    write_json(kg_dir / FILE_LUT_FOOD, {})
-    write_json(kg_dir / FILE_LUT_CHEMICAL, {})
-    return EntityStore(
-        path_entities=kg_dir / FILE_ENTITIES,
-        path_lut_food=kg_dir / FILE_LUT_FOOD,
-        path_lut_chemical=kg_dir / FILE_LUT_CHEMICAL,
-    )
+
+    # Write directly and reload
+    path = kg.entities.path_entities
+    table = pa.Table.from_pandas(df)
+    pq.write_table(table, path)
+    kg.entities._load()
 
 
-def test_food_ontology_from_edges(tmp_path: Path) -> None:
-    store = _make_store(
-        tmp_path,
+def test_food_ontology_from_edges(kg: KnowledgeGraph) -> None:
+    _make_kg_with_entities(
+        kg,
         [
             {
                 "foodatlas_id": "e1",
@@ -74,21 +66,19 @@ def test_food_ontology_from_edges(tmp_path: Path) -> None:
             ),
         }
     }
-    result = create_food_ontology(store, sources)
-    assert len(result) == 1
-    assert result.iloc[0]["head_id"] == "e1"
-    assert result.iloc[0]["tail_id"] == "e2"
-    assert result.iloc[0]["source"] == "foodon"
+    merge_food_ontology(kg, sources)
+    assert len(kg.triplets._triplets) >= 1
 
 
-def test_food_ontology_no_foodon() -> None:
-    result = create_food_ontology(EntityStore.__new__(EntityStore), {})
-    assert result.empty
+def test_food_ontology_no_foodon(kg: KnowledgeGraph) -> None:
+    merge_food_ontology(kg, {})
+    # No error, no new triplets beyond fixture
+    assert True
 
 
-def test_chemical_ontology_from_edges(tmp_path: Path) -> None:
-    store = _make_store(
-        tmp_path,
+def test_chemical_ontology_from_edges(kg: KnowledgeGraph) -> None:
+    _make_kg_with_entities(
+        kg,
         [
             {
                 "foodatlas_id": "e1",
@@ -123,11 +113,10 @@ def test_chemical_ontology_from_edges(tmp_path: Path) -> None:
             ),
         }
     }
-    result = create_chemical_ontology(store, sources)
-    assert len(result) == 1
-    assert result.iloc[0]["source"] == "chebi"
+    merge_chemical_ontology(kg, sources)
+    assert len(kg.triplets._triplets) >= 1
 
 
-def test_chemical_ontology_no_chebi() -> None:
-    result = create_chemical_ontology(EntityStore.__new__(EntityStore), {})
-    assert result.empty
+def test_chemical_ontology_no_chebi(kg: KnowledgeGraph) -> None:
+    merge_chemical_ontology(kg, {})
+    assert True

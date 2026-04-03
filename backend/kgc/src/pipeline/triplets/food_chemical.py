@@ -7,6 +7,7 @@ import logging
 from typing import TYPE_CHECKING
 
 import pandas as pd
+from tqdm import tqdm
 
 from ...models.relationship import RelationshipType
 
@@ -39,7 +40,9 @@ def merge_fdc_triplets(
     nutrient_units = _build_nutrient_unit_map(nodes)
 
     rows: list[dict] = []
-    for _, edge in contains.iterrows():
+    for _, edge in tqdm(
+        contains.iterrows(), total=len(contains), desc="fdc contains", leave=False
+    ):
         food_id = int(edge["head_native_id"].split(":")[-1])
         nutrient_id = int(edge["tail_native_id"].split(":")[-1])
 
