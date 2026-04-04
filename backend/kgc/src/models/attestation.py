@@ -22,6 +22,8 @@ class Attestation(BaseModel):
     tail_name_raw: str = ""  # raw chemical/disease name from attestation
     conc_value: float | None = None
     conc_unit: str = ""
+    conc_value_raw: str = ""
+    conc_unit_raw: str = ""
     food_part: str = ""
     food_processing: str = ""
     quality_score: float | None = None

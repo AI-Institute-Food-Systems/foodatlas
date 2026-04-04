@@ -8,11 +8,11 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
-from ...models.relationship import RelationshipType
-from .chemical_disease import _explode_external_ids
+from ....models.relationship import RelationshipType
+from ..utils import explode_external_ids
 
 if TYPE_CHECKING:
-    from ..knowledge_graph import KnowledgeGraph
+    from ...knowledge_graph import KnowledgeGraph
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +51,7 @@ def merge_dmd_triplets(
         logger.warning("Cow milk entity (FOODON_02020891) not found; skipping DMD.")
         return
 
-    mol_lookup = _explode_external_ids(kg.entities._entities, "dmd")
+    mol_lookup = explode_external_ids(kg.entities._entities, "dmd")
     if mol_lookup.empty:
         logger.info("No DMD entity mappings.")
         return
@@ -78,6 +78,16 @@ def merge_dmd_triplets(
     )
     df["conc_unit"] = df["raw_attrs"].apply(
         lambda x: x.get("conc_unit", "") if isinstance(x, dict) else ""
+    )
+    df["conc_value_raw"] = df["raw_attrs"].apply(
+        lambda x: (
+            str(x.get("conc_value_raw", ""))
+            if isinstance(x, dict) and x.get("conc_value_raw") is not None
+            else ""
+        )
+    )
+    df["conc_unit_raw"] = df["raw_attrs"].apply(
+        lambda x: x.get("conc_unit_raw", "") if isinstance(x, dict) else ""
     )
 
     df["source_type"] = "dmd"

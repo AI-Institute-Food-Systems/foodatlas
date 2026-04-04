@@ -9,8 +9,7 @@ from ...utils.timing import log_duration
 from .chemical_chemical import merge_chemical_ontology
 from .chemical_disease import merge_ctd_triplets
 from .disease_disease import merge_disease_ontology
-from .food_chemical import merge_fdc_triplets
-from .food_chemical_dmd import merge_dmd_triplets
+from .food_chemical import merge_dmd_triplets, merge_fdc_triplets
 from .food_food import merge_food_ontology
 
 if TYPE_CHECKING:
