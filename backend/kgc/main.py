@@ -24,11 +24,19 @@ def _parse_stage(name: str) -> PipelineStage:
     return PipelineStage[name.upper()]
 
 
-def _resolve_stages(stage_names: tuple[str, ...]) -> list[PipelineStage] | None:
-    """Convert CLI stage names/numbers to PipelineStage enums, or None for all."""
-    if not stage_names:
+def _resolve_stages(stage_arg: str | None) -> list[PipelineStage] | None:
+    """Parse stage argument into a list of PipelineStages.
+
+    Supports: single ("2"), range ("1:3"), or None for all.
+    """
+    if not stage_arg:
         return None
-    return [_parse_stage(name) for name in stage_names]
+    if ":" in stage_arg:
+        start_str, end_str = stage_arg.split(":", 1)
+        start = _parse_stage(start_str)
+        end = _parse_stage(end_str)
+        return [s for s in PipelineStage if start.value <= s.value <= end.value]
+    return [_parse_stage(stage_arg)]
 
 
 @click.group()
@@ -63,11 +71,9 @@ def cli(
 
 @cli.command()
 @click.option(
-    "--stage",
-    "stages",
-    multiple=True,
-    type=click.Choice(_VALID_STAGES, case_sensitive=False),
-    help="Stage name or number (0-4, repeatable). Omit for all.",
+    "--stages",
+    default=None,
+    help="Stage name or number, or range (e.g. 1:3). Omit for all.",
 )
 @click.option(
     "--source",
@@ -79,7 +85,7 @@ def cli(
 @click.pass_context
 def run(
     ctx: click.Context,
-    stages: tuple[str, ...],
+    stages: str | None,
     sources: tuple[str, ...],
 ) -> None:
     """Run pipeline stages."""

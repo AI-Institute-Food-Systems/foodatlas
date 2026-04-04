@@ -38,9 +38,8 @@ class TripletRunner:
 
         kg.save()
         self._validate(kg)
-        save_checkpoint(kg_dir, "triplets")
-
         write_ambiguous_extractions(kg.extractions, kg_dir)
+        save_checkpoint(kg_dir, "triplets")
         logger.info("Triplet stage complete.")
 
     def _validate(self, kg: KnowledgeGraph) -> None:

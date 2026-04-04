@@ -40,9 +40,8 @@ class IERunner:
         kg = KnowledgeGraph(self._settings)
         self._expand(kg)
         kg.save()
-        save_checkpoint(kg_dir, "ie")
-
         write_ambiguous_extractions(kg.extractions, kg_dir)
+        save_checkpoint(kg_dir, "ie")
         logger.info("IE stage complete.")
 
     def _expand(self, kg: KnowledgeGraph) -> None:
