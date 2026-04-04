@@ -136,3 +136,11 @@ class EntityResolver:
         retired_df = build_retired_df(diff)
         retired_df.to_parquet(self._kg_dir / FILE_RETIRED, index=False)
         self._registry.save()
+
+        logger.info(
+            "Registry diff: %d stable, %d new, %d retired, %d merged.",
+            len(diff.stable_ids),
+            len(diff.new_ids),
+            len(diff.retired_ids),
+            len(diff.merged),
+        )
