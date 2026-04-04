@@ -93,7 +93,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install mypy
-        run: pip install mypy types-requests types-beautifulsoup4
+        run: pip install mypy types-requests types-beautifulsoup4 types-PyYAML
 
       - name: Mypy type check
         run: mypy --explicit-package-bases --exclude '\.venv' backend/
