@@ -14,8 +14,9 @@ FILE_TRIPLETS = "triplets.parquet"
 FILE_EVIDENCE = "evidence.parquet"
 FILE_EXTRACTIONS = "extractions.parquet"
 FILE_RELATIONSHIPS = "relationships.parquet"
-FILE_LUT_FOOD = "_lookup_table_food.json"
-FILE_LUT_CHEMICAL = "_lookup_table_chemical.json"
+DIR_INTERMEDIATE = "intermediate"
+FILE_LUT_FOOD = "intermediate/lookup_table_food.json"
+FILE_LUT_CHEMICAL = "intermediate/lookup_table_chemical.json"
 FILE_RETIRED = "retired.parquet"
 
 RELATIONSHIP_COLUMNS = ["foodatlas_id", "name"]
@@ -23,7 +24,8 @@ LUT_COLUMNS = ["name", "foodatlas_id"]
 RETIRED_COLUMNS = ["foodatlas_id", "action", "destination"]
 
 FILE_REGISTRY = "entity_registry.parquet"
-FILE_BUILD_DIFF = "_build_diff.json"
+DIR_REPORTS = "reports"
+FILE_BUILD_DIFF = "reports/build_diff.json"
 REGISTRY_COLUMNS = ["source", "native_id", "foodatlas_id"]
 
 
@@ -41,7 +43,7 @@ TRIPLET_COLUMNS = _get_columns(Triplet)
 EVIDENCE_COLUMNS = _get_columns(Evidence)
 EXTRACTION_COLUMNS = _get_columns(Extraction)
 
-FILE_IE_UNRESOLVED = "_ie_unresolved.tsv"
-FILE_IE_RESOLUTION_STATS = "_ie_resolution_stats.json"
-FILE_AMBIGUITY_JSONL = "_ambiguity.jsonl"
-FILE_AMBIGUITY_SUMMARY = "_ambiguity_summary.json"
+FILE_IE_UNRESOLVED = "reports/ie_unresolved.jsonl"
+FILE_IE_RESOLUTION_STATS = "reports/ie_resolution_stats.json"
+FILE_IE_PARSE_ERRORS = "reports/ie_parse_errors.tsv"
+FILE_EXTRACTIONS_AMBIGUOUS = "extractions_ambiguous.parquet"

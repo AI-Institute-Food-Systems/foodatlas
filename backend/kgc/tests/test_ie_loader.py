@@ -102,16 +102,16 @@ class TestLoadIeRaw:
         return path
 
     def test_greek_normalized(self, ie_tsv: Path) -> None:
-        df = load_ie_raw(ie_tsv)
+        df = load_ie_raw(ie_tsv, ie_tsv.parent)
         assert "beta-carotene" in df["_chemical_name"].values
 
     def test_multi_tuple_response(self, ie_tsv: Path) -> None:
-        df = load_ie_raw(ie_tsv)
+        df = load_ie_raw(ie_tsv, ie_tsv.parent)
         berry_rows = df[df["_food_name"] == "berry"]
         assert len(berry_rows) == 2
 
     def test_source_and_reference(self, ie_tsv: Path) -> None:
-        df = load_ie_raw(ie_tsv)
+        df = load_ie_raw(ie_tsv, ie_tsv.parent)
         row = df[df["_food_name"] == "apple"].iloc[0]
         assert row["extractor"] == "lit2kg"
         assert row["source_type"] == "pubmed"
@@ -121,7 +121,7 @@ class TestLoadIeRaw:
         path = tmp_path / "bad.tsv"
         path.write_text("col_a\tcol_b\n1\t2\n")
         with pytest.raises(ValueError, match="missing columns"):
-            load_ie_raw(path)
+            load_ie_raw(path, tmp_path)
 
     def test_empty_response_skipped(self, tmp_path: Path) -> None:
         path = tmp_path / "empty.tsv"
@@ -130,5 +130,5 @@ class TestLoadIeRaw:
             "111\tINTRO\tapple\tSentence.\t0.99\t",
         ]
         path.write_text("\n".join(lines))
-        df = load_ie_raw(path)
+        df = load_ie_raw(path, tmp_path)
         assert df.empty

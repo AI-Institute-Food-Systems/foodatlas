@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from pathlib import Path
-from typing import Any
-
-import pandas as pd
+from typing import TYPE_CHECKING, Any
 
 from ...stores.schema import FILE_IE_RESOLUTION_STATS, FILE_IE_UNRESOLVED
+
+if TYPE_CHECKING:
+    import pandas as pd
 from ...utils.json_io import write_json
 
 logger = logging.getLogger(__name__)
@@ -20,51 +22,55 @@ def write_unresolved_report(
     metadata: pd.DataFrame,
     output_dir: Path,
 ) -> Path:
-    """Write ``_ie_unresolved.tsv`` sorted by occurrence count descending."""
-    rows: list[dict] = []
-
-    for name in unresolved_food:
-        occ = int((metadata["_food_name"] == name).sum())
-        refs = (
-            metadata.loc[metadata["_food_name"] == name, "reference"].head(3).tolist()
-        )
-        rows.append(
-            {
-                "name": name,
-                "entity_type": "food",
-                "occurrence_count": occ,
-                "sample_references": "; ".join(
-                    r[0] if isinstance(r, list) and r else str(r) for r in refs
-                ),
-            }
-        )
-
-    for name in unresolved_chemical:
-        occ = int((metadata["_chemical_name"] == name).sum())
-        refs = (
-            metadata.loc[metadata["_chemical_name"] == name, "reference"]
-            .head(3)
-            .tolist()
-        )
-        rows.append(
-            {
-                "name": name,
-                "entity_type": "chemical",
-                "occurrence_count": occ,
-                "sample_references": "; ".join(
-                    r[0] if isinstance(r, list) and r else str(r) for r in refs
-                ),
-            }
-        )
-
-    columns = ["name", "entity_type", "occurrence_count", "sample_references"]
-    df = pd.DataFrame(rows, columns=columns)
-    if not df.empty:
-        df = df.sort_values("occurrence_count", ascending=False)
-
+    """Append unresolved names to ``ie_unresolved.jsonl``."""
     out = Path(output_dir) / FILE_IE_UNRESOLVED
-    df.to_csv(out, sep="\t", index=False)
-    logger.info("Wrote %d unresolved names to %s.", len(df), out)
+    out.parent.mkdir(exist_ok=True)
+
+    count = 0
+    with out.open("a") as f:
+        for name in unresolved_food:
+            occ = int((metadata["_food_name"] == name).sum())
+            refs = (
+                metadata.loc[metadata["_food_name"] == name, "reference"]
+                .head(3)
+                .tolist()
+            )
+            line = json.dumps(
+                {
+                    "name": name,
+                    "entity_type": "food",
+                    "occurrences": occ,
+                    "sample_references": [
+                        r[0] if isinstance(r, list) and r else str(r) for r in refs
+                    ],
+                },
+                ensure_ascii=False,
+            )
+            f.write(line + "\n")
+            count += 1
+
+        for name in unresolved_chemical:
+            occ = int((metadata["_chemical_name"] == name).sum())
+            refs = (
+                metadata.loc[metadata["_chemical_name"] == name, "reference"]
+                .head(3)
+                .tolist()
+            )
+            line = json.dumps(
+                {
+                    "name": name,
+                    "entity_type": "chemical",
+                    "occurrences": occ,
+                    "sample_references": [
+                        r[0] if isinstance(r, list) and r else str(r) for r in refs
+                    ],
+                },
+                ensure_ascii=False,
+            )
+            f.write(line + "\n")
+            count += 1
+
+    logger.info("Appended %d unresolved names to %s.", count, out)
     return out
 
 
@@ -72,8 +78,9 @@ def write_resolution_stats(
     stats: dict[str, Any],
     output_dir: Path,
 ) -> Path:
-    """Write ``_ie_resolution_stats.json``."""
+    """Write ``ie_resolution_stats.json``."""
     out = Path(output_dir) / FILE_IE_RESOLUTION_STATS
+    out.parent.mkdir(exist_ok=True)
     write_json(out, stats)
     logger.info("Wrote IE resolution stats to %s.", out)
     return out

@@ -7,9 +7,9 @@ import logging
 from typing import TYPE_CHECKING
 
 import pandas as pd
-from tqdm import tqdm
 
 from ...models.relationship import RelationshipType
+from .chemical_disease import _explode_external_ids
 
 if TYPE_CHECKING:
     from ..knowledge_graph import KnowledgeGraph
@@ -21,77 +21,81 @@ def merge_fdc_triplets(
     kg: KnowledgeGraph,
     sources: dict[str, dict[str, pd.DataFrame]],
 ) -> None:
-    """Create food-chemical CONTAINS triplets from FDC edges.
-
-    Creates evidence (FDC URL) and extraction (parsed concentration)
-    records, then links them to triplets.
-    """
+    """Create food-chemical CONTAINS triplets from FDC edges."""
     fdc = sources.get("fdc")
     if fdc is None:
         return
     edges = fdc["edges"]
-    contains = edges[edges["edge_type"] == "contains"]
+    contains = edges[edges["edge_type"] == "contains"].copy()
     if contains.empty:
         logger.info("No FDC contains edges.")
         return
 
-    nodes = fdc["nodes"]
-    fdc2fa = _build_fdc_maps(kg.entities._entities)
-    nutrient_units = _build_nutrient_unit_map(nodes)
+    # Parse native IDs to integers for lookup.
+    contains["_food_id"] = contains["head_native_id"].str.split(":").str[-1].astype(int)
+    contains["_nutrient_id"] = (
+        contains["tail_native_id"].str.split(":").str[-1].astype(int)
+    )
 
-    rows: list[dict] = []
-    for _, edge in tqdm(
-        contains.iterrows(), total=len(contains), desc="fdc contains", leave=False
-    ):
-        food_id = int(edge["head_native_id"].split(":")[-1])
-        nutrient_id = int(edge["tail_native_id"].split(":")[-1])
-
-        head_ids = fdc2fa["food"].get(food_id, [])
-        tail_ids = fdc2fa["nutrient"].get(nutrient_id, [])
-        if not head_ids or not tail_ids:
-            continue
-
-        attrs = edge["raw_attrs"] if isinstance(edge["raw_attrs"], dict) else {}
-        amount = attrs.get("amount", 0.0)
-        unit_name = nutrient_units.get(nutrient_id, "mg")
-        conc_unit = f"{unit_name.lower()}/100g"
-
-        ref = json.dumps(
-            {
-                "url": f"https://fdc.nal.usda.gov/fdc-app.html#/food-details/{food_id}/nutrients"
-            }
-        )
-        for head_id in head_ids:
-            for tail_id in tail_ids:
-                rows.append(
-                    {
-                        "source_type": "fdc",
-                        "reference": ref,
-                        "extractor": "fdc",
-                        "head_name_raw": f"FDC:{food_id}",
-                        "tail_name_raw": f"FDC_NUTRIENT:{nutrient_id}",
-                        "conc_value": amount,
-                        "conc_unit": conc_unit,
-                        "food_part": "",
-                        "food_processing": "",
-                        "quality_score": None,
-                        "_head_id": head_id,
-                        "_tail_id": tail_id,
-                    }
-                )
-
-    if not rows:
-        logger.info("No FDC data to merge.")
+    # Build lookup maps.
+    food_lookup = _explode_external_ids(kg.entities._entities, "fdc")
+    nutrient_lookup = _explode_external_ids(kg.entities._entities, "fdc_nutrient")
+    if food_lookup.empty or nutrient_lookup.empty:
+        logger.info("No FDC entity mappings.")
         return
 
-    df = pd.DataFrame(rows)
+    # Cast native_id to int for join.
+    food_lookup["native_id"] = food_lookup["native_id"].astype(int)
+    nutrient_lookup["native_id"] = nutrient_lookup["native_id"].astype(int)
+
+    # Join head (food).
+    df = contains.merge(
+        food_lookup, left_on="_food_id", right_on="native_id", how="inner"
+    ).drop(columns=["native_id"])
+    df = df.rename(
+        columns={"foodatlas_id": "_head_id", "candidates": "head_candidates"}
+    )
+
+    # Join tail (nutrient).
+    df = df.merge(
+        nutrient_lookup, left_on="_nutrient_id", right_on="native_id", how="inner"
+    ).drop(columns=["native_id"])
+    df = df.rename(
+        columns={"foodatlas_id": "_tail_id", "candidates": "tail_candidates"}
+    )
+
+    if df.empty:
+        logger.info("No FDC data to merge after resolution.")
+        return
+
+    # Extract concentration data.
+    nutrient_units = _build_nutrient_unit_map(fdc["nodes"])
+    df["conc_value"] = df["raw_attrs"].apply(
+        lambda x: x.get("amount", 0.0) if isinstance(x, dict) else 0.0
+    )
+    df["conc_unit"] = df["_nutrient_id"].map(
+        lambda nid: f"{nutrient_units.get(nid, 'mg').lower()}/100g"
+    )
+
+    # Build evidence + extraction columns.
+    df["source_type"] = "fdc"
+    df["reference"] = df["_food_id"].apply(
+        lambda fid: json.dumps(
+            {
+                "url": f"https://fdc.nal.usda.gov/fdc-app.html#/food-details/{fid}/nutrients"
+            }
+        )
+    )
+    df["extractor"] = "fdc"
+    df["head_name_raw"] = "FDC:" + df["_food_id"].astype(str)
+    df["tail_name_raw"] = "FDC_NUTRIENT:" + df["_nutrient_id"].astype(str)
 
     ev_result = kg.evidence.create(df[["source_type", "reference"]])
     df["evidence_id"] = ev_result.index
     extractions = kg.extractions.create(df)
 
     triplet_input = df[["_head_id", "_tail_id"]].copy()
-    triplet_input.columns = ["head_id", "tail_id"]
+    triplet_input.columns = pd.Index(["head_id", "tail_id"])
     triplet_input.index = extractions.index
     triplet_input["relationship_id"] = RelationshipType.CONTAINS
     triplets = kg.triplets.create(triplet_input)
@@ -99,26 +103,6 @@ def merge_fdc_triplets(
     logger.info(
         "Merged %d FDC extractions, %d triplets.", len(extractions), len(triplets)
     )
-
-
-def _build_fdc_maps(
-    entities: pd.DataFrame,
-) -> dict[str, dict[int, list[str]]]:
-    food_map: dict[int, list[str]] = {}
-    nutrient_map: dict[int, list[str]] = {}
-    for eid, row in entities.iterrows():
-        ext = row["external_ids"]
-        for fdc_id in ext.get("fdc", []):
-            key = int(fdc_id)
-            if key not in food_map:
-                food_map[key] = []
-            food_map[key].append(str(eid))
-        for n_id in ext.get("fdc_nutrient", []):
-            key = int(n_id)
-            if key not in nutrient_map:
-                nutrient_map[key] = []
-            nutrient_map[key].append(str(eid))
-    return {"food": food_map, "nutrient": nutrient_map}
 
 
 def _build_nutrient_unit_map(nodes: pd.DataFrame) -> dict[int, str]:

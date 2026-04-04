@@ -8,6 +8,7 @@ from src.pipeline.ie.report import (
     write_resolution_stats,
     write_unresolved_report,
 )
+from src.stores.schema import FILE_IE_UNRESOLVED
 
 
 class TestWriteUnresolvedReport:
@@ -33,38 +34,38 @@ class TestWriteUnresolvedReport:
             ]
         )
 
-    def test_writes_tsv(self, tmp_path: Path) -> None:
+    def test_writes_jsonl(self, tmp_path: Path) -> None:
         meta = self._make_metadata()
         out = write_unresolved_report({"banana"}, {"zinc"}, meta, tmp_path)
         assert out.exists()
-        df = pd.read_csv(out, sep="\t")
-        assert len(df) == 2
-        assert set(df["entity_type"]) == {"food", "chemical"}
+        lines = out.read_text().strip().split("\n")
+        assert len(lines) == 2
+        records = [json.loads(line) for line in lines]
+        types = {r["entity_type"] for r in records}
+        assert types == {"food", "chemical"}
 
-    def test_sorted_by_occurrence(self, tmp_path: Path) -> None:
+    def test_occurrences_counted(self, tmp_path: Path) -> None:
         meta = self._make_metadata()
         out = write_unresolved_report({"banana"}, {"zinc"}, meta, tmp_path)
-        df = pd.read_csv(out, sep="\t")
-        # banana appears 2 times, zinc 1 time — banana should be first.
-        assert df.iloc[0]["name"] == "banana"
-        assert df.iloc[0]["occurrence_count"] == 2
+        lines = out.read_text().strip().split("\n")
+        records = [json.loads(line) for line in lines]
+        banana = next(r for r in records if r["name"] == "banana")
+        assert banana["occurrences"] == 2
 
     def test_empty_unresolved(self, tmp_path: Path) -> None:
         meta = self._make_metadata()
         out = write_unresolved_report(set(), set(), meta, tmp_path)
-        df = pd.read_csv(out, sep="\t")
-        assert len(df) == 0
+        # File exists but is empty (nothing appended).
+        content = out.read_text() if out.exists() else ""
+        assert content == ""
 
-    def test_columns(self, tmp_path: Path) -> None:
+    def test_appends_across_calls(self, tmp_path: Path) -> None:
         meta = self._make_metadata()
-        out = write_unresolved_report({"banana"}, set(), meta, tmp_path)
-        df = pd.read_csv(out, sep="\t")
-        assert list(df.columns) == [
-            "name",
-            "entity_type",
-            "occurrence_count",
-            "sample_references",
-        ]
+        write_unresolved_report({"banana"}, set(), meta, tmp_path)
+        write_unresolved_report(set(), {"zinc"}, meta, tmp_path)
+        out = tmp_path / FILE_IE_UNRESOLVED
+        lines = out.read_text().strip().split("\n")
+        assert len(lines) == 2
 
 
 class TestWriteResolutionStats:

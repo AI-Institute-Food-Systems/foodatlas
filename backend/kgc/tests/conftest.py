@@ -28,6 +28,7 @@ def _write_entities_parquet(path: Path, entities: list[dict]) -> None:
 
 
 def _write_lut(path: Path, lut: dict[str, list[str]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w") as f:
         json.dump(lut, f)
 

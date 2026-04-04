@@ -6,11 +6,10 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from ...stores.schema import FILE_AMBIGUITY_JSONL
 from ..knowledge_graph import KnowledgeGraph
 from ..load_sources import load_sources
 from ..scaffold import create_empty_triplet_files
-from .ambiguity import append_ambiguity_jsonl
+from .ambiguity import write_ambiguous_extractions
 from .builder import build_triplets
 
 if TYPE_CHECKING:
@@ -32,17 +31,13 @@ class TripletRunner:
         create_empty_triplet_files(self._settings)
         kg = KnowledgeGraph(self._settings)
 
-        # Clear ambiguity JSONL for fresh pipeline run.
-        kg_dir = Path(self._settings.kg_dir)
-        jsonl = kg_dir / FILE_AMBIGUITY_JSONL
-        if jsonl.exists():
-            jsonl.unlink()
-
-        report = build_triplets(kg, sources)
+        build_triplets(kg, sources)
 
         kg.save()
         self._validate(kg)
-        append_ambiguity_jsonl(report, kg_dir)
+
+        kg_dir = Path(self._settings.kg_dir)
+        write_ambiguous_extractions(kg.extractions, kg_dir)
         logger.info("Triplet stage complete.")
 
     def _validate(self, kg: KnowledgeGraph) -> None:

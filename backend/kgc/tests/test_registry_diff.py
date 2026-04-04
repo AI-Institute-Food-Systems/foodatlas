@@ -85,7 +85,7 @@ class TestWriteDiffReport:
             stable_ids=["e1", "e2"],
         )
         write_diff_report(diff, tmp_path)
-        path = tmp_path / "_build_diff.json"
+        path = tmp_path / "reports" / "build_diff.json"
         assert path.exists()
         data = json.loads(path.read_text())
         assert data["new_count"] == 1

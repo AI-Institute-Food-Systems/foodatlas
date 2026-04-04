@@ -73,6 +73,7 @@ def write_diff_report(diff: RegistryDiff, output_dir: Path) -> None:
         ],
     }
     out = output_dir / FILE_BUILD_DIFF
+    out.parent.mkdir(exist_ok=True)
     write_json(out, report)
     logger.info(
         "Build diff: %d new, %d retired, %d merged, %d stable.",

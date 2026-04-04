@@ -91,6 +91,7 @@ class EntityStore:
             if df[col].apply(lambda x: isinstance(x, (list, dict))).any():
                 df[col] = df[col].apply(json.dumps)
         df.to_parquet(path_output_dir / FILE_ENTITIES, index=False)
+        (path_output_dir / FILE_LUT_FOOD).parent.mkdir(exist_ok=True)
         _save_lut(self._lut_food, path_output_dir / FILE_LUT_FOOD)
         _save_lut(self._lut_chemical, path_output_dir / FILE_LUT_CHEMICAL)
 

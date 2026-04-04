@@ -173,6 +173,7 @@ class TestResolveGroupEids:
             if df[col].apply(lambda x: isinstance(x, (list, dict))).any():
                 df[col] = df[col].apply(json.dumps)
         df.to_parquet(tmp_path / FILE_ENTITIES, index=False)
+        (tmp_path / FILE_LUT_FOOD).parent.mkdir(parents=True, exist_ok=True)
         with (tmp_path / FILE_LUT_FOOD).open("w") as f:
             json.dump({"dairy food product": ["e0"]}, f)
         with (tmp_path / FILE_LUT_CHEMICAL).open("w") as f:

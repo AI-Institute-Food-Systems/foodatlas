@@ -7,7 +7,6 @@ import logging
 from typing import TYPE_CHECKING
 
 import pandas as pd
-from tqdm import tqdm
 
 from ...models.relationship import RelationshipType
 
@@ -26,12 +25,7 @@ def merge_ctd_triplets(
     kg: KnowledgeGraph,
     sources: dict[str, dict[str, pd.DataFrame]],
 ) -> None:
-    """Create chemical-disease triplets from CTD direct-evidence edges.
-
-    Creates evidence, extraction (with ambiguity candidates), and triplet
-    records.  Resolves CTD chemical IDs (MeSH) via ``external_ids["mesh"]``
-    and disease IDs via ``external_ids["ctd"]``.
-    """
+    """Create chemical-disease triplets from CTD direct-evidence edges."""
     ctd = sources.get("ctd")
     if ctd is None:
         return
@@ -39,60 +33,61 @@ def merge_ctd_triplets(
     chemdis = edges[edges["edge_type"] == "chemical_disease_association"]
     direct = chemdis[
         chemdis["raw_attrs"].apply(lambda x: bool(x.get("direct_evidence")))
-    ]
+    ].copy()
     if direct.empty:
         logger.info("No direct CTD chemical-disease edges.")
         return
 
-    mesh2fa = _build_mesh_to_fa(kg.entities._entities)
-    disease2fa = _build_disease_to_fa(kg.entities._entities)
+    # Map relationship type.
+    direct["_rel_id"] = direct["raw_attrs"].apply(
+        lambda x: _EVIDENCE_TO_REL.get(x.get("direct_evidence", ""))
+    )
+    direct = direct[direct["_rel_id"].notna()]
 
-    rows: list[dict] = []
-    for _, edge in tqdm(
-        direct.iterrows(), total=len(direct), desc="ctd chemdis", leave=False
-    ):
-        chem_ids = mesh2fa.get(edge["head_native_id"], [])
-        disease_ids = disease2fa.get(edge["tail_native_id"], [])
-        if not chem_ids or not disease_ids:
-            continue
+    # Build ID maps as DataFrames for vectorized join.
+    mesh2fa = _explode_external_ids(kg.entities._entities, "mesh")
+    disease2fa = _explode_external_ids(kg.entities._entities, "ctd")
 
-        evidence = edge["raw_attrs"]["direct_evidence"]
-        rel_id = _EVIDENCE_TO_REL.get(evidence)
-        if rel_id is None:
-            continue
+    # Join head (chemical via MeSH).
+    df = direct.merge(
+        mesh2fa, left_on="head_native_id", right_on="native_id", how="inner"
+    ).drop(columns=["native_id"])
+    df = df.rename(
+        columns={"foodatlas_id": "_head_id", "candidates": "head_candidates"}
+    )
 
-        pubmed_ids = edge["raw_attrs"].get("PubMedIDs", [])
-        ref = json.dumps({"ctd_direct_evidence": evidence, "pubmed": pubmed_ids})
+    # Join tail (disease via CTD ID).
+    df = df.merge(
+        disease2fa, left_on="tail_native_id", right_on="native_id", how="inner"
+    ).drop(columns=["native_id"])
+    df = df.rename(
+        columns={"foodatlas_id": "_tail_id", "candidates": "tail_candidates"}
+    )
 
-        for chem_id in chem_ids:
-            for disease_id in disease_ids:
-                rows.append(
-                    {
-                        "source_type": "ctd",
-                        "reference": ref,
-                        "extractor": "ctd",
-                        "head_name_raw": str(edge["head_native_id"]),
-                        "tail_name_raw": str(edge["tail_native_id"]),
-                        "head_candidates": chem_ids,
-                        "tail_candidates": disease_ids,
-                        "_head_id": chem_id,
-                        "_tail_id": disease_id,
-                        "_rel_id": rel_id,
-                    }
-                )
-
-    if not rows:
-        logger.info("No CTD data to merge.")
+    if df.empty:
+        logger.info("No CTD data to merge after resolution.")
         return
 
-    df = pd.DataFrame(rows)
+    # Build evidence references.
+    df["source_type"] = "ctd"
+    df["reference"] = df["raw_attrs"].apply(
+        lambda x: json.dumps(
+            {
+                "ctd_direct_evidence": x.get("direct_evidence", ""),
+                "pubmed": x.get("PubMedIDs", []),
+            }
+        )
+    )
+    df["extractor"] = "ctd"
+    df["head_name_raw"] = df["head_native_id"].astype(str)
+    df["tail_name_raw"] = df["tail_native_id"].astype(str)
 
     ev_result = kg.evidence.create(df[["source_type", "reference"]])
     df["evidence_id"] = ev_result.index
     extractions = kg.extractions.create(df)
 
     triplet_input = df[["_head_id", "_tail_id", "_rel_id"]].copy()
-    triplet_input.columns = ["head_id", "tail_id", "relationship_id"]
+    triplet_input.columns = pd.Index(["head_id", "tail_id", "relationship_id"])
     triplet_input.index = extractions.index
     triplets = kg.triplets.create(triplet_input)
 
@@ -101,23 +96,21 @@ def merge_ctd_triplets(
     )
 
 
-def _build_mesh_to_fa(entities: pd.DataFrame) -> dict[str, list[str]]:
-    """Map MeSH ID → entity IDs for chemicals (may be 1:N)."""
-    result: dict[str, list[str]] = {}
-    for eid, row in entities.iterrows():
-        for mesh_id in row["external_ids"].get("mesh", []):
-            if mesh_id not in result:
-                result[mesh_id] = []
-            result[mesh_id].append(str(eid))
-    return result
+def _explode_external_ids(entities: pd.DataFrame, key: str) -> pd.DataFrame:
+    """Build a DataFrame mapping native IDs to entity IDs with candidate lists.
 
-
-def _build_disease_to_fa(entities: pd.DataFrame) -> dict[str, list[str]]:
-    """Map CTD disease ID → entity IDs."""
-    result: dict[str, list[str]] = {}
+    Returns columns: ``native_id``, ``foodatlas_id``, ``candidates``.
+    ``candidates`` is the full list of entity IDs for that native ID.
+    """
+    rows: list[tuple[str, str]] = []
     for eid, row in entities.iterrows():
-        for ctd_id in row["external_ids"].get("ctd", []):
-            if ctd_id not in result:
-                result[ctd_id] = []
-            result[ctd_id].append(str(eid))
-    return result
+        for native_id in row["external_ids"].get(key, []):
+            rows.append((str(native_id), str(eid)))
+    if not rows:
+        return pd.DataFrame(columns=["native_id", "foodatlas_id", "candidates"])
+
+    lookup = pd.DataFrame(rows, columns=["native_id", "foodatlas_id"])
+    # Add candidate lists (all entity IDs per native_id).
+    candidates = lookup.groupby("native_id")["foodatlas_id"].apply(list)
+    candidates.name = "candidates"
+    return lookup.merge(candidates, left_on="native_id", right_index=True)

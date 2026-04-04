@@ -7,7 +7,9 @@ import logging
 from typing import TYPE_CHECKING
 
 import pandas as pd
+from tqdm import tqdm
 
+from ...stores.schema import FILE_IE_PARSE_ERRORS
 from .constants import GREEK_LETTERS, PUNCTUATIONS
 
 if TYPE_CHECKING:
@@ -65,7 +67,7 @@ def _parse_tuple(line: str) -> tuple[str, str, str, str] | None:
     return food, food_part, chemical, quantity
 
 
-def load_ie_raw(path: Path) -> pd.DataFrame:
+def load_ie_raw(path: Path, output_dir: Path) -> pd.DataFrame:
     """Parse raw IE file (TSV or pkl) into a MetadataContains-compatible DataFrame.
 
     Returns:
@@ -84,7 +86,7 @@ def load_ie_raw(path: Path) -> pd.DataFrame:
 
     rows: list[dict] = []
     parse_errors: list[dict] = []
-    for _, rec in raw.iterrows():
+    for _, rec in tqdm(raw.iterrows(), total=len(raw), desc="parsing IE", leave=True):
         response = rec["response"]
         if not isinstance(response, str):
             parse_errors.append(
@@ -121,7 +123,8 @@ def load_ie_raw(path: Path) -> pd.DataFrame:
             )
 
     if parse_errors:
-        errors_path = path.parent / f"{path.stem}_parse_errors.tsv"
+        errors_path = output_dir / FILE_IE_PARSE_ERRORS
+        errors_path.parent.mkdir(exist_ok=True)
         pd.DataFrame(parse_errors).to_csv(errors_path, sep="\t", index=False)
         logger.warning("%d parse errors written to %s.", len(parse_errors), errors_path)
     logger.info("Parsed %d IE tuples from %s.", len(rows), path)

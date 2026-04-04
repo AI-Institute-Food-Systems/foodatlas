@@ -7,6 +7,8 @@ import pandas as pd
 from ..models.relationship import RelationshipType
 from ..models.settings import KGCSettings
 from ..stores.schema import (
+    DIR_INTERMEDIATE,
+    DIR_REPORTS,
     FILE_ENTITIES,
     FILE_EVIDENCE,
     FILE_EXTRACTIONS,
@@ -47,6 +49,8 @@ def create_empty_entity_files(settings: KGCSettings) -> None:
     """
     kg_dir = Path(settings.kg_dir)
     kg_dir.mkdir(parents=True, exist_ok=True)
+    (kg_dir / DIR_INTERMEDIATE).mkdir(exist_ok=True)
+    (kg_dir / DIR_REPORTS).mkdir(exist_ok=True)
 
     pd.DataFrame().to_parquet(kg_dir / FILE_ENTITIES)
     write_json(kg_dir / FILE_LUT_FOOD, {})

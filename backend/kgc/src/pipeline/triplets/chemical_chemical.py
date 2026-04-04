@@ -7,10 +7,10 @@ import logging
 from typing import TYPE_CHECKING
 
 import pandas as pd
-from tqdm import tqdm
+
+from .chemical_disease import _explode_external_ids
 
 if TYPE_CHECKING:
-    from ...stores.entity_store import EntityStore
     from ..knowledge_graph import KnowledgeGraph
 
 logger = logging.getLogger(__name__)
@@ -29,63 +29,49 @@ def merge_chemical_ontology(
         return
 
     edges = chebi["edges"]
-    is_a_edges = edges[edges["edge_type"] == "is_a"]
-    chebi2fa = _build_chebi_to_fa_map(kg.entities)
+    is_a = edges[edges["edge_type"] == "is_a"].copy()
+    # ChEBI native IDs are integers in edges; cast to int for lookup.
+    is_a["head_native_id"] = is_a["head_native_id"].astype(int).astype(str)
+    is_a["tail_native_id"] = is_a["tail_native_id"].astype(int).astype(str)
 
-    rows: list[dict] = []
-    for _, edge in tqdm(
-        is_a_edges.iterrows(), total=len(is_a_edges), desc="chem is_a", leave=False
-    ):
-        head_key = int(edge["head_native_id"])
-        tail_key = int(edge["tail_native_id"])
-        # ChEBI is_a semantics: head is_a tail → reversed in KG
-        head_ids = chebi2fa.get(tail_key, [])
-        tail_ids = chebi2fa.get(head_key, [])
-        if not head_ids or not tail_ids:
-            continue
-        ref = json.dumps({"source": _SOURCE, "edge_type": "is_a"})
-        for head_id in head_ids:
-            for tail_id in tail_ids:
-                rows.append(
-                    {
-                        "source_type": _SOURCE,
-                        "reference": ref,
-                        "extractor": _SOURCE,
-                        "head_name_raw": str(tail_key),
-                        "tail_name_raw": str(head_key),
-                        "head_candidates": head_ids,
-                        "tail_candidates": tail_ids,
-                        "_head_id": head_id,
-                        "_tail_id": tail_id,
-                    }
-                )
+    lookup = _explode_external_ids(kg.entities._entities, "chebi")
+    if lookup.empty:
+        return
 
-    if not rows:
+    # ChEBI is_a semantics: head is_a tail → reversed in KG (head=parent).
+    df = is_a.merge(
+        lookup, left_on="tail_native_id", right_on="native_id", how="inner"
+    ).drop(columns=["native_id"])
+    df = df.rename(
+        columns={"foodatlas_id": "_head_id", "candidates": "head_candidates"}
+    )
+
+    df = df.merge(
+        lookup, left_on="head_native_id", right_on="native_id", how="inner"
+    ).drop(columns=["native_id"])
+    df = df.rename(
+        columns={"foodatlas_id": "_tail_id", "candidates": "tail_candidates"}
+    )
+
+    if df.empty:
         logger.info("No ChEBI is_a edges to merge.")
         return
 
-    df = pd.DataFrame(rows)
+    ref = json.dumps({"source": _SOURCE, "edge_type": "is_a"})
+    df["source_type"] = _SOURCE
+    df["reference"] = ref
+    df["extractor"] = _SOURCE
+    df["head_name_raw"] = df["tail_native_id"].astype(str)
+    df["tail_name_raw"] = df["head_native_id"].astype(str)
+
     ev_result = kg.evidence.create(df[["source_type", "reference"]])
     df["evidence_id"] = ev_result.index
     extractions = kg.extractions.create(df)
 
     triplet_input = df[["_head_id", "_tail_id"]].copy()
-    triplet_input.columns = ["head_id", "tail_id"]
+    triplet_input.columns = pd.Index(["head_id", "tail_id"])
     triplet_input.index = extractions.index
     triplet_input["relationship_id"] = _REL_ID
     triplets = kg.triplets.create(triplet_input)
 
     logger.info("Created %d chemical ontology triplets.", len(triplets))
-
-
-def _build_chebi_to_fa_map(entity_store: EntityStore) -> dict[int, list[str]]:
-    chebi2fa: dict[int, list[str]] = {}
-    for faid, row in entity_store._entities.iterrows():
-        if "chebi" not in row["external_ids"]:
-            continue
-        for chebi_id in row["external_ids"]["chebi"]:
-            key = int(chebi_id)
-            if key not in chebi2fa:
-                chebi2fa[key] = []
-            chebi2fa[key].append(str(faid))
-    return chebi2fa

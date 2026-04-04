@@ -7,11 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ..knowledge_graph import KnowledgeGraph
-from ..triplets.ambiguity import (
-    append_ambiguity_jsonl,
-    build_ambiguity_from_extractions,
-    write_ambiguity_summary,
-)
+from ..triplets.ambiguity import write_ambiguous_extractions
 from .loader import load_ie_raw
 from .report import write_resolution_stats, write_unresolved_report
 from .resolver import resolve_ie_metadata
@@ -35,14 +31,13 @@ class IERunner:
         kg.save()
 
         kg_dir = Path(self._settings.kg_dir)
-        report = build_ambiguity_from_extractions(kg.extractions)
-        append_ambiguity_jsonl(report, kg_dir)
-        write_ambiguity_summary(kg_dir)
+        write_ambiguous_extractions(kg.extractions, kg_dir)
         logger.info("IE stage complete.")
 
     def _expand(self, kg: KnowledgeGraph) -> None:
         """Integrate IE-extracted metadata with lookup-only resolution."""
         ie_config = self._settings.pipeline.stages.triplet_expansion
+        kg_dir = Path(self._settings.kg_dir)
 
         if not ie_config.ie_raw_paths:
             logger.info("No IE raw paths configured — skipping expansion.")
@@ -55,7 +50,7 @@ class IERunner:
                 continue
 
             logger.info("Processing IE file: %s", path)
-            metadata = load_ie_raw(path)
+            metadata = load_ie_raw(path, kg_dir)
             if metadata.empty:
                 logger.info("IE loader produced no rows — skipping.")
                 continue
@@ -66,7 +61,6 @@ class IERunner:
                 n_triplets = kg.add_triplets_from_resolved_ie(result.resolved)
                 result.stats["triplets_created"] = n_triplets
 
-            kg_dir = Path(self._settings.kg_dir)
             write_unresolved_report(
                 result.unresolved_food,
                 result.unresolved_chemical,

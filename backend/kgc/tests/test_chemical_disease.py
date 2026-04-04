@@ -35,6 +35,7 @@ def _make_kg(tmp_path: Path, entities: list[dict]) -> KnowledgeGraph:
     pd.DataFrame().to_parquet(kg_dir / FILE_EVIDENCE)
     pd.DataFrame().to_parquet(kg_dir / FILE_EXTRACTIONS)
     for f in (FILE_LUT_FOOD, FILE_LUT_CHEMICAL):
+        (kg_dir / f).parent.mkdir(parents=True, exist_ok=True)
         (kg_dir / f).write_text("{}")
     settings = KGCSettings(kg_dir=str(kg_dir), cache_dir=str(kg_dir / "_cache"))
     return KnowledgeGraph(settings)
