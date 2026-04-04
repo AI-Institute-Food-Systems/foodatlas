@@ -7,11 +7,16 @@ import pandas as pd
 from src.pipeline.triplets.ambiguity import (
     AmbiguityRecord,
     AmbiguityReport,
+    append_ambiguity_jsonl,
     build_ambiguity_from_extractions,
-    write_ambiguity_report,
+    write_ambiguity_summary,
 )
 from src.stores.extraction_store import ExtractionStore
-from src.stores.schema import FILE_AMBIGUITY_REPORT, FILE_EXTRACTIONS
+from src.stores.schema import (
+    FILE_AMBIGUITY_JSONL,
+    FILE_AMBIGUITY_SUMMARY,
+    FILE_EXTRACTIONS,
+)
 
 
 def _record(eid: str = "ex_abc") -> AmbiguityRecord:
@@ -35,22 +40,39 @@ class TestAmbiguityReport:
         assert report.ambiguous_count == 2
 
 
-class TestWriteAmbiguityReport:
-    def test_writes_json(self, tmp_path: Path) -> None:
+class TestAppendAmbiguityJsonl:
+    def test_appends_records(self, tmp_path: Path) -> None:
         report = AmbiguityReport(records=[_record()])
-        write_ambiguity_report(report, tmp_path)
+        append_ambiguity_jsonl(report, tmp_path)
 
-        out = tmp_path / FILE_AMBIGUITY_REPORT
+        out = tmp_path / FILE_AMBIGUITY_JSONL
         assert out.exists()
-        data = json.loads(out.read_text())
-        assert data["ambiguous_count"] == 1
-        assert data["records"][0]["extraction_id"] == "ex_abc"
-        assert data["records"][0]["head_candidates"] == ["e0", "e99"]
+        lines = out.read_text().strip().split("\n")
+        assert len(lines) == 1
+        rec = json.loads(lines[0])
+        assert rec["extraction_id"] == "ex_abc"
+        assert rec["head_candidates"] == ["e0", "e99"]
+
+    def test_appends_across_calls(self, tmp_path: Path) -> None:
+        append_ambiguity_jsonl(AmbiguityReport(records=[_record("ex1")]), tmp_path)
+        append_ambiguity_jsonl(AmbiguityReport(records=[_record("ex2")]), tmp_path)
+
+        lines = (tmp_path / FILE_AMBIGUITY_JSONL).read_text().strip().split("\n")
+        assert len(lines) == 2
 
     def test_empty_report_not_written(self, tmp_path: Path) -> None:
-        report = AmbiguityReport()
-        write_ambiguity_report(report, tmp_path)
-        assert not (tmp_path / FILE_AMBIGUITY_REPORT).exists()
+        append_ambiguity_jsonl(AmbiguityReport(), tmp_path)
+        assert not (tmp_path / FILE_AMBIGUITY_JSONL).exists()
+
+
+class TestWriteAmbiguitySummary:
+    def test_writes_summary(self, tmp_path: Path) -> None:
+        append_ambiguity_jsonl(AmbiguityReport(records=[_record()]), tmp_path)
+        write_ambiguity_summary(tmp_path)
+
+        data = json.loads((tmp_path / FILE_AMBIGUITY_SUMMARY).read_text())
+        assert data["total_ambiguous"] == 1
+        assert data["by_extractor"]["ie"] == 1
 
 
 class TestBuildAmbiguityFromExtractions:

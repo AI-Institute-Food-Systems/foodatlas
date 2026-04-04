@@ -65,39 +65,38 @@ def _parse_tuple(line: str) -> tuple[str, str, str, str] | None:
     return food, food_part, chemical, quantity
 
 
-def load_ie_raw(path: Path, prob_threshold: float = 0.95) -> pd.DataFrame:
-    """Parse raw IE TSV into a MetadataContains-compatible DataFrame.
-
-    Args:
-        path: Path to ``text_parser_predicted_gpt3.tsv``.
-        prob_threshold: Drop rows below this confidence.
+def load_ie_raw(path: Path) -> pd.DataFrame:
+    """Parse raw IE file (TSV or pkl) into a MetadataContains-compatible DataFrame.
 
     Returns:
         DataFrame with evidence + extraction columns.
     """
-    raw = pd.read_csv(path, sep="\t", dtype={"pmcid": str})
+    if str(path).endswith(".parquet"):
+        raw = pd.read_parquet(path)
+    else:
+        raw = pd.read_csv(path, sep="\t", dtype={"pmcid": str})
     missing = set(_RAW_COLUMNS) - set(raw.columns)
     if missing:
         msg = f"IE TSV missing columns: {missing}"
         raise ValueError(msg)
 
-    before = len(raw)
-    raw = raw[raw["prob"] >= prob_threshold]
-    logger.info(
-        "IE prob filter (>= %.2f): %d → %d rows.", prob_threshold, before, len(raw)
-    )
+    logger.info("IE raw: %d rows from %s.", len(raw), path)
 
     rows: list[dict] = []
-    skipped = 0
+    parse_errors: list[dict] = []
     for _, rec in raw.iterrows():
         response = rec["response"]
         if not isinstance(response, str):
-            skipped += 1
+            parse_errors.append(
+                {"pmcid": rec["pmcid"], "line": str(response), "reason": "not_string"}
+            )
             continue
         for line in response.split("\n"):
             parsed = _parse_tuple(line)
             if parsed is None:
-                skipped += 1
+                parse_errors.append(
+                    {"pmcid": rec["pmcid"], "line": line.strip(), "reason": "bad_tuple"}
+                )
                 continue
             food, food_part, chemical, _quantity = parsed
             ref = json.dumps({"pmcid": rec["pmcid"], "text": rec.get("sentence", "")})
@@ -121,8 +120,10 @@ def load_ie_raw(path: Path, prob_threshold: float = 0.95) -> pd.DataFrame:
                 }
             )
 
-    if skipped:
-        logger.info("Skipped %d unparseable response lines.", skipped)
+    if parse_errors:
+        errors_path = path.parent / f"{path.stem}_parse_errors.tsv"
+        pd.DataFrame(parse_errors).to_csv(errors_path, sep="\t", index=False)
+        logger.warning("%d parse errors written to %s.", len(parse_errors), errors_path)
     logger.info("Parsed %d IE tuples from %s.", len(rows), path)
 
     return pd.DataFrame(rows) if rows else pd.DataFrame()

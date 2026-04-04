@@ -43,4 +43,5 @@ EXTRACTION_COLUMNS = _get_columns(Extraction)
 
 FILE_IE_UNRESOLVED = "_ie_unresolved.tsv"
 FILE_IE_RESOLUTION_STATS = "_ie_resolution_stats.json"
-FILE_AMBIGUITY_REPORT = "_ambiguity_report.json"
+FILE_AMBIGUITY_JSONL = "_ambiguity.jsonl"
+FILE_AMBIGUITY_SUMMARY = "_ambiguity_summary.json"

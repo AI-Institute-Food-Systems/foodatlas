@@ -7,6 +7,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ..knowledge_graph import KnowledgeGraph
+from ..triplets.ambiguity import (
+    append_ambiguity_jsonl,
+    build_ambiguity_from_extractions,
+    write_ambiguity_summary,
+)
 from .loader import load_ie_raw
 from .report import write_resolution_stats, write_unresolved_report
 from .resolver import resolve_ie_metadata
@@ -28,39 +33,44 @@ class IERunner:
         kg = KnowledgeGraph(self._settings)
         self._expand(kg)
         kg.save()
+
+        kg_dir = Path(self._settings.kg_dir)
+        report = build_ambiguity_from_extractions(kg.extractions)
+        append_ambiguity_jsonl(report, kg_dir)
+        write_ambiguity_summary(kg_dir)
         logger.info("IE stage complete.")
 
     def _expand(self, kg: KnowledgeGraph) -> None:
         """Integrate IE-extracted metadata with lookup-only resolution."""
         ie_config = self._settings.pipeline.stages.triplet_expansion
 
-        if not ie_config.ie_raw_path:
-            logger.info("No IE raw path configured — skipping expansion.")
+        if not ie_config.ie_raw_paths:
+            logger.info("No IE raw paths configured — skipping expansion.")
             return
 
-        path = Path(ie_config.ie_raw_path)
-        if not path.is_absolute():
-            path = Path(self._settings.data_dir) / ie_config.ie_raw_path
-        if not path.exists():
-            logger.warning("IE raw file not found at %s — skipping.", path)
-            return
+        for raw_path in ie_config.ie_raw_paths:
+            path = Path(raw_path)
+            if not path.exists():
+                logger.warning("IE raw file not found at %s — skipping.", path)
+                continue
 
-        metadata = load_ie_raw(path, ie_config.ie_prob_threshold)
-        if metadata.empty:
-            logger.info("IE loader produced no rows — skipping.")
-            return
+            logger.info("Processing IE file: %s", path)
+            metadata = load_ie_raw(path)
+            if metadata.empty:
+                logger.info("IE loader produced no rows — skipping.")
+                continue
 
-        result = resolve_ie_metadata(metadata, kg.entities)
+            result = resolve_ie_metadata(metadata, kg.entities)
 
-        if not result.resolved.empty:
-            n_triplets = kg.add_triplets_from_resolved_ie(result.resolved)
-            result.stats["triplets_created"] = n_triplets
+            if not result.resolved.empty:
+                n_triplets = kg.add_triplets_from_resolved_ie(result.resolved)
+                result.stats["triplets_created"] = n_triplets
 
-        kg_dir = Path(self._settings.kg_dir)
-        write_unresolved_report(
-            result.unresolved_food,
-            result.unresolved_chemical,
-            metadata,
-            kg_dir,
-        )
-        write_resolution_stats(result.stats, kg_dir)
+            kg_dir = Path(self._settings.kg_dir)
+            write_unresolved_report(
+                result.unresolved_food,
+                result.unresolved_chemical,
+                metadata,
+                kg_dir,
+            )
+            write_resolution_stats(result.stats, kg_dir)

@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, model_validator
 from pydantic_settings import BaseSettings
 
 from ..utils.json_io import read_json
@@ -36,7 +36,7 @@ class MetadataProcessingStageConfig(BaseModel):
 
 
 class TripletExpansionStageConfig(BaseModel):
-    ie_raw_path: str = ""
+    ie_raw_paths: list[str] = Field(default_factory=list)
     ie_prob_threshold: float = 0.95
 
 

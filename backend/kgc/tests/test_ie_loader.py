@@ -101,22 +101,17 @@ class TestLoadIeRaw:
         pd.DataFrame(rows).to_csv(path, sep="\t", index=False)
         return path
 
-    def test_prob_filtering(self, ie_tsv: Path) -> None:
-        df = load_ie_raw(ie_tsv, prob_threshold=0.95)
-        # Row with prob=0.80 should be dropped
-        assert "olive" not in df["_food_name"].values
-
     def test_greek_normalized(self, ie_tsv: Path) -> None:
-        df = load_ie_raw(ie_tsv, prob_threshold=0.90)
+        df = load_ie_raw(ie_tsv)
         assert "beta-carotene" in df["_chemical_name"].values
 
     def test_multi_tuple_response(self, ie_tsv: Path) -> None:
-        df = load_ie_raw(ie_tsv, prob_threshold=0.90)
+        df = load_ie_raw(ie_tsv)
         berry_rows = df[df["_food_name"] == "berry"]
         assert len(berry_rows) == 2
 
     def test_source_and_reference(self, ie_tsv: Path) -> None:
-        df = load_ie_raw(ie_tsv, prob_threshold=0.90)
+        df = load_ie_raw(ie_tsv)
         row = df[df["_food_name"] == "apple"].iloc[0]
         assert row["extractor"] == "lit2kg"
         assert row["source_type"] == "pubmed"
