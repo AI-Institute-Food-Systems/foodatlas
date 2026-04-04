@@ -81,7 +81,8 @@ def link_cdno_to_chebi(
             ext = store._entities.at[fa_id, "external_ids"]
             if "cdno" not in ext:
                 ext["cdno"] = []
-            ext["cdno"].append(xref["native_id"])
+            if xref["native_id"] not in ext["cdno"]:
+                ext["cdno"].append(xref["native_id"])
             old = registry.register_alias("cdno", str(xref["native_id"]), fa_id)
             if old:
                 merges[old] = fa_id
@@ -120,7 +121,8 @@ def link_fdc_foods_to_foodon(
             ext = store._entities.at[fa_id, "external_ids"]
             if "fdc" not in ext:
                 ext["fdc"] = []
-            ext["fdc"].append(fdc_id)
+            if fdc_id not in ext["fdc"]:
+                ext["fdc"].append(fdc_id)
             old = registry.register_alias("fdc", str(fdc_id), fa_id)
             if old:
                 merges[old] = fa_id
@@ -166,7 +168,9 @@ def link_fdc_nutrients(
                 ext = store._entities.at[fa_id, "external_ids"]
                 if "fdc_nutrient" not in ext:
                     ext["fdc_nutrient"] = []
-                ext["fdc_nutrient"].append(int(nutrient_id))
+                nid = int(nutrient_id)
+                if nid not in ext["fdc_nutrient"]:
+                    ext["fdc_nutrient"].append(nid)
                 old = registry.register_alias("fdc_nutrient", str(nutrient_id), fa_id)
                 if old:
                     merges[old] = fa_id
