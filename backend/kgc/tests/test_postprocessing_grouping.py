@@ -6,7 +6,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 from src.models.settings import KGCSettings
-from src.postprocessing.grouping.chemicals import (
+from src.pipeline.postprocessing.grouping.chemicals import (
     _assign_label,
     _build_chebi_to_group,
     _build_is_a_map,
@@ -16,12 +16,12 @@ from src.postprocessing.grouping.chemicals import (
     _traverse_cdno_hierarchy,
     generate_chemical_groups_cdno,
 )
-from src.postprocessing.grouping.foods import (
+from src.pipeline.postprocessing.grouping.foods import (
     _build_group_mapping,
     _resolve_group_eids,
     _traverse_hierarchy,
 )
-from src.postprocessing.grouping.mesh import (
+from src.pipeline.postprocessing.grouping.mesh import (
     _add_tree_levels,
     _assign_categories,
     _build_tree_number_to_category,
@@ -165,12 +165,15 @@ class TestResolveGroupEids:
                 "common_name": "dairy food product",
                 "synonyms": ["dairy food product"],
                 "external_ids": {},
-                "_synonyms_display": [],
                 "scientific_name": "",
             }
         ]
-        with (tmp_path / FILE_ENTITIES).open("w") as f:
-            json.dump(entities, f)
+        df = pd.DataFrame(entities)
+        for col in df.columns:
+            if df[col].apply(lambda x: isinstance(x, (list, dict))).any():
+                df[col] = df[col].apply(json.dumps)
+        df.to_parquet(tmp_path / FILE_ENTITIES, index=False)
+        (tmp_path / FILE_LUT_FOOD).parent.mkdir(parents=True, exist_ok=True)
         with (tmp_path / FILE_LUT_FOOD).open("w") as f:
             json.dump({"dairy food product": ["e0"]}, f)
         with (tmp_path / FILE_LUT_CHEMICAL).open("w") as f:

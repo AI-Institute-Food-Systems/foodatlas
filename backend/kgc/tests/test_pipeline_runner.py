@@ -36,14 +36,10 @@ def _noop_handlers() -> dict[PipelineStage, object]:
     return {stage: MagicMock() for stage in PipelineStage}
 
 
-def test_runner_init(runner: PipelineRunner) -> None:
-    assert runner._kg is None
-
-
 def test_run_stage_calls_handler(runner: PipelineRunner) -> None:
     mock = MagicMock()
-    with patch.dict(_STAGE_HANDLERS, {PipelineStage.DATA_CLEANING: mock}):
-        runner.run_stage(PipelineStage.DATA_CLEANING)
+    with patch.dict(_STAGE_HANDLERS, {PipelineStage.INGEST: mock}):
+        runner.run_stage(PipelineStage.INGEST)
     mock.assert_called_once_with(runner)
 
 
@@ -58,19 +54,19 @@ def test_run_selected_stages_in_order(runner: PipelineRunner) -> None:
 
     overrides = {
         PipelineStage.POSTPROCESSING: _make_tracker("POSTPROCESSING"),
-        PipelineStage.ENTITY_INIT: _make_tracker("ENTITY_INIT"),
-        PipelineStage.DATA_CLEANING: _make_tracker("DATA_CLEANING"),
+        PipelineStage.ENTITIES: _make_tracker("ENTITIES"),
+        PipelineStage.INGEST: _make_tracker("INGEST"),
     }
     with patch.dict(_STAGE_HANDLERS, overrides):
         runner.run(
             [
                 PipelineStage.POSTPROCESSING,
-                PipelineStage.ENTITY_INIT,
-                PipelineStage.DATA_CLEANING,
+                PipelineStage.ENTITIES,
+                PipelineStage.INGEST,
             ]
         )
 
-    assert called == ["DATA_CLEANING", "ENTITY_INIT", "POSTPROCESSING"]
+    assert called == ["INGEST", "ENTITIES", "POSTPROCESSING"]
 
 
 def test_run_all_stages(runner: PipelineRunner) -> None:
@@ -89,22 +85,3 @@ def test_run_all_stages(runner: PipelineRunner) -> None:
     assert len(called) == len(PipelineStage)
     values = [PipelineStage[name].value for name in called]
     assert values == sorted(values)
-
-
-def test_run_all_writes_version(runner: PipelineRunner) -> None:
-    overrides = _noop_handlers()
-    with (
-        patch.dict(_STAGE_HANDLERS, overrides),
-        patch.object(runner, "_write_version") as mock_version,
-    ):
-        runner.run()
-        mock_version.assert_called_once()
-
-
-def test_run_selected_does_not_write_version(runner: PipelineRunner) -> None:
-    with (
-        patch.dict(_STAGE_HANDLERS, {PipelineStage.ENTITY_INIT: MagicMock()}),
-        patch.object(runner, "_write_version") as mock_version,
-    ):
-        runner.run([PipelineStage.ENTITY_INIT])
-        mock_version.assert_not_called()

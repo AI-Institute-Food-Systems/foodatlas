@@ -4,18 +4,22 @@ import json
 from pathlib import Path
 from typing import Any
 
+import pandas as pd
 import pytest
-from src.integration.scaffold import (
-    create_empty_entity_files,
-    create_empty_triplet_files,
-)
 from src.models.relationship import RelationshipType
 from src.models.settings import KGCSettings
+from src.pipeline.scaffold import (
+    create_empty_entity_files,
+    create_empty_triplet_files,
+    ensure_registry_exists,
+)
 from src.stores.schema import (
     FILE_ENTITIES,
+    FILE_EVIDENCE,
+    FILE_EXTRACTIONS,
     FILE_LUT_CHEMICAL,
     FILE_LUT_FOOD,
-    FILE_METADATA_CONTAINS,
+    FILE_REGISTRY,
     FILE_RELATIONSHIPS,
     FILE_RETIRED,
     FILE_TRIPLETS,
@@ -44,10 +48,12 @@ class TestCreateEmptyEntityFiles:
         for f in (FILE_ENTITIES, FILE_LUT_FOOD, FILE_LUT_CHEMICAL):
             assert (kg_dir / f).exists(), f"Missing: {f}"
 
-    def test_entities_is_empty_list(self, settings: KGCSettings, kg_dir: Path) -> None:
+    def test_entities_is_empty_parquet(
+        self, settings: KGCSettings, kg_dir: Path
+    ) -> None:
         create_empty_entity_files(settings)
-        data = _load_json(kg_dir / FILE_ENTITIES)
-        assert data == []
+        df = pd.read_parquet(kg_dir / FILE_ENTITIES)
+        assert len(df) == 0
 
     def test_lut_files_are_empty_json(
         self, settings: KGCSettings, kg_dir: Path
@@ -63,7 +69,8 @@ class TestCreateEmptyEntityFiles:
         create_empty_entity_files(settings)
         for f in (
             FILE_TRIPLETS,
-            FILE_METADATA_CONTAINS,
+            FILE_EVIDENCE,
+            FILE_EXTRACTIONS,
             FILE_RELATIONSHIPS,
             FILE_RETIRED,
         ):
@@ -79,8 +86,8 @@ class TestCreateEmptyEntityFiles:
     def test_idempotent(self, settings: KGCSettings, kg_dir: Path) -> None:
         create_empty_entity_files(settings)
         create_empty_entity_files(settings)
-        data = _load_json(kg_dir / FILE_ENTITIES)
-        assert data == []
+        df = pd.read_parquet(kg_dir / FILE_ENTITIES)
+        assert len(df) == 0
 
 
 class TestCreateEmptyTripletFiles:
@@ -90,7 +97,8 @@ class TestCreateEmptyTripletFiles:
         for f in (
             FILE_RELATIONSHIPS,
             FILE_TRIPLETS,
-            FILE_METADATA_CONTAINS,
+            FILE_EVIDENCE,
+            FILE_EXTRACTIONS,
             FILE_RETIRED,
         ):
             assert (kg_dir / f).exists(), f"Missing: {f}"
@@ -99,26 +107,30 @@ class TestCreateEmptyTripletFiles:
         self, settings: KGCSettings, kg_dir: Path
     ) -> None:
         create_empty_triplet_files(settings)
-        data = _load_json(kg_dir / FILE_RELATIONSHIPS)
-        assert len(data) == len(RelationshipType)
-        assert [r["foodatlas_id"] for r in data] == [
-            rt.value for rt in RelationshipType
-        ]
+        df = pd.read_parquet(kg_dir / FILE_RELATIONSHIPS)
+        assert len(df) == len(RelationshipType)
+        assert df["foodatlas_id"].tolist() == [rt.value for rt in RelationshipType]
 
-    def test_triplets_is_empty_list(self, settings: KGCSettings, kg_dir: Path) -> None:
+    def test_triplets_is_empty_parquet(
+        self, settings: KGCSettings, kg_dir: Path
+    ) -> None:
         create_empty_triplet_files(settings)
-        data = _load_json(kg_dir / FILE_TRIPLETS)
-        assert data == []
+        df = pd.read_parquet(kg_dir / FILE_TRIPLETS)
+        assert len(df) == 0
 
-    def test_metadata_is_empty_list(self, settings: KGCSettings, kg_dir: Path) -> None:
+    def test_metadata_is_empty_parquet(
+        self, settings: KGCSettings, kg_dir: Path
+    ) -> None:
         create_empty_triplet_files(settings)
-        data = _load_json(kg_dir / FILE_METADATA_CONTAINS)
-        assert data == []
+        df = pd.read_parquet(kg_dir / FILE_EVIDENCE)
+        assert len(df) == 0
 
-    def test_retired_is_empty_list(self, settings: KGCSettings, kg_dir: Path) -> None:
+    def test_retired_is_empty_parquet(
+        self, settings: KGCSettings, kg_dir: Path
+    ) -> None:
         create_empty_triplet_files(settings)
-        data = _load_json(kg_dir / FILE_RETIRED)
-        assert data == []
+        df = pd.read_parquet(kg_dir / FILE_RETIRED)
+        assert len(df) == 0
 
     def test_does_not_create_entity_files(
         self, settings: KGCSettings, kg_dir: Path
@@ -137,5 +149,43 @@ class TestCreateEmptyTripletFiles:
     def test_idempotent(self, settings: KGCSettings, kg_dir: Path) -> None:
         create_empty_triplet_files(settings)
         create_empty_triplet_files(settings)
-        data = _load_json(kg_dir / FILE_TRIPLETS)
-        assert data == []
+        df = pd.read_parquet(kg_dir / FILE_TRIPLETS)
+        assert len(df) == 0
+
+
+class TestEnsureRegistryExists:
+    def test_creates_empty_registry(self, settings: KGCSettings, kg_dir: Path) -> None:
+        kg_dir.mkdir(parents=True, exist_ok=True)
+        ensure_registry_exists(settings)
+        path = kg_dir / FILE_REGISTRY
+        assert path.exists()
+        df = pd.read_parquet(path)
+        assert len(df) == 0
+
+    def test_does_not_overwrite_existing(
+        self, settings: KGCSettings, kg_dir: Path
+    ) -> None:
+        kg_dir.mkdir(parents=True, exist_ok=True)
+        path = kg_dir / FILE_REGISTRY
+        existing = pd.DataFrame(
+            [{"source": "foodon", "native_id": "F1", "foodatlas_id": "e1"}]
+        )
+        existing.to_parquet(path, index=False)
+
+        ensure_registry_exists(settings)
+        df = pd.read_parquet(path)
+        assert len(df) == 1
+
+    def test_entity_files_do_not_touch_registry(
+        self, settings: KGCSettings, kg_dir: Path
+    ) -> None:
+        kg_dir.mkdir(parents=True, exist_ok=True)
+        path = kg_dir / FILE_REGISTRY
+        existing = pd.DataFrame(
+            [{"source": "foodon", "native_id": "F1", "foodatlas_id": "e1"}]
+        )
+        existing.to_parquet(path, index=False)
+
+        create_empty_entity_files(settings)
+        df = pd.read_parquet(path)
+        assert len(df) == 1

@@ -1,12 +1,9 @@
 """Tests for the KnowledgeGraph class."""
 
 from pathlib import Path
-from unittest.mock import patch
 
-import pandas as pd
-import pytest
-from src.constructor.knowledge_graph import KnowledgeGraph
 from src.models.settings import KGCSettings
+from src.pipeline.knowledge_graph import KnowledgeGraph
 
 
 class TestKGLoad:
@@ -16,10 +13,13 @@ class TestKGLoad:
     def test_loads_triplets(self, kg: KnowledgeGraph) -> None:
         assert len(kg.triplets._triplets) == 1
 
-    def test_loads_metadata(self, kg: KnowledgeGraph) -> None:
-        assert len(kg.metadata._records) == 1
+    def test_loads_evidence(self, kg: KnowledgeGraph) -> None:
+        assert len(kg.evidence) == 1
 
-    def test_from_fixture_tsvs(self, kg_dir: Path) -> None:
+    def test_loads_extractions(self, kg: KnowledgeGraph) -> None:
+        assert len(kg.extractions) == 1
+
+    def test_from_fixture(self, kg_dir: Path) -> None:
         settings = KGCSettings(kg_dir=str(kg_dir))
         kg = KnowledgeGraph(settings)
         assert kg.entities.get_entity_ids("food", "apple") == ["e0"]
@@ -30,7 +30,7 @@ class TestGetTriplets:
     def test_get_all(self, kg: KnowledgeGraph) -> None:
         result = kg.get_triplets()
         assert len(result) == 1
-        assert "triplet_id" in result.columns
+        assert "triplet_key" in result.columns
 
     def test_filter_by_head(self, kg: KnowledgeGraph) -> None:
         result = kg.get_triplets(head_id="e0")
@@ -60,89 +60,3 @@ class TestSave:
 class TestMemoryStats:
     def test_print_stats_runs(self, kg: KnowledgeGraph) -> None:
         kg.print_stats()
-
-
-class TestAddTripletsFromMetadata:
-    @staticmethod
-    def _make_metadata() -> pd.DataFrame:
-        return pd.DataFrame(
-            [
-                {
-                    "conc_value": 2.0,
-                    "conc_unit": "mg/g",
-                    "food_part": "flesh",
-                    "food_processing": "raw",
-                    "source": "fdc",
-                    "reference": ["ref2"],
-                    "entity_linking_method": "exact",
-                    "quality_score": 0.8,
-                    "_food_name": "apple",
-                    "_chemical_name": "vitamin c",
-                    "_conc": "2.0 mg/g",
-                    "_food_part": "flesh",
-                },
-            ]
-        )
-
-    def test_adds_metadata_for_existing_entities(self, kg: KnowledgeGraph) -> None:
-        meta = self._make_metadata()
-        kg.add_triplets_from_metadata(meta)
-        assert len(kg.metadata._records) == 2
-
-    def test_deduplicates_existing_triplet(self, kg: KnowledgeGraph) -> None:
-        meta = self._make_metadata()
-        kg.add_triplets_from_metadata(meta)
-        assert len(kg.triplets._triplets) == 1
-
-    def test_creates_new_entities_and_triplets(self, kg: KnowledgeGraph) -> None:
-        meta = pd.DataFrame(
-            [
-                {
-                    "conc_value": 3.0,
-                    "conc_unit": "ug/g",
-                    "food_part": "",
-                    "food_processing": "",
-                    "source": "lit",
-                    "reference": ["ref3"],
-                    "entity_linking_method": "exact",
-                    "quality_score": 0.9,
-                    "_food_name": "banana",
-                    "_chemical_name": "potassium",
-                    "_conc": "3.0 ug/g",
-                    "_food_part": "",
-                },
-            ]
-        )
-
-        def _fake_create(entity_type: str, names: list[str]) -> None:
-            for name in names:
-                eid = f"e{kg.entities._curr_eid}"
-                kg.entities._curr_eid += 1
-                row = pd.DataFrame(
-                    [
-                        {
-                            "entity_type": entity_type,
-                            "common_name": name,
-                            "scientific_name": "",
-                            "synonyms": [name],
-                            "external_ids": {},
-                            "_synonyms_display": [name],
-                        }
-                    ],
-                    index=pd.Index([eid], name="foodatlas_id"),
-                )
-                kg.entities._entities = pd.concat([kg.entities._entities, row])
-                kg.entities.update_lut(row)
-
-        with patch.object(kg.entities, "create", side_effect=_fake_create):
-            kg.add_triplets_from_metadata(meta)
-
-        assert kg.entities.get_entity_ids("food", "banana")
-        assert kg.entities.get_entity_ids("chemical", "potassium")
-        assert len(kg.triplets._triplets) == 2
-
-
-class TestAddTripletsUnsupported:
-    def test_raises_for_unknown_relationship(self, kg: KnowledgeGraph) -> None:
-        with pytest.raises(NotImplementedError, match="Unsupported"):
-            kg.add_triplets_from_metadata(pd.DataFrame(), "unknown")

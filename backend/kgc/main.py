@@ -8,11 +8,13 @@ from pathlib import Path
 
 import click
 from src.models.settings import KGCSettings
+from src.pipeline.ingest.runner import ALL_ADAPTERS
 from src.pipeline.runner import PipelineRunner
 from src.pipeline.stages import PipelineStage
 
 _STAGE_NAMES = [s.name.lower() for s in PipelineStage]
 _VALID_STAGES = _STAGE_NAMES + [str(s.value) for s in PipelineStage]
+_VALID_SOURCES = [cls().source_id for cls in ALL_ADAPTERS]
 
 
 def _parse_stage(name: str) -> PipelineStage:
@@ -22,11 +24,19 @@ def _parse_stage(name: str) -> PipelineStage:
     return PipelineStage[name.upper()]
 
 
-def _resolve_stages(stage_names: tuple[str, ...]) -> list[PipelineStage] | None:
-    """Convert CLI stage names/numbers to PipelineStage enums, or None for all."""
-    if not stage_names:
+def _resolve_stages(stage_arg: str | None) -> list[PipelineStage] | None:
+    """Parse stage argument into a list of PipelineStages.
+
+    Supports: single ("2"), range ("1:3"), or None for all.
+    """
+    if not stage_arg:
         return None
-    return [_parse_stage(name) for name in stage_names]
+    if ":" in stage_arg:
+        start_str, end_str = stage_arg.split(":", 1)
+        start = _parse_stage(start_str)
+        end = _parse_stage(end_str)
+        return [s for s in PipelineStage if start.value <= s.value <= end.value]
+    return [_parse_stage(stage_arg)]
 
 
 @click.group()
@@ -61,27 +71,37 @@ def cli(
 
 @cli.command()
 @click.option(
-    "--stage",
-    "stages",
+    "--stages",
+    default=None,
+    help="Stage name or number, or range (e.g. 1:3). Omit for all.",
+)
+@click.option(
+    "--source",
+    "sources",
     multiple=True,
-    type=click.Choice(_VALID_STAGES, case_sensitive=False),
-    help="Stage name or number (0-5, repeatable). Omit for all.",
+    type=click.Choice(_VALID_SOURCES, case_sensitive=False),
+    help="Source adapter to run (repeatable). Only applies to ingest stage.",
 )
 @click.pass_context
-def run(ctx: click.Context, stages: tuple[str, ...]) -> None:
+def run(
+    ctx: click.Context,
+    stages: str | None,
+    sources: tuple[str, ...],
+) -> None:
     """Run pipeline stages."""
     settings: KGCSettings = ctx.obj["settings"]
     runner = PipelineRunner(settings)
-    runner.run(_resolve_stages(stages))
+    source_list = list(sources) if sources else None
+    runner.run(_resolve_stages(stages), sources=source_list)
 
 
 @cli.command()
 @click.pass_context
 def init(ctx: click.Context) -> None:
-    """Shortcut: run entity and triplet initialization."""
+    """Shortcut: run ingest and entity resolution."""
     settings: KGCSettings = ctx.obj["settings"]
     runner = PipelineRunner(settings)
-    runner.run([PipelineStage.ENTITY_INIT, PipelineStage.TRIPLET_INIT])
+    runner.run([PipelineStage.INGEST, PipelineStage.ENTITIES])
 
 
 if __name__ == "__main__":

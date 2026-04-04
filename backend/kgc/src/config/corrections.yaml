@@ -1,0 +1,61 @@
+# corrections.yaml — centralized manual corrections for Phase 2.
+# Applied AFTER Phase 1 ingest, BEFORE entity resolution.
+
+chebi:
+  # Nodes to drop entirely from ChEBI (invalid/duplicate compounds).
+  drop_nodes:
+    - "194466"
+  # Rename the primary name of specific ChEBI compounds.
+  rename_nodes:
+    "221398":
+      name: "15G256nu"
+    "224404":
+      name: "15G256omicron"
+
+cdno:
+  # Remap cross-references (e.g., deprecated ChEBI IDs).
+  remap_xrefs:
+    - target_source: "chebi"
+      old_target: "http://purl.obolibrary.org/obo/CHEBI_80096"
+      new_target: "http://purl.obolibrary.org/obo/CHEBI_166888"
+  # When multiple CDNO entries claim the same FDC ID, pick this index.
+  disambiguate_fdc:
+    "1162": 0
+    "1038": 0
+    "1167": 1
+    "1183": 0
+  # FDC IDs to skip entirely.
+  skip_fdc_ids:
+    - "1071"
+  # Override ChEBI ID for specific CDNO labels.
+  fix_chebi_assignments:
+    - label: "nitrogen atom"
+      chebi_id: 29351
+
+fdc:
+  # FDC items missing FoodOn mapping — provide explicit override.
+  food_overrides:
+    2512381: "http://purl.obolibrary.org/obo/FOODON_03000273"
+  # FDC items with multiple FoodOn URLs — pick this one.
+  multi_foodon_resolution:
+    323121: "http://purl.obolibrary.org/obo/FOODON_03310577"
+    330137: "http://purl.obolibrary.org/obo/FOODON_00004409"
+  nutrient_overrides:
+    # FDC nutrient IDs to drop (duplicates or aggregate entries).
+    drop_ids:
+      - 2048
+      - 1008
+      - 1062
+    # Rename specific nutrients.
+    renames:
+      2047: "energy"
+
+chebi_lut:
+  # Names to drop from ChEBI lookup table (collision with food concepts).
+  drop_names:
+    - "ash"
+
+ontology_roots:
+  foodon_is_food: "http://purl.obolibrary.org/obo/FOODON_00002381"
+  foodon_is_organism: "http://purl.obolibrary.org/obo/OBI_0100026"
+  chebi_molecular_entity: 23367

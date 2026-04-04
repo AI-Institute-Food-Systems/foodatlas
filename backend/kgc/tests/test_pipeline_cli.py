@@ -16,7 +16,7 @@ def test_run_no_stages(mock_runner_cls: MagicMock) -> None:
 
     result = CliRunner().invoke(cli, ["run"])
     assert result.exit_code == 0
-    runner_instance.run.assert_called_once_with(None)
+    runner_instance.run.assert_called_once_with(None, sources=None)
 
 
 @patch("main.PipelineRunner")
@@ -24,22 +24,21 @@ def test_run_single_stage(mock_runner_cls: MagicMock) -> None:
     runner_instance = MagicMock()
     mock_runner_cls.return_value = runner_instance
 
-    result = CliRunner().invoke(cli, ["run", "--stage", "entity_init"])
+    result = CliRunner().invoke(cli, ["run", "--stages", "entities"])
     assert result.exit_code == 0
-    runner_instance.run.assert_called_once_with([PipelineStage.ENTITY_INIT])
+    runner_instance.run.assert_called_once_with([PipelineStage.ENTITIES], sources=None)
 
 
 @patch("main.PipelineRunner")
-def test_run_multiple_stages(mock_runner_cls: MagicMock) -> None:
+def test_run_stage_range(mock_runner_cls: MagicMock) -> None:
     runner_instance = MagicMock()
     mock_runner_cls.return_value = runner_instance
 
-    result = CliRunner().invoke(
-        cli, ["run", "--stage", "entity_init", "--stage", "postprocessing"]
-    )
+    result = CliRunner().invoke(cli, ["run", "--stages", "1:3"])
     assert result.exit_code == 0
     runner_instance.run.assert_called_once_with(
-        [PipelineStage.ENTITY_INIT, PipelineStage.POSTPROCESSING]
+        [PipelineStage.ENTITIES, PipelineStage.TRIPLETS, PipelineStage.IE],
+        sources=None,
     )
 
 
@@ -51,7 +50,7 @@ def test_init_command(mock_runner_cls: MagicMock) -> None:
     result = CliRunner().invoke(cli, ["init"])
     assert result.exit_code == 0
     runner_instance.run.assert_called_once_with(
-        [PipelineStage.ENTITY_INIT, PipelineStage.TRIPLET_INIT]
+        [PipelineStage.INGEST, PipelineStage.ENTITIES]
     )
 
 
@@ -60,27 +59,55 @@ def test_run_stage_by_number(mock_runner_cls: MagicMock) -> None:
     runner_instance = MagicMock()
     mock_runner_cls.return_value = runner_instance
 
-    result = CliRunner().invoke(cli, ["run", "--stage", "0"])
+    result = CliRunner().invoke(cli, ["run", "--stages", "0"])
     assert result.exit_code == 0
-    runner_instance.run.assert_called_once_with([PipelineStage.DATA_CLEANING])
+    runner_instance.run.assert_called_once_with([PipelineStage.INGEST], sources=None)
 
 
 @patch("main.PipelineRunner")
-def test_run_mixed_name_and_number(mock_runner_cls: MagicMock) -> None:
+def test_run_stage_by_name_range(mock_runner_cls: MagicMock) -> None:
+    runner_instance = MagicMock()
+    mock_runner_cls.return_value = runner_instance
+
+    result = CliRunner().invoke(cli, ["run", "--stages", "entities:triplets"])
+    assert result.exit_code == 0
+    runner_instance.run.assert_called_once_with(
+        [PipelineStage.ENTITIES, PipelineStage.TRIPLETS],
+        sources=None,
+    )
+
+
+@patch("main.PipelineRunner")
+def test_run_with_source_filter(mock_runner_cls: MagicMock) -> None:
     runner_instance = MagicMock()
     mock_runner_cls.return_value = runner_instance
 
     result = CliRunner().invoke(
-        cli, ["run", "--stage", "1", "--stage", "postprocessing"]
+        cli, ["run", "--stages", "ingest", "--source", "foodon"]
     )
     assert result.exit_code == 0
     runner_instance.run.assert_called_once_with(
-        [PipelineStage.ENTITY_INIT, PipelineStage.POSTPROCESSING]
+        [PipelineStage.INGEST], sources=["foodon"]
     )
 
 
-def test_invalid_stage() -> None:
-    result = CliRunner().invoke(cli, ["run", "--stage", "nonexistent"])
+@patch("main.PipelineRunner")
+def test_run_with_multiple_sources(mock_runner_cls: MagicMock) -> None:
+    runner_instance = MagicMock()
+    mock_runner_cls.return_value = runner_instance
+
+    result = CliRunner().invoke(
+        cli,
+        ["run", "--stages", "ingest", "--source", "foodon", "--source", "chebi"],
+    )
+    assert result.exit_code == 0
+    runner_instance.run.assert_called_once_with(
+        [PipelineStage.INGEST], sources=["foodon", "chebi"]
+    )
+
+
+def test_invalid_source() -> None:
+    result = CliRunner().invoke(cli, ["run", "--source", "nonexistent"])
     assert result.exit_code != 0
 
 

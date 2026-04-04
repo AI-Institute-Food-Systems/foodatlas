@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, model_validator
 from pydantic_settings import BaseSettings
 
 from ..utils.json_io import read_json
@@ -36,7 +36,8 @@ class MetadataProcessingStageConfig(BaseModel):
 
 
 class TripletExpansionStageConfig(BaseModel):
-    pass
+    ie_raw_paths: list[str] = Field(default_factory=list)
+    ie_prob_threshold: float = 0.95
 
 
 class PostprocessingStageConfig(BaseModel):
@@ -72,6 +73,11 @@ class KGCSettings(BaseSettings):
     @property
     def data_cleaning_dir(self) -> str:
         return self.pipeline.stages.data_cleaning.output_dir
+
+    @property
+    def ingest_dir(self) -> str:
+        """Output directory for Phase 1 ingest artifacts."""
+        return str(Path(self.output_dir) / "ingest")
 
     @model_validator(mode="before")
     @classmethod

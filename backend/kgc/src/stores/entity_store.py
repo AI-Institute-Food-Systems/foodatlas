@@ -1,13 +1,12 @@
 """EntityStore — runtime container wrapping a pandas DataFrame."""
 
+import json
 import logging
 from collections import OrderedDict
 from pathlib import Path
 
 import pandas as pd
 
-from ..discovery.chemical import create_chemical_entities
-from ..discovery.food import create_food_entities
 from ..utils.json_io import read_json, write_json
 from .schema import (
     FILE_ENTITIES,
@@ -61,10 +60,20 @@ class EntityStore:
         self._load()
 
     def _load(self) -> None:
-        records = read_json(self.path_entities)
-        self._entities = pd.DataFrame(records)
-        if not self._entities.empty:
-            self._entities = self._entities.set_index(INDEX_COL)
+        if self.path_entities.exists() and self.path_entities.stat().st_size > 0:
+            self._entities = pd.read_parquet(self.path_entities)
+            if INDEX_COL in self._entities.columns:
+                self._entities = self._entities.set_index(INDEX_COL)
+            for col in self._entities.columns:
+                sample = (
+                    self._entities[col].dropna().iloc[0]
+                    if not self._entities[col].dropna().empty
+                    else None
+                )
+                if isinstance(sample, str) and sample[:1] in ("[", "{"):
+                    self._entities[col] = self._entities[col].apply(json.loads)
+        else:
+            self._entities = pd.DataFrame()
 
         self._lut_food = _load_lut(self.path_lut_food)
         self._lut_chemical = _load_lut(self.path_lut_chemical)
@@ -75,10 +84,17 @@ class EntityStore:
             max_eid = self._entities.index.str.slice(1).astype(int).max()
             self._curr_eid = max_eid + 1 if pd.notna(max_eid) else 1
 
+    # Columns known to contain lists/dicts that need JSON serialization.
+    _JSON_COLUMNS = ("synonyms", "external_ids")
+
     def save(self, path_output_dir: Path) -> None:
         path_output_dir = Path(path_output_dir)
-        records = self._entities.reset_index().to_dict(orient="records")
-        write_json(path_output_dir / FILE_ENTITIES, records)
+        df = self._entities.reset_index()
+        for col in self._JSON_COLUMNS:
+            if col in df.columns:
+                df[col] = df[col].apply(json.dumps)
+        df.to_parquet(path_output_dir / FILE_ENTITIES, index=False)
+        (path_output_dir / FILE_LUT_FOOD).parent.mkdir(exist_ok=True)
         _save_lut(self._lut_food, path_output_dir / FILE_LUT_FOOD)
         _save_lut(self._lut_chemical, path_output_dir / FILE_LUT_CHEMICAL)
 
@@ -119,20 +135,6 @@ class EntityStore:
                     lut[synonym] = []
                 if entity_id not in lut[synonym]:
                     lut[synonym] += [entity_id]
-
-    def create(
-        self,
-        entity_type: str,
-        entity_names_new: list[str],
-    ) -> None:
-        creators = {
-            "food": create_food_entities,
-            "chemical": create_chemical_entities,
-        }
-        if entity_type not in creators:
-            msg = f"Invalid entity type: {entity_type}."
-            raise ValueError(msg)
-        creators[entity_type](self, entity_names_new)
 
     def get_entity_ids(
         self,

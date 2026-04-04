@@ -15,5 +15,7 @@ def read_json(path: Path | str) -> Any:
 
 def write_json(path: Path | str, data: Any) -> None:
     """Write data to a JSON file with indent=2 and ensure_ascii=False."""
-    with Path(path).open("w") as f:
+    p = Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    with p.open("w") as f:
         json.dump(data, f, ensure_ascii=False, indent=2, default=str)

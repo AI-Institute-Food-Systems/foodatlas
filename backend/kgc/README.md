@@ -1,6 +1,6 @@
 # FoodAtlas KGC
 
-Knowledge graph construction pipeline for FoodAtlas. Ingests data from 11 external sources (FoodOn, ChEBI, FDC, CTD, FlavorDB, etc.) and builds a unified knowledge graph of foods, chemicals, and diseases. Flavor descriptors from FlavorDB are stored as descriptions on chemical entities rather than as separate entities.
+Knowledge graph construction pipeline for FoodAtlas. Ingests data from external sources (FoodOn, ChEBI, FDC, CTD, FlavorDB, etc.) and builds a unified knowledge graph of foods, chemicals, and diseases.
 
 ## Getting Started
 
@@ -11,11 +11,14 @@ uv sync
 # Run full pipeline
 uv run python main.py run
 
-# Run a single stage (by name or 0-indexed number)
+# Run a single stage (by name or number)
+uv run python main.py run --stage ingest
 uv run python main.py run --stage 0
-uv run python main.py run --stage data_cleaning
 
-# Shortcut: initialize KG only
+# Run specific ingest sources
+uv run python main.py run --stage ingest --source foodon --source chebi
+
+# Shortcut: run ingest + entity resolution
 uv run python main.py init
 
 # Run tests
@@ -33,7 +36,7 @@ Options:
 
 Commands:
   run   Run pipeline stages (--stage repeatable, omit for all)
-  init  Shortcut: run entity and triplet initialization only
+  init  Shortcut: run ingest + entity resolution
 ```
 
 ### Configuration
@@ -42,9 +45,10 @@ Settings use Pydantic with env prefix `KGC_` (e.g. `KGC_DATA_DIR`). Key fields:
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `kg_dir` | `data/kg` | Output knowledge graph directory |
+| `kg_dir` | `outputs/kg` | Output knowledge graph directory |
 | `data_dir` | `data` | Raw data source directory |
-| `output_format` | `jsonl` | Serialization format |
+| `output_dir` | `outputs` | General output directory |
+| `cache_dir` | `outputs/cache` | Cache directory |
 | `ncbi_email` | — | Required for NCBI Taxonomy queries |
 | `pubchem_mapping_file` | — | PubChem synonym mapping |
 
@@ -54,20 +58,26 @@ Override via environment variables, config JSON, or CLI flags.
 
 | # | Stage | Description |
 |---|-------|-------------|
-| 0 | `data_cleaning` | Process external sources (FoodOn, ChEBI, CDNO, MeSH, PubChem, CTD, FlavorDB) |
-| 1 | `entity_init` | Create entities from external sources (food, chemical, disease) |
-| 2 | `triplet_init` | Create ontology triplets, merge FDC/CTD triplets, apply flavor descriptions |
-| 3 | `metadata_processing` | Handled by the IE pipeline (external) |
-| 4 | `triplet_expansion` | Add triplets from extracted metadata |
-| 5 | `postprocessing` | Apply common names, synonyms display, group chemicals/foods |
+| 0 | `ingest` | Parse external sources into standardized parquet (nodes, edges, xrefs) |
+| 1 | `entities` | Subtree filter + 3-pass entity resolution (food, chemical, disease) |
+| 2 | `triplets` | Build ontology is_a, FDC contains, flavor descriptions; expand from IE metadata |
+| 3 | `postprocessing` | Common names, grouping, synonym display (deferred) |
+
+### Two-Phase Architecture
+
+**Phase 1 — Ingest** (`src/ingest/`): Source adapters parse raw data files into a standardized parquet format with `nodes`, `edges`, and `xrefs` DataFrames per source. Each adapter implements the `SourceAdapter` protocol.
+
+**Phase 2 — Construct** (`src/construct/`): Builds the KG from Phase 1 output:
+- **EntityRunner**: Loads ingest parquet → filters ontology subtrees (DFS) → 3-pass entity resolution (primary from authoritative sources, link secondary via xrefs, create unlinked) → saves entities + LUTs.
+- **TripletRunner**: Loads ingest parquet → builds ontology triplets (food is_a, chemical is_a) + FDC contains + flavor descriptions → expands from IE metadata if available → saves.
+
+Corrections are loaded but not applied to the base KG — all fixes are read-time patches (overlay pattern).
 
 ## Architecture
 
 ### Models → Schema → Stores
 
-Pydantic models in `src/models/` are the single source of truth for the KG schema.
-`src/stores/schema.py` derives column definitions from model fields (respecting aliases),
-so column definitions are never duplicated.
+Pydantic models in `src/models/` are the single source of truth for the KG schema. `src/stores/schema.py` derives column definitions from model fields (respecting aliases).
 
 - **Models** define field names, types, defaults, and aliases
 - **Schema** auto-derives column lists from models
@@ -82,23 +92,20 @@ so column definitions are never duplicated.
 | `r2` | IS_A (ontology hierarchy) |
 | `r3` | POSITIVELY_CORRELATES_WITH (chemical → disease) |
 | `r4` | NEGATIVELY_CORRELATES_WITH (chemical → disease) |
-| `r5` | HAS_FLAVOR (deprecated — flavors are now stored as chemical descriptions) |
+| `r5` | HAS_FLAVOR (deprecated — flavors stored as chemical descriptions) |
 
 ### Output Files
 
 | File | Description |
 |------|-------------|
-| `entities.json` | All entities (food, chemical, disease); chemicals may include `_flavor_descriptions` |
+| `entities.json` | All entities (food, chemical, disease) |
 | `triplets.json` | Relationship triplets (head, rel, tail) |
 | `metadata_contains.json` | Food-chemical concentration metadata |
-| `metadata_disease.json` | Chemical-disease metadata |
-| `metadata_flavor.json` | Chemical-flavor metadata (legacy, no longer generated) |
 | `lookup_table_food.json` | Synonym → food entity ID mapping |
 | `lookup_table_chemical.json` | Synonym → chemical entity ID mapping |
 | `relationships.json` | Relationship type definitions |
-| `retired.json` | Merged/deprecated entities |
 | `food_ontology.json` | FoodOn is_a hierarchy |
-| `chemical_ontology.json` | ChEBI/CDNO hierarchy |
+| `chemical_ontology.json` | ChEBI hierarchy |
 
 ## Project Structure
 
@@ -107,41 +114,38 @@ kgc/
 ├── main.py                        # CLI entry point (Click)
 ├── pyproject.toml
 ├── src/
-│   ├── config/                    # Settings and defaults.json
+│   ├── config/                    # Settings, defaults.json, corrections.yaml
 │   ├── models/                    # Pydantic data models
-│   │   ├── entity.py              # Entity (food/chemical/disease)
-│   │   ├── relationship.py        # RelationshipType enum
-│   │   ├── triplet.py             # Triplet (head, rel, tail)
-│   │   ├── metadata.py            # MetadataContains/Disease/Flavor
-│   │   ├── settings.py            # KGCSettings (env prefix KGC_)
-│   │   └── version.py             # Version tracking
-│   ├── stores/                    # Runtime DataFrame containers
-│   │   ├── schema.py              # Column defs derived from models
-│   │   ├── entity_store.py        # EntityStore with synonym LUTs
-│   │   ├── triplet_store.py       # TripletStore with deduplication
-│   │   └── metadata_store.py      # MetadataContainsStore
-│   ├── pipeline/                  # Execution orchestration
-│   │   ├── stages.py              # PipelineStage enum (0-5)
-│   │   └── runner.py              # PipelineRunner
-│   ├── constructor/               # Core KG building
-│   │   ├── knowledge_graph.py     # KG orchestrator (load/save all stores)
-│   │   └── disambiguation.py      # Entity synonym resolution
-│   ├── discovery/                 # Runtime entity creation
-│   │   ├── query.py               # API stubs for NCBI & PubChem
-│   │   ├── food.py                # Food entities from NCBI Taxonomy
-│   │   └── chemical.py            # Chemical entities from PubChem
-│   ├── integration/               # External data source ingestion
-│   │   ├── scaffold.py            # Create empty KG files
-│   │   ├── entities/              # Entity loaders (food, chemical, disease)
-│   │   ├── ontologies/            # Hierarchy processing (FoodOn, ChEBI, CDNO, MeSH)
-│   │   └── triplets/              # Relationship loaders (FDC, CTD) and flavor descriptions
-│   ├── preprocessing/             # Text normalization (names, concentrations, units)
-│   ├── postprocessing/            # Common names, synonyms display, grouping
-│   └── utils/                     # Shared helpers
-├── data/                          # Reference data sources (see data/README.md)
-├── examples/                      # Sample inputs and KG outputs
+│   ├── stores/                    # Runtime DataFrame containers (EntityStore, TripletStore, MetadataStore)
+│   ├── utils/                     # Shared helpers (JSON I/O, constants)
+│   └── pipeline/                  # Orchestration + stage implementations
+│       ├── stages.py              # PipelineStage enum (0-3)
+│       ├── runner.py              # PipelineRunner orchestrator
+│       ├── scaffold.py            # Create empty KG files
+│       ├── ingest_loader.py       # Shared Phase 1 parquet loader
+│       ├── ingest/                # Stage 0: source adapters
+│       │   ├── protocol.py        # SourceAdapter protocol + parquet schema
+│       │   ├── runner.py          # IngestRunner
+│       │   └── adapters/          # Per-source (foodon, chebi, fdc, ctd, ...)
+│       ├── entities/              # Stage 1: entity resolution
+│       │   ├── runner.py          # EntityRunner
+│       │   ├── resolver.py        # 3-pass entity resolution
+│       │   ├── lut.py             # Ambiguity-aware synonym LUT
+│       │   ├── resolve_primary.py # Pass 1: authoritative sources
+│       │   ├── resolve_secondary.py # Pass 2+3: link + create unlinked
+│       │   └── subtree_filter.py  # Ontology subtree filtering (DFS)
+│       ├── triplets/              # Stage 2: triplet construction
+│       │   ├── runner.py          # TripletRunner
+│       │   ├── builder.py         # Orchestrates triplet creation
+│       │   ├── knowledge_graph.py # KG container (load/save all stores)
+│       │   ├── food_ontology.py   # Food is_a triplets
+│       │   ├── chemical_ontology.py # Chemical is_a triplets
+│       │   ├── food_chemical.py   # Food-chemical CONTAINS triplets
+│       │   └── flavor.py          # Flavor descriptions
+│       └── postprocessing/        # Stage 3: deferred
+├── data/                          # Reference data sources
 ├── outputs/                       # Generated output directory
-└── tests/                         # 36 test files, 80% coverage minimum
+└── tests/
 ```
 
 ## Data Sources
