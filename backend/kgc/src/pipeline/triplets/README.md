@@ -2,7 +2,7 @@
 
 ## What this stage does
 
-Builds source triplets (relationships) in the knowledge graph from ingest edges and resolved entities. Every triplet flows through the evidence → extraction → triplet data path, ensuring full provenance. Stage 3 (IE triplet expansion) adds additional triplets from information extraction.
+Builds source triplets (relationships) in the knowledge graph from ingest edges and resolved entities. Every triplet flows through the evidence → attestation → triplet data path, ensuring full provenance. Stage 3 (IE triplet expansion) adds additional triplets from information extraction.
 
 ## Inputs
 
@@ -17,8 +17,8 @@ All written to `outputs/kg/`:
 |------|-------------|
 | `triplets.parquet` | All triplets keyed by `head_id_relationship_id_tail_id` |
 | `evidence.parquet` | Evidence records (source URLs, references) |
-| `extractions.parquet` | Extraction records linking evidence to triplets, with ambiguity candidates |
-| `_ambiguity_report.json` | Summary of extractions where entity resolution was ambiguous |
+| `attestations.parquet` | Attestation records linking evidence to triplets, with ambiguity candidates |
+| `_ambiguity_report.json` | Summary of attestations where entity resolution was ambiguous |
 
 ## Workflow
 
@@ -38,14 +38,14 @@ Five builders run sequentially. Each follows the same steps:
 
 3. **Create evidence** — for each resolved edge, create an evidence record with the source reference (e.g., FDC nutrient URL, CTD PubMed IDs, ontology source). `kg.evidence.create()` returns the `evidence_id`.
 
-4. **Create extraction** — create an extraction record linking back to the evidence. Carries the raw names (`head_name_raw`, `tail_name_raw`) and `head_candidates`/`tail_candidates` (the full list of entity IDs the name resolved to — used for ambiguity tracking). `kg.extractions.create()` returns the `extraction_id`.
+4. **Create attestation** — create an attestation record linking back to the evidence. Carries the raw names (`head_name_raw`, `tail_name_raw`) and `head_candidates`/`tail_candidates` (the full list of entity IDs the name resolved to — used for ambiguity tracking). `kg.attestations.create()` returns the `attestation_id`.
 
-5. **Create triplet** — create the triplet `(head_id, relationship_id, tail_id)` indexed by `extraction_id`, so the triplet links back to its extraction. `kg.triplets.create()` stores it.
+5. **Create triplet** — create the triplet `(head_id, relationship_id, tail_id)` indexed by `attestation_id`, so the triplet links back to its attestation. `kg.triplets.create()` stores it.
 
 ### Provenance chain
 
 ```
-triplet.extraction_ids → extraction.evidence_id → evidence.reference
+triplet.attestation_ids → attestation.evidence_id → evidence.reference
 ```
 
 Any triplet can be traced back to its source data through this chain.
@@ -95,7 +95,7 @@ When a native ID (e.g., MeSH ID) or synonym resolves to multiple entities, the p
 - `len(candidates) == 1` → pristine, unambiguous
 - `len(candidates) > 1` → ambiguous: the same evidence is shared across multiple triplets
 
-The `_ambiguity_report.json` summarizes all ambiguous extractions. This is equivalent to a Wikipedia disambiguation page: it flags where the same evidence could apply to multiple entities, without silently inflating evidence counts.
+The `_ambiguity_report.json` summarizes all ambiguous attestations. This is equivalent to a Wikipedia disambiguation page: it flags where the same evidence could apply to multiple entities, without silently inflating evidence counts.
 
 ## CLI
 
@@ -113,13 +113,13 @@ uv run python main.py run
 # View triplets
 vd outputs/kg/triplets.parquet
 
-# Check ambiguous extractions
-vd outputs/kg/extractions.parquet
+# Check ambiguous attestations
+vd outputs/kg/attestations.parquet
 
 # Or with DuckDB
 duckdb -c "
   SELECT head_name_raw, tail_name_raw, head_candidates, tail_candidates
-  FROM 'outputs/kg/extractions.parquet'
+  FROM 'outputs/kg/attestations.parquet'
   WHERE len(head_candidates) > 1 OR len(tail_candidates) > 1
   LIMIT 10
 "

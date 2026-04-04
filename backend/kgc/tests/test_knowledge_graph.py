@@ -16,8 +16,8 @@ class TestKGLoad:
     def test_loads_evidence(self, kg: KnowledgeGraph) -> None:
         assert len(kg.evidence) == 1
 
-    def test_loads_extractions(self, kg: KnowledgeGraph) -> None:
-        assert len(kg.extractions) == 1
+    def test_loads_attestations(self, kg: KnowledgeGraph) -> None:
+        assert len(kg.attestations) == 1
 
     def test_from_fixture(self, kg_dir: Path) -> None:
         settings = KGCSettings(kg_dir=str(kg_dir))

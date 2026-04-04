@@ -8,4 +8,4 @@ class Triplet(BaseModel):
     relationship_id: str
     tail_id: str
     source: str = ""
-    extraction_ids: list[str] = Field(default_factory=list)
+    attestation_ids: list[str] = Field(default_factory=list)

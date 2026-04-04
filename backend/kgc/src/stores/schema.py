@@ -2,9 +2,9 @@
 
 from pydantic import BaseModel
 
+from ..models.attestation import Attestation
 from ..models.entity import Entity
 from ..models.evidence import Evidence
-from ..models.extraction import Extraction
 from ..models.triplet import Triplet
 
 INDEX_COL = "foodatlas_id"
@@ -12,7 +12,7 @@ INDEX_COL = "foodatlas_id"
 FILE_ENTITIES = "entities.parquet"
 FILE_TRIPLETS = "triplets.parquet"
 FILE_EVIDENCE = "evidence.parquet"
-FILE_EXTRACTIONS = "extractions.parquet"
+FILE_ATTESTATIONS = "attestations.parquet"
 FILE_RELATIONSHIPS = "relationships.parquet"
 DIR_INTERMEDIATE = "intermediate"
 FILE_LUT_FOOD = "intermediate/lookup_table_food.json"
@@ -39,9 +39,9 @@ def _get_columns(model: type[BaseModel]) -> list[str]:
 ENTITY_COLUMNS = _get_columns(Entity)
 TRIPLET_COLUMNS = _get_columns(Triplet)
 EVIDENCE_COLUMNS = _get_columns(Evidence)
-EXTRACTION_COLUMNS = _get_columns(Extraction)
+ATTESTATION_COLUMNS = _get_columns(Attestation)
 
 DIR_DIAGNOSTICS = "diagnostics"
 FILE_IE_UNRESOLVED = "diagnostics/ie_unresolved.jsonl"
 FILE_IE_PARSE_ERRORS = "diagnostics/ie_parse_errors.tsv"
-FILE_EXTRACTIONS_AMBIGUOUS = "extractions_ambiguous.parquet"
+FILE_ATTESTATIONS_AMBIGUOUS = "attestations_ambiguous.parquet"

@@ -92,21 +92,21 @@ def merge_ctd_triplets(
             }
         )
     )
-    df["extractor"] = "ctd"
+    df["source"] = "ctd"
     df["head_name_raw"] = df["head_native_id"].astype(str)
     df["tail_name_raw"] = df["tail_native_id"].astype(str)
 
     ev_result = kg.evidence.create(df[["source_type", "reference"]])
     df["evidence_id"] = ev_result.index
-    extractions = kg.extractions.create(df)
+    attestations = kg.attestations.create(df)
 
     triplet_input = df[["_head_id", "_tail_id", "_rel_id"]].copy()
     triplet_input.columns = pd.Index(["head_id", "tail_id", "relationship_id"])
-    triplet_input.index = extractions.index
+    triplet_input.index = attestations.index
     triplets = kg.triplets.create(triplet_input)
 
     logger.info(
-        "Merged %d CTD extractions, %d triplets.", len(extractions), len(triplets)
+        "Merged %d CTD attestations, %d triplets.", len(attestations), len(triplets)
     )
 
 

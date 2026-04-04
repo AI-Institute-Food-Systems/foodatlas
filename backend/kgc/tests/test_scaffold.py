@@ -14,9 +14,9 @@ from src.pipeline.scaffold import (
     ensure_registry_exists,
 )
 from src.stores.schema import (
+    FILE_ATTESTATIONS,
     FILE_ENTITIES,
     FILE_EVIDENCE,
-    FILE_EXTRACTIONS,
     FILE_LUT_CHEMICAL,
     FILE_LUT_FOOD,
     FILE_REGISTRY,
@@ -73,7 +73,7 @@ class TestCreateEmptyEntityFiles:
         for f in (
             FILE_TRIPLETS,
             FILE_EVIDENCE,
-            FILE_EXTRACTIONS,
+            FILE_ATTESTATIONS,
             FILE_RELATIONSHIPS,
             FILE_RETIRED,
         ):
@@ -101,7 +101,7 @@ class TestCreateEmptyTripletFiles:
             FILE_RELATIONSHIPS,
             FILE_TRIPLETS,
             FILE_EVIDENCE,
-            FILE_EXTRACTIONS,
+            FILE_ATTESTATIONS,
             FILE_RETIRED,
         ):
             assert (kg_dir / f).exists(), f"Missing: {f}"

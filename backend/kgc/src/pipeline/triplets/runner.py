@@ -10,7 +10,7 @@ from ..checkpoint import load_checkpoint, save_checkpoint
 from ..knowledge_graph import KnowledgeGraph
 from ..load_sources import load_sources
 from ..scaffold import create_empty_triplet_files
-from .ambiguity import write_ambiguous_extractions
+from .ambiguity import write_ambiguous_attestations
 from .builder import build_triplets
 
 if TYPE_CHECKING:
@@ -38,7 +38,7 @@ class TripletRunner:
 
         kg.save()
         self._validate(kg)
-        write_ambiguous_extractions(kg.extractions, kg_dir)
+        write_ambiguous_attestations(kg.attestations, kg_dir)
         save_checkpoint(kg_dir, "triplets")
         logger.info("Triplet stage complete.")
 

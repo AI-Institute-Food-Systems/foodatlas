@@ -58,18 +58,18 @@ def merge_food_ontology(
     ref = json.dumps({"source": _SOURCE, "edge_type": "is_a"})
     df["source_type"] = _SOURCE
     df["reference"] = ref
-    df["extractor"] = _SOURCE
+    df["source"] = _SOURCE
     df["head_name_raw"] = df["head_native_id"].astype(str)
     df["tail_name_raw"] = df["tail_native_id"].astype(str)
 
     ev_result = kg.evidence.create(df[["source_type", "reference"]])
     df["evidence_id"] = ev_result.index
-    extractions = kg.extractions.create(df)
+    attestations = kg.attestations.create(df)
 
     triplet_input = df[["_head_id", "_tail_id"]].copy()
     triplet_input.columns = pd.Index(["head_id", "tail_id"])
-    triplet_input.index = extractions.index
+    triplet_input.index = attestations.index
     triplet_input["relationship_id"] = _REL_ID
     triplets = kg.triplets.create(triplet_input)
 
-    logger.info("Created %d food ontology triplets.", len(triplets))
+    logger.info("Created %d food ontology attestations/triplets.", len(triplets))

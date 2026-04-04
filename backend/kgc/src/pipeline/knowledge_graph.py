@@ -8,13 +8,13 @@ from pympler import asizeof
 
 from ..models.relationship import RelationshipType
 from ..models.settings import KGCSettings
+from ..stores.attestation_store import AttestationStore
 from ..stores.entity_store import EntityStore
 from ..stores.evidence_store import EvidenceStore
-from ..stores.extraction_store import ExtractionStore
 from ..stores.schema import (
+    FILE_ATTESTATIONS,
     FILE_ENTITIES,
     FILE_EVIDENCE,
-    FILE_EXTRACTIONS,
     FILE_LUT_CHEMICAL,
     FILE_LUT_FOOD,
     FILE_TRIPLETS,
@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 class KnowledgeGraph:
-    """Central class tying together entities, triplets, evidence, and extractions.
+    """Central class tying together entities, triplets, evidence, and attestations.
 
     Args:
         settings: KGCSettings instance providing ``kg_dir`` and ``cache_dir``.
@@ -37,7 +37,7 @@ class KnowledgeGraph:
         self._cache_dir = Path(settings.cache_dir) if settings.cache_dir else None
 
         self.evidence: EvidenceStore
-        self.extractions: ExtractionStore
+        self.attestations: AttestationStore
         self.triplets: TripletStore
         self.entities: EntityStore
 
@@ -49,7 +49,7 @@ class KnowledgeGraph:
         logger.info("Start loading the knowledge graph...")
 
         self.evidence = EvidenceStore(path=self._kg_dir / FILE_EVIDENCE)
-        self.extractions = ExtractionStore(path=self._kg_dir / FILE_EXTRACTIONS)
+        self.attestations = AttestationStore(path=self._kg_dir / FILE_ATTESTATIONS)
         self.triplets = TripletStore(path_triplets=self._kg_dir / FILE_TRIPLETS)
         self.entities = EntityStore(
             path_entities=self._kg_dir / FILE_ENTITIES,
@@ -66,8 +66,8 @@ class KnowledgeGraph:
         out = Path(path_output_dir) if path_output_dir else self._kg_dir
         logger.info("Saving evidence...")
         self.evidence.save(out)
-        logger.info("Saving extractions...")
-        self.extractions.save(out)
+        logger.info("Saving attestations...")
+        self.attestations.save(out)
         logger.info("Saving triplets...")
         self.triplets.save(out)
         logger.info("Saving entities...")
@@ -83,7 +83,7 @@ class KnowledgeGraph:
         """Add CONTAINS triplets from IE data with pre-resolved entity IDs.
 
         Args:
-            resolved: DataFrame with evidence/extraction columns plus
+            resolved: DataFrame with evidence/attestation columns plus
                 ``head_id`` and ``tail_id`` (already resolved and exploded).
 
         Returns:
@@ -92,18 +92,18 @@ class KnowledgeGraph:
         ev_df = resolved[["source_type", "reference"]].copy()
         ev_result = self.evidence.create(ev_df)
 
-        ex_df = resolved.copy()
-        ex_df["evidence_id"] = ev_result.index
-        extractions = self.extractions.create(ex_df)
+        att_df = resolved.copy()
+        att_df["evidence_id"] = ev_result.index
+        attestations = self.attestations.create(att_df)
 
         triplet_input = resolved[["head_id", "tail_id"]].copy()
-        triplet_input.index = extractions.index
+        triplet_input.index = attestations.index
         triplet_input["relationship_id"] = RelationshipType.CONTAINS
 
         triplets = self.triplets.create(triplet_input)
         logger.info(
-            "IE: %d extractions, %d new triplets.",
-            len(extractions),
+            "IE: %d attestations, %d new triplets.",
+            len(attestations),
             len(triplets),
         )
         return len(triplets)
@@ -115,17 +115,17 @@ class KnowledgeGraph:
     ) -> pd.DataFrame:
         """Query triplets with optional head/tail filters.
 
-        Returns a DataFrame of extraction rows annotated with ``triplet_key``.
+        Returns a DataFrame of attestation rows annotated with ``triplet_key``.
         """
         filtered = self.triplets.filter(head_id=head_id, tail_id=tail_id)
 
-        extraction_dfs: list[pd.DataFrame] = []
+        attestation_dfs: list[pd.DataFrame] = []
         for triplet_key, row in filtered.iterrows():
-            ext_ids = row.get("extraction_ids") or []
-            if not ext_ids:
+            att_ids = row.get("attestation_ids") or []
+            if not att_ids:
                 continue
-            ext_df = self.extractions.get(ext_ids).copy()
-            ext_df["triplet_key"] = triplet_key
-            extraction_dfs.append(ext_df)
+            att_df = self.attestations.get(att_ids).copy()
+            att_df["triplet_key"] = triplet_key
+            attestation_dfs.append(att_df)
 
-        return pd.concat(extraction_dfs) if extraction_dfs else pd.DataFrame()
+        return pd.concat(attestation_dfs) if attestation_dfs else pd.DataFrame()

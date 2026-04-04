@@ -9,9 +9,9 @@ from src.models.settings import KGCSettings
 from src.pipeline.knowledge_graph import KnowledgeGraph
 from src.stores.entity_store import EntityStore
 from src.stores.schema import (
+    FILE_ATTESTATIONS,
     FILE_ENTITIES,
     FILE_EVIDENCE,
-    FILE_EXTRACTIONS,
     FILE_LUT_CHEMICAL,
     FILE_LUT_FOOD,
     FILE_TRIPLETS,
@@ -66,7 +66,7 @@ def _make_kg_dir(tmp_path: Path) -> Path:
             "relationship_id": "r1",
             "tail_id": "e1",
             "source": "fdc",
-            "extraction_ids": json.dumps(["ex_test0"]),
+            "attestation_ids": json.dumps(["at_test0"]),
         },
     ]
     pd.DataFrame(triplets).to_parquet(tmp_path / FILE_TRIPLETS, index=False)
@@ -80,11 +80,11 @@ def _make_kg_dir(tmp_path: Path) -> Path:
     ]
     pd.DataFrame(evidence).to_parquet(tmp_path / FILE_EVIDENCE, index=False)
 
-    extractions = [
+    attestations = [
         {
-            "extraction_id": "ex_test0",
+            "attestation_id": "at_test0",
             "evidence_id": "ev_test0",
-            "extractor": "fdc",
+            "source": "fdc",
             "head_name_raw": "apple",
             "tail_name_raw": "vitamin c",
             "conc_value": 1.5,
@@ -96,7 +96,7 @@ def _make_kg_dir(tmp_path: Path) -> Path:
             "validated_correct": True,
         },
     ]
-    pd.DataFrame(extractions).to_parquet(tmp_path / FILE_EXTRACTIONS, index=False)
+    pd.DataFrame(attestations).to_parquet(tmp_path / FILE_ATTESTATIONS, index=False)
 
     _write_lut(
         tmp_path / FILE_LUT_FOOD,

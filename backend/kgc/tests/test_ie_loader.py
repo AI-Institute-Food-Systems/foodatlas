@@ -113,7 +113,7 @@ class TestLoadIeRaw:
     def test_source_and_reference(self, ie_tsv: Path) -> None:
         df = load_ie_raw(ie_tsv, ie_tsv.parent)
         row = df[df["_food_name"] == "apple"].iloc[0]
-        assert row["extractor"] == "lit2kg"
+        assert row["source"] == "lit2kg"
         assert row["source_type"] == "pubmed"
         assert "111" in row["reference"]
 

@@ -11,9 +11,9 @@ from ..stores.entity_registry import EntityRegistry
 from ..stores.registry_seeder import seed_registry
 from ..stores.schema import (
     DIR_INTERMEDIATE,
+    FILE_ATTESTATIONS,
     FILE_ENTITIES,
     FILE_EVIDENCE,
-    FILE_EXTRACTIONS,
     FILE_LUT_CHEMICAL,
     FILE_LUT_FOOD,
     FILE_REGISTRY,
@@ -89,5 +89,5 @@ def create_empty_triplet_files(settings: KGCSettings) -> None:
     )
     pd.DataFrame().to_parquet(kg_dir / FILE_TRIPLETS)
     pd.DataFrame().to_parquet(kg_dir / FILE_EVIDENCE)
-    pd.DataFrame().to_parquet(kg_dir / FILE_EXTRACTIONS)
+    pd.DataFrame().to_parquet(kg_dir / FILE_ATTESTATIONS)
     pd.DataFrame().to_parquet(kg_dir / FILE_RETIRED)

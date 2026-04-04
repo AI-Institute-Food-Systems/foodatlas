@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 from ...stores.schema import DIR_DIAGNOSTICS
 from ..checkpoint import load_checkpoint, save_checkpoint
 from ..knowledge_graph import KnowledgeGraph
-from ..triplets.ambiguity import write_ambiguous_extractions
+from ..triplets.ambiguity import write_ambiguous_attestations
 from .loader import load_ie_raw
 from .report import write_unresolved_report
 from .resolver import resolve_ie_metadata
@@ -40,7 +40,7 @@ class IERunner:
         kg = KnowledgeGraph(self._settings)
         self._expand(kg)
         kg.save()
-        write_ambiguous_extractions(kg.extractions, kg_dir)
+        write_ambiguous_attestations(kg.attestations, kg_dir)
         save_checkpoint(kg_dir, "ie")
         logger.info("IE stage complete.")
 
