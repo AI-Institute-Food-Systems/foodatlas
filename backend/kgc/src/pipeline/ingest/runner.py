@@ -13,6 +13,7 @@ from tqdm import tqdm
 from .adapters.cdno import CDNOAdapter
 from .adapters.chebi import ChEBIAdapter
 from .adapters.ctd import CTDAdapter
+from .adapters.dmd import DMDAdapter
 from .adapters.fdc import FDCAdapter
 from .adapters.flavordb import FlavorDBAdapter
 from .adapters.foodon import FoodOnAdapter
@@ -35,6 +36,7 @@ ALL_ADAPTERS: list[type] = [
     PubChemAdapter,
     FlavorDBAdapter,
     FDCAdapter,
+    DMDAdapter,
 ]
 
 

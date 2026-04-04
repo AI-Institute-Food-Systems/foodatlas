@@ -10,6 +10,7 @@ from .chemical_chemical import merge_chemical_ontology
 from .chemical_disease import merge_ctd_triplets
 from .disease_disease import merge_disease_ontology
 from .food_chemical import merge_fdc_triplets
+from .food_chemical_dmd import merge_dmd_triplets
 from .food_food import merge_food_ontology
 
 if TYPE_CHECKING:
@@ -39,4 +40,6 @@ def build_triplets(
         merge_fdc_triplets(kg, sources)
     with log_duration("CTD chemical-disease triplets", logger):
         merge_ctd_triplets(kg, sources)
+    with log_duration("DMD food-chemical triplets", logger):
+        merge_dmd_triplets(kg, sources)
     logger.info("Triplet build complete.")
