@@ -37,10 +37,10 @@ class EntityRunner:
         with log_duration("Subtree filter", logger):
             filter_sources(sources, corrections.ontology_roots)
 
-        logger.info("=== ENTITY RESOLUTION ===")
         kg_dir = Path(self._settings.kg_dir)
-        ensure_registry_exists(self._settings)
-        registry = EntityRegistry(kg_dir / FILE_REGISTRY)
+        with log_duration("Initialize entity registry", logger):
+            ensure_registry_exists(self._settings)
+            registry = EntityRegistry(kg_dir / FILE_REGISTRY)
 
         create_empty_entity_files(self._settings)
         resolver = EntityResolver(kg_dir, corrections, registry)

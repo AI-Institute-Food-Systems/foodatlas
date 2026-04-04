@@ -81,9 +81,10 @@ class IERunner:
                     n_triplets = kg.add_triplets_from_resolved_ie(result.resolved)
                 result.stats["triplets_created"] = n_triplets
 
-            write_unresolved_report(
-                result.unresolved_food,
-                result.unresolved_chemical,
-                metadata,
-                kg_dir,
-            )
+            with log_duration("Write unresolved report", logger):
+                write_unresolved_report(
+                    result.unresolved_food,
+                    result.unresolved_chemical,
+                    metadata,
+                    kg_dir,
+                )

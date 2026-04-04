@@ -43,7 +43,8 @@ class KnowledgeGraph:
         self.entities: EntityStore
 
         self._load()
-        self.print_stats()
+        with log_duration("Compute KG memory stats", logger):
+            self.print_stats()
 
     def _load(self) -> None:
         """Load all KG stores from ``self._kg_dir``."""
