@@ -56,7 +56,7 @@ def cli(
     """FoodAtlas Knowledge Graph Construction pipeline."""
     logging.basicConfig(
         level=logging.DEBUG if verbose else logging.INFO,
-        format="%(asctime)s %(levelname)s %(name)s — %(message)s",
+        format="%(asctime)s %(levelname)-8s %(module)-15s %(message)s",
     )
 
     kwargs: dict[str, str] = {}
