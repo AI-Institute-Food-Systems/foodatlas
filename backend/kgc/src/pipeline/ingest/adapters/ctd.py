@@ -167,13 +167,16 @@ def _build_chemdis_edges(chemdis: pd.DataFrame) -> pd.DataFrame:
 
 
 def _load_ctd_csv(file_path: Path) -> pd.DataFrame:
+    """Read a CTD CSV, finding the header without loading the full file."""
+    header_idx = 0
+    header: list[str] = []
     with file_path.open() as f:
-        lines = f.readlines()
-        fields_idx = next(
-            i for i, line in enumerate(lines) if line.strip() == "# Fields:"
-        )
-        header_idx = fields_idx + 1
-        header = lines[header_idx].strip().replace("# ", "").split(",")
+        for i, line in enumerate(f):
+            if line.strip() == "# Fields:":
+                header_line = next(f)
+                header_idx = i + 1
+                header = header_line.strip().replace("# ", "").split(",")
+                break
 
     df = pd.read_csv(
         file_path, comment="#", skiprows=range(1, header_idx), names=header

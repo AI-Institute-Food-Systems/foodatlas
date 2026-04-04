@@ -15,7 +15,17 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_SOURCE_IDS = ["foodon", "chebi", "cdno", "ctd", "mesh", "pubchem", "flavordb", "fdc"]
+_SOURCE_IDS = [
+    "foodon",
+    "chebi",
+    "cdno",
+    "ctd",
+    "mesh",
+    "pubchem",
+    "flavordb",
+    "fdc",
+    "dmd",
+]
 
 
 def load_sources(settings: KGCSettings) -> dict[str, dict[str, pd.DataFrame]]:

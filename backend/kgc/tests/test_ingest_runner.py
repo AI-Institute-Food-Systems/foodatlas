@@ -21,7 +21,7 @@ from src.pipeline.ingest.runner import (
 
 
 def test_all_adapters_registered() -> None:
-    assert len(ALL_ADAPTERS) == 8
+    assert len(ALL_ADAPTERS) == 9
 
 
 def test_all_adapters_unique_source_ids() -> None:

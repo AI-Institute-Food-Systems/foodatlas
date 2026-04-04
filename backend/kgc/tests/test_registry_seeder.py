@@ -72,8 +72,14 @@ class TestExtractRegistryPairs:
         assert len(pairs) == 1
         assert pairs[0] == ("ctd", "MESH:D000006", True)
 
+    def test_chemical_with_dmd(self) -> None:
+        ext = {"dmd": ["DMD302680"]}
+        pairs = extract_registry_pairs("chemical", ext)
+        assert len(pairs) == 1
+        assert pairs[0] == ("dmd", "DMD302680", False)
+
     def test_unknown_keys_skipped(self) -> None:
-        ext = {"pubchem_compound": [6213], "dmd": ["DMD302680"]}
+        ext = {"pubchem_compound": [6213], "some_unknown": ["val"]}
         pairs = extract_registry_pairs("chemical", ext)
         assert len(pairs) == 0
 

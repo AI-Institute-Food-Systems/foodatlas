@@ -34,6 +34,7 @@ _SOURCE_MAP: dict[tuple[str, str], tuple[str, Any, bool]] = {
     ("chemical", "chebi"): ("chebi", _str_int, True),
     ("chemical", "cdno"): ("cdno", str, False),
     ("chemical", "fdc_nutrient"): ("fdc_nutrient", _str_int, False),
+    ("chemical", "dmd"): ("dmd", str, False),
     ("disease", "mesh"): ("ctd", _mesh_to_ctd, True),
 }
 

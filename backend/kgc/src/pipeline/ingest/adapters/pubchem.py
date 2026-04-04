@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 import logging
 from typing import TYPE_CHECKING
 
@@ -103,31 +104,34 @@ def _read_chebi_sids(
     sid_map_path: Path,
     progress: ProgressCallback = _noop_progress,
 ) -> pd.DataFrame:
-    """Read only ChEBI rows from the SID-Map using chunked filtering.
+    """Read only ChEBI rows from the SID-Map using line-by-line filtering.
 
     The SID-Map is 15GB / 318M rows but only ~188K are ChEBI.
-    Chunked reading avoids loading the full file into memory.
+    Scanning lines and filtering in Python avoids CSV parsing overhead
+    for the 99.94% of rows that are not ChEBI.
     """
-    chunks: list[pd.DataFrame] = []
-    chunk_size = 5_000_000
-    reader = pd.read_csv(
-        sid_map_path,
+    chebi_lines: list[str] = []
+    total_estimate = 318_000_000
+    progress(0, total_estimate)
+
+    with sid_map_path.open() as f:
+        for i, line in enumerate(f):
+            if "\tChEBI\t" in line:
+                chebi_lines.append(line)
+            if i % 5_000_000 == 0:
+                progress(i, total_estimate)
+
+    progress(total_estimate, total_estimate)
+
+    if not chebi_lines:
+        logger.warning("No ChEBI rows found in %s.", sid_map_path)
+        return pd.DataFrame(columns=["SID", "source", "registry_id", "cid"])
+
+    df = pd.read_csv(
+        io.StringIO("".join(chebi_lines)),
         sep="\t",
         header=None,
         names=["SID", "source", "registry_id", "cid"],
         dtype={"registry_id": str, "SID": str},
-        chunksize=chunk_size,
     )
-    rows_read = 0
-    total_estimate = 318_000_000
-    for chunk in reader:
-        chebi = chunk[chunk["source"] == "ChEBI"].dropna(subset=["cid"])
-        if not chebi.empty:
-            chunks.append(chebi)
-        rows_read += len(chunk)
-        progress(rows_read, total_estimate)
-
-    progress(total_estimate, total_estimate)
-    if chunks:
-        return pd.concat(chunks, ignore_index=True)
-    return pd.DataFrame(columns=["SID", "source", "registry_id", "cid"])
+    return df.dropna(subset=["cid"])

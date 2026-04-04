@@ -6,7 +6,7 @@ import logging
 from typing import TYPE_CHECKING
 
 import pandas as pd
-import xmltodict
+from lxml import etree
 
 from ....models.ingest import SourceManifest
 from ..protocol import (
@@ -42,10 +42,20 @@ class MeSHAdapter:
         desc_path = _find_file(mesh_dir, "desc*.xml")
         supp_path = _find_file(mesh_dir, "supp*.xml")
 
-        nodes, edges = _build_outputs(desc_path, supp_path, progress)
+        desc_count = _count_elements(desc_path, "DescriptorRecord")
+        supp_count = _count_elements(supp_path, "SupplementalRecord")
+        combined_total = desc_count + supp_count
 
-        nodes = serialize_raw_attrs(nodes)
-        edges = serialize_raw_attrs(edges)
+        node_rows: list[dict] = []
+        edge_rows: list[dict] = []
+
+        _parse_descriptors(desc_path, node_rows, edge_rows, progress, 0, combined_total)
+        _parse_supplementals(
+            supp_path, node_rows, edge_rows, progress, desc_count, combined_total
+        )
+
+        nodes = serialize_raw_attrs(pd.DataFrame(node_rows))
+        edges = serialize_raw_attrs(pd.DataFrame(edge_rows))
 
         nodes_path = output_dir / f"{SOURCE_ID}_nodes.parquet"
         edges_path = output_dir / f"{SOURCE_ID}_edges.parquet"
@@ -72,50 +82,36 @@ def _find_file(directory: Path, pattern: str) -> Path:
     return matches[-1]
 
 
-def _build_outputs(
-    desc_path: Path,
-    supp_path: Path,
-    progress: ProgressCallback = _noop_progress,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
-    node_rows: list[dict] = []
-    edge_rows: list[dict] = []
+def _count_elements(path: Path, tag: str) -> int:
+    """Fast count of top-level elements using iterparse (end events only)."""
+    count = 0
+    for _event, elem in etree.iterparse(path, events=("end",), tag=tag):
+        count += 1
+        elem.clear()
+    return count
 
-    with desc_path.open() as f:
-        desc_records = xmltodict.parse(f.read())["DescriptorRecordSet"][
-            "DescriptorRecord"
-        ]
-    with supp_path.open() as f:
-        supp_records = xmltodict.parse(f.read())["SupplementalRecordSet"][
-            "SupplementalRecord"
-        ]
 
-    combined_total = len(desc_records) + len(supp_records)
-
-    _parse_descriptors(desc_records, node_rows, edge_rows, progress, 0, combined_total)
-    _parse_supplementals(
-        supp_records, node_rows, edge_rows, progress, len(desc_records), combined_total
-    )
-
-    return pd.DataFrame(node_rows), pd.DataFrame(edge_rows)
+def _text(elem: etree._Element, path: str) -> str:
+    child = elem.find(path)
+    return child.text.strip() if child is not None and child.text else ""
 
 
 def _parse_descriptors(
-    records: list[dict],
+    path: Path,
     node_rows: list[dict],
     edge_rows: list[dict],
-    progress: ProgressCallback = _noop_progress,
-    offset: int = 0,
-    combined_total: int = 0,
+    progress: ProgressCallback,
+    offset: int,
+    combined_total: int,
 ) -> None:
-    for i, record in enumerate(records):
-        mesh_id = record["DescriptorUI"]
-        name = record["DescriptorName"]["String"]
-        tree_numbers = (
-            _ensure_list(record["TreeNumberList"]["TreeNumber"])
-            if "TreeNumberList" in record
-            else []
-        )
-        synonyms = _extract_synonyms(record)
+    progress(offset, combined_total)
+    for i, (_, elem) in enumerate(
+        etree.iterparse(path, events=("end",), tag="DescriptorRecord")
+    ):
+        mesh_id = _text(elem, "DescriptorUI")
+        name = _text(elem, "DescriptorName/String")
+        tree_numbers = [tn.text for tn in elem.findall(".//TreeNumber") if tn.text]
+        synonyms = _extract_synonyms(elem)
         syn_types = ["label"] + ["synonym"] * (len(synonyms) - 1) if synonyms else []
 
         node_rows.append(
@@ -143,25 +139,28 @@ def _parse_descriptors(
                     }
                 )
 
-        progress(offset + i, combined_total)
-
-    progress(offset + len(records), combined_total)
+        elem.clear()
+        progress(offset + i + 1, combined_total)
 
 
 def _parse_supplementals(
-    records: list[dict],
+    path: Path,
     node_rows: list[dict],
     edge_rows: list[dict],
-    progress: ProgressCallback = _noop_progress,
-    offset: int = 0,
-    combined_total: int = 0,
+    progress: ProgressCallback,
+    offset: int,
+    combined_total: int,
 ) -> None:
-    for i, record in enumerate(records):
-        mesh_id = record["SupplementalRecordUI"]
-        name = record["SupplementalRecordName"]["String"]
-        mapped_to = _ensure_list(record["HeadingMappedToList"]["HeadingMappedTo"])
-        mapped_ids = [x["DescriptorReferredTo"]["DescriptorUI"] for x in mapped_to]
-        synonyms = _extract_synonyms(record)
+    for i, (_, elem) in enumerate(
+        etree.iterparse(path, events=("end",), tag="SupplementalRecord")
+    ):
+        mesh_id = _text(elem, "SupplementalRecordUI")
+        name = _text(elem, "SupplementalRecordName/String")
+        mapped_ids = [
+            _text(hm, "DescriptorReferredTo/DescriptorUI")
+            for hm in elem.findall(".//HeadingMappedTo")
+        ]
+        synonyms = _extract_synonyms(elem)
         syn_types = ["label"] + ["synonym"] * (len(synonyms) - 1) if synonyms else []
 
         node_rows.append(
@@ -177,29 +176,29 @@ def _parse_supplementals(
         )
 
         for desc_id in mapped_ids:
-            edge_rows.append(
-                {
-                    "source_id": SOURCE_ID,
-                    "head_native_id": mesh_id,
-                    "tail_native_id": desc_id,
-                    "edge_type": "mapped_to",
-                    "raw_attrs": {},
-                }
-            )
+            if desc_id:
+                edge_rows.append(
+                    {
+                        "source_id": SOURCE_ID,
+                        "head_native_id": mesh_id,
+                        "tail_native_id": desc_id,
+                        "edge_type": "mapped_to",
+                        "raw_attrs": {},
+                    }
+                )
 
-        progress(offset + i, combined_total)
+        elem.clear()
+        progress(offset + i + 1, combined_total)
 
-    progress(offset + len(records), combined_total)
+    progress(combined_total, combined_total)
 
 
-def _extract_synonyms(record: dict) -> list[str]:
-    synonyms: list[str] = []
-    concepts = _ensure_list(record["ConceptList"]["Concept"])
-    for concept in concepts:
-        terms = _ensure_list(concept["TermList"]["Term"])
-        for term in terms:
-            synonyms.append(term["String"])
-    return synonyms
+def _extract_synonyms(record: etree._Element) -> list[str]:
+    return [
+        term.text
+        for term in record.findall(".//Concept/TermList/Term/String")
+        if term.text
+    ]
 
 
 def _ensure_list(val: object) -> list:
