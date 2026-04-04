@@ -102,68 +102,50 @@ class TripletStore:
 
     def _insert_or_merge(self, metadata: pd.DataFrame) -> pd.DataFrame:
         """Insert new triplets or merge metadata into existing ones."""
-        source = metadata.get("source", pd.Series([""] * len(metadata)))
-        rows: list[dict] = []
-        for (head_id, rel_id, tail_id, src), meta_id in zip(
-            zip(
-                metadata["head_id"],
-                metadata["relationship_id"],
-                metadata["tail_id"],
-                source,
-                strict=False,
-            ),
-            metadata.index,
-            strict=False,
-        ):
-            key = self._make_key(head_id, rel_id, tail_id)
-            if key in self._key_to_extractions:
-                self._key_to_extractions[key].append(meta_id)
-                continue
-            rows.append(
-                {
-                    _KEY_COL: key,
-                    "head_id": head_id,
-                    "relationship_id": rel_id,
-                    "tail_id": tail_id,
-                    "source": src,
-                    "extraction_ids": None,
-                }
-            )
-            self._key_to_extractions[key] = [meta_id]
+        if "source" not in metadata.columns:
+            metadata = metadata.assign(source="")
 
-        if rows:
-            new_triplets = pd.DataFrame(rows).set_index(_KEY_COL)
-            self._triplets = pd.concat([self._triplets, new_triplets])
-            return new_triplets
-
-        empty = pd.DataFrame(
-            columns=[
-                "head_id",
-                "relationship_id",
-                "tail_id",
-                "source",
-                "extraction_ids",
-            ]
+        # Build keys vectorized.
+        keys = (
+            metadata["head_id"]
+            + "_"
+            + metadata["relationship_id"]
+            + "_"
+            + metadata["tail_id"]
         )
-        empty.index.name = _KEY_COL
-        return empty
+        meta_ids = metadata.index
+
+        # Split into existing (merge) and new (insert).
+        existing_mask = keys.isin(self._key_to_extractions)
+
+        # Merge extraction IDs into existing triplets.
+        for key, meta_id in zip(
+            keys[existing_mask], meta_ids[existing_mask], strict=False
+        ):
+            self._key_to_extractions[key].append(meta_id)
+
+        # Bulk insert new triplets.
+        new_mask = ~existing_mask
+        if new_mask.any():
+            new_df = metadata.loc[
+                new_mask, ["head_id", "relationship_id", "tail_id", "source"]
+            ].copy()
+            new_df[_KEY_COL] = keys[new_mask].values
+            new_df["extraction_ids"] = None
+            new_df = new_df.set_index(_KEY_COL)
+            self._triplets = pd.concat([self._triplets, new_df])
+
+            for key, meta_id in zip(keys[new_mask], meta_ids[new_mask], strict=False):
+                self._key_to_extractions[key] = [meta_id]
+
+        return metadata
 
     def _resolve_all_metadata(self) -> None:
         """Sync extraction_ids column with the key_to_metadata lookup."""
-        self._triplets["extraction_ids"] = self._triplets.apply(
-            lambda row: list(
-                set(
-                    self._key_to_extractions[
-                        self._make_key(
-                            row["head_id"],
-                            row["relationship_id"],
-                            row["tail_id"],
-                        )
-                    ]
-                )
-            ),
-            axis=1,
-        )
+        self._triplets["extraction_ids"] = [
+            list(set(self._key_to_extractions.get(key, [])))
+            for key in self._triplets.index
+        ]
 
     def filter(
         self,

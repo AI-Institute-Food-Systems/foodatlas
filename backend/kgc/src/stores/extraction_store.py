@@ -62,14 +62,17 @@ class ExtractionStore:
                 rows[col] = [field.default_factory() for _ in range(len(rows))]
             elif field.default is not PydanticUndefined:
                 rows[col] = field.default
-        rows["extraction_id"] = rows.apply(
-            lambda r: extraction_id(
-                str(r.get("evidence_id", "")),
-                str(r.get("extractor", "")),
-                str(r.get("head_name_raw", "")),
-                str(r.get("tail_name_raw", "")),
-            ),
-            axis=1,
+        keys = (
+            rows["evidence_id"].astype(str)
+            + ":"
+            + rows["extractor"].astype(str)
+            + ":"
+            + rows["head_name_raw"].astype(str)
+            + ":"
+            + rows["tail_name_raw"].astype(str)
+        )
+        rows["extraction_id"] = FAID_PREFIX + keys.apply(
+            lambda k: hashlib.sha256(k.encode()).hexdigest()[:12]
         )
         rows = rows[EXTRACTION_COLUMNS].set_index("extraction_id")
         new = rows[~rows.index.isin(self._seen)]
