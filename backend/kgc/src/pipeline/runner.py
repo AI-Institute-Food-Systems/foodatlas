@@ -2,14 +2,11 @@
 
 from __future__ import annotations
 
-import datetime
-import hashlib
 import logging
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from ..utils.json_io import write_json
 from .checkpoint import load_checkpoint
 from .entities.runner import EntityRunner
 from .ie.runner import IERunner
@@ -56,9 +53,6 @@ class PipelineRunner:
         elapsed = time.monotonic() - t0
         logger.info("Pipeline finished in %.1fs", elapsed)
 
-        if stages is None:
-            self._write_version()
-
     def run_stage(self, stage: PipelineStage) -> None:
         """Run a single stage, logging start/end/duration."""
         logger.info("=== Stage %s START ===", stage.name)
@@ -97,28 +91,6 @@ class PipelineRunner:
         kg = KnowledgeGraph(self._settings)
         apply_flavor_descriptions(kg, sources)
         kg.save()
-
-    # ------------------------------------------------------------------
-    # Helpers
-    # ------------------------------------------------------------------
-
-    def _write_version(self) -> None:
-        """Write version.json after a full pipeline run."""
-        version_info: dict[str, object] = {
-            "timestamp": datetime.datetime.now(tz=datetime.UTC).isoformat(),
-            "stages": [s.name for s in ALL_STAGES],
-            "version": "0.1.0",
-        }
-
-        kg_dir = Path(self._settings.kg_dir)
-        entities_path = kg_dir / "entities.parquet"
-        if entities_path.exists():
-            h = hashlib.sha256(entities_path.read_bytes()).hexdigest()[:12]
-            version_info["entities_hash"] = h
-
-        version_path = kg_dir / "version.json"
-        write_json(version_path, version_info)
-        logger.info("Wrote %s", version_path)
 
 
 _STAGE_HANDLERS: dict[PipelineStage, Callable[[PipelineRunner], None]] = {

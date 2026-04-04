@@ -85,22 +85,3 @@ def test_run_all_stages(runner: PipelineRunner) -> None:
     assert len(called) == len(PipelineStage)
     values = [PipelineStage[name].value for name in called]
     assert values == sorted(values)
-
-
-def test_run_all_writes_version(runner: PipelineRunner) -> None:
-    overrides = _noop_handlers()
-    with (
-        patch.dict(_STAGE_HANDLERS, overrides),
-        patch.object(runner, "_write_version") as mock_version,
-    ):
-        runner.run()
-        mock_version.assert_called_once()
-
-
-def test_run_selected_does_not_write_version(runner: PipelineRunner) -> None:
-    with (
-        patch.dict(_STAGE_HANDLERS, {PipelineStage.INGEST: MagicMock()}),
-        patch.object(runner, "_write_version") as mock_version,
-    ):
-        runner.run([PipelineStage.INGEST])
-        mock_version.assert_not_called()
