@@ -1,13 +1,10 @@
-"""Tests for ie_report — unresolved names report and stats output."""
+"""Tests for ie_report — unresolved names diagnostics."""
 
 import json
 from pathlib import Path
 
 import pandas as pd
-from src.pipeline.ie.report import (
-    write_resolution_stats,
-    write_unresolved_report,
-)
+from src.pipeline.ie.report import write_unresolved_report
 from src.stores.schema import FILE_IE_UNRESOLVED
 
 
@@ -55,7 +52,6 @@ class TestWriteUnresolvedReport:
     def test_empty_unresolved(self, tmp_path: Path) -> None:
         meta = self._make_metadata()
         out = write_unresolved_report(set(), set(), meta, tmp_path)
-        # File exists but is empty (nothing appended).
         content = out.read_text() if out.exists() else ""
         assert content == ""
 
@@ -66,13 +62,3 @@ class TestWriteUnresolvedReport:
         out = tmp_path / FILE_IE_UNRESOLVED
         lines = out.read_text().strip().split("\n")
         assert len(lines) == 2
-
-
-class TestWriteResolutionStats:
-    def test_writes_json(self, tmp_path: Path) -> None:
-        stats = {"total_ie_rows": 100, "resolved_rows": 80}
-        out = write_resolution_stats(stats, tmp_path)
-        assert out.exists()
-        loaded = json.loads(out.read_text())
-        assert loaded["total_ie_rows"] == 100
-        assert loaded["resolved_rows"] == 80

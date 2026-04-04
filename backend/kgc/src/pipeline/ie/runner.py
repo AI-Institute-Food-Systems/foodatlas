@@ -3,14 +3,16 @@
 from __future__ import annotations
 
 import logging
+import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from ...stores.schema import DIR_DIAGNOSTICS
 from ..checkpoint import load_checkpoint, save_checkpoint
 from ..knowledge_graph import KnowledgeGraph
 from ..triplets.ambiguity import write_ambiguous_extractions
 from .loader import load_ie_raw
-from .report import write_resolution_stats, write_unresolved_report
+from .report import write_unresolved_report
 from .resolver import resolve_ie_metadata
 
 if TYPE_CHECKING:
@@ -29,6 +31,11 @@ class IERunner:
         """Load IE metadata, resolve entities, expand KG, and save."""
         kg_dir = Path(self._settings.kg_dir)
         load_checkpoint(kg_dir, "triplets")
+
+        # Clear diagnostics from previous run.
+        diag_dir = kg_dir / DIR_DIAGNOSTICS
+        if diag_dir.exists():
+            shutil.rmtree(diag_dir)
 
         kg = KnowledgeGraph(self._settings)
         self._expand(kg)
@@ -71,4 +78,3 @@ class IERunner:
                 metadata,
                 kg_dir,
             )
-            write_resolution_stats(result.stats, kg_dir)

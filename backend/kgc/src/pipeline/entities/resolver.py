@@ -6,7 +6,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from ...stores.entity_store import EntityStore
-from ...stores.registry_diff import build_retired_df, compute_diff, write_diff_report
+from ...stores.registry_diff import build_retired_df, compute_diff
 from ...stores.schema import (
     FILE_ENTITIES,
     FILE_LUT_CHEMICAL,
@@ -130,10 +130,9 @@ class EntityResolver:
         self._entity_store._lut_chemical = self._lut.get_chemical_lut()
 
     def _finalize_registry(self) -> None:
-        """Compute diff, write retired.parquet and diff report, save registry."""
+        """Compute diff, write retired.parquet, save registry."""
         new_ids = self._registry.all_ids()
         diff = compute_diff(self._old_ids, new_ids, self._merges)
         retired_df = build_retired_df(diff)
         retired_df.to_parquet(self._kg_dir / FILE_RETIRED, index=False)
-        write_diff_report(diff, self._kg_dir)
         self._registry.save()

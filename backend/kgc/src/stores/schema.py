@@ -24,8 +24,6 @@ LUT_COLUMNS = ["name", "foodatlas_id"]
 RETIRED_COLUMNS = ["foodatlas_id", "action", "destination"]
 
 FILE_REGISTRY = "entity_registry.parquet"
-DIR_REPORTS = "reports"
-FILE_BUILD_DIFF = "reports/build_diff.json"
 REGISTRY_COLUMNS = ["source", "native_id", "foodatlas_id"]
 
 
@@ -43,7 +41,7 @@ TRIPLET_COLUMNS = _get_columns(Triplet)
 EVIDENCE_COLUMNS = _get_columns(Evidence)
 EXTRACTION_COLUMNS = _get_columns(Extraction)
 
-FILE_IE_UNRESOLVED = "reports/ie_unresolved.jsonl"
-FILE_IE_RESOLUTION_STATS = "reports/ie_resolution_stats.json"
-FILE_IE_PARSE_ERRORS = "reports/ie_parse_errors.tsv"
+DIR_DIAGNOSTICS = "diagnostics"
+FILE_IE_UNRESOLVED = "diagnostics/ie_unresolved.jsonl"
+FILE_IE_PARSE_ERRORS = "diagnostics/ie_parse_errors.tsv"
 FILE_EXTRACTIONS_AMBIGUOUS = "extractions_ambiguous.parquet"

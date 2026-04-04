@@ -1,17 +1,16 @@
-"""Write IE resolution reports: unresolved names and aggregate stats."""
+"""Write IE diagnostics: unresolved names."""
 
 from __future__ import annotations
 
 import json
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
-from ...stores.schema import FILE_IE_RESOLUTION_STATS, FILE_IE_UNRESOLVED
+from ...stores.schema import FILE_IE_UNRESOLVED
 
 if TYPE_CHECKING:
     import pandas as pd
-from ...utils.json_io import write_json
 
 logger = logging.getLogger(__name__)
 
@@ -71,16 +70,4 @@ def write_unresolved_report(
             count += 1
 
     logger.info("Appended %d unresolved names to %s.", count, out)
-    return out
-
-
-def write_resolution_stats(
-    stats: dict[str, Any],
-    output_dir: Path,
-) -> Path:
-    """Write ``ie_resolution_stats.json``."""
-    out = Path(output_dir) / FILE_IE_RESOLUTION_STATS
-    out.parent.mkdir(exist_ok=True)
-    write_json(out, stats)
-    logger.info("Wrote IE resolution stats to %s.", out)
     return out

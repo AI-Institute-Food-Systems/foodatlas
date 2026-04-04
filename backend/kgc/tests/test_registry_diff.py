@@ -1,13 +1,9 @@
-"""Tests for registry_diff — build diff computation and reporting."""
-
-import json
-from pathlib import Path
+"""Tests for registry_diff — build diff computation."""
 
 from src.stores.registry_diff import (
     RegistryDiff,
     build_retired_df,
     compute_diff,
-    write_diff_report,
 )
 
 
@@ -74,21 +70,3 @@ class TestBuildRetiredDf:
         merged_row = df[df["foodatlas_id"] == "e2"].iloc[0]
         assert merged_row["action"] == "merged"
         assert merged_row["destination"] == "e1"
-
-
-class TestWriteDiffReport:
-    def test_writes_json(self, tmp_path: Path) -> None:
-        diff = RegistryDiff(
-            new_ids=["e5"],
-            retired_ids=["e4"],
-            merged=[("e3", "e1")],
-            stable_ids=["e1", "e2"],
-        )
-        write_diff_report(diff, tmp_path)
-        path = tmp_path / "reports" / "build_diff.json"
-        assert path.exists()
-        data = json.loads(path.read_text())
-        assert data["new_count"] == 1
-        assert data["retired_count"] == 1
-        assert data["merged_count"] == 1
-        assert data["stable_count"] == 2

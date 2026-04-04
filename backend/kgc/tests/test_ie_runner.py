@@ -39,7 +39,6 @@ def test_run_skips_expansion_when_no_ie_path(
     kg.save.assert_called_once()
 
 
-@patch("src.pipeline.ie.runner.write_resolution_stats")
 @patch("src.pipeline.ie.runner.write_unresolved_report")
 @patch("src.pipeline.ie.runner.resolve_ie_metadata")
 @patch("src.pipeline.ie.runner.load_ie_raw")
@@ -49,7 +48,6 @@ def test_ie_expansion_calls_resolver(
     mock_load_ie: MagicMock,
     mock_resolve: MagicMock,
     mock_write_report: MagicMock,
-    mock_write_stats: MagicMock,
     tmp_path: Path,
 ) -> None:
     ie_path = tmp_path / "ie.tsv"
@@ -85,4 +83,3 @@ def test_ie_expansion_calls_resolver(
     mock_resolve.assert_called_once()
     kg.add_triplets_from_resolved_ie.assert_called_once()
     mock_write_report.assert_called_once()
-    mock_write_stats.assert_called_once()
