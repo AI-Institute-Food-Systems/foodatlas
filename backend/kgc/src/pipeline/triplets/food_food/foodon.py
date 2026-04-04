@@ -8,10 +8,10 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
-from .chemical_disease import _explode_external_ids
+from ..utils import explode_external_ids
 
 if TYPE_CHECKING:
-    from ..knowledge_graph import KnowledgeGraph
+    from ...knowledge_graph import KnowledgeGraph
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ def merge_food_ontology(
     edges = foodon["edges"]
     is_a = edges[edges["edge_type"] == "is_a"]
 
-    lookup = _explode_external_ids(kg.entities._entities, "foodon")
+    lookup = explode_external_ids(kg.entities._entities, "foodon")
     if lookup.empty:
         return
 

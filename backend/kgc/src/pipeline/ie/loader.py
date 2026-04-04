@@ -10,6 +10,7 @@ import pandas as pd
 from tqdm import tqdm
 
 from ...stores.schema import FILE_IE_PARSE_ERRORS
+from .conc_parser import parse_conc
 from .constants import GREEK_LETTERS, PUNCTUATIONS
 
 if TYPE_CHECKING:
@@ -100,7 +101,16 @@ def load_ie_raw(path: Path, output_dir: Path) -> pd.DataFrame:
                     {"pmcid": rec["pmcid"], "line": line.strip(), "reason": "bad_tuple"}
                 )
                 continue
-            food, food_part, chemical, _quantity = parsed
+            food, food_part, chemical, quantity = parsed
+            conc_value_raw, conc_unit_raw = "", ""
+            if quantity:
+                conc_result = parse_conc(quantity)
+                if conc_result is None:
+                    parse_errors.append(
+                        {"pmcid": rec["pmcid"], "line": quantity, "reason": "bad_conc"}
+                    )
+                else:
+                    conc_value_raw, conc_unit_raw = conc_result
             ref = json.dumps({"pmcid": rec["pmcid"], "text": rec.get("sentence", "")})
             rows.append(
                 {
@@ -113,6 +123,8 @@ def load_ie_raw(path: Path, output_dir: Path) -> pd.DataFrame:
                     "tail_name_raw": standardize_name(chemical),
                     "conc_value": None,
                     "conc_unit": "",
+                    "conc_value_raw": conc_value_raw,
+                    "conc_unit_raw": conc_unit_raw,
                     "food_part": food_part.strip().lower(),
                     "food_processing": "",
                     "quality_score": float(rec["prob"]),

@@ -123,6 +123,54 @@ class TestLoadIeRaw:
         with pytest.raises(ValueError, match="missing columns"):
             load_ie_raw(path, tmp_path)
 
+    def test_quantity_parsed_into_raw_fields(self, tmp_path: Path) -> None:
+        path = tmp_path / "conc.tsv"
+        rows = [
+            {
+                "pmcid": "444",
+                "section": "RESULTS",
+                "matched_query": "apple",
+                "sentence": "Apples contain 1.5mg/g vitamin C.",
+                "prob": 0.95,
+                "response": "(apple, peel, vitamin c, 1.5mg/g)",
+            },
+        ]
+        pd.DataFrame(rows).to_csv(path, sep="\t", index=False)
+        df = load_ie_raw(path, tmp_path)
+        row = df.iloc[0]
+        assert row["conc_value_raw"] == "1.5"
+        assert row["conc_unit_raw"] == "mg/g"
+
+    def test_unparseable_quantity_logged(self, tmp_path: Path) -> None:
+        path = tmp_path / "bad_conc.tsv"
+        rows = [
+            {
+                "pmcid": "555",
+                "section": "RESULTS",
+                "matched_query": "tea",
+                "sentence": "Tea has traces of lead.",
+                "prob": 0.90,
+                "response": "(tea, leaf, lead, trace)",
+            },
+        ]
+        pd.DataFrame(rows).to_csv(path, sep="\t", index=False)
+        df = load_ie_raw(path, tmp_path)
+        # Row is still created, with empty raw fields.
+        assert len(df) == 1
+        assert df.iloc[0]["conc_value_raw"] == ""
+        assert df.iloc[0]["conc_unit_raw"] == ""
+        # Error was written to diagnostics.
+        errors_path = tmp_path / "diagnostics" / "ie_parse_errors.tsv"
+        assert errors_path.exists()
+        errors = pd.read_csv(errors_path, sep="\t")
+        assert (errors["reason"] == "bad_conc").any()
+
+    def test_empty_quantity_no_error(self, ie_tsv: Path) -> None:
+        df = load_ie_raw(ie_tsv, ie_tsv.parent)
+        # All fixtures have empty quantities — should not produce bad_conc errors.
+        assert (df["conc_value_raw"] == "").all()
+        assert (df["conc_unit_raw"] == "").all()
+
     def test_empty_response_skipped(self, tmp_path: Path) -> None:
         path = tmp_path / "empty.tsv"
         lines = [

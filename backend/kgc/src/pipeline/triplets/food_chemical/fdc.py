@@ -8,11 +8,11 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
-from ...models.relationship import RelationshipType
-from .chemical_disease import _explode_external_ids
+from ....models.relationship import RelationshipType
+from ..utils import explode_external_ids
 
 if TYPE_CHECKING:
-    from ..knowledge_graph import KnowledgeGraph
+    from ...knowledge_graph import KnowledgeGraph
 
 logger = logging.getLogger(__name__)
 
@@ -38,8 +38,8 @@ def merge_fdc_triplets(
     )
 
     # Build lookup maps.
-    food_lookup = _explode_external_ids(kg.entities._entities, "fdc")
-    nutrient_lookup = _explode_external_ids(kg.entities._entities, "fdc_nutrient")
+    food_lookup = explode_external_ids(kg.entities._entities, "fdc")
+    nutrient_lookup = explode_external_ids(kg.entities._entities, "fdc_nutrient")
     if food_lookup.empty or nutrient_lookup.empty:
         logger.info("No FDC entity mappings.")
         return
