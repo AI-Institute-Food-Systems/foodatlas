@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 from ...config.corrections import load_corrections
 from ...stores.entity_registry import EntityRegistry
 from ...stores.schema import FILE_REGISTRY
+from ...utils.timing import log_duration
 from ..checkpoint import save_checkpoint
 from ..load_sources import load_sources
 from ..scaffold import create_empty_entity_files, ensure_registry_exists
@@ -29,11 +30,12 @@ class EntityRunner:
 
     def run(self) -> None:
         """Load ingest output, filter, resolve entities, and save."""
-        sources = load_sources(self._settings)
+        with log_duration("Load ingest sources", logger):
+            sources = load_sources(self._settings)
         corrections = load_corrections()
 
-        logger.info("=== SUBTREE FILTER ===")
-        filter_sources(sources, corrections.ontology_roots)
+        with log_duration("Subtree filter", logger):
+            filter_sources(sources, corrections.ontology_roots)
 
         logger.info("=== ENTITY RESOLUTION ===")
         kg_dir = Path(self._settings.kg_dir)
@@ -42,8 +44,11 @@ class EntityRunner:
 
         create_empty_entity_files(self._settings)
         resolver = EntityResolver(kg_dir, corrections, registry)
-        resolver.resolve(sources)
-        resolver.entity_store.save(kg_dir)
-        save_checkpoint(kg_dir, "entities")
+        with log_duration("Entity resolution (3-pass)", logger):
+            resolver.resolve(sources)
+        with log_duration("Save entity store", logger):
+            resolver.entity_store.save(kg_dir)
+        with log_duration("Save checkpoint (entities)", logger):
+            save_checkpoint(kg_dir, "entities")
 
         logger.info("Entity resolution complete.")

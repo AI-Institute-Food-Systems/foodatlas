@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ...stores.schema import DIR_DIAGNOSTICS
+from ...utils.timing import log_duration
 from ..checkpoint import load_checkpoint, save_checkpoint
 from ..knowledge_graph import KnowledgeGraph
 from ..triplets.ambiguity import write_ambiguous_attestations
@@ -30,18 +31,24 @@ class IERunner:
     def run(self) -> None:
         """Load IE metadata, resolve entities, expand KG, and save."""
         kg_dir = Path(self._settings.kg_dir)
-        load_checkpoint(kg_dir, "triplets")
+        with log_duration("Load checkpoint (triplets)", logger):
+            load_checkpoint(kg_dir, "triplets")
 
         # Clear diagnostics from previous run.
         diag_dir = kg_dir / DIR_DIAGNOSTICS
         if diag_dir.exists():
             shutil.rmtree(diag_dir)
 
-        kg = KnowledgeGraph(self._settings)
-        self._expand(kg)
-        kg.save()
-        write_ambiguous_attestations(kg.attestations, kg_dir)
-        save_checkpoint(kg_dir, "ie")
+        with log_duration("Load KnowledgeGraph", logger):
+            kg = KnowledgeGraph(self._settings)
+        with log_duration("IE expansion", logger):
+            self._expand(kg)
+        with log_duration("Save KG", logger):
+            kg.save()
+        with log_duration("Write ambiguous attestations", logger):
+            write_ambiguous_attestations(kg.attestations, kg_dir)
+        with log_duration("Save checkpoint (ie)", logger):
+            save_checkpoint(kg_dir, "ie")
         logger.info("IE stage complete.")
 
     def _expand(self, kg: KnowledgeGraph) -> None:
@@ -60,15 +67,18 @@ class IERunner:
                 continue
 
             logger.info("Processing IE file: %s", path)
-            metadata = load_ie_raw(path, kg_dir)
+            with log_duration(f"Load IE raw: {path.name}", logger):
+                metadata = load_ie_raw(path, kg_dir)
             if metadata.empty:
                 logger.info("IE loader produced no rows — skipping.")
                 continue
 
-            result = resolve_ie_metadata(metadata, kg.entities)
+            with log_duration("Resolve IE metadata", logger):
+                result = resolve_ie_metadata(metadata, kg.entities)
 
             if not result.resolved.empty:
-                n_triplets = kg.add_triplets_from_resolved_ie(result.resolved)
+                with log_duration("Add IE triplets to KG", logger):
+                    n_triplets = kg.add_triplets_from_resolved_ie(result.resolved)
                 result.stats["triplets_created"] = n_triplets
 
             write_unresolved_report(

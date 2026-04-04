@@ -146,7 +146,20 @@ npm-debug.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# BMAD
-_bmad/
-.bmad_output/
+# Coding assistant
 .claude/
+_bmad/
+_bmad_output/
+
+# Sandbox
+.bash_profile
+.bashrc
+.gitconfig
+.gitmodules
+.idea
+.mcp.json
+.profile
+.ripgreprc
+.vscode
+.zprofile
+.zshrc

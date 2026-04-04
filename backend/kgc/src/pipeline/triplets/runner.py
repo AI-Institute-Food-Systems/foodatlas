@@ -6,6 +6,7 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from ...utils.timing import log_duration
 from ..checkpoint import load_checkpoint, save_checkpoint
 from ..knowledge_graph import KnowledgeGraph
 from ..load_sources import load_sources
@@ -28,18 +29,24 @@ class TripletRunner:
     def run(self) -> None:
         """Build triplets from ingest edges and save."""
         kg_dir = Path(self._settings.kg_dir)
-        load_checkpoint(kg_dir, "entities")
-
-        sources = load_sources(self._settings)
+        with log_duration("Load checkpoint (entities)", logger):
+            load_checkpoint(kg_dir, "entities")
+        with log_duration("Load ingest sources", logger):
+            sources = load_sources(self._settings)
         create_empty_triplet_files(self._settings)
-        kg = KnowledgeGraph(self._settings)
+        with log_duration("Load KnowledgeGraph", logger):
+            kg = KnowledgeGraph(self._settings)
 
-        build_triplets(kg, sources)
+        with log_duration("Build all triplets", logger):
+            build_triplets(kg, sources)
 
-        kg.save()
+        with log_duration("Save KG", logger):
+            kg.save()
         self._validate(kg)
-        write_ambiguous_attestations(kg.attestations, kg_dir)
-        save_checkpoint(kg_dir, "triplets")
+        with log_duration("Write ambiguous attestations", logger):
+            write_ambiguous_attestations(kg.attestations, kg_dir)
+        with log_duration("Save checkpoint (triplets)", logger):
+            save_checkpoint(kg_dir, "triplets")
         logger.info("Triplet stage complete.")
 
     def _validate(self, kg: KnowledgeGraph) -> None:

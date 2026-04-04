@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+from ...utils.timing import log_duration
 from .chemical_chemical import merge_chemical_ontology
 from .chemical_disease import merge_ctd_triplets
 from .disease_disease import merge_disease_ontology
@@ -28,9 +29,14 @@ def build_triplets(
     Mutates *kg* in memory. The caller is responsible for calling
     ``kg.save()`` after all triplet operations are complete.
     """
-    merge_food_ontology(kg, sources)
-    merge_chemical_ontology(kg, sources)
-    merge_disease_ontology(kg, sources)
-    merge_fdc_triplets(kg, sources)
-    merge_ctd_triplets(kg, sources)
+    with log_duration("Food ontology triplets", logger):
+        merge_food_ontology(kg, sources)
+    with log_duration("Chemical ontology triplets", logger):
+        merge_chemical_ontology(kg, sources)
+    with log_duration("Disease ontology triplets", logger):
+        merge_disease_ontology(kg, sources)
+    with log_duration("FDC food-chemical triplets", logger):
+        merge_fdc_triplets(kg, sources)
+    with log_duration("CTD chemical-disease triplets", logger):
+        merge_ctd_triplets(kg, sources)
     logger.info("Triplet build complete.")

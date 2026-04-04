@@ -20,6 +20,7 @@ from ..stores.schema import (
     FILE_TRIPLETS,
 )
 from ..stores.triplet_store import TripletStore
+from ..utils.timing import log_duration
 
 logger = logging.getLogger(__name__)
 
@@ -48,30 +49,34 @@ class KnowledgeGraph:
         """Load all KG stores from ``self._kg_dir``."""
         logger.info("Start loading the knowledge graph...")
 
-        self.evidence = EvidenceStore(path=self._kg_dir / FILE_EVIDENCE)
-        self.attestations = AttestationStore(path=self._kg_dir / FILE_ATTESTATIONS)
-        self.triplets = TripletStore(path_triplets=self._kg_dir / FILE_TRIPLETS)
-        self.entities = EntityStore(
-            path_entities=self._kg_dir / FILE_ENTITIES,
-            path_lut_food=self._kg_dir / FILE_LUT_FOOD,
-            path_lut_chemical=self._kg_dir / FILE_LUT_CHEMICAL,
-            path_kg=self._kg_dir,
-            path_cache_dir=self._cache_dir,
-        )
+        with log_duration("Load evidence store", logger):
+            self.evidence = EvidenceStore(path=self._kg_dir / FILE_EVIDENCE)
+        with log_duration("Load attestation store", logger):
+            self.attestations = AttestationStore(path=self._kg_dir / FILE_ATTESTATIONS)
+        with log_duration("Load triplet store", logger):
+            self.triplets = TripletStore(path_triplets=self._kg_dir / FILE_TRIPLETS)
+        with log_duration("Load entity store", logger):
+            self.entities = EntityStore(
+                path_entities=self._kg_dir / FILE_ENTITIES,
+                path_lut_food=self._kg_dir / FILE_LUT_FOOD,
+                path_lut_chemical=self._kg_dir / FILE_LUT_CHEMICAL,
+                path_kg=self._kg_dir,
+                path_cache_dir=self._cache_dir,
+            )
 
         logger.info("Completed loading the knowledge graph!")
 
     def save(self, path_output_dir: Path | None = None) -> None:
         """Save all KG stores to *path_output_dir* (defaults to kg_dir)."""
         out = Path(path_output_dir) if path_output_dir else self._kg_dir
-        logger.info("Saving evidence...")
-        self.evidence.save(out)
-        logger.info("Saving attestations...")
-        self.attestations.save(out)
-        logger.info("Saving triplets...")
-        self.triplets.save(out)
-        logger.info("Saving entities...")
-        self.entities.save(out)
+        with log_duration("Save evidence", logger):
+            self.evidence.save(out)
+        with log_duration("Save attestations", logger):
+            self.attestations.save(out)
+        with log_duration("Save triplets", logger):
+            self.triplets.save(out)
+        with log_duration("Save entities", logger):
+            self.entities.save(out)
         logger.info("Save complete.")
 
     def print_stats(self) -> None:

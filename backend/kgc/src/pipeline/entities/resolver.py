@@ -13,6 +13,7 @@ from ...stores.schema import (
     FILE_LUT_FOOD,
     FILE_RETIRED,
 )
+from ...utils.timing import log_duration
 from .resolve_primary import (
     create_chemicals_from_chebi,
     create_diseases_from_ctd,
@@ -74,11 +75,16 @@ class EntityResolver:
 
     def resolve(self, sources: dict[str, dict[str, pd.DataFrame]]) -> EntityStore:
         """Run all three passes and return the populated EntityStore."""
-        self._pass1_primary(sources)
-        self._pass2_link(sources)
-        self._pass3_unlinked(sources)
-        self._rebuild_store_luts()
-        self._finalize_registry()
+        with log_duration("Pass 1: primary entities", logger):
+            self._pass1_primary(sources)
+        with log_duration("Pass 2: link secondary sources", logger):
+            self._pass2_link(sources)
+        with log_duration("Pass 3: unlinked entities", logger):
+            self._pass3_unlinked(sources)
+        with log_duration("Rebuild store LUTs", logger):
+            self._rebuild_store_luts()
+        with log_duration("Finalize registry", logger):
+            self._finalize_registry()
         return self._entity_store
 
     def _pass1_primary(self, sources: dict[str, dict[str, pd.DataFrame]]) -> None:
