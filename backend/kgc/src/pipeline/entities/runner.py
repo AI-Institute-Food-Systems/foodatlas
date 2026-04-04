@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 from ...config.corrections import load_corrections
 from ...stores.entity_registry import EntityRegistry
 from ...stores.schema import FILE_REGISTRY
+from ..checkpoint import save_checkpoint
 from ..load_sources import load_sources
 from ..scaffold import create_empty_entity_files, ensure_registry_exists
 from .resolver import EntityResolver
@@ -43,5 +44,6 @@ class EntityRunner:
         resolver = EntityResolver(kg_dir, corrections, registry)
         resolver.resolve(sources)
         resolver.entity_store.save(kg_dir)
+        save_checkpoint(kg_dir, "entities")
 
         logger.info("Entity resolution complete.")

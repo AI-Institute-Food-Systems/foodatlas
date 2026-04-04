@@ -6,6 +6,7 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from ..checkpoint import load_checkpoint, save_checkpoint
 from ..knowledge_graph import KnowledgeGraph
 from ..triplets.ambiguity import write_ambiguous_extractions
 from .loader import load_ie_raw
@@ -26,11 +27,14 @@ class IERunner:
 
     def run(self) -> None:
         """Load IE metadata, resolve entities, expand KG, and save."""
+        kg_dir = Path(self._settings.kg_dir)
+        load_checkpoint(kg_dir, "triplets")
+
         kg = KnowledgeGraph(self._settings)
         self._expand(kg)
         kg.save()
+        save_checkpoint(kg_dir, "ie")
 
-        kg_dir = Path(self._settings.kg_dir)
         write_ambiguous_extractions(kg.extractions, kg_dir)
         logger.info("IE stage complete.")
 

@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ..utils.json_io import write_json
+from .checkpoint import load_checkpoint
 from .entities.runner import EntityRunner
 from .ie.runner import IERunner
 from .ingest.runner import IngestRunner
@@ -89,6 +90,9 @@ class PipelineRunner:
         runner.run()
 
     def _run_postprocessing(self) -> None:
+        kg_dir = Path(self._settings.kg_dir)
+        load_checkpoint(kg_dir, "ie")
+
         sources = load_sources(self._settings)
         kg = KnowledgeGraph(self._settings)
         apply_flavor_descriptions(kg, sources)
