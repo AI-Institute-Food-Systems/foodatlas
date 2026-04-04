@@ -99,9 +99,7 @@ class IngestRunner:
 
         logger.info("Launching %d ingest adapters.", len(adapters_to_run))
 
-        manager = multiprocessing.Manager()
-        queue = manager.Queue()
-        results = _run_with_progress(adapters_to_run, raw_dir, output_dir, queue)
+        results = _run_with_progress(adapters_to_run, raw_dir, output_dir)
 
         logger.info("All ingest adapters complete.")
         return results
@@ -161,9 +159,11 @@ def _run_with_progress(
     adapters: list[type],
     raw_dir: str,
     output_dir: str,
-    queue: Any,
 ) -> dict[str, SourceManifest]:
     """Spawn adapter processes and drive tqdm bars from the queue."""
+    manager = multiprocessing.Manager()
+    queue = manager.Queue()
+
     root_logger = logging.getLogger()
     prev_level = root_logger.level
     root_logger.setLevel(logging.WARNING)
