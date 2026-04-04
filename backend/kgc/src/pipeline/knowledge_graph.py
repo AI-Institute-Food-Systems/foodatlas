@@ -64,10 +64,15 @@ class KnowledgeGraph:
     def save(self, path_output_dir: Path | None = None) -> None:
         """Save all KG stores to *path_output_dir* (defaults to kg_dir)."""
         out = Path(path_output_dir) if path_output_dir else self._kg_dir
+        logger.info("Saving evidence...")
         self.evidence.save(out)
+        logger.info("Saving extractions...")
         self.extractions.save(out)
+        logger.info("Saving triplets...")
         self.triplets.save(out)
+        logger.info("Saving entities...")
         self.entities.save(out)
+        logger.info("Save complete.")
 
     def print_stats(self) -> None:
         """Log the memory footprint of the knowledge graph."""

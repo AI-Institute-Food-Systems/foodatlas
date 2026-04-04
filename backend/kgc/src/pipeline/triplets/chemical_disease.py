@@ -31,12 +31,26 @@ def merge_ctd_triplets(
         return
     edges = ctd["edges"]
     chemdis = edges[edges["edge_type"] == "chemical_disease_association"]
-    direct = chemdis[
-        chemdis["raw_attrs"].apply(lambda x: bool(x.get("direct_evidence")))
-    ].copy()
+    logger.info("Filtering %d CTD chemdis edges for direct evidence...", len(chemdis))
+
+    # raw_attrs may be dicts (in-memory) or JSON strings (from parquet).
+    sample = chemdis["raw_attrs"].iloc[0] if len(chemdis) > 0 else None
+    if isinstance(sample, str):
+        # Fast string filter — match non-empty direct_evidence values.
+        has_evidence = chemdis["raw_attrs"].str.contains(
+            '"direct_evidence": "[^"]', na=False, regex=True
+        )
+        direct = chemdis[has_evidence].copy()
+        direct["raw_attrs"] = direct["raw_attrs"].apply(json.loads)
+    else:
+        direct = chemdis[
+            chemdis["raw_attrs"].apply(lambda x: bool(x.get("direct_evidence")))
+        ].copy()
+
     if direct.empty:
         logger.info("No direct CTD chemical-disease edges.")
         return
+    logger.info("Found %d direct-evidence edges.", len(direct))
 
     # Map relationship type.
     direct["_rel_id"] = direct["raw_attrs"].apply(

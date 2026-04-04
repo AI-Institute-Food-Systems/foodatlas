@@ -61,9 +61,10 @@ class TripletStore:
         path_output_dir = Path(path_output_dir)
         df = self._triplets.reset_index(drop=True)
         if "extraction_ids" in df.columns:
-            df["extraction_ids"] = df["extraction_ids"].apply(
-                lambda x: json.dumps(x) if isinstance(x, list) else x
-            )
+            df["extraction_ids"] = [
+                json.dumps(x) if isinstance(x, list) else x
+                for x in df["extraction_ids"]
+            ]
         df.to_parquet(path_output_dir / FILE_TRIPLETS, index=False)
 
     def add_ontology(self, triplets: pd.DataFrame) -> None:

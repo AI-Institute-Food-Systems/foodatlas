@@ -84,11 +84,14 @@ class EntityStore:
             max_eid = self._entities.index.str.slice(1).astype(int).max()
             self._curr_eid = max_eid + 1 if pd.notna(max_eid) else 1
 
+    # Columns known to contain lists/dicts that need JSON serialization.
+    _JSON_COLUMNS = ("synonyms", "external_ids")
+
     def save(self, path_output_dir: Path) -> None:
         path_output_dir = Path(path_output_dir)
         df = self._entities.reset_index()
-        for col in df.columns:
-            if df[col].apply(lambda x: isinstance(x, (list, dict))).any():
+        for col in self._JSON_COLUMNS:
+            if col in df.columns:
                 df[col] = df[col].apply(json.dumps)
         df.to_parquet(path_output_dir / FILE_ENTITIES, index=False)
         (path_output_dir / FILE_LUT_FOOD).parent.mkdir(exist_ok=True)
