@@ -107,8 +107,8 @@ def load_ie_raw(path: Path, output_dir: Path) -> pd.DataFrame:
                     # Evidence fields
                     "source_type": "pubmed",
                     "reference": ref,
-                    # Extraction fields
-                    "extractor": "lit2kg",
+                    # Attestation fields
+                    "source": "lit2kg",
                     "head_name_raw": standardize_name(food),
                     "tail_name_raw": standardize_name(chemical),
                     "conc_value": None,

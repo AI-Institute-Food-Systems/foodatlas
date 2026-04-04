@@ -10,7 +10,9 @@
       "data_cleaning": {
         "output_dir": "outputs/data_cleaning"
       },
-      "kg_init": {},
+      "kg_init": {
+        "previous_kg_entities": "data/PreviousFAKG/v3.3/entities.tsv"
+      },
       "metadata_processing": {},
       "triplet_expansion": {
         "ie_raw_paths": [

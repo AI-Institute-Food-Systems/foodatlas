@@ -86,22 +86,22 @@ def merge_fdc_triplets(
             }
         )
     )
-    df["extractor"] = "fdc"
+    df["source"] = "fdc"
     df["head_name_raw"] = "FDC:" + df["_food_id"].astype(str)
     df["tail_name_raw"] = "FDC_NUTRIENT:" + df["_nutrient_id"].astype(str)
 
     ev_result = kg.evidence.create(df[["source_type", "reference"]])
     df["evidence_id"] = ev_result.index
-    extractions = kg.extractions.create(df)
+    attestations = kg.attestations.create(df)
 
     triplet_input = df[["_head_id", "_tail_id"]].copy()
     triplet_input.columns = pd.Index(["head_id", "tail_id"])
-    triplet_input.index = extractions.index
+    triplet_input.index = attestations.index
     triplet_input["relationship_id"] = RelationshipType.CONTAINS
     triplets = kg.triplets.create(triplet_input)
 
     logger.info(
-        "Merged %d FDC extractions, %d triplets.", len(extractions), len(triplets)
+        "Merged %d FDC attestations, %d triplets.", len(attestations), len(triplets)
     )
 
 

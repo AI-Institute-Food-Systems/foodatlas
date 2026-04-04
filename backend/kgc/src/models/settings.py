@@ -28,7 +28,7 @@ class DataCleaningStageConfig(BaseModel):
 
 
 class KgInitStageConfig(BaseModel):
-    pass
+    previous_kg_entities: str = ""
 
 
 class MetadataProcessingStageConfig(BaseModel):
@@ -73,6 +73,11 @@ class KGCSettings(BaseSettings):
     @property
     def data_cleaning_dir(self) -> str:
         return self.pipeline.stages.data_cleaning.output_dir
+
+    @property
+    def previous_kg_entities(self) -> str:
+        """Path to previous KG entities TSV for registry seeding."""
+        return self.pipeline.stages.kg_init.previous_kg_entities
 
     @property
     def ingest_dir(self) -> str:

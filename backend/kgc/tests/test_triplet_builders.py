@@ -10,9 +10,9 @@ from src.pipeline.triplets.chemical_chemical import merge_chemical_ontology
 from src.pipeline.triplets.disease_disease import merge_disease_ontology
 from src.pipeline.triplets.food_food import merge_food_ontology
 from src.stores.schema import (
+    FILE_ATTESTATIONS,
     FILE_ENTITIES,
     FILE_EVIDENCE,
-    FILE_EXTRACTIONS,
     FILE_LUT_CHEMICAL,
     FILE_LUT_FOOD,
     FILE_TRIPLETS,
@@ -29,7 +29,7 @@ def _make_kg(tmp_path: Path, entities: list[dict]) -> KnowledgeGraph:
     df.to_parquet(kg_dir / FILE_ENTITIES, index=False)
     pd.DataFrame().to_parquet(kg_dir / FILE_TRIPLETS)
     pd.DataFrame().to_parquet(kg_dir / FILE_EVIDENCE)
-    pd.DataFrame().to_parquet(kg_dir / FILE_EXTRACTIONS)
+    pd.DataFrame().to_parquet(kg_dir / FILE_ATTESTATIONS)
     for f in (FILE_LUT_FOOD, FILE_LUT_CHEMICAL):
         (kg_dir / f).parent.mkdir(parents=True, exist_ok=True)
         (kg_dir / f).write_text("{}")

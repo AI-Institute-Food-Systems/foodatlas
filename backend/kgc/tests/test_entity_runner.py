@@ -28,11 +28,15 @@ def settings(tmp_path: Path) -> KGCSettings:
 @patch("src.pipeline.entities.runner.load_sources")
 @patch("src.pipeline.entities.runner.load_corrections")
 @patch("src.pipeline.entities.runner.filter_sources")
+@patch("src.pipeline.entities.runner.ensure_registry_exists")
+@patch("src.pipeline.entities.runner.EntityRegistry")
 @patch("src.pipeline.entities.runner.create_empty_entity_files")
 @patch("src.pipeline.entities.runner.EntityResolver")
 def test_run_calls_all_steps(
     mock_resolver_cls: MagicMock,
     mock_scaffold: MagicMock,
+    mock_registry_cls: MagicMock,
+    mock_ensure_registry: MagicMock,
     mock_filter: MagicMock,
     mock_corrections: MagicMock,
     mock_loader: MagicMock,
@@ -50,6 +54,7 @@ def test_run_calls_all_steps(
     mock_loader.assert_called_once_with(settings)
     mock_corrections.assert_called_once()
     mock_filter.assert_called_once()
+    mock_ensure_registry.assert_called_once_with(settings)
     mock_scaffold.assert_called_once_with(settings)
     resolver.resolve.assert_called_once()
     resolver.entity_store.save.assert_called_once()
@@ -58,11 +63,15 @@ def test_run_calls_all_steps(
 @patch("src.pipeline.entities.runner.load_sources")
 @patch("src.pipeline.entities.runner.load_corrections")
 @patch("src.pipeline.entities.runner.filter_sources")
+@patch("src.pipeline.entities.runner.ensure_registry_exists")
+@patch("src.pipeline.entities.runner.EntityRegistry")
 @patch("src.pipeline.entities.runner.create_empty_entity_files")
 @patch("src.pipeline.entities.runner.EntityResolver")
 def test_run_passes_sources_to_filter_and_resolver(
     mock_resolver_cls: MagicMock,
     mock_scaffold: MagicMock,
+    mock_registry_cls: MagicMock,
+    mock_ensure_registry: MagicMock,
     mock_filter: MagicMock,
     mock_corrections: MagicMock,
     mock_loader: MagicMock,

@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import logging
-import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from ..utils.timing import log_duration
 from .checkpoint import load_checkpoint
 from .entities.runner import EntityRunner
 from .ie.runner import IERunner
@@ -45,23 +45,14 @@ class PipelineRunner:
         to_run = sorted(stages or ALL_STAGES, key=lambda s: s.value)
 
         logger.info("Pipeline starting — stages: %s", [s.name for s in to_run])
-        t0 = time.monotonic()
-
-        for stage in to_run:
-            self.run_stage(stage)
-
-        elapsed = time.monotonic() - t0
-        logger.info("Pipeline finished in %.1fs", elapsed)
+        with log_duration("Pipeline", logger):
+            for stage in to_run:
+                self.run_stage(stage)
 
     def run_stage(self, stage: PipelineStage) -> None:
         """Run a single stage, logging start/end/duration."""
-        logger.info("=== Stage %s START ===", stage.name)
-        t0 = time.monotonic()
-
-        _STAGE_HANDLERS[stage](self)
-
-        elapsed = time.monotonic() - t0
-        logger.info("=== Stage %s END (%.1fs) ===", stage.name, elapsed)
+        with log_duration(f"Stage {stage.name}", logger):
+            _STAGE_HANDLERS[stage](self)
 
     # ------------------------------------------------------------------
     # Stage handlers

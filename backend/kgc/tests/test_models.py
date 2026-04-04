@@ -9,9 +9,9 @@ from src.models import (
     RelationshipType,
     Triplet,
 )
+from src.models.attestation import Attestation
 from src.models.entity import DiseaseEntity
 from src.models.evidence import Evidence
-from src.models.extraction import Extraction
 from src.models.version import KGVersion
 
 
@@ -73,10 +73,10 @@ class TestTriplet:
             head_id="e1",
             relationship_id="r1",
             tail_id="e2",
-            extraction_ids=["ex1", "ex2"],
+            attestation_ids=["at1", "at2"],
         )
         assert t.head_id == "e1"
-        assert len(t.extraction_ids) == 2
+        assert len(t.attestation_ids) == 2
 
     def test_triplet_defaults(self):
         t = Triplet(
@@ -84,7 +84,7 @@ class TestTriplet:
             relationship_id="r1",
             tail_id="e2",
         )
-        assert t.extraction_ids == []
+        assert t.attestation_ids == []
 
 
 class TestEvidence:
@@ -105,27 +105,27 @@ class TestEvidence:
         assert ev.source_type == "fdc"
 
 
-class TestExtraction:
-    def test_extraction(self):
-        ex = Extraction(
-            extraction_id="ex_abc",
+class TestAttestation:
+    def test_attestation(self):
+        att = Attestation(
+            attestation_id="at_abc",
             evidence_id="ev_abc",
-            extractor="lit2kg:gpt-3.5-ft",
+            source="lit2kg:gpt-3.5-ft",
             head_name_raw="apple",
             tail_name_raw="vitamin c",
             quality_score=0.99,
         )
-        assert ex.extractor == "lit2kg:gpt-3.5-ft"
-        assert ex.validated is False
+        assert att.source == "lit2kg:gpt-3.5-ft"
+        assert att.validated is False
 
-    def test_extraction_defaults(self):
-        ex = Extraction(
-            extraction_id="ex_def",
+    def test_attestation_defaults(self):
+        att = Attestation(
+            attestation_id="at_def",
             evidence_id="ev_def",
-            extractor="fdc",
+            source="fdc",
         )
-        assert ex.conc_value is None
-        assert ex.validated_correct is True
+        assert att.conc_value is None
+        assert att.validated_correct is True
 
 
 class TestRelationship:

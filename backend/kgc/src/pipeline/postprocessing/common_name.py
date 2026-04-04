@@ -4,8 +4,8 @@ import logging
 
 import pandas as pd
 
+from ...stores.attestation_store import AttestationStore
 from ...stores.entity_store import EntityStore
-from ...stores.extraction_store import ExtractionStore
 from ...stores.triplet_store import TripletStore
 from ...utils.constants import ID_PREFIX_MAPPER
 
@@ -91,7 +91,7 @@ def update_common_names(entities: pd.DataFrame) -> pd.DataFrame:
 def apply_common_names(
     entity_store: EntityStore,
     triplet_store: TripletStore,
-    metadata_store: ExtractionStore,
+    metadata_store: AttestationStore,
 ) -> None:
     """End-to-end: count mentions and update common names in *entity_store*."""
     entities = count_synonym_mentions(
