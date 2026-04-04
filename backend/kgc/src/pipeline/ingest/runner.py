@@ -149,12 +149,19 @@ def _drain_queue(
             bar.n = current
             bar.refresh()
 
+    # Collect summaries before closing bars.
+    summaries: list[str] = []
+    for sid in finished:
+        total = bars[sid].total or 0
+        summaries.append(f"{sid:<10}: {total} rows")
+
     for bar in bars.values():
         bar.close()
-    for sid in finished:
-        bar = bars[sid]
-        total = bar.total or 0
-        tqdm.write(f"{sid:<10}: {total} rows")
+
+    # Move cursor below all bar positions and print clean summaries.
+    print()
+    for line in summaries:
+        tqdm.write(line)
 
 
 def _run_with_progress(
