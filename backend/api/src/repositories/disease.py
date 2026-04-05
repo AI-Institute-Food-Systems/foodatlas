@@ -3,6 +3,8 @@
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from .formatting import format_external_ids
+
 ROWS_PER_PAGE = 10
 
 
@@ -17,6 +19,8 @@ async def get_metadata(session: AsyncSession, common_name: str) -> dict[str, obj
         {"name": common_name},
     )
     data = [dict(row._mapping) for row in result]
+    for row in data:
+        row["external_ids"] = format_external_ids(row.get("external_ids"))
     return {"data": data, "metadata": {"row_count": len(data)}}
 
 

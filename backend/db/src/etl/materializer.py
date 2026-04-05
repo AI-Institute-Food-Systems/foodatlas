@@ -25,8 +25,11 @@ MV_TABLES = [
 def refresh_all(conn: Connection) -> None:
     """Truncate and re-populate all materialized API tables."""
     truncate_tables(conn, MV_TABLES)
+    logger.info("Building entity views...")
     _materialize_entity_views(conn)
+    logger.info("Building food-chemical composition...")
     _materialize_food_chemical_composition(conn)
+    logger.info("Building chemical-disease correlation...")
     materialize_chemical_disease_correlation(conn)
     conn.commit()
 
@@ -41,14 +44,22 @@ def _materialize_entity_views(conn: Connection) -> None:
     r3r4 = triplets[triplets["relationship_id"].isin(["r3", "r4"])]
 
     entity_map = entities.set_index("foodatlas_id")
+    name_map = entity_map["common_name"].to_dict()
+
+    # Pre-build classification lookups (O(r2) once, O(1) per entity)
+    foodon_cls = _build_classification_map(r2, name_map, "foodon")
+    chebi_cls = _build_classification_map(r2, name_map, "chebi")
+    cdno_cls = _build_classification_map(r2, name_map, "cdno")
 
     # Food entities: foods that appear as head in r1 triplets
     food_ids = set(r1["head_id"])
     foods = entities[
         (entities["entity_type"] == "food") & (entities["foodatlas_id"].isin(food_ids))
     ].copy()
-    foods["food_classification"] = foods["foodatlas_id"].apply(
-        lambda fid: _get_classifications(fid, r2, entity_map, "foodon")
+    foods["food_classification"] = (
+        foods["foodatlas_id"]
+        .map(foodon_cls)
+        .apply(lambda x: x if isinstance(x, list) else [])
     )
     _insert_mv_entities(conn, "mv_food_entities", foods, ["food_classification"])
 
@@ -58,11 +69,15 @@ def _materialize_entity_views(conn: Connection) -> None:
         (entities["entity_type"] == "chemical")
         & (entities["foodatlas_id"].isin(chem_ids))
     ].copy()
-    chemicals["chemical_classification"] = chemicals["foodatlas_id"].apply(
-        lambda fid: _get_classifications(fid, r2, entity_map, "chebi")
+    chemicals["chemical_classification"] = (
+        chemicals["foodatlas_id"]
+        .map(chebi_cls)
+        .apply(lambda x: x if isinstance(x, list) else [])
     )
-    chemicals["nutrient_classification"] = chemicals["foodatlas_id"].apply(
-        lambda fid: _get_classifications(fid, r2, entity_map, "cdno")
+    chemicals["nutrient_classification"] = (
+        chemicals["foodatlas_id"]
+        .map(cdno_cls)
+        .apply(lambda x: x if isinstance(x, list) else [])
     )
     _insert_mv_entities(
         conn,
@@ -89,22 +104,20 @@ def _materialize_entity_views(conn: Connection) -> None:
     )
 
 
-def _get_classifications(
-    entity_id: str,
+def _build_classification_map(
     r2_triplets: pd.DataFrame,
-    entity_map: pd.DataFrame,
+    name_map: dict[str, str],
     source_prefix: str,
-) -> list[str]:
-    """Get classification labels from IS_A triplets by source prefix."""
-    matches = r2_triplets[
-        (r2_triplets["head_id"] == entity_id)
-        & (r2_triplets["source"].str.contains(source_prefix, case=False, na=False))
+) -> dict[str, list[str]]:
+    """Pre-build {entity_id: [classification names]} from IS_A triplets."""
+    filtered = r2_triplets[
+        r2_triplets["source"].str.contains(source_prefix, case=False, na=False)
     ]
-    return [
-        entity_map.loc[tid, "common_name"]
-        for tid in matches["tail_id"]
-        if tid in entity_map.index
-    ]
+    result: dict[str, list[str]] = {}
+    for head_id, group in filtered.groupby("head_id"):
+        names = [name_map[tid] for tid in group["tail_id"] if tid in name_map]
+        result[str(head_id)] = names
+    return result
 
 
 def _insert_mv_entities(
@@ -230,6 +243,8 @@ def _group_evidences(
         source = att["source"]
 
         conc_val = att["conc_value"]
+        if pd.isna(conc_val):
+            conc_val = None
         if conc_val is not None and float(conc_val) == 0:
             continue
 

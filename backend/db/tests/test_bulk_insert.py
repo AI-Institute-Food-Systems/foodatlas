@@ -19,15 +19,29 @@ class TestSerializeValue:
         # pd.isna handles numpy NaN too
         assert _serialize_value(math.nan) == r"\N"
 
-    def test_list_returns_json(self):
-        assert _serialize_value(["a", "b"]) == '["a", "b"]'
+    def test_list_returns_pg_array(self):
+        assert _serialize_value(["a", "b"]) == '{"a","b"}'
 
-    def test_empty_list_returns_json(self):
-        assert _serialize_value([]) == "[]"
+    def test_empty_list_returns_pg_array(self):
+        assert _serialize_value([]) == "{}"
+
+    def test_list_with_special_chars_quotes_elements(self):
+        assert _serialize_value(["a,b", 'c"d']) == '{"a,b","c\\\\"d"}'
+
+    def test_list_with_backslash(self):
+        assert _serialize_value(["a\\b"]) == '{"a\\\\\\\\b"}'
+
+    def test_list_with_newline(self):
+        assert _serialize_value(["a\nb"]) == '{"a\\nb"}'
 
     def test_dict_returns_json(self):
         result = _serialize_value({"key": "val"})
         assert result == '{"key": "val"}'
+
+    def test_dict_with_backslash_escapes_for_copy(self):
+        result = _serialize_value({"text": "a\\b"})
+        # json.dumps produces \\, COPY escaping doubles to \\\\
+        assert result == '{"text": "a\\\\\\\\b"}'
 
     def test_empty_dict_returns_json(self):
         assert _serialize_value({}) == "{}"
@@ -46,6 +60,12 @@ class TestSerializeValue:
 
     def test_string_passthrough(self):
         assert _serialize_value("hello") == "hello"
+
+    def test_string_with_backslash(self):
+        assert _serialize_value("a\\b") == "a\\\\b"
+
+    def test_string_with_newline(self):
+        assert _serialize_value("a\nb") == "a\\nb"
 
     def test_empty_string(self):
         assert _serialize_value("") == ""
@@ -97,7 +117,7 @@ class TestDfToCopyBuffer:
         content = buf.read()
         assert r"\N" in content
 
-    def test_list_column_serialized_as_json(self):
+    def test_list_column_serialized_as_pg_array(self):
         df = pd.DataFrame(
             {
                 "tags": [["a", "b"]],
@@ -105,7 +125,7 @@ class TestDfToCopyBuffer:
         )
         buf = _df_to_copy_buffer(df, ["tags"])
         content = buf.read()
-        assert '["a", "b"]' in content
+        assert '{"a","b"}' in content
 
     def test_bool_column(self):
         df = pd.DataFrame(
@@ -146,6 +166,6 @@ class TestDfToCopyBuffer:
         parts = content.split("\t")
         assert parts[0] == "f001"
         assert parts[1] == "0.95"
-        assert parts[2] == '["x"]'
+        assert parts[2] == '{"x"}'
         assert parts[3] == '{"k": "v"}'
         assert parts[4] == "t"

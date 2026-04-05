@@ -12,15 +12,54 @@ from sqlalchemy.engine import Connection
 logger = logging.getLogger(__name__)
 
 
+def _pg_array_literal(vals: list) -> str:
+    """Convert a Python list to a PostgreSQL array literal for COPY text format.
+
+    Two escaping levels are applied:
+    1. Array element: ``\\`` and ``\\"`` inside quoted elements.
+    2. COPY text: backslashes doubled again so the COPY parser restores level-1.
+    """
+    parts: list[str] = []
+    for v in vals:
+        if v is None:
+            parts.append("NULL")
+            continue
+        s = str(v)
+        # Level 1 -array quoted-element escaping
+        s = s.replace("\\", "\\\\").replace('"', '\\"')
+        parts.append('"' + s + '"')
+    literal = "{" + ",".join(parts) + "}"
+    # Level 2 -COPY text escaping (backslash is special in COPY text format)
+    literal = (
+        literal.replace("\\", "\\\\")
+        .replace("\n", "\\n")
+        .replace("\r", "\\r")
+        .replace("\t", "\\t")
+    )
+    return literal
+
+
+def _copy_text_escape(s: str) -> str:
+    """Escape a string for PostgreSQL COPY text format."""
+    return (
+        s.replace("\\", "\\\\")
+        .replace("\n", "\\n")
+        .replace("\r", "\\r")
+        .replace("\t", "\\t")
+    )
+
+
 def _serialize_value(val: object) -> str:
     """Serialize a Python value for PostgreSQL COPY format."""
     if val is None or (isinstance(val, float) and pd.isna(val)):
         return r"\N"
     if isinstance(val, bool | np.bool_):
         return "t" if val else "f"
-    if isinstance(val, (list, dict)):
-        return json.dumps(val)
-    return str(val)
+    if isinstance(val, list):
+        return _pg_array_literal(val)
+    if isinstance(val, dict):
+        return _copy_text_escape(json.dumps(val))
+    return _copy_text_escape(str(val))
 
 
 def _df_to_copy_buffer(df: pd.DataFrame, columns: list[str]) -> io.StringIO:
