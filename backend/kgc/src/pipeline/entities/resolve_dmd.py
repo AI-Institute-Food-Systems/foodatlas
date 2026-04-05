@@ -73,6 +73,8 @@ def create_unlinked_dmd(
         return
     created_rows: list[dict] = []
     seen: set[str] = set()
+    new_count = 0
+    reused_count = 0
     for _, row in molecules.iterrows():
         native = str(row["native_id"])
         if native in seen:
@@ -85,8 +87,11 @@ def create_unlinked_dmd(
         if not fa_id:
             fa_id = f"e{registry.next_eid}"
             registry.register("dmd", native, fa_id)
-        # else: registry maps this DMD molecule to its old entity ID
-        # from the previous KG — reuse it (same real-world chemical).
+            new_count += 1
+        else:
+            # Registry maps this DMD molecule to its old entity ID
+            # from the previous KG — reuse it (same real-world chemical).
+            reused_count += 1
         seen.add(native)
 
         composition = ""
@@ -110,4 +115,6 @@ def create_unlinked_dmd(
 
     store._curr_eid = registry.next_eid
     _append_entities(store, created_rows)
-    logger.info("Pass 3: DMD — %d new entities.", len(created_rows))
+    logger.info(
+        "Pass 3: DMD — %d reused IDs, %d new entities.", reused_count, new_count
+    )
