@@ -85,6 +85,9 @@ def seed_registry(registry: EntityRegistry, tsv_path: Path) -> int:
         if not isinstance(external_ids, dict) or not external_ids:
             continue
 
+        if "_placeholder_to" in external_ids:
+            continue
+
         pairs = extract_registry_pairs(entity_type, external_ids)
         for source, native_id, is_primary in pairs:
             try:

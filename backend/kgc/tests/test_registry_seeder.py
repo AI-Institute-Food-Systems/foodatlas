@@ -238,6 +238,28 @@ class TestSeedRegistry:
         assert count == 1
         assert empty_registry.resolve("foodon", "http://x/F2") == "e2"
 
+    def test_skips_placeholder_entities(
+        self, empty_registry: EntityRegistry, tmp_path: Path
+    ) -> None:
+        tsv = _write_tsv(
+            tmp_path,
+            [
+                {
+                    "foodatlas_id": "e1",
+                    "entity_type": "chemical",
+                    "common_name": "placeholder",
+                    "scientific_name": "",
+                    "synonyms": "[]",
+                    "external_ids": (
+                        "{'_placeholder_to': ['e10', 'e20'], 'dmd': ['DMD001']}"
+                    ),
+                },
+            ],
+        )
+        count = seed_registry(empty_registry, tsv)
+        assert count == 0
+        assert empty_registry.resolve("dmd", "DMD001") == ""
+
     def test_skips_empty_external_ids(
         self, empty_registry: EntityRegistry, tmp_path: Path
     ) -> None:
