@@ -4,6 +4,17 @@ version = "0.1.0"
 description = "FoodAtlas database layer"
 readme = "README.md"
 requires-python = ">=3.12"
+dependencies = [
+    "sqlalchemy>=2.0",
+    "psycopg[binary]>=3.1",
+    "alembic>=1.13",
+    "pandas>=2.2",
+    "pyarrow>=15.0",
+    "click>=8.1",
+    "pydantic>=2.6",
+    "pydantic-settings>=2.1",
+    "numpy>=1.26",
+]
 
 [tool.uv]
 python-preference = "system"
