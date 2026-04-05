@@ -100,7 +100,8 @@ def create_chemicals_from_dmd(
     store._curr_eid = registry.next_eid
     _append_entities(store, created_rows)
     logger.info(
-        "Pass 1: DMD — %d enriched, %d reused IDs, %d new.",
+        "Pass 1: %d chemical entities from DMD (%d enriched, %d reused, %d new).",
+        enriched + len(created_rows),
         enriched,
         reused,
         new,
