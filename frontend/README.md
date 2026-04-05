@@ -44,11 +44,14 @@ frontend/
 
 ## Environment Variables
 
-| Variable               | Description                        |
-|------------------------|------------------------------------|
-| `NEXT_PUBLIC_API_URL`  | Backend API base URL               |
-| `NEXT_PUBLIC_API_KEY`  | Backend API key                    |
-| `RESEND_API_KEY`       | Resend API key (contact form)      |
-| `EMAIL_FROM`           | Sender email address               |
-| `EMAIL_TO`             | Recipient email address(es)        |
-| `NEXTAUTH_SECRET`      | NextAuth.js secret                 |
+Create a `.env.local` file (or set env vars) before running:
+
+| Variable | Default | Description |
+|---|---|---|
+| `NEXT_PUBLIC_API_URL` | — | Backend API URL (`http://localhost:8000` for local dev) |
+| `NEXT_PUBLIC_API_KEY` | — | Backend API key (not needed when API runs in debug mode) |
+| `VALIDATION_PAGE_PASSWORD` | — | Password for the validation page (NextAuth) |
+| `NEXTAUTH_SECRET` | — | NextAuth.js secret |
+| `RESEND_API_KEY` | — | Resend API key (contact form) |
+| `EMAIL_FROM` | — | Sender email address |
+| `EMAIL_TO` | — | Recipient email address(es) |

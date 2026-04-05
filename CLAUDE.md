@@ -11,13 +11,19 @@ FoodAtlas is a monorepo containing frontend, backend, and infrastructure code fo
 This is a polyglot monorepo with independent sub-projects:
 
 - **`backend/`** — Four independent Python sub-projects, each with its own `pyproject.toml`, `uv.lock`, and `.venv`:
-  - `api/` — API service
-  - `db/` — Database layer
-  - `ie/` — Information extraction
-  - `kgc/` — Knowledge graph construction
+  - `api/` — FastAPI REST service (uvicorn, port 8000). Routes, repositories, config, auth.
+  - `db/` — PostgreSQL schema (Alembic migrations), ETL pipeline (parquet → Postgres), SQLAlchemy models.
+  - `ie/` — Information extraction (stub, not yet implemented)
+  - `kgc/` — Knowledge graph construction pipeline (Click CLI, multi-stage: ingest → entities → triplets → postprocessing)
 - **`frontend/`** — Next.js 14 app (React 18, TypeScript, Tailwind, App Router)
-- **`infra/`** — AWS CDK infrastructure (Python, not yet initialized)
-Each backend sub-project follows the same layout: `src/__init__.py` is the module, `tests/` for tests, `main.py` as entry point.
+- **`infra/`** — Local dev infrastructure: `docker-compose.yml` for PostgreSQL 16
+- **`docs/`** — Architecture and planning documents (e.g., `bmad/backend-integration-plan.md`)
+
+Each backend sub-project follows the same layout: `src/` is the module, `tests/` for tests, `main.py` as entry point.
+
+### Local stack
+
+PostgreSQL 16 (Docker) → DB migrations (Alembic) → Data load (ETL) → FastAPI (port 8000) → Next.js (port 3000)
 
 ### Configuration split
 
@@ -26,6 +32,27 @@ Each backend sub-project follows the same layout: `src/__init__.py` is the modul
 - **Root `.pre-commit-config.yaml`** — All git hooks. Uses official pre-commit repos for Python tools; local hooks for ESLint and pytest.
 
 ## Commands
+
+### Local dev setup (full stack)
+
+```bash
+# Start PostgreSQL
+docker compose -f infra/docker-compose.yml up -d
+
+# Run DB migrations
+cd backend/db && uv run alembic upgrade head
+
+# Load KGC data into PostgreSQL
+cd backend/db && uv run python main.py load --parquet-dir /path/to/kgc/outputs
+
+# Start API server (port 8000)
+cd backend/api && uv run python main.py
+
+# Start frontend (port 3000)
+cd frontend && npm run dev
+```
+
+### Backend commands
 
 All backend work must be done from within the sub-project directory:
 
