@@ -3,15 +3,15 @@
 import pandas as pd
 from src.etl.materializer import (
     _add_foodatlas_evidence,
+    _build_classification_map,
     _build_composition_row,
     _build_db_evidence,
     _compute_median_concentration,
-    _get_classifications,
     _group_evidences,
 )
 
 
-class TestGetClassifications:
+class TestBuildClassificationMap:
     def test_returns_matching_labels(self):
         r2 = pd.DataFrame(
             {
@@ -20,14 +20,9 @@ class TestGetClassifications:
                 "source": ["foodon", "foodon", "chebi"],
             }
         )
-        entity_map = pd.DataFrame(
-            {
-                "common_name": ["fruit", "vegetable", "organic"],
-            },
-            index=["e10", "e11", "e12"],
-        )
-        result = _get_classifications("e1", r2, entity_map, "foodon")
-        assert result == ["fruit", "vegetable"]
+        name_map = {"e10": "fruit", "e11": "vegetable", "e12": "organic"}
+        result = _build_classification_map(r2, name_map, "foodon")
+        assert result["e1"] == ["fruit", "vegetable"]
 
     def test_returns_empty_for_no_match(self):
         r2 = pd.DataFrame(
@@ -37,9 +32,9 @@ class TestGetClassifications:
                 "source": ["chebi"],
             }
         )
-        entity_map = pd.DataFrame({"common_name": ["x"]}, index=["e10"])
-        result = _get_classifications("e1", r2, entity_map, "foodon")
-        assert result == []
+        name_map = {"e10": "x"}
+        result = _build_classification_map(r2, name_map, "foodon")
+        assert "e1" not in result
 
     def test_skips_missing_tail_ids(self):
         r2 = pd.DataFrame(
@@ -49,9 +44,9 @@ class TestGetClassifications:
                 "source": ["foodon"],
             }
         )
-        entity_map = pd.DataFrame({"common_name": ["x"]}, index=["e10"])
-        result = _get_classifications("e1", r2, entity_map, "foodon")
-        assert result == []
+        name_map = {"e10": "x"}
+        result = _build_classification_map(r2, name_map, "foodon")
+        assert result.get("e1") == []
 
 
 class TestComputeMedianConcentration:

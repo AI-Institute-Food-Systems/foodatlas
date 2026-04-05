@@ -14,7 +14,9 @@ logger = logging.getLogger(__name__)
 def refresh_search(conn: Connection) -> None:
     """Truncate and re-populate search + statistics tables."""
     truncate_tables(conn, ["mv_search_auto_complete", "mv_metadata_statistics"])
+    logger.info("Building search autocomplete...")
     _materialize_search_auto_complete(conn)
+    logger.info("Building metadata statistics...")
     _materialize_statistics(conn)
     conn.commit()
 
@@ -30,35 +32,38 @@ def _materialize_search_auto_complete(conn: Connection) -> None:
     r1 = triplets[triplets["relationship_id"] == "r1"]
     r3r4 = triplets[triplets["relationship_id"].isin(["r3", "r4"])]
 
-    # Count associations per entity
+    # Vectorized association counts
+    assoc_counts = (
+        pd.concat([triplets["head_id"], triplets["tail_id"]]).value_counts().to_dict()
+    )
+
+    # Pre-compute relevant entity ID sets
+    food_ids = set(r1["head_id"])
     food_chem_ids = set(r1["tail_id"])
-    assoc_counts: dict[str, int] = {}
-    for _, row in triplets.iterrows():
-        for eid in (row["head_id"], row["tail_id"]):
-            assoc_counts[eid] = assoc_counts.get(eid, 0) + 1
+    disease_chem_ids = set(r3r4["head_id"]) & food_chem_ids
+    relevant_disease_ids = set(r3r4[r3r4["head_id"].isin(disease_chem_ids)]["tail_id"])
+
+    # Filter entities to only those participating in relevant triplets
+    relevant = entities[
+        ((entities["entity_type"] == "food") & entities["foodatlas_id"].isin(food_ids))
+        | (
+            (entities["entity_type"] == "chemical")
+            & entities["foodatlas_id"].isin(food_chem_ids)
+        )
+        | (
+            (entities["entity_type"] == "disease")
+            & entities["foodatlas_id"].isin(relevant_disease_ids)
+        )
+    ]
 
     rows = []
-    for _, entity in entities.iterrows():
+    for _, entity in relevant.iterrows():
         fid = entity["foodatlas_id"]
         etype = entity["entity_type"]
-
-        # Only include entities that participate in relevant triplets
-        if etype == "food" and fid not in set(r1["head_id"]):
-            continue
-        if etype == "chemical" and fid not in food_chem_ids:
-            continue
-        if etype == "disease":
-            # Only diseases whose correlated chemicals are in food composition
-            disease_triplets = r3r4[r3r4["tail_id"] == fid]
-            chem_in_food = disease_triplets["head_id"].isin(food_chem_ids)
-            if not chem_in_food.any():
-                continue
-
         synonyms = entity["synonyms"] if isinstance(entity["synonyms"], list) else []
         raw_ids = entity["external_ids"]
         ext_ids = raw_ids if isinstance(raw_ids, dict) else {}
 
-        # Build search tokens
         ext_id_values = _extract_external_id_values(ext_ids, etype)
         exact_auto = _build_exact_tokens(
             etype,

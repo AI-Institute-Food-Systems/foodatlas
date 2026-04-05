@@ -50,6 +50,9 @@ class TripletStore:
                 axis=1,
             )
             self._triplets = self._triplets.set_index(_KEY_COL)
+            self._triplets = self._triplets[
+                ~self._triplets.index.duplicated(keep="last")
+            ]
         else:
             self._triplets = pd.DataFrame()
 
@@ -78,6 +81,8 @@ class TripletStore:
             axis=1,
         )
         triplets = triplets.set_index(_KEY_COL)
+        triplets = triplets[~triplets.index.duplicated(keep="first")]
+        triplets = triplets[~triplets.index.isin(self._triplets.index)]
         for key in triplets.index:
             self._key_to_attestations[key] = []
         self._triplets = pd.concat([self._triplets, triplets])
@@ -131,10 +136,11 @@ class TripletStore:
             new_df[_KEY_COL] = keys[new_mask].values
             new_df["attestation_ids"] = [[] for _ in range(len(new_df))]
             new_df = new_df.set_index(_KEY_COL)
+            new_df = new_df[~new_df.index.duplicated(keep="first")]
             self._triplets = pd.concat([self._triplets, new_df])
 
             for key, meta_id in zip(keys[new_mask], meta_ids[new_mask], strict=False):
-                self._key_to_attestations[key] = [meta_id]
+                self._key_to_attestations.setdefault(key, []).append(meta_id)
 
         return metadata
 

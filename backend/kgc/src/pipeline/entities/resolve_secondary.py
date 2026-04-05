@@ -203,25 +203,38 @@ def create_unlinked_cdno(
     linked_ids = _build_external_index(store, "cdno")
 
     unlinked = nodes[~nodes["native_id"].isin(linked_ids)]
-    rows: list[dict] = []
+    rows_by_id: dict[str, dict] = {}
     for _, row in unlinked.iterrows():
         native = str(row["native_id"])
         fa_id = registry.resolve("cdno", native)
         if not fa_id:
             fa_id = f"e{registry.next_eid}"
             registry.register("cdno", native, fa_id)
+
+        if fa_id in store._entities.index:
+            ext = store._entities.at[fa_id, "external_ids"]
+            ext.setdefault("cdno", [])
+            if native not in ext["cdno"]:
+                ext["cdno"].append(native)
+            continue
+        if fa_id in rows_by_id:
+            ext = rows_by_id[fa_id]["external_ids"]
+            if native not in ext.get("cdno", []):
+                ext.setdefault("cdno", []).append(native)
+            continue
+
         entity = ChemicalEntity(
             foodatlas_id=fa_id,
             common_name=row["name"],
             synonyms=[row["name"]] if row["name"] else [],
             external_ids={"cdno": [row["native_id"]]},
         )
-        rows.append(entity.model_dump(by_alias=True))
+        rows_by_id[fa_id] = entity.model_dump(by_alias=True)
         if entity.common_name:
             lut.add("chemical", entity.common_name, entity.foodatlas_id)
     store._curr_eid = registry.next_eid
-    _append_entities(store, rows)
-    logger.info("Pass 3: %d unlinked CDNO entities.", len(rows))
+    _append_entities(store, list(rows_by_id.values()))
+    logger.info("Pass 3: %d unlinked CDNO entities.", len(rows_by_id))
 
 
 def create_unlinked_fdc_foods(
@@ -238,7 +251,7 @@ def create_unlinked_fdc_foods(
     nodes = fdc["nodes"]
     foods = nodes[nodes["node_type"] == "food"]
     unlinked = foods[~foods["native_id"].isin(linked_ids)]
-    rows: list[dict] = []
+    rows_by_id: dict[str, dict] = {}
     for _, row in unlinked.iterrows():
         fdc_id = int(row["native_id"].split(":")[-1])
         native = str(fdc_id)
@@ -246,18 +259,31 @@ def create_unlinked_fdc_foods(
         if not fa_id:
             fa_id = f"e{registry.next_eid}"
             registry.register("fdc", native, fa_id)
+
+        if fa_id in store._entities.index:
+            ext = store._entities.at[fa_id, "external_ids"]
+            ext.setdefault("fdc", [])
+            if fdc_id not in ext["fdc"]:
+                ext["fdc"].append(fdc_id)
+            continue
+        if fa_id in rows_by_id:
+            ext = rows_by_id[fa_id]["external_ids"]
+            if fdc_id not in ext.get("fdc", []):
+                ext.setdefault("fdc", []).append(fdc_id)
+            continue
+
         entity = FoodEntity(
             foodatlas_id=fa_id,
             common_name=row["name"],
             synonyms=[row["name"]] if row["name"] else [],
             external_ids={"fdc": [fdc_id]},
         )
-        rows.append(entity.model_dump(by_alias=True))
+        rows_by_id[fa_id] = entity.model_dump(by_alias=True)
         if entity.common_name:
             lut.add("food", entity.common_name, entity.foodatlas_id)
     store._curr_eid = registry.next_eid
-    _append_entities(store, rows)
-    logger.info("Pass 3: %d unlinked FDC food entities.", len(rows))
+    _append_entities(store, list(rows_by_id.values()))
+    logger.info("Pass 3: %d unlinked FDC food entities.", len(rows_by_id))
 
 
 def create_unlinked_fdc_nutrients(
@@ -274,7 +300,7 @@ def create_unlinked_fdc_nutrients(
     nodes = fdc["nodes"]
     nutrients = nodes[nodes["node_type"] == "nutrient"]
     unlinked = nutrients[~nutrients["native_id"].isin(linked_ids)]
-    rows: list[dict] = []
+    rows_by_id: dict[str, dict] = {}
     for _, row in unlinked.iterrows():
         nutrient_id = int(row["native_id"].split(":")[-1])
         native = str(nutrient_id)
@@ -282,15 +308,28 @@ def create_unlinked_fdc_nutrients(
         if not fa_id:
             fa_id = f"e{registry.next_eid}"
             registry.register("fdc_nutrient", native, fa_id)
+
+        if fa_id in store._entities.index:
+            ext = store._entities.at[fa_id, "external_ids"]
+            ext.setdefault("fdc_nutrient", [])
+            if nutrient_id not in ext["fdc_nutrient"]:
+                ext["fdc_nutrient"].append(nutrient_id)
+            continue
+        if fa_id in rows_by_id:
+            ext = rows_by_id[fa_id]["external_ids"]
+            if nutrient_id not in ext.get("fdc_nutrient", []):
+                ext.setdefault("fdc_nutrient", []).append(nutrient_id)
+            continue
+
         entity = ChemicalEntity(
             foodatlas_id=fa_id,
             common_name=row["name"],
             synonyms=[row["name"]] if row["name"] else [],
             external_ids={"fdc_nutrient": [nutrient_id]},
         )
-        rows.append(entity.model_dump(by_alias=True))
+        rows_by_id[fa_id] = entity.model_dump(by_alias=True)
         if entity.common_name:
             lut.add("chemical", entity.common_name, entity.foodatlas_id)
     store._curr_eid = registry.next_eid
-    _append_entities(store, rows)
-    logger.info("Pass 3: %d unlinked FDC nutrient entities.", len(rows))
+    _append_entities(store, list(rows_by_id.values()))
+    logger.info("Pass 3: %d unlinked FDC nutrient entities.", len(rows_by_id))

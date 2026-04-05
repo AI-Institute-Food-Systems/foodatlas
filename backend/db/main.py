@@ -30,7 +30,7 @@ def load(parquet_dir: Path) -> None:
     """Load KGC parquet output into PostgreSQL."""
     settings = DBSettings()
     engine = create_sync_engine(settings)
-    with engine.begin() as conn:
+    with engine.connect() as conn:
         load_kg(conn, parquet_dir)
     click.echo("Done.")
 

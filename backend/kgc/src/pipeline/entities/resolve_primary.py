@@ -86,12 +86,16 @@ def create_foods_from_foodon(
         nodes = nodes[nodes["is_food"]]
 
     rows: list[dict] = []
+    seen_ids: set[str] = set()
     for _, row in nodes.iterrows():
         native = str(row["native_id"])
         fa_id = registry.resolve("foodon", native)
         if not fa_id:
             fa_id = f"e{registry.next_eid}"
             registry.register("foodon", native, fa_id)
+        if fa_id in store._entities.index or fa_id in seen_ids:
+            continue
+        seen_ids.add(fa_id)
 
         syns = _get_list(row, "synonyms")
         syn_types = _get_list(row, "synonym_types")
@@ -126,12 +130,16 @@ def create_chemicals_from_chebi(
     drop_names = set(corrections.chebi_lut.drop_names)
 
     rows: list[dict] = []
+    seen_ids: set[str] = set()
     for _, row in nodes.iterrows():
         native = str(int(row["native_id"]))
         fa_id = registry.resolve("chebi", native)
         if not fa_id:
             fa_id = f"e{registry.next_eid}"
             registry.register("chebi", native, fa_id)
+        if fa_id in store._entities.index or fa_id in seen_ids:
+            continue
+        seen_ids.add(fa_id)
 
         syns = _get_list(row, "synonyms")
         syn_types = _get_list(row, "synonym_types")
@@ -169,12 +177,16 @@ def create_diseases_from_ctd(
     nodes = ctd["nodes"]
 
     rows: list[dict] = []
+    seen_ids: set[str] = set()
     for _, row in nodes.iterrows():
         native = str(row["native_id"])
         fa_id = registry.resolve("ctd", native)
         if not fa_id:
             fa_id = f"e{registry.next_eid}"
             registry.register("ctd", native, fa_id)
+        if fa_id in store._entities.index or fa_id in seen_ids:
+            continue
+        seen_ids.add(fa_id)
 
         syns = _get_list(row, "synonyms")
         name = row["name"] if row["name"] else (syns[0] if syns else "")

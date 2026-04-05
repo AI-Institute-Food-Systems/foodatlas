@@ -49,7 +49,6 @@ Settings use Pydantic with env prefix `KGC_` (e.g. `KGC_DATA_DIR`). Key fields:
 | `data_dir` | `data` | Raw data source directory |
 | `output_dir` | `outputs` | General output directory |
 | `cache_dir` | `outputs/cache` | Cache directory |
-| `ncbi_email` | — | Required for NCBI Taxonomy queries |
 | `pubchem_mapping_file` | — | PubChem synonym mapping |
 
 Override via environment variables, config JSON, or CLI flags.

@@ -3,10 +3,10 @@
 import pandas as pd
 from src.etl.materializer import (
     _add_foodatlas_evidence,
+    _build_classification_map,
     _build_composition_row,
     _build_db_evidence,
     _compute_median_concentration,
-    _get_classifications,
     _group_evidences,
 )
 
@@ -173,8 +173,8 @@ class TestAddFoodatlasEvidence:
         assert evidences[0]["reference"]["url"] == ""
 
 
-class TestGetClassifications:
-    """Test _get_classifications with mock DataFrames."""
+class TestBuildClassificationMap:
+    """Test _build_classification_map with mock DataFrames."""
 
     def test_finds_matching_classifications(self):
         r2 = pd.DataFrame(
@@ -184,16 +184,9 @@ class TestGetClassifications:
                 {"head_id": "c002", "tail_id": "class3", "source": "chebi_ontology"},
             ]
         )
-        entity_map = pd.DataFrame(
-            {
-                "common_name": ["ClassA", "ClassB", "ClassC"],
-            },
-            index=["class1", "class2", "class3"],
-        )
-        entity_map.index.name = "foodatlas_id"
-
-        result = _get_classifications("c001", r2, entity_map, "chebi")
-        assert result == ["ClassA", "ClassB"]
+        name_map = {"class1": "ClassA", "class2": "ClassB", "class3": "ClassC"}
+        result = _build_classification_map(r2, name_map, "chebi")
+        assert result["c001"] == ["ClassA", "ClassB"]
 
     def test_no_matching_source(self):
         r2 = pd.DataFrame(
@@ -201,25 +194,24 @@ class TestGetClassifications:
                 {"head_id": "c001", "tail_id": "class1", "source": "foodon_ontology"},
             ]
         )
-        entity_map = pd.DataFrame({"common_name": ["X"]}, index=["class1"])
-        result = _get_classifications("c001", r2, entity_map, "chebi")
-        assert result == []
+        name_map = {"class1": "X"}
+        result = _build_classification_map(r2, name_map, "chebi")
+        assert "c001" not in result
 
     def test_empty_r2(self):
         r2 = pd.DataFrame(columns=["head_id", "tail_id", "source"])
-        entity_map = pd.DataFrame(columns=["common_name"])
-        result = _get_classifications("c001", r2, entity_map, "chebi")
-        assert result == []
+        result = _build_classification_map(r2, {}, "chebi")
+        assert result == {}
 
-    def test_missing_tail_in_entity_map(self):
+    def test_missing_tail_in_name_map(self):
         r2 = pd.DataFrame(
             [
                 {"head_id": "c001", "tail_id": "missing", "source": "chebi_x"},
             ]
         )
-        entity_map = pd.DataFrame({"common_name": ["A"]}, index=["other"])
-        result = _get_classifications("c001", r2, entity_map, "chebi")
-        assert result == []
+        name_map = {"other": "A"}
+        result = _build_classification_map(r2, name_map, "chebi")
+        assert result.get("c001") == []
 
 
 class TestGroupEvidences:
