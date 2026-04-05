@@ -14,7 +14,7 @@ from ...stores.schema import (
     FILE_RETIRED,
 )
 from ...utils.timing import log_duration
-from .resolve_dmd import resolve_dmd
+from .resolve_dmd import create_unlinked_dmd, link_dmd
 from .resolve_primary import (
     create_chemicals_from_chebi,
     create_diseases_from_ctd,
@@ -108,6 +108,7 @@ class EntityResolver:
             m,
         )
         link_fdc_nutrients(sources, self._entity_store, self._linked_native_ids, reg, m)
+        link_dmd(sources, self._entity_store, reg)
         # PubChem and MeSH are cross-references, not entity identifiers.
         # They enrich external_ids but are not registered in the registry.
         link_pubchem_to_chebi(sources, self._entity_store)
@@ -130,7 +131,7 @@ class EntityResolver:
             self._linked_native_ids,
             self._registry,
         )
-        resolve_dmd(sources, self._entity_store, self._lut, self._registry)
+        create_unlinked_dmd(sources, self._entity_store, self._lut, self._registry)
         logger.info("Pass 3 complete: %d entities.", len(self._entity_store._entities))
 
     def _rebuild_store_luts(self) -> None:

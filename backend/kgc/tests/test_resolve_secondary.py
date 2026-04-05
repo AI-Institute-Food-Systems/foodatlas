@@ -169,6 +169,64 @@ def test_link_fdc_nutrients(tmp_path: Path, registry: EntityRegistry) -> None:
     assert 1001 in ext["fdc_nutrient"]
 
 
+def test_link_fdc_nutrients_multi_cdno_links_all(
+    tmp_path: Path, registry: EntityRegistry
+) -> None:
+    """When multiple CDNO IDs map to different entities, link nutrient to all."""
+    store = _make_store_with_entities(
+        tmp_path,
+        [
+            {
+                "foodatlas_id": "e1",
+                "entity_type": "chemical",
+                "common_name": "(S)-lactic acid",
+                "synonyms": ["(s)-lactic acid"],
+                "external_ids": {"cdno": ["CDNO_A"]},
+                "scientific_name": "",
+            },
+            {
+                "foodatlas_id": "e2",
+                "entity_type": "chemical",
+                "common_name": "(R)-lactic acid",
+                "synonyms": ["(r)-lactic acid"],
+                "external_ids": {"cdno": ["CDNO_B"]},
+                "scientific_name": "",
+            },
+        ],
+    )
+    linked: set[str] = set()
+    sources: dict[str, dict[str, pd.DataFrame]] = {
+        "fdc": {
+            "nodes": pd.DataFrame(
+                [{"native_id": "nutrient:1038", "node_type": "nutrient"}]
+            ),
+        },
+        "cdno": {
+            "xrefs": pd.DataFrame(
+                [
+                    {
+                        "source_id": "cdno",
+                        "native_id": "CDNO_A",
+                        "target_source": "fdc_nutrient",
+                        "target_id": "1038",
+                    },
+                    {
+                        "source_id": "cdno",
+                        "native_id": "CDNO_B",
+                        "target_source": "fdc_nutrient",
+                        "target_id": "1038",
+                    },
+                ]
+            ),
+        },
+    }
+    link_fdc_nutrients(sources, store, linked, registry, {})
+    # Both entities should have fdc_nutrient appended.
+    assert 1038 in store._entities.at["e1", "external_ids"]["fdc_nutrient"]
+    assert 1038 in store._entities.at["e2", "external_ids"]["fdc_nutrient"]
+    assert "nutrient:1038" in linked
+
+
 def test_create_unlinked_cdno(tmp_path: Path, registry: EntityRegistry) -> None:
     store = _make_store_with_entities(tmp_path, [])
     lut = EntityLUT()

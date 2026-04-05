@@ -9,6 +9,9 @@ from pathlib import Path
 import click
 from src.models.settings import KGCSettings
 from src.pipeline.ingest.runner import ALL_ADAPTERS
+from src.pipeline.kg_diff.compare import run_diff
+from src.pipeline.kg_diff.load_old import load_old_kg
+from src.pipeline.kg_diff.report import format_report
 from src.pipeline.runner import PipelineRunner
 from src.pipeline.stages import PipelineStage
 
@@ -102,6 +105,27 @@ def init(ctx: click.Context) -> None:
     settings: KGCSettings = ctx.obj["settings"]
     runner = PipelineRunner(settings)
     runner.run([PipelineStage.INGEST, PipelineStage.ENTITIES])
+
+
+@cli.command("diff")
+@click.option(
+    "--output",
+    type=click.Path(),
+    default=None,
+    help="Write report to file instead of stdout.",
+)
+@click.pass_context
+def diff_cmd(ctx: click.Context, output: str | None) -> None:
+    """Compare old v3.3 KG with current KG."""
+    settings: KGCSettings = ctx.obj["settings"]
+    old_kg = load_old_kg(settings.data_dir)
+    result = run_diff(old_kg, settings.kg_dir)
+    report = format_report(result)
+    if output:
+        Path(output).write_text(report)
+        click.echo(f"Report written to {output}")
+    else:
+        click.echo(report)
 
 
 if __name__ == "__main__":

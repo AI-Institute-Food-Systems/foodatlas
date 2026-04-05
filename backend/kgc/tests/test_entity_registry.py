@@ -93,6 +93,22 @@ class TestRegisterAlias:
         assert populated_registry.resolve("fdc", "100") == "e2"
 
 
+class TestReassign:
+    def test_reassign_updates_mapping(self, populated_registry: EntityRegistry) -> None:
+        old = populated_registry.reassign("chebi", "12345", "e50")
+        assert old == "e2"
+        assert populated_registry.resolve("chebi", "12345") == "e50"
+
+    def test_reassign_updates_max_eid(self, populated_registry: EntityRegistry) -> None:
+        populated_registry.reassign("chebi", "12345", "e999")
+        assert populated_registry.next_eid == 1000
+
+    def test_reassign_new_key(self, empty_registry: EntityRegistry) -> None:
+        old = empty_registry.reassign("chebi", "999", "e5")
+        assert old == ""
+        assert empty_registry.resolve("chebi", "999") == "e5"
+
+
 class TestAllIds:
     def test_returns_distinct(self, populated_registry: EntityRegistry) -> None:
         ids = populated_registry.all_ids()
