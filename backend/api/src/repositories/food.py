@@ -1,0 +1,204 @@
+"""Food entity repository."""
+
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+
+ROWS_PER_PAGE = 25
+
+NUTRIENT_KEY_MAP = {
+    "carbohydrate (including fiber)": "carbohydrates(incl.fiber)",
+    "lipid": "lipids",
+    "vitamin": "vitamins",
+    "amino acid and protein": "amino acids and proteins",
+    "mineral (including derivatives)": "minerals(incl.derivatives)",
+    "others": "others",
+}
+
+VALID_SOURCES = {"fdc", "foodatlas", "dmd"}
+VALID_SORT_COLS = {
+    "common_name": "chemical_name",
+    "median_concentration": "median_concentration",
+}
+VALID_DIRECTIONS = {"ASC", "DESC"}
+
+ALL_EVIDENCE_COLS = "fdc_evidences, foodatlas_evidences, dmd_evidences"
+BASE_SELECT = (
+    "chemical_name AS name, chemical_foodatlas_id AS id, "
+    "nutrient_classification, median_concentration"
+)
+
+
+async def get_metadata(session: AsyncSession, common_name: str) -> dict[str, object]:
+    """Get food entity metadata."""
+    result = await session.execute(
+        text("""
+            SELECT common_name, foodatlas_id AS id, entity_type,
+                   scientific_name, synonyms, external_ids, food_classification
+            FROM mv_food_entities WHERE common_name = :name
+        """),
+        {"name": common_name},
+    )
+    data = [dict(row._mapping) for row in result]
+    return {"data": data, "metadata": {"row_count": len(data)}}
+
+
+async def get_profile(session: AsyncSession, common_name: str) -> dict[str, object]:
+    """Get macro/micronutrient profile grouped by classification."""
+    result = await session.execute(
+        text("""
+            SELECT chemical_name AS name, chemical_foodatlas_id AS id,
+                   nutrient_classification, median_concentration
+            FROM mv_food_chemical_composition
+            WHERE food_name = :name
+            ORDER BY median_concentration DESC NULLS LAST
+        """),
+        {"name": common_name},
+    )
+    profile: dict[str, list] = {
+        "carbohydrates(incl.fiber)": [],
+        "lipids": [],
+        "vitamins": [],
+        "amino acids and proteins": [],
+        "minerals(incl.derivatives)": [],
+        "others": [],
+    }
+    for row in result:
+        mapping = row._mapping
+        classifications = mapping["nutrient_classification"] or []
+        entry = {
+            "name": mapping["name"],
+            "median_concentration": mapping["median_concentration"],
+        }
+        for cls in classifications:
+            key = NUTRIENT_KEY_MAP.get(cls)
+            if key and key in profile:
+                profile[key].append(entry)
+
+    return {"data": profile}
+
+
+async def get_composition(
+    session: AsyncSession,
+    common_name: str,
+    page: int = 1,
+    filter_source: str = "",
+    search_term: str = "",
+    sort_by: str = "common_name",
+    sort_dir: str = "desc",
+    show_all_rows: bool = True,
+    rows_per_page: int = ROWS_PER_PAGE,
+) -> dict[str, object]:
+    """Get paginated food chemical composition with filtering/sorting."""
+    sources = [s for s in filter_source.split("+") if s] if filter_source else []
+    if filter_source and not sources:
+        return _empty_composition(rows_per_page)
+
+    # Validate and build query parts from allowlists (not user input)
+    select_cols, where_parts, params = _build_query_parts(
+        common_name,
+        sources,
+        search_term,
+        show_all_rows,
+    )
+    sort_col = VALID_SORT_COLS.get(sort_by, "chemical_name")
+    direction = sort_dir.upper() if sort_dir.upper() in VALID_DIRECTIONS else "DESC"
+
+    where = " AND ".join(where_parts)
+    offset = rows_per_page * (page - 1)
+    params["offset"] = offset
+    params["limit"] = rows_per_page
+
+    sql = _compose_sql(select_cols, where, sort_col, direction, paginated=True)
+    result = await session.execute(text(sql), params)
+    data = [dict(row._mapping) for row in result]
+
+    count_params = {k: v for k, v in params.items() if k not in ("offset", "limit")}
+    count_sql = _compose_sql(select_cols, where, sort_col, direction, count_only=True)
+    count_result = await session.execute(text(count_sql), count_params)
+    total_rows = count_result.scalar() or 0
+    total_pages = (total_rows + rows_per_page - 1) // rows_per_page if total_rows else 0
+
+    return {
+        "data": data,
+        "metadata": {
+            "row_count": len(data),
+            "rows_per_page": rows_per_page,
+            "current_row": offset + 1,
+            "current_page": page,
+            "total_rows": total_rows,
+            "total_pages": total_pages,
+        },
+    }
+
+
+def _build_query_parts(
+    common_name: str,
+    sources: list[str],
+    search_term: str,
+    show_all_rows: bool,
+) -> tuple[str, list[str], dict]:
+    """Build SELECT columns, WHERE conditions, and params from validated inputs."""
+    # Evidence columns from allowlist
+    valid = [s for s in sources if s in VALID_SOURCES]
+    if not valid or len(valid) > 1:
+        select_cols = BASE_SELECT + ", " + ALL_EVIDENCE_COLS
+    else:
+        select_cols = BASE_SELECT + ", " + valid[0] + "_evidences"
+
+    conditions = ["food_name = :name"]
+    params: dict = {"name": common_name}
+
+    if len(valid) == 1:
+        conditions.append(valid[0] + "_evidences IS NOT NULL")
+
+    if search_term:
+        conditions.append("chemical_name ILIKE :search")
+        params["search"] = "%" + search_term + "%"
+
+    if not show_all_rows:
+        conditions.append("median_concentration IS NOT NULL")
+
+    return select_cols, conditions, params
+
+
+def _compose_sql(
+    select_cols: str,
+    where: str,
+    sort_col: str,
+    direction: str,
+    *,
+    paginated: bool = False,
+    count_only: bool = False,
+) -> str:
+    """Compose SQL from pre-validated parts."""
+    if count_only:
+        return "SELECT COUNT(*) FROM mv_food_chemical_composition WHERE " + where
+    pagination = ""
+    if paginated:
+        pagination = " OFFSET :offset ROWS FETCH FIRST :limit ROWS ONLY"
+    return (
+        "SELECT "
+        + select_cols
+        + " FROM mv_food_chemical_composition WHERE "
+        + where
+        + " ORDER BY "
+        + sort_col
+        + " "
+        + direction
+        + " NULLS LAST"
+        + pagination
+    )
+
+
+def _empty_composition(rows_per_page: int) -> dict[str, object]:
+    return {
+        "data": [],
+        "metadata": {
+            "row_count": 0,
+            "rows_per_page": rows_per_page,
+            "current_row": 0,
+            "current_page": 0,
+            "total_rows": 0,
+            "total_pages": 0,
+        },
+    }
