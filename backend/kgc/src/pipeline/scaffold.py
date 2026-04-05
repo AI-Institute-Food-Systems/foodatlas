@@ -44,17 +44,14 @@ def _ensure_previous_kg_registry(entities_tsv: Path) -> Path:
 
 
 def ensure_registry_exists(settings: KGCSettings) -> None:
-    """Create empty ``entity_registry.parquet`` if it does not exist.
+    """Seed ``entity_registry.parquet`` from the previous KG.
 
-    The registry persists across builds and must never be overwritten.
-    When *previous_kg_entities* is configured and the registry is new,
-    the previous KG's registry is generated (if needed) and copied in.
+    Always re-seeds from the previous KG entities TSV so the registry
+    is deterministic and not affected by leftover state from prior runs.
     """
     kg_dir = Path(settings.kg_dir)
     kg_dir.mkdir(parents=True, exist_ok=True)
     path = kg_dir / FILE_REGISTRY
-    if path.exists():
-        return
 
     prev_path = settings.previous_kg_entities
     if prev_path:
@@ -65,11 +62,7 @@ def ensure_registry_exists(settings: KGCSettings) -> None:
 
 
 def create_empty_entity_files(settings: KGCSettings) -> None:
-    """Create empty entity-related KG files (entities + LUTs).
-
-    Note: This function must NEVER touch ``entity_registry.parquet``,
-    which persists across builds for stable entity ID assignment.
-    """
+    """Create empty entity-related KG files (entities + LUTs)."""
     kg_dir = Path(settings.kg_dir)
     kg_dir.mkdir(parents=True, exist_ok=True)
     (kg_dir / DIR_INTERMEDIATE).mkdir(exist_ok=True)

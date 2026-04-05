@@ -215,15 +215,16 @@ class TestEnsureRegistryExists:
         assert len(df) == 1
         assert df.iloc[0]["foodatlas_id"] == "e99"
 
-    def test_does_not_reseed_existing_registry(
+    def test_always_reseeds_from_previous_kg(
         self, kg_dir: Path, tmp_path: Path
     ) -> None:
+        """Registry is always re-seeded, even if outputs/kg file exists."""
         kg_dir.mkdir(parents=True, exist_ok=True)
         path = kg_dir / FILE_REGISTRY
-        existing = pd.DataFrame(
-            [{"source": "foodon", "native_id": "F1", "foodatlas_id": "e1"}]
+        stale = pd.DataFrame(
+            [{"source": "foodon", "native_id": "STALE", "foodatlas_id": "e1"}]
         )
-        existing.to_parquet(path, index=False)
+        stale.to_parquet(path, index=False)
 
         tsv_path = tmp_path / "prev_entities.tsv"
         tsv_path.write_text(
@@ -239,21 +240,22 @@ class TestEnsureRegistryExists:
         ensure_registry_exists(settings)
         df = pd.read_parquet(path)
         assert len(df) == 1
-        assert df.iloc[0]["foodatlas_id"] == "e1"
+        assert df.iloc[0]["foodatlas_id"] == "e99"
 
-    def test_does_not_overwrite_existing(
+    def test_overwrites_existing_when_no_previous(
         self, settings: KGCSettings, kg_dir: Path
     ) -> None:
+        """Without previous KG, registry is reset to empty."""
         kg_dir.mkdir(parents=True, exist_ok=True)
         path = kg_dir / FILE_REGISTRY
-        existing = pd.DataFrame(
+        stale = pd.DataFrame(
             [{"source": "foodon", "native_id": "F1", "foodatlas_id": "e1"}]
         )
-        existing.to_parquet(path, index=False)
+        stale.to_parquet(path, index=False)
 
         ensure_registry_exists(settings)
         df = pd.read_parquet(path)
-        assert len(df) == 1
+        assert len(df) == 0
 
     def test_entity_files_do_not_touch_registry(
         self, settings: KGCSettings, kg_dir: Path
