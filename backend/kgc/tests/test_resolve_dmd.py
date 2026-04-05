@@ -122,12 +122,13 @@ class TestCreateUnlinkedDmd:
         )
         assert len(store._entities) == 1
 
-    def test_stale_registry_gets_fresh_id(
+    def test_reuses_seeded_registry_id(
         self, tmp_path: Path, registry: EntityRegistry
     ) -> None:
+        """DMD molecule with a seeded registry entry keeps its old ID."""
         store = _make_store(tmp_path, [])
         registry.register("dmd", "DMD001", "e50")
         lut = EntityLUT()
         create_unlinked_dmd(_dmd_sources([("DMD001", "newchem")]), store, lut, registry)
         assert len(store._entities) == 1
-        assert store._entities.index[0] != "e50"
+        assert store._entities.index[0] == "e50"

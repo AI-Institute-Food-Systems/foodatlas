@@ -85,10 +85,8 @@ def create_unlinked_dmd(
         if not fa_id:
             fa_id = f"e{registry.next_eid}"
             registry.register("dmd", native, fa_id)
-        else:
-            # Stale registry entry → assign a fresh ID.
-            fa_id = f"e{registry.next_eid}"
-            registry.reassign("dmd", native, fa_id)
+        # else: registry maps this DMD molecule to its old entity ID
+        # from the previous KG — reuse it (same real-world chemical).
         seen.add(native)
 
         composition = ""
