@@ -82,11 +82,21 @@ cd frontend
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3001). The frontend connects to the API at `http://localhost:8000` by default.
+The frontend runs at `http://localhost:3001`. It connects to the API at `http://localhost:8000` (configured via `NEXT_PUBLIC_API_URL` in `frontend/.env.local`).
+
+### 7. Remote access (SSH tunnel)
+
+If running on a remote server, forward both ports from your local machine:
+
+```bash
+ssh -L 3001:localhost:3001 -L 8000:localhost:8000 user@your-server
+```
+
+Then open `http://localhost:3001` in your local browser. Both the frontend (3001) and API calls (8000) are tunneled.
 
 ### Environment Variables
 
-All services work with defaults for local development. Override via `.env` files or environment variables:
+Each sub-project reads its own `.env` file (`backend/api/.env`, `frontend/.env.local`). Override via environment variables:
 
 | Variable | Default | Description |
 |---|---|---|
@@ -96,7 +106,7 @@ All services work with defaults for local development. Override via `.env` files
 | `DB_USER` | `foodatlas` | Database user |
 | `DB_PASSWORD` | `foodatlas` | Database password |
 | `API_KEY` | (empty) | API key (skipped in debug mode) |
-| `API_CORS_ORIGINS` | `http://localhost:3000` | Allowed CORS origins |
+| `API_CORS_ORIGINS` | `http://localhost:3000` | Allowed CORS origins (comma-separated) |
 | `API_DEBUG` | `true` | Enable debug mode |
 | `NEXT_PUBLIC_API_URL` | — | Backend API URL (set to `http://localhost:8000`) |
 | `NEXT_PUBLIC_API_KEY` | — | Backend API key (not needed in debug mode) |
