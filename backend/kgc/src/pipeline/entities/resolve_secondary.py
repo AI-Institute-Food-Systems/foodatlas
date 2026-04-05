@@ -152,30 +152,37 @@ def link_fdc_nutrients(
         else pd.DataFrame()
     )
 
-    fdc_to_cdno: dict[str, str] = {}
+    fdc_to_cdno: dict[str, list[str]] = {}
     for _, xref in fdc_nutrient_xrefs.iterrows():
-        fdc_to_cdno[xref["target_id"]] = xref["native_id"]
+        fdc_to_cdno.setdefault(xref["target_id"], []).append(xref["native_id"])
 
     cdno_index = _build_external_index(store, "cdno")
 
     linked = 0
     for _, row in nutrients.iterrows():
         nutrient_id = row["native_id"].split(":")[-1]
-        if nutrient_id in fdc_to_cdno:
-            cdno_id = fdc_to_cdno[nutrient_id]
-            fa_id = cdno_index.get(cdno_id)
-            if fa_id:
-                ext = store._entities.at[fa_id, "external_ids"]
-                if "fdc_nutrient" not in ext:
-                    ext["fdc_nutrient"] = []
-                nid = int(nutrient_id)
-                if nid not in ext["fdc_nutrient"]:
-                    ext["fdc_nutrient"].append(nid)
-                old = registry.register_alias("fdc_nutrient", str(nutrient_id), fa_id)
-                if old:
-                    merges[old] = fa_id
-                linked += 1
-                linked_ids.add(row["native_id"])
+        cdno_ids = fdc_to_cdno.get(nutrient_id, [])
+        if not cdno_ids:
+            continue
+        fa_ids = {cdno_index[c] for c in cdno_ids if c in cdno_index}
+        if not fa_ids:
+            continue
+        # Append fdc_nutrient to ALL matching entities (may be >1).
+        nid = int(nutrient_id)
+        for fa_id in fa_ids:
+            ext = store._entities.at[fa_id, "external_ids"]
+            if "fdc_nutrient" not in ext:
+                ext["fdc_nutrient"] = []
+            if nid not in ext["fdc_nutrient"]:
+                ext["fdc_nutrient"].append(nid)
+        # Only register alias when there's a single unambiguous target.
+        if len(fa_ids) == 1:
+            fa_id = next(iter(fa_ids))
+            old = registry.register_alias("fdc_nutrient", str(nutrient_id), fa_id)
+            if old and old != fa_id:
+                merges[old] = fa_id
+        linked += 1
+        linked_ids.add(row["native_id"])
     logger.info("Pass 2: linked %d FDC nutrients.", linked)
 
 

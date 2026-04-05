@@ -34,7 +34,7 @@ _SOURCE_MAP: dict[tuple[str, str], tuple[str, Any, bool]] = {
     ("chemical", "chebi"): ("chebi", _str_int, True),
     ("chemical", "cdno"): ("cdno", str, False),
     ("chemical", "fdc_nutrient"): ("fdc_nutrient", _str_int, False),
-    ("chemical", "dmd"): ("dmd", str, False),
+    ("chemical", "dmd"): ("dmd", str, True),
     ("disease", "mesh"): ("ctd", _mesh_to_ctd, True),
 }
 
@@ -85,6 +85,9 @@ def seed_registry(registry: EntityRegistry, tsv_path: Path) -> int:
         if not isinstance(external_ids, dict) or not external_ids:
             continue
 
+        if "_placeholder_to" in external_ids:
+            continue
+
         pairs = extract_registry_pairs(entity_type, external_ids)
         for source, native_id, is_primary in pairs:
             try:
@@ -95,6 +98,13 @@ def seed_registry(registry: EntityRegistry, tsv_path: Path) -> int:
                 added += 1
             except ValueError:
                 skipped += 1
+
+    # Ensure next_eid is above ALL old entity IDs, including those
+    # without registerable external_ids (e.g. flavors, chemicals with
+    # only unrecognised sources).  Without this, new entity IDs can
+    # collide with old IDs that have no registry entry.
+    max_old_eid = int(df["foodatlas_id"].str.slice(1).astype(int).max())
+    registry._max_eid = max(registry._max_eid, max_old_eid)
 
     if skipped:
         logger.warning("Registry seeding: skipped %d entries.", skipped)

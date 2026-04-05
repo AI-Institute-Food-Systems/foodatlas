@@ -76,7 +76,7 @@ class TestExtractRegistryPairs:
         ext = {"dmd": ["DMD302680"]}
         pairs = extract_registry_pairs("chemical", ext)
         assert len(pairs) == 1
-        assert pairs[0] == ("dmd", "DMD302680", False)
+        assert pairs[0] == ("dmd", "DMD302680", True)
 
     def test_unknown_keys_skipped(self) -> None:
         ext = {"pubchem_compound": [6213], "some_unknown": ["val"]}
@@ -238,6 +238,28 @@ class TestSeedRegistry:
         assert count == 1
         assert empty_registry.resolve("foodon", "http://x/F2") == "e2"
 
+    def test_skips_placeholder_entities(
+        self, empty_registry: EntityRegistry, tmp_path: Path
+    ) -> None:
+        tsv = _write_tsv(
+            tmp_path,
+            [
+                {
+                    "foodatlas_id": "e1",
+                    "entity_type": "chemical",
+                    "common_name": "placeholder",
+                    "scientific_name": "",
+                    "synonyms": "[]",
+                    "external_ids": (
+                        "{'_placeholder_to': ['e10', 'e20'], 'dmd': ['DMD001']}"
+                    ),
+                },
+            ],
+        )
+        count = seed_registry(empty_registry, tsv)
+        assert count == 0
+        assert empty_registry.resolve("dmd", "DMD001") == ""
+
     def test_skips_empty_external_ids(
         self, empty_registry: EntityRegistry, tmp_path: Path
     ) -> None:
@@ -284,6 +306,36 @@ class TestSeedRegistry:
         count = seed_registry(empty_registry, tsv)
         assert count == 1
         assert empty_registry.resolve("foodon", "http://x/F1") == "e1"
+
+    def test_max_eid_covers_unregisterable_entities(
+        self, empty_registry: EntityRegistry, tmp_path: Path
+    ) -> None:
+        """Entities with no registerable external_ids still push max_eid."""
+        tsv = _write_tsv(
+            tmp_path,
+            [
+                {
+                    "foodatlas_id": "e10",
+                    "entity_type": "food",
+                    "common_name": "apple",
+                    "scientific_name": "",
+                    "synonyms": "[]",
+                    "external_ids": "{'foodon': ['http://x/F1']}",
+                },
+                {
+                    "foodatlas_id": "e999",
+                    "entity_type": "flavor",
+                    "common_name": "sweet",
+                    "scientific_name": "",
+                    "synonyms": "[]",
+                    "external_ids": "{}",
+                },
+            ],
+        )
+        seed_registry(empty_registry, tsv)
+        # Even though e999 (flavor) has no registerable IDs, next_eid
+        # must be above it to prevent ID collisions.
+        assert empty_registry.next_eid == 1000
 
     def test_multi_source_entity(
         self, empty_registry: EntityRegistry, tmp_path: Path

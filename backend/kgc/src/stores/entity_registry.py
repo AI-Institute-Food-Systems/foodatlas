@@ -76,6 +76,20 @@ class EntityRegistry:
         eid = int(foodatlas_id[len(FAID_PREFIX) :])
         self._max_eid = max(self._max_eid, eid)
 
+    def reassign(self, source: str, native_id: str, foodatlas_id: str) -> str:
+        """Re-register an existing key to a new foodatlas_id.
+
+        Used when a seeded mapping points to a stale entity that was not
+        rebuilt in the current pipeline run.  Returns the old foodatlas_id.
+        """
+        key = (source, str(native_id))
+        old = self._forward.get(key, "")
+        self._forward[key] = foodatlas_id
+        eid = int(foodatlas_id[len(FAID_PREFIX) :])
+        self._max_eid = max(self._max_eid, eid)
+        logger.info("Registry reassign: %s from %s → %s.", key, old, foodatlas_id)
+        return old
+
     def register_alias(self, source: str, native_id: str, foodatlas_id: str) -> str:
         """Register a secondary (source, native_id) mapping for an existing entity.
 
