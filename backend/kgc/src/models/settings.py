@@ -1,6 +1,5 @@
 """KGC settings with Pydantic Settings, env prefix KGC_."""
 
-import os
 from pathlib import Path
 from typing import Any
 
@@ -67,9 +66,6 @@ class KGCSettings(BaseSettings):
     pubchem_mapping_file: str = ""
     pipeline: PipelineConfig = PipelineConfig()
 
-    ncbi_email: str = ""
-    ncbi_api_key: str = ""
-
     @property
     def data_cleaning_dir(self) -> str:
         return self.pipeline.stages.data_cleaning.output_dir
@@ -91,8 +87,4 @@ class KGCSettings(BaseSettings):
         for key, default_value in defaults.items():
             if key not in values or values[key] in ("", None):
                 values[key] = default_value
-        _env_fields = [("NCBI_EMAIL", "ncbi_email"), ("NCBI_API_KEY", "ncbi_api_key")]
-        for env_key, field in _env_fields:
-            if field not in values or values[field] in ("", None):
-                values[field] = os.environ.get(env_key, "")
         return values

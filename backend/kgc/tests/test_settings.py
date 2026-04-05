@@ -36,10 +36,3 @@ class TestKGCSettings:
         monkeypatch.delenv("KGC_OPENAI_API_KEY", raising=False)
         settings = KGCSettings()
         assert settings.openai_api_key == ""
-
-    def test_ncbi_from_dotenv(self, monkeypatch):
-        monkeypatch.setenv("NCBI_EMAIL", "test@example.com")
-        monkeypatch.setenv("NCBI_API_KEY", "abc123")
-        settings = KGCSettings()
-        assert settings.ncbi_email == "test@example.com"
-        assert settings.ncbi_api_key == "abc123"
