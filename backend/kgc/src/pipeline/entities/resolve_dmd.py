@@ -72,8 +72,11 @@ def create_unlinked_dmd(
     if molecules is None:
         return
     created_rows: list[dict] = []
+    seen: set[str] = set()
     for _, row in molecules.iterrows():
         native = str(row["native_id"])
+        if native in seen:
+            continue
         fa_id = registry.resolve("dmd", native)
 
         if fa_id and fa_id in store._entities.index:
@@ -86,6 +89,7 @@ def create_unlinked_dmd(
             # Stale registry entry → assign a fresh ID.
             fa_id = f"e{registry.next_eid}"
             registry.reassign("dmd", native, fa_id)
+        seen.add(native)
 
         composition = ""
         synonyms_raw = row.get("synonyms", [])
