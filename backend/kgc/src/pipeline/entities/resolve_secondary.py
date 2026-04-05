@@ -175,12 +175,12 @@ def link_fdc_nutrients(
                 ext["fdc_nutrient"] = []
             if nid not in ext["fdc_nutrient"]:
                 ext["fdc_nutrient"].append(nid)
-        # Register alias to the first entity; if there was a previous
-        # mapping to a different entity the old one is tracked as a merge.
-        first = sorted(fa_ids)[0]
-        old = registry.register_alias("fdc_nutrient", str(nutrient_id), first)
-        if old and old not in fa_ids:
-            merges[old] = first
+        # Only register alias when there's a single unambiguous target.
+        if len(fa_ids) == 1:
+            fa_id = next(iter(fa_ids))
+            old = registry.register_alias("fdc_nutrient", str(nutrient_id), fa_id)
+            if old and old != fa_id:
+                merges[old] = fa_id
         linked += 1
         linked_ids.add(row["native_id"])
     logger.info("Pass 2: linked %d FDC nutrients.", linked)
