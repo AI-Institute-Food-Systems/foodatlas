@@ -1,4 +1,4 @@
-"""Tests for DMD primary entity resolution (Pass 1)."""
+"""Tests for DMD entity resolution (Pass 1 / Pass 2 / Pass 3)."""
 
 from __future__ import annotations
 
@@ -7,7 +7,11 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 import pytest
-from src.pipeline.entities.resolve_dmd import create_chemicals_from_dmd
+from src.pipeline.entities.resolve_dmd import (
+    create_chemicals_from_dmd,
+    create_unlinked_dmd,
+    link_dmd,
+)
 from src.pipeline.entities.utils.lut import EntityLUT
 from src.stores.entity_registry import EntityRegistry
 from src.stores.entity_store import EntityStore
@@ -57,68 +61,93 @@ def _dmd_sources(
     return {"dmd": {"nodes": pd.DataFrame(rows)}}
 
 
-def test_enriches_existing_chebi_entity(
-    tmp_path: Path, registry: EntityRegistry
-) -> None:
-    """DMD molecule matching a ChEBI entity enriches it with dmd ext ID."""
-    store = _make_store(
-        tmp_path,
-        [
-            {
-                "foodatlas_id": "e1",
-                "entity_type": "chemical",
-                "common_name": "caffeine",
-                "synonyms": ["caffeine"],
-                "external_ids": {"chebi": [123]},
-                "scientific_name": "",
-            },
-        ],
-    )
-    registry.register("dmd", "DMD001", "e1")
-    lut = EntityLUT()
-    create_chemicals_from_dmd(
-        _dmd_sources([("DMD001", "caffeine")]), store, lut, registry
-    )
-    assert len(store._entities) == 1
-    ext = store._entities.at["e1", "external_ids"]
-    assert "DMD001" in ext["dmd"]
+_CHEBI_ENTITY = {
+    "foodatlas_id": "e1",
+    "entity_type": "chemical",
+    "common_name": "caffeine",
+    "synonyms": ["caffeine"],
+    "external_ids": {"chebi": [123]},
+    "scientific_name": "",
+}
 
 
-def test_reuses_seeded_id(tmp_path: Path, registry: EntityRegistry) -> None:
-    """DMD-only molecule with seeded registry entry keeps its old ID."""
-    store = _make_store(tmp_path, [])
-    registry.register("dmd", "DMD001", "e50")
-    lut = EntityLUT()
-    create_chemicals_from_dmd(
-        _dmd_sources([("DMD001", "newchem")]), store, lut, registry
-    )
-    assert len(store._entities) == 1
-    assert store._entities.index[0] == "e50"
+class TestCreateChemicalsFromDmd:
+    """Pass 1: create entities for seeded DMD IDs not yet in the store."""
+
+    def test_creates_at_seeded_id(
+        self, tmp_path: Path, registry: EntityRegistry
+    ) -> None:
+        store = _make_store(tmp_path, [])
+        registry.register("dmd", "DMD001", "e50")
+        lut = EntityLUT()
+        create_chemicals_from_dmd(
+            _dmd_sources([("DMD001", "newchem")]), store, lut, registry
+        )
+        assert len(store._entities) == 1
+        assert store._entities.index[0] == "e50"
+
+    def test_skips_if_entity_already_in_store(
+        self, tmp_path: Path, registry: EntityRegistry
+    ) -> None:
+        store = _make_store(tmp_path, [_CHEBI_ENTITY])
+        registry.register("dmd", "DMD001", "e1")
+        lut = EntityLUT()
+        create_chemicals_from_dmd(
+            _dmd_sources([("DMD001", "caffeine")]), store, lut, registry
+        )
+        # Should not create — entity exists (enrichment is Pass 2).
+        assert len(store._entities) == 1
+
+    def test_skips_unregistered(self, tmp_path: Path, registry: EntityRegistry) -> None:
+        store = _make_store(tmp_path, [])
+        lut = EntityLUT()
+        create_chemicals_from_dmd(
+            _dmd_sources([("DMD999", "new")]), store, lut, registry
+        )
+        # No registry entry — creation is Pass 3.
+        assert len(store._entities) == 0
 
 
-def test_creates_new_entity(tmp_path: Path, registry: EntityRegistry) -> None:
-    """DMD molecule with no registry entry gets a fresh ID."""
-    store = _make_store(tmp_path, [])
-    lut = EntityLUT()
-    create_chemicals_from_dmd(
-        _dmd_sources([("DMD999", "newchem")]), store, lut, registry
-    )
-    assert len(store._entities) == 1
-    assert store._entities.iloc[0]["entity_type"] == "chemical"
-    assert store._entities.iloc[0]["common_name"] == "newchem"
+class TestLinkDmd:
+    """Pass 2: enrich existing entities with DMD external IDs."""
+
+    def test_enriches_existing(self, tmp_path: Path, registry: EntityRegistry) -> None:
+        store = _make_store(tmp_path, [_CHEBI_ENTITY])
+        registry.register("dmd", "DMD001", "e1")
+        link_dmd(_dmd_sources([("DMD001", "caffeine")]), store, registry)
+        ext = store._entities.at["e1", "external_ids"]
+        assert "DMD001" in ext["dmd"]
+
+    def test_skips_missing_entity(
+        self, tmp_path: Path, registry: EntityRegistry
+    ) -> None:
+        store = _make_store(tmp_path, [])
+        registry.register("dmd", "DMD001", "e99")
+        link_dmd(_dmd_sources([("DMD001", "caffeine")]), store, registry)
+        assert len(store._entities) == 0
 
 
-def test_skips_duplicate_native_ids(tmp_path: Path, registry: EntityRegistry) -> None:
-    """Duplicate native_ids in source are deduplicated."""
-    store = _make_store(tmp_path, [])
-    lut = EntityLUT()
-    sources = _dmd_sources([("DMD001", "chem"), ("DMD001", "chem")])
-    create_chemicals_from_dmd(sources, store, lut, registry)
-    assert len(store._entities) == 1
+class TestCreateUnlinkedDmd:
+    """Pass 3: create entities for genuinely new DMD molecules."""
 
+    def test_creates_new(self, tmp_path: Path, registry: EntityRegistry) -> None:
+        store = _make_store(tmp_path, [])
+        lut = EntityLUT()
+        create_unlinked_dmd(_dmd_sources([("DMD999", "newchem")]), store, lut, registry)
+        assert len(store._entities) == 1
+        assert store._entities.iloc[0]["entity_type"] == "chemical"
 
-def test_no_dmd_source_is_noop(tmp_path: Path, registry: EntityRegistry) -> None:
-    store = _make_store(tmp_path, [])
-    lut = EntityLUT()
-    create_chemicals_from_dmd({}, store, lut, registry)
-    assert len(store._entities) == 0
+    def test_skips_registered(self, tmp_path: Path, registry: EntityRegistry) -> None:
+        store = _make_store(tmp_path, [])
+        registry.register("dmd", "DMD001", "e50")
+        lut = EntityLUT()
+        create_unlinked_dmd(_dmd_sources([("DMD001", "chem")]), store, lut, registry)
+        # Has registry entry — handled in Pass 1.
+        assert len(store._entities) == 0
+
+    def test_deduplicates(self, tmp_path: Path, registry: EntityRegistry) -> None:
+        store = _make_store(tmp_path, [])
+        lut = EntityLUT()
+        sources = _dmd_sources([("DMD001", "c"), ("DMD001", "c")])
+        create_unlinked_dmd(sources, store, lut, registry)
+        assert len(store._entities) == 1

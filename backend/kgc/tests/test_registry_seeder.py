@@ -238,7 +238,7 @@ class TestSeedRegistry:
         assert count == 1
         assert empty_registry.resolve("foodon", "http://x/F2") == "e2"
 
-    def test_placeholder_registers_to_target(
+    def test_skips_placeholder_entities(
         self, empty_registry: EntityRegistry, tmp_path: Path
     ) -> None:
         tsv = _write_tsv(
@@ -257,10 +257,8 @@ class TestSeedRegistry:
             ],
         )
         count = seed_registry(empty_registry, tsv)
-        assert count == 1
-        # DMD ID resolves to the first placeholder target, not the
-        # placeholder entity itself.
-        assert empty_registry.resolve("dmd", "DMD001") == "e10"
+        assert count == 0
+        assert empty_registry.resolve("dmd", "DMD001") == ""
 
     def test_skips_empty_external_ids(
         self, empty_registry: EntityRegistry, tmp_path: Path

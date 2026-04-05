@@ -86,23 +86,6 @@ def seed_registry(registry: EntityRegistry, tsv_path: Path) -> int:
             continue
 
         if "_placeholder_to" in external_ids:
-            # Placeholder entities point to real entities.  Register
-            # their source IDs as aliases of the first target so the
-            # pipeline enriches the target instead of creating a new entity.
-            targets = external_ids["_placeholder_to"]
-            if targets:
-                target_id = str(targets[0])
-                real_ext = {
-                    k: v for k, v in external_ids.items() if k != "_placeholder_to"
-                }
-                for source, native_id, _ in extract_registry_pairs(
-                    entity_type, real_ext
-                ):
-                    try:
-                        registry.register_alias(source, native_id, target_id)
-                        added += 1
-                    except ValueError:
-                        skipped += 1
             continue
 
         pairs = extract_registry_pairs(entity_type, external_ids)
