@@ -23,7 +23,7 @@ Each backend sub-project follows the same layout: `src/` is the module, `tests/`
 
 ### Local stack
 
-PostgreSQL 16 (Docker) → DB migrations (Alembic) → Data load (ETL) → FastAPI (port 8000) → Next.js (port 3000)
+PostgreSQL 16 (Docker) → DB migrations (Alembic) → Data load (ETL) → FastAPI (port 8000) → Next.js (port 3001)
 
 ### Configuration split
 
@@ -43,12 +43,12 @@ docker compose -f infra/docker-compose.yml up -d
 cd backend/db && uv run alembic upgrade head
 
 # Load KGC data into PostgreSQL
-cd backend/db && uv run python main.py load --parquet-dir /path/to/kgc/outputs
+cd backend/db && uv run python main.py load --parquet-dir ../kgc/outputs/kg
 
 # Start API server (port 8000)
 cd backend/api && uv run python main.py
 
-# Start frontend (port 3000)
+# Start frontend (port 3001)
 cd frontend && npm run dev
 ```
 
@@ -115,3 +115,9 @@ Pre-commit hooks run automatically — do not run linters manually unless debugg
 2. **No lazy bypasses**: Do not use `# noqa`, `# type: ignore` to bypass errors. Fix the underlying issue.
 3. **No cheating on test coverage**: Do not lower `--cov-fail-under` threshold or add files to `[tool.coverage.run] omit`. Write proper tests instead.
 4. **Rely on pre-commit hooks**: Only run checks manually when debugging.
+
+## ETL Notes
+
+- **COPY text escaping**: PostgreSQL COPY text format applies backslash unescaping before type parsing. Array (`TEXT[]`) and JSONB fields need two-level escaping: type-level first, then COPY-level (doubling backslashes, escaping `\n`/`\t`/`\r`).
+- **Entity dedup**: The entity registry can map multiple `(source, native_id)` pairs to the same `foodatlas_id` via merges/aliases. Entity creation functions must check `store._entities.index` before appending.
+- **Triplet dedup**: `_insert_or_merge` computes `existing_mask` once — intra-batch duplicate keys all pass as "new". The `new_df` must be deduplicated before concat, and attestation accumulation must use `setdefault`+`append` (not overwrite).
