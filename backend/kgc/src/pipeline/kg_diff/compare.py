@@ -116,16 +116,17 @@ def compare_entity_details(
 ) -> EntityDetailChanges:
     """For matched entities, check name and type changes."""
     stable_ids = old_ents.index.intersection(new_ents.index)
-    old_sub = old_ents.loc[stable_ids]
-    new_sub = new_ents.loc[stable_ids]
+    # Deduplicate and align both sides on the same sorted index.
+    old_sub = old_ents.loc[~old_ents.index.duplicated()].reindex(stable_ids)
+    new_sub = new_ents.loc[~new_ents.index.duplicated()].reindex(stable_ids)
 
-    name_mask = old_sub["common_name"] != new_sub["common_name"]
+    name_mask = old_sub["common_name"].values != new_sub["common_name"].values
     name_changes = [
         (eid, str(old_sub.at[eid, "common_name"]), str(new_sub.at[eid, "common_name"]))
         for eid in old_sub.index[name_mask]
     ]
 
-    type_mask = old_sub["entity_type"] != new_sub["entity_type"]
+    type_mask = old_sub["entity_type"].values != new_sub["entity_type"].values
     type_changes = [
         (eid, str(old_sub.at[eid, "entity_type"]), str(new_sub.at[eid, "entity_type"]))
         for eid in old_sub.index[type_mask]
