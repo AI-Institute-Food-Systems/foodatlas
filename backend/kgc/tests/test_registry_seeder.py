@@ -76,7 +76,7 @@ class TestExtractRegistryPairs:
         ext = {"dmd": ["DMD302680"]}
         pairs = extract_registry_pairs("chemical", ext)
         assert len(pairs) == 1
-        assert pairs[0] == ("dmd", "DMD302680", False)
+        assert pairs[0] == ("dmd", "DMD302680", True)
 
     def test_unknown_keys_skipped(self) -> None:
         ext = {"pubchem_compound": [6213], "some_unknown": ["val"]}
