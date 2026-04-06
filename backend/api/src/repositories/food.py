@@ -8,12 +8,10 @@ from .formatting import format_external_ids
 ROWS_PER_PAGE = 25
 
 NUTRIENT_KEY_MAP = {
-    "carbohydrate (including fiber)": "carbohydrates(incl.fiber)",
-    "lipid": "lipids",
-    "vitamin": "vitamins",
-    "amino acid and protein": "amino acids and proteins",
-    "mineral (including derivatives)": "minerals(incl.derivatives)",
-    "others": "others",
+    "carbohydrate": "carbohydrates(incl.fiber)",
+    "fatty acid": "lipids",
+    "amino acid": "amino acids and proteins",
+    "nucleotide": "others",
 }
 
 VALID_SOURCES = {"fdc", "foodatlas", "dmd"}
@@ -26,7 +24,7 @@ VALID_DIRECTIONS = {"ASC", "DESC"}
 ALL_EVIDENCE_COLS = "fdc_evidences, foodatlas_evidences, dmd_evidences"
 BASE_SELECT = (
     "chemical_name AS name, chemical_foodatlas_id AS id, "
-    "nutrient_classification, median_concentration"
+    "chemical_classification, median_concentration"
 )
 
 
@@ -51,7 +49,7 @@ async def get_profile(session: AsyncSession, common_name: str) -> dict[str, obje
     result = await session.execute(
         text("""
             SELECT chemical_name AS name, chemical_foodatlas_id AS id,
-                   nutrient_classification, median_concentration
+                   chemical_classification, median_concentration
             FROM mv_food_chemical_composition
             WHERE food_name = :name
             ORDER BY (median_concentration->>'value')::NUMERIC DESC NULLS LAST
@@ -68,7 +66,7 @@ async def get_profile(session: AsyncSession, common_name: str) -> dict[str, obje
     }
     for row in result:
         mapping = row._mapping
-        classifications = mapping["nutrient_classification"] or []
+        classifications = mapping["chemical_classification"] or []
         entry = {
             "id": mapping["id"],
             "name": mapping["name"],

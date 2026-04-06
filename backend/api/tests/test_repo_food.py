@@ -53,7 +53,7 @@ class TestFoodGetProfile:
         row = _make_row(
             name="glucose",
             id="FA:C001",
-            nutrient_classification=["carbohydrate (including fiber)"],
+            chemical_classification=["carbohydrate"],
             median_concentration=5.0,
         )
         session = _mock_session_single([row])
@@ -67,7 +67,7 @@ class TestFoodGetProfile:
         row = _make_row(
             name="mystery",
             id="FA:C999",
-            nutrient_classification=["unknown category"],
+            chemical_classification=["unknown category"],
             median_concentration=1.0,
         )
         session = _mock_session_single([row])
@@ -80,7 +80,7 @@ class TestFoodGetProfile:
         row = _make_row(
             name="water",
             id="FA:C002",
-            nutrient_classification=None,
+            chemical_classification=None,
             median_concentration=100.0,
         )
         session = _mock_session_single([row])
@@ -96,7 +96,7 @@ class TestFoodGetComposition:
         row = _make_row(
             name="glucose",
             id="FA:C001",
-            nutrient_classification=["carbohydrate (including fiber)"],
+            chemical_classification=["carbohydrate"],
             median_concentration=5.0,
         )
         session = AsyncMock()

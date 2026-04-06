@@ -18,6 +18,7 @@ class BaseEntity(Base):
     scientific_name: Mapped[str] = mapped_column(Text, server_default="")
     synonyms: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default="{}")
     external_ids: Mapped[dict] = mapped_column(JSONB, server_default="{}")
+    attributes: Mapped[dict] = mapped_column(JSONB, server_default="{}")
 
     __table_args__ = (
         Index("ix_base_entities_type", "entity_type"),

@@ -8,12 +8,13 @@ from typing import TYPE_CHECKING
 
 from ..utils.timing import log_duration
 from .checkpoint import load_checkpoint
+from .enrichment.classification import classify_chemicals
+from .enrichment.flavor import apply_flavor_descriptions
 from .entities.runner import EntityRunner
 from .ie.runner import IERunner
 from .ingest.runner import IngestRunner
 from .knowledge_graph import KnowledgeGraph
 from .load_sources import load_sources
-from .postprocessing.flavor import apply_flavor_descriptions
 from .stages import ALL_STAGES, PipelineStage
 from .triplets.runner import TripletRunner
 
@@ -74,12 +75,13 @@ class PipelineRunner:
         runner = IERunner(self._settings)
         runner.run()
 
-    def _run_postprocessing(self) -> None:
+    def _run_enrichment(self) -> None:
         kg_dir = Path(self._settings.kg_dir)
         load_checkpoint(kg_dir, "ie")
 
         sources = load_sources(self._settings)
         kg = KnowledgeGraph(self._settings)
+        classify_chemicals(kg.entities, kg.triplets)
         apply_flavor_descriptions(kg, sources)
         kg.save()
 
@@ -89,5 +91,5 @@ _STAGE_HANDLERS: dict[PipelineStage, Callable[[PipelineRunner], None]] = {
     PipelineStage.ENTITIES: PipelineRunner._run_entities,
     PipelineStage.TRIPLETS: PipelineRunner._run_triplets,
     PipelineStage.IE: PipelineRunner._run_ie,
-    PipelineStage.POSTPROCESSING: PipelineRunner._run_postprocessing,
+    PipelineStage.ENRICHMENT: PipelineRunner._run_enrichment,
 }

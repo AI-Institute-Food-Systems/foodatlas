@@ -30,7 +30,7 @@ class MVFoodEntity(Base):
 
 
 class MVChemicalEntity(Base):
-    """Chemical entities enriched with ChEBI/CDNO classification."""
+    """Chemical entities enriched with ChEBI classification."""
 
     __tablename__ = "mv_chemical_entities"
 
@@ -41,9 +41,6 @@ class MVChemicalEntity(Base):
     synonyms: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default="{}")
     external_ids: Mapped[dict] = mapped_column(JSONB, server_default="{}")
     chemical_classification: Mapped[list[str]] = mapped_column(
-        ARRAY(Text), server_default="{}"
-    )
-    nutrient_classification: Mapped[list[str]] = mapped_column(
         ARRAY(Text), server_default="{}"
     )
 
@@ -79,7 +76,7 @@ class MVFoodChemicalComposition(Base):
     food_foodatlas_id: Mapped[str] = mapped_column(String(20), nullable=False)
     chemical_name: Mapped[str] = mapped_column(Text, nullable=False)
     chemical_foodatlas_id: Mapped[str] = mapped_column(String(20), nullable=False)
-    nutrient_classification: Mapped[list[str]] = mapped_column(
+    chemical_classification: Mapped[list[str]] = mapped_column(
         ARRAY(Text), server_default="{}"
     )
     median_concentration: Mapped[dict | None] = mapped_column(JSONB, nullable=True)

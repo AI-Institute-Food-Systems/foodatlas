@@ -39,7 +39,7 @@ class TripletExpansionStageConfig(BaseModel):
     ie_prob_threshold: float = 0.95
 
 
-class PostprocessingStageConfig(BaseModel):
+class EnrichmentStageConfig(BaseModel):
     pass
 
 
@@ -48,7 +48,7 @@ class StagesConfig(BaseModel):
     kg_init: KgInitStageConfig = KgInitStageConfig()
     metadata_processing: MetadataProcessingStageConfig = MetadataProcessingStageConfig()
     triplet_expansion: TripletExpansionStageConfig = TripletExpansionStageConfig()
-    postprocessing: PostprocessingStageConfig = PostprocessingStageConfig()
+    enrichment: EnrichmentStageConfig = EnrichmentStageConfig()
 
 
 class PipelineConfig(BaseModel):

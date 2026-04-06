@@ -45,8 +45,6 @@ def _materialize_entity_views(conn: Connection) -> None:
     name_map = entity_map["common_name"].to_dict()
 
     foodon_cls = _build_classification_map(r2, name_map, "foodon")
-    chebi_cls = _build_classification_map(r2, name_map, "chebi")
-    cdno_cls = _build_classification_map(r2, name_map, "cdno")
 
     food_ids = set(r1["head_id"])
     foods = entities[
@@ -64,21 +62,14 @@ def _materialize_entity_views(conn: Connection) -> None:
         (entities["entity_type"] == "chemical")
         & (entities["foodatlas_id"].isin(chem_ids))
     ].copy()
-    chemicals["chemical_classification"] = (
-        chemicals["foodatlas_id"]
-        .map(chebi_cls)
-        .apply(lambda x: x if isinstance(x, list) else [])
-    )
-    chemicals["nutrient_classification"] = (
-        chemicals["foodatlas_id"]
-        .map(cdno_cls)
-        .apply(lambda x: x if isinstance(x, list) else [])
+    chemicals["chemical_classification"] = chemicals["attributes"].apply(
+        lambda a: a.get("chemical_groups", []) if isinstance(a, dict) else []
     )
     _insert_mv_entities(
         conn,
         "mv_chemical_entities",
         chemicals,
-        ["chemical_classification", "nutrient_classification"],
+        ["chemical_classification"],
     )
 
     disease_chem_ids = set(r3r4["head_id"]) & chem_ids

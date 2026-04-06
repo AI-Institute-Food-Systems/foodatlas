@@ -6,9 +6,12 @@ import logging
 from collections import defaultdict
 from typing import TYPE_CHECKING
 
-import pandas as pd
+from ...models.attributes import ChemicalAttributes
+from .utils import read_attributes, write_attributes
 
 if TYPE_CHECKING:
+    import pandas as pd
+
     from ..knowledge_graph import KnowledgeGraph
 
 logger = logging.getLogger(__name__)
@@ -20,7 +23,7 @@ def apply_flavor_descriptions(
 ) -> None:
     """Add flavor descriptors from Phase 1 FlavorDB output to chemical entities.
 
-    Stores flavors as ``_flavor_descriptions`` list on each entity.
+    Writes into ``attributes.flavor_descriptors`` via :class:`ChemicalAttributes`.
     """
     flavordb = sources.get("flavordb")
     if flavordb is None:
@@ -48,15 +51,12 @@ def apply_flavor_descriptions(
             for flavor in raw.get("flavors", []):
                 descs_by_entity[fa_id].add(flavor)
 
-    flavor_series = pd.Series(
-        {fa_id: sorted(descs) for fa_id, descs in descs_by_entity.items()},
-        name="_flavor_descriptions",
-        dtype=object,
-    )
     ents = kg.entities._entities
-    if "_flavor_descriptions" in ents.columns:
-        ents.drop(columns=["_flavor_descriptions"], inplace=True)
-    ents["_flavor_descriptions"] = flavor_series
-    n_updated = len(descs_by_entity)
+    for fa_id, descriptors in descs_by_entity.items():
+        attrs = read_attributes(ents, fa_id, ChemicalAttributes)
+        attrs.flavor_descriptors = sorted(descriptors)
+        write_attributes(ents, fa_id, attrs)
 
-    logger.info("Applied flavor descriptions to %d chemical entities.", n_updated)
+    logger.info(
+        "Applied flavor descriptions to %d chemical entities.", len(descs_by_entity)
+    )

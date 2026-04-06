@@ -52,6 +52,7 @@ def load_kg(conn: Connection, parquet_dir: Path) -> None:
             "scientific_name",
             "synonyms",
             "external_ids",
+            "attributes",
         ],
     )
 

@@ -20,7 +20,7 @@
           "data/Lit2KG/2024_12_31/text_parser_predicted_gpt3.tsv"
         ]
       },
-      "postprocessing": {}
+      "enrichment": {}
     }
   }
 }

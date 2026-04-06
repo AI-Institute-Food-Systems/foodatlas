@@ -34,12 +34,14 @@ def materialize_food_chemical_composition(conn: Connection) -> None:
         text("SELECT foodatlas_id, common_name FROM base_entities"), conn
     )
     chem_class = pd.read_sql(
-        text("SELECT foodatlas_id, nutrient_classification FROM mv_chemical_entities"),
+        text("SELECT foodatlas_id, chemical_classification FROM mv_chemical_entities"),
         conn,
     )
 
     name_map = entities.set_index("foodatlas_id")["common_name"].to_dict()
-    nutr_map = chem_class.set_index("foodatlas_id")["nutrient_classification"].to_dict()
+    chem_cls_map = chem_class.set_index("foodatlas_id")[
+        "chemical_classification"
+    ].to_dict()
 
     # Explode so each (triplet, att_id) is one row, then join.
     r1_ex = r1.explode("attestation_ids").rename(
@@ -87,7 +89,7 @@ def materialize_food_chemical_composition(conn: Connection) -> None:
                 "food_foodatlas_id": head_id,
                 "chemical_name": name_map.get(tail_id, ""),
                 "chemical_foodatlas_id": tail_id,
-                "nutrient_classification": nutr_map.get(tail_id, []),
+                "chemical_classification": chem_cls_map.get(tail_id, []),
                 "median_concentration": json.dumps(median_conc)
                 if median_conc
                 else None,
@@ -107,7 +109,7 @@ def materialize_food_chemical_composition(conn: Connection) -> None:
         "food_foodatlas_id",
         "chemical_name",
         "chemical_foodatlas_id",
-        "nutrient_classification",
+        "chemical_classification",
         "median_concentration",
         "fdc_evidences",
         "foodatlas_evidences",

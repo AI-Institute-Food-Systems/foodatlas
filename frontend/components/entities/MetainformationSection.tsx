@@ -94,21 +94,7 @@ const MetainformationSection = async ({
                     Chemical Classification
                   </Heading>
                   <div className="mt-3 capitalize break-all">
-                    <p>{data.chemical_classification}</p>
-                  </div>
-                </Card>
-              )}
-              {/* chemical nutrient classification */}
-              {data?.nutrient_classification && (
-                <Card>
-                  <Heading
-                    type="h4"
-                    className="font-mono italic text-light-400 text-xs"
-                  >
-                    Nutrient Classification
-                  </Heading>
-                  <div className="mt-3 capitalize break-all">
-                    <p>{data.nutrient_classification.join(", ")}</p>
+                    <p>{data.chemical_classification.join(", ")}</p>
                   </div>
                 </Card>
               )}

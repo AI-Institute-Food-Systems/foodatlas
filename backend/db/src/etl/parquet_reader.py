@@ -23,6 +23,12 @@ def read_entities(kg_dir: Path) -> pd.DataFrame:
         lambda x: x if isinstance(x, dict) else {}
     )
     df["scientific_name"] = df["scientific_name"].fillna("")
+    if "attributes" in df.columns:
+        df["attributes"] = _parse_json_col(df["attributes"]).apply(
+            lambda x: x if isinstance(x, dict) else {}
+        )
+    else:
+        df["attributes"] = [{}] * len(df)
     return df
 
 

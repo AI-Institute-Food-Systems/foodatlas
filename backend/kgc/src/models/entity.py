@@ -14,6 +14,7 @@ class Entity(BaseModel):
     scientific_name: str = ""
     synonyms: list[str] = Field(default_factory=list)
     external_ids: dict[str, Any] = Field(default_factory=dict)
+    attributes: dict[str, Any] = Field(default_factory=dict)
 
 
 class FoodEntity(Entity):

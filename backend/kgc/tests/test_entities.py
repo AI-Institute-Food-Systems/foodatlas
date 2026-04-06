@@ -113,5 +113,6 @@ class TestSaveReload:
             "scientific_name",
             "synonyms",
             "external_ids",
+            "attributes",
         ]
         assert expected == ENTITY_COLUMNS

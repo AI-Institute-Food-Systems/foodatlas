@@ -13,7 +13,7 @@ def test_stage_names() -> None:
         "ENTITIES",
         "TRIPLETS",
         "IE",
-        "POSTPROCESSING",
+        "ENRICHMENT",
     }
     assert {s.name for s in PipelineStage} == expected
 

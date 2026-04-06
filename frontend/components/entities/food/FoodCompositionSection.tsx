@@ -426,7 +426,7 @@ const FoodCompositionSection = ({
                       {/* nutrient classification */}
                       <td className="py-3 px-4">
                         <div className="flex min-h-12 capitalize items-center">
-                          {row.nutrient_classification.join(", ")}
+                          {row.chemical_classification.join(", ")}
                         </div>
                       </td>
                       {/* median concentration */}

@@ -15,8 +15,7 @@ CHEM_META_SAMPLE = {
             "scientific_name": "D-glucose",
             "synonyms": ["dextrose"],
             "external_ids": {},
-            "chemical_classification": ["monosaccharide"],
-            "nutrient_classification": ["carbohydrate (including fiber)"],
+            "chemical_classification": ["carbohydrate"],
         }
     ],
     "metadata": {"row_count": 1},
