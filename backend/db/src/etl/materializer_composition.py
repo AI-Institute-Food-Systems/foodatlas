@@ -134,7 +134,7 @@ def _build_extractions_vectorized(df: pd.DataFrame) -> pd.Series:
         + " "
         + df["conc_unit_raw"].fillna("").astype(str)
     ).str.strip()
-    conc_raw = conc_raw.where(conc_raw != "", None)
+    conc_raw = [v if v else None for v in conc_raw]
 
     conc_vals = [v if pd.notna(v) else None for v in df["conc_value"]]
     conc_units = df["conc_unit"].fillna("")
