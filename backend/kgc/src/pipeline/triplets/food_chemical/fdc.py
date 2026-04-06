@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 import pandas as pd
 
 from ....models.relationship import RelationshipType
+from ...ie.conc_parser import convert_conc
 from ..utils import explode_external_ids
 
 if TYPE_CHECKING:
@@ -68,14 +69,19 @@ def merge_fdc_triplets(
         logger.info("No FDC data to merge after resolution.")
         return
 
-    # Extract concentration data.
+    # Extract concentration data — raw values first, then convert to mg/100g.
     nutrient_units = _build_nutrient_unit_map(fdc["nodes"])
-    df["conc_value"] = df["raw_attrs"].apply(
-        lambda x: x.get("amount", 0.0) if isinstance(x, dict) else 0.0
+    df["conc_value_raw"] = df["raw_attrs"].apply(
+        lambda x: str(x.get("amount", "")) if isinstance(x, dict) else ""
     )
-    df["conc_unit"] = df["_nutrient_id"].map(
+    df["conc_unit_raw"] = df["_nutrient_id"].map(
         lambda nid: f"{nutrient_units.get(nid, 'mg').lower()}/100g"
     )
+    converted = df.apply(
+        lambda r: convert_conc(r["conc_value_raw"], r["conc_unit_raw"]), axis=1
+    )
+    df["conc_value"] = converted.apply(lambda x: x[0] if x else None)
+    df["conc_unit"] = converted.apply(lambda x: x[1] if x else "")
 
     # Build evidence + extraction columns.
     df["source_type"] = "fdc"
