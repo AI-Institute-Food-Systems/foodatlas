@@ -3,22 +3,25 @@
 import logging
 from pathlib import Path
 
+from sqlalchemy import text
 from sqlalchemy.engine import Connection
 
+from ..models import Base
 from . import parquet_reader
-from .bulk_insert import bulk_copy, truncate_tables
+from .bulk_insert import bulk_copy
 from .materializer import refresh_all
 from .materializer_search import refresh_search
 
 logger = logging.getLogger(__name__)
 
-BASE_TABLES = [
-    "base_attestations",
-    "base_evidence",
-    "base_triplets",
-    "relationships",
-    "base_entities",
-]
+
+def _recreate_schema(conn: Connection) -> None:
+    """Drop all tables and recreate from ORM models."""
+    logger.info("Recreating database schema...")
+    Base.metadata.drop_all(bind=conn)
+    conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
+    Base.metadata.create_all(bind=conn)
+    conn.commit()
 
 
 def load_kg(conn: Connection, parquet_dir: Path) -> None:
@@ -34,10 +37,8 @@ def load_kg(conn: Connection, parquet_dir: Path) -> None:
     evidence_df = parquet_reader.read_evidence(kg_dir)
     attestations_df = parquet_reader.read_attestations(kg_dir)
 
-    # 2. Truncate base tables (reverse FK order)
-    logger.info("Truncating base tables...")
-    truncate_tables(conn, BASE_TABLES)
-    conn.commit()
+    # 2. Recreate schema from ORM models
+    _recreate_schema(conn)
 
     # 3. Bulk insert base tables (FK order: entities first)
     logger.info("Inserting entities (%d rows)...", len(entities_df))

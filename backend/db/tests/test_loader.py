@@ -4,7 +4,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
-from src.etl.loader import BASE_TABLES, load_kg
+from src.etl.loader import load_kg
 
 
 def _stub_reader(mock_reader: MagicMock) -> None:
@@ -16,31 +16,18 @@ def _stub_reader(mock_reader: MagicMock) -> None:
     mock_reader.read_attestations.return_value = pd.DataFrame()
 
 
-class TestBaseTablesConstant:
-    """Verify the BASE_TABLES list is correct."""
-
-    def test_base_tables_order(self):
-        assert BASE_TABLES == [
-            "base_attestations",
-            "base_evidence",
-            "base_triplets",
-            "relationships",
-            "base_entities",
-        ]
-
-
 class TestLoadKg:
     """Test load_kg orchestrator with mocked dependencies."""
 
     @patch("src.etl.loader.refresh_search")
     @patch("src.etl.loader.refresh_all")
     @patch("src.etl.loader.bulk_copy")
-    @patch("src.etl.loader.truncate_tables")
+    @patch("src.etl.loader._recreate_schema")
     @patch("src.etl.loader.parquet_reader")
     def test_calls_read_functions(
         self,
         mock_reader,
-        mock_truncate,
+        mock_recreate,
         mock_bulk,
         mock_refresh,
         mock_search,
@@ -63,35 +50,35 @@ class TestLoadKg:
     @patch("src.etl.loader.refresh_search")
     @patch("src.etl.loader.refresh_all")
     @patch("src.etl.loader.bulk_copy")
-    @patch("src.etl.loader.truncate_tables")
+    @patch("src.etl.loader._recreate_schema")
     @patch("src.etl.loader.parquet_reader")
-    def test_truncates_base_tables(
+    def test_recreates_schema(
         self,
         mock_reader,
-        mock_truncate,
+        mock_recreate,
         mock_bulk,
         mock_refresh,
         mock_search,
         fixtures_dir: Path,
     ):
-        """Verify base tables are truncated before insert."""
+        """Verify schema is recreated before insert."""
         _stub_reader(mock_reader)
         mock_bulk.return_value = 0
         conn = MagicMock()
 
         load_kg(conn, fixtures_dir)
 
-        mock_truncate.assert_called_once_with(conn, BASE_TABLES)
+        mock_recreate.assert_called_once_with(conn)
 
     @patch("src.etl.loader.refresh_search")
     @patch("src.etl.loader.refresh_all")
     @patch("src.etl.loader.bulk_copy")
-    @patch("src.etl.loader.truncate_tables")
+    @patch("src.etl.loader._recreate_schema")
     @patch("src.etl.loader.parquet_reader")
     def test_bulk_copy_called_for_each_table(
         self,
         mock_reader,
-        mock_truncate,
+        mock_recreate,
         mock_bulk,
         mock_refresh,
         mock_search,
@@ -115,12 +102,12 @@ class TestLoadKg:
     @patch("src.etl.loader.refresh_search")
     @patch("src.etl.loader.refresh_all")
     @patch("src.etl.loader.bulk_copy")
-    @patch("src.etl.loader.truncate_tables")
+    @patch("src.etl.loader._recreate_schema")
     @patch("src.etl.loader.parquet_reader")
     def test_materializers_called(
         self,
         mock_reader,
-        mock_truncate,
+        mock_recreate,
         mock_bulk,
         mock_refresh,
         mock_search,
@@ -139,23 +126,22 @@ class TestLoadKg:
     @patch("src.etl.loader.refresh_search")
     @patch("src.etl.loader.refresh_all")
     @patch("src.etl.loader.bulk_copy")
-    @patch("src.etl.loader.truncate_tables")
+    @patch("src.etl.loader._recreate_schema")
     @patch("src.etl.loader.parquet_reader")
-    def test_commits_after_truncate_and_insert(
+    def test_commits_after_insert(
         self,
         mock_reader,
-        mock_truncate,
+        mock_recreate,
         mock_bulk,
         mock_refresh,
         mock_search,
         fixtures_dir: Path,
     ):
-        """Verify conn.commit() is called after truncate and after insert."""
+        """Verify conn.commit() is called after bulk insert."""
         _stub_reader(mock_reader)
         mock_bulk.return_value = 0
         conn = MagicMock()
 
         load_kg(conn, fixtures_dir)
 
-        # Two commits: after truncate and after bulk insert
-        assert conn.commit.call_count == 2
+        conn.commit.assert_called_once()

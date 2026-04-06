@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
+from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
@@ -62,12 +63,42 @@ def _serialize_value(val: object) -> str:
     return _copy_text_escape(str(val))
 
 
+def _serialize_column(series: pd.Series) -> pd.Series:
+    """Vectorize serialization for common column types."""
+    if series.empty:
+        return series.astype(str)
+
+    sample = series.dropna().iloc[0] if not series.dropna().empty else None
+
+    # Fast path: plain strings (most text columns)
+    if isinstance(sample, str):
+        result = series.fillna(r"\N")
+        mask = result != r"\N"
+        result[mask] = result[mask].apply(_copy_text_escape)
+        return result
+
+    # Fast path: numeric (int/float)
+    if isinstance(sample, int | float | np.integer | np.floating):
+        return series.apply(
+            lambda v: (
+                r"\N" if v is None or (isinstance(v, float) and pd.isna(v)) else str(v)
+            )
+        )
+
+    # Fast path: booleans
+    if isinstance(sample, bool | np.bool_):
+        return series.apply(lambda v: r"\N" if v is None else ("t" if v else "f"))
+
+    # Fallback: lists, dicts, mixed types
+    return series.apply(_serialize_value)
+
+
 def _df_to_copy_buffer(df: pd.DataFrame, columns: list[str]) -> io.StringIO:
     """Convert a DataFrame subset to a tab-separated StringIO buffer."""
+    serialized = {col: _serialize_column(df[col]) for col in columns}
+    frame = pd.DataFrame(serialized)
     buf = io.StringIO()
-    for _, row in df[columns].iterrows():
-        line = "\t".join(_serialize_value(row[col]) for col in columns)
-        buf.write(line + "\n")
+    frame.to_csv(buf, sep="\t", header=False, index=False, quoting=3)
     buf.seek(0)
     return buf
 
@@ -86,15 +117,17 @@ def bulk_copy(
     """
     raw = conn.connection  # unwrap to psycopg connection
     total = 0
-    for start in range(0, len(df), chunk_size):
-        chunk = df.iloc[start : start + chunk_size]
-        buf = _df_to_copy_buffer(chunk, columns)
-        col_list = ", ".join(f'"{c}"' for c in columns)
-        copy_sql = f"COPY {table_name} ({col_list}) FROM STDIN"
-        with raw.cursor() as cur, cur.copy(copy_sql) as copy:
-            for line in buf:
-                copy.write(line)
-        total += len(chunk)
+    col_list = ", ".join(f'"{c}"' for c in columns)
+    copy_sql = f"COPY {table_name} ({col_list}) FROM STDIN"
+    with tqdm(total=len(df), desc=table_name, unit="rows", leave=True) as pbar:
+        for start in range(0, len(df), chunk_size):
+            chunk = df.iloc[start : start + chunk_size]
+            buf = _df_to_copy_buffer(chunk, columns)
+            with raw.cursor() as cur, cur.copy(copy_sql) as copy:
+                for line in buf:
+                    copy.write(line)
+            total += len(chunk)
+            pbar.update(len(chunk))
     logger.info("Inserted %d rows into %s", total, table_name)
     return total
 
