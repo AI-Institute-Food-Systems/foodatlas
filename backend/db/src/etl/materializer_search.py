@@ -121,6 +121,9 @@ def _extract_external_id_values(ext_ids: dict, entity_type: str) -> list[str]:
     return values
 
 
+_MAX_TOKEN_LEN = 200
+
+
 def _build_exact_tokens(
     entity_type: str,
     common_name: str,
@@ -128,11 +131,15 @@ def _build_exact_tokens(
     synonyms: list[str],
     ext_id_values: list[str],
 ) -> list[str]:
-    """Build exact-match search tokens for an entity."""
+    """Build exact-match search tokens for an entity.
+
+    Synonyms longer than ``_MAX_TOKEN_LEN`` (e.g. amino acid sequences)
+    are excluded to stay within the GIN index page-size limit.
+    """
     tokens: list[str] = [entity_type, common_name]
     if scientific_name:
         tokens.append(scientific_name)
-    tokens.extend(synonyms)
+    tokens.extend(s for s in synonyms if len(s) <= _MAX_TOKEN_LEN)
     tokens.extend(ext_id_values)
     return [str(t) for t in tokens]
 

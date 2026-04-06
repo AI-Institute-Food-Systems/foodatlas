@@ -10,6 +10,7 @@ import pandas as pd
 from ...models.entity import ChemicalEntity
 
 if TYPE_CHECKING:
+    from ...stores.entity_registry import EntityRegistry
     from ...stores.entity_store import EntityStore
 
 # Preferred xref source order for display-name disambiguation.
@@ -110,3 +111,23 @@ def _add_dmd_to_entity(store: EntityStore, fa_id: str, native: str) -> None:
         ext["dmd"] = []
     if native not in ext["dmd"]:
         ext["dmd"].append(native)
+
+
+def _collect_unlinked(
+    molecules: pd.DataFrame,
+    registry: EntityRegistry,
+    store: EntityStore,
+) -> list[tuple[str, pd.Series]]:
+    """Collect DMD molecules not yet resolved to an entity in the store."""
+    unlinked: list[tuple[str, pd.Series]] = []
+    seen: set[str] = set()
+    for _, row in molecules.iterrows():
+        native = str(row["native_id"])
+        if native in seen:
+            continue
+        seen.add(native)
+        existing_id = registry.resolve("dmd", native)
+        if existing_id and existing_id in store._entities.index:
+            continue
+        unlinked.append((native, row))
+    return unlinked

@@ -17,6 +17,7 @@ from .resolve_dmd_helpers import (
     _append_entities,
     _build_entity,
     _build_ext_index,
+    _collect_unlinked,
     _get_molecules,
     _get_xrefs,
     _pick_display_xref,
@@ -43,11 +44,16 @@ def create_chemicals_from_dmd(
     lut: EntityLUT,
     registry: EntityRegistry,
 ) -> None:
-    """Pass 1: create entities for DMD molecules with seeded registry IDs."""
+    """Pass 1: create entities for seeded DMD molecules already in the store.
+
+    Only creates entities whose seeded ``fa_id`` is already in the store
+    (i.e. created by a primary source like ChEBI). DMD-only seeded
+    molecules are left for Pass 2 (xref linking) or Pass 3 (new entity).
+    """
     molecules = _get_molecules(sources)
     if molecules is None:
         return
-    created_rows: list[dict] = []
+    linked = 0
     seen: set[str] = set()
     for _, row in molecules.iterrows():
         native = str(row["native_id"])
@@ -55,17 +61,19 @@ def create_chemicals_from_dmd(
             continue
         seen.add(native)
         fa_id = registry.resolve("dmd", native)
-        if not fa_id or fa_id in store._entities.index:
+        if not fa_id:
             continue
-        data = _build_entity(row, {"dmd": [native]}, row["name"])
-        data["foodatlas_id"] = fa_id
-        created_rows.append(data)
+        # Only enrich if the entity already exists (seeded from another
+        # source like ChEBI).  DMD-only seeds skip to Pass 2/3.
+        if fa_id not in store._entities.index:
+            continue
+        _add_dmd_to_entity(store, fa_id, native)
         if row["name"]:
             lut.add("chemical", row["name"], fa_id)
+        linked += 1
 
     store._curr_eid = registry.next_eid
-    _append_entities(store, created_rows)
-    logger.info("Pass 1: %d chemical entities from DMD.", len(created_rows))
+    logger.info("Pass 1: DMD enriched %d existing entities.", linked)
 
 
 # ---------------------------------------------------------------------------
@@ -100,7 +108,11 @@ def link_dmd(
 
     for _, row in molecules.iterrows():
         native = str(row["native_id"])
-        if registry.resolve("dmd", native):
+        # Skip if already resolved to an entity that exists in the store
+        # (handled in Pass 1).  Seeded molecules whose entity was NOT
+        # created by another source still need xref linking here.
+        existing_id = registry.resolve("dmd", native)
+        if existing_id and existing_id in store._entities.index:
             continue
         mol_xrefs = xref_map.get(native, {})
 
@@ -165,18 +177,7 @@ def create_unlinked_dmd(
     if molecules is None:
         return
     xref_map = _get_xrefs(sources)
-
-    # Collect unlinked molecules grouped by name for disambiguation.
-    unlinked: list[tuple[str, pd.Series]] = []
-    seen: set[str] = set()
-    for _, row in molecules.iterrows():
-        native = str(row["native_id"])
-        if native in seen:
-            continue
-        seen.add(native)
-        if registry.resolve("dmd", native):
-            continue
-        unlinked.append((native, row))
+    unlinked = _collect_unlinked(molecules, registry, store)
 
     name_groups: dict[str, list[tuple[str, pd.Series]]] = {}
     for native, row in unlinked:
@@ -202,8 +203,12 @@ def create_unlinked_dmd(
             else:
                 display_name = name
 
-            fa_id = f"e{registry.next_eid}"
-            registry.register("dmd", native, fa_id)
+            existing_id = registry.resolve("dmd", native)
+            if existing_id:
+                fa_id = existing_id
+            else:
+                fa_id = f"e{registry.next_eid}"
+                registry.register("dmd", native, fa_id)
 
             data = _build_entity(row, ext_ids, display_name)
             data["foodatlas_id"] = fa_id
