@@ -34,7 +34,7 @@ export const PaginationsProvider: React.FC<PaginationsProviderProps> = ({
   const setTablePaginations = (
     tableId: string,
     currentPage: number,
-    rowsPerPage: number = 20
+    rowsPerPage: number = 10
   ) => {
     setPaginations((prevState) => ({
       ...prevState,
@@ -43,7 +43,7 @@ export const PaginationsProvider: React.FC<PaginationsProviderProps> = ({
   };
 
   const getTablePaginations = (tableId: string): PaginationssSettings => {
-    return paginations[tableId] || { currentPage: 1, rowsPerPage: 20 };
+    return paginations[tableId] || { currentPage: 1, rowsPerPage: 10 };
   };
 
   return (

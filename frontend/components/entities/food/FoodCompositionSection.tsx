@@ -38,16 +38,20 @@ const TABLE_HEADERS = [
   {
     label: "Chemical",
     sortName: "common_name",
+    align: "left" as const,
   },
   {
     label: "Nutrient Classification",
+    align: "left" as const,
   },
   {
     label: "Median Concentration (mg/100g)",
     sortName: "median_concentration",
+    align: "right" as const,
   },
   {
     label: "Evidence",
+    align: "right" as const,
   },
 ];
 
@@ -323,7 +327,13 @@ const FoodCompositionSection = ({
           </div>
           {/* table */}
           <div className="mt-3 overflow-x-auto">
-            <table className="w-full md:table-fixed">
+            <table className="w-full table-fixed">
+              <colgroup>
+                <col className="w-[30%]" />
+                <col className="w-[25%]" />
+                <col className="w-[25%]" />
+                <col className="w-[20%]" />
+              </colgroup>
               <thead className="text-light-400 text-left">
                 <tr>
                   {/* table headers */}
@@ -336,14 +346,14 @@ const FoodCompositionSection = ({
                           : index === TABLE_HEADERS.length - 1
                           ? "pl-4"
                           : "px-4"
-                      }`}
+                      } ${header.align === "right" ? "text-right" : "text-left"}`}
                     >
                       <div
-                        className={`group flex justify-between gap-1 items-center flex-nowrap w-full ${
+                        className={`group flex gap-1 items-center flex-nowrap w-full ${
                           header.sortName
                             ? "cursor-pointer"
                             : "pointer-events-none"
-                        }`}
+                        } ${header.align === "right" ? "justify-end" : "justify-between"}`}
                         onClick={() =>
                           header.sortName && handleSortClick(header.sortName)
                         }

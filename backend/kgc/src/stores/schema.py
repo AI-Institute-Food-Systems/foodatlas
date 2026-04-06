@@ -44,4 +44,5 @@ ATTESTATION_COLUMNS = _get_columns(Attestation)
 DIR_DIAGNOSTICS = "diagnostics"
 FILE_IE_UNRESOLVED = "diagnostics/ie_unresolved.jsonl"
 FILE_IE_PARSE_ERRORS = "diagnostics/ie_parse_errors.tsv"
+FILE_IE_CONC_ERRORS = "diagnostics/ie_conc_unconverted.tsv"
 FILE_ATTESTATIONS_AMBIGUOUS = "attestations_ambiguous.parquet"

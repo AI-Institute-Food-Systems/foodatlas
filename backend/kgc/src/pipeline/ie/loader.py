@@ -9,8 +9,8 @@ from typing import TYPE_CHECKING
 import pandas as pd
 from tqdm import tqdm
 
-from ...stores.schema import FILE_IE_PARSE_ERRORS
-from .conc_parser import parse_conc
+from ...stores.schema import FILE_IE_CONC_ERRORS, FILE_IE_PARSE_ERRORS
+from .conc_parser import convert_conc, parse_conc
 from .constants import GREEK_LETTERS, PUNCTUATIONS
 
 if TYPE_CHECKING:
@@ -68,6 +68,83 @@ def _parse_tuple(line: str) -> tuple[str, str, str, str] | None:
     return food, food_part, chemical, quantity
 
 
+def _process_line(
+    line: str,
+    rec: pd.Series,
+    rows: list[dict],
+    parse_errors: list[dict],
+    conc_errors: list[dict],
+) -> None:
+    """Parse one response line into a row dict, or log an error."""
+    parsed = _parse_tuple(line)
+    if parsed is None:
+        parse_errors.append(
+            {"pmcid": rec["pmcid"], "line": line.strip(), "reason": "bad_tuple"}
+        )
+        return
+    food, food_part, chemical, quantity = parsed
+    conc_value_raw, conc_unit_raw = _parse_quantity(quantity, rec, parse_errors)
+    conc_value_converted, conc_unit_converted = _convert_quantity(
+        conc_value_raw, conc_unit_raw, rec, conc_errors
+    )
+    ref = json.dumps({"pmcid": rec["pmcid"], "text": rec.get("sentence", "")})
+    rows.append(
+        {
+            "source_type": "pubmed",
+            "reference": ref,
+            "source": "lit2kg",
+            "head_name_raw": standardize_name(food),
+            "tail_name_raw": standardize_name(chemical),
+            "conc_value": conc_value_converted,
+            "conc_unit": conc_unit_converted,
+            "conc_value_raw": conc_value_raw,
+            "conc_unit_raw": conc_unit_raw,
+            "food_part": food_part.strip().lower(),
+            "food_processing": "",
+            "quality_score": float(rec["prob"]),
+            "_food_name": standardize_name(food),
+            "_chemical_name": standardize_name(chemical),
+        }
+    )
+
+
+def _parse_quantity(
+    quantity: str, rec: pd.Series, parse_errors: list[dict]
+) -> tuple[str, str]:
+    """Parse a raw quantity string, logging errors."""
+    if not quantity:
+        return "", ""
+    conc_result = parse_conc(quantity)
+    if conc_result is None:
+        parse_errors.append(
+            {"pmcid": rec["pmcid"], "line": quantity, "reason": "bad_conc"}
+        )
+        return "", ""
+    return conc_result
+
+
+def _convert_quantity(
+    value_raw: str,
+    unit_raw: str,
+    rec: pd.Series,
+    conc_errors: list[dict],
+) -> tuple[float | None, str]:
+    """Convert parsed concentration to mg/100g, logging failures."""
+    if not value_raw or not unit_raw:
+        return None, ""
+    converted = convert_conc(value_raw, unit_raw)
+    if converted is not None:
+        return converted
+    conc_errors.append(
+        {
+            "pmcid": rec["pmcid"],
+            "value_raw": value_raw,
+            "unit_raw": unit_raw,
+        }
+    )
+    return None, ""
+
+
 def load_ie_raw(path: Path, output_dir: Path) -> pd.DataFrame:
     """Parse raw IE file (TSV or pkl) into a MetadataContains-compatible DataFrame.
 
@@ -87,6 +164,7 @@ def load_ie_raw(path: Path, output_dir: Path) -> pd.DataFrame:
 
     rows: list[dict] = []
     parse_errors: list[dict] = []
+    conc_errors: list[dict] = []
     for _, rec in tqdm(raw.iterrows(), total=len(raw), desc="parsing IE", leave=True):
         response = rec["response"]
         if not isinstance(response, str):
@@ -95,50 +173,20 @@ def load_ie_raw(path: Path, output_dir: Path) -> pd.DataFrame:
             )
             continue
         for line in response.split("\n"):
-            parsed = _parse_tuple(line)
-            if parsed is None:
-                parse_errors.append(
-                    {"pmcid": rec["pmcid"], "line": line.strip(), "reason": "bad_tuple"}
-                )
-                continue
-            food, food_part, chemical, quantity = parsed
-            conc_value_raw, conc_unit_raw = "", ""
-            if quantity:
-                conc_result = parse_conc(quantity)
-                if conc_result is None:
-                    parse_errors.append(
-                        {"pmcid": rec["pmcid"], "line": quantity, "reason": "bad_conc"}
-                    )
-                else:
-                    conc_value_raw, conc_unit_raw = conc_result
-            ref = json.dumps({"pmcid": rec["pmcid"], "text": rec.get("sentence", "")})
-            rows.append(
-                {
-                    # Evidence fields
-                    "source_type": "pubmed",
-                    "reference": ref,
-                    # Attestation fields
-                    "source": "lit2kg",
-                    "head_name_raw": standardize_name(food),
-                    "tail_name_raw": standardize_name(chemical),
-                    "conc_value": None,
-                    "conc_unit": "",
-                    "conc_value_raw": conc_value_raw,
-                    "conc_unit_raw": conc_unit_raw,
-                    "food_part": food_part.strip().lower(),
-                    "food_processing": "",
-                    "quality_score": float(rec["prob"]),
-                    # Kept for IE resolver (name lookup)
-                    "_food_name": standardize_name(food),
-                    "_chemical_name": standardize_name(chemical),
-                }
-            )
+            _process_line(line, rec, rows, parse_errors, conc_errors)
 
     if parse_errors:
         errors_path = output_dir / FILE_IE_PARSE_ERRORS
         errors_path.parent.mkdir(exist_ok=True)
         pd.DataFrame(parse_errors).to_csv(errors_path, sep="\t", index=False)
         logger.warning("%d parse errors written to %s.", len(parse_errors), errors_path)
+    if conc_errors:
+        conc_path = output_dir / FILE_IE_CONC_ERRORS
+        conc_path.parent.mkdir(exist_ok=True)
+        pd.DataFrame(conc_errors).to_csv(conc_path, sep="\t", index=False)
+        logger.warning(
+            "%d unconverted concentrations written to %s.", len(conc_errors), conc_path
+        )
     logger.info("Parsed %d IE tuples from %s.", len(rows), path)
 
     return pd.DataFrame(rows) if rows else pd.DataFrame()

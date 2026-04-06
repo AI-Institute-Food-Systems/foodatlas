@@ -1,13 +1,14 @@
-"""Tests for materializer helper functions."""
+"""Tests for materializer helper functions (composition + classification)."""
+
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
-from src.etl.materializer import (
+from src.etl.materializer import _build_classification_map
+from src.etl.materializer_composition import (
     _add_foodatlas_evidence,
-    _build_classification_map,
-    _build_composition_row,
-    _build_db_evidence,
-    _compute_median_concentration,
-    _group_evidences,
+    _build_evidence_json,
+    _compute_median,
+    materialize_food_chemical_composition,
 )
 
 
@@ -49,7 +50,7 @@ class TestBuildClassificationMap:
         assert result.get("e1") == []
 
 
-class TestComputeMedianConcentration:
+class TestComputeMedian:
     def test_returns_median(self):
         evidences = [
             {
@@ -59,11 +60,11 @@ class TestComputeMedianConcentration:
                 ]
             },
         ]
-        result = _compute_median_concentration(evidences)
+        result = _compute_median(evidences)
         assert result == {"unit": "mg/100g", "value": "15"}
 
     def test_returns_none_for_empty(self):
-        assert _compute_median_concentration([]) is None
+        assert _compute_median([]) is None
 
     def test_skips_zero_values(self):
         evidences = [
@@ -74,7 +75,7 @@ class TestComputeMedianConcentration:
                 ]
             },
         ]
-        result = _compute_median_concentration(evidences)
+        result = _compute_median(evidences)
         assert result is not None
         assert result["value"] == "5"
 
@@ -86,7 +87,7 @@ class TestComputeMedianConcentration:
                 ]
             },
         ]
-        assert _compute_median_concentration(evidences) is None
+        assert _compute_median(evidences) is None
 
     def test_skips_none_values(self):
         evidences = [
@@ -96,24 +97,7 @@ class TestComputeMedianConcentration:
                 ]
             },
         ]
-        assert _compute_median_concentration(evidences) is None
-
-
-class TestBuildDbEvidence:
-    def test_fdc_evidence(self):
-        ref = {"fdc_id": "12345", "url": "https://fdc.example.com/12345"}
-        extraction = {"method": "fdc"}
-        result = _build_db_evidence("fdc", ref, extraction)
-        assert result["reference"]["source_name"] == "FDC"
-        assert result["reference"]["id"] == "12345"
-        assert result["premise"] is None
-
-    def test_dmd_evidence(self):
-        ref = {"dmd_concentration_id": "dmd99", "url": "https://dmd.example.com"}
-        extraction = {"method": "dmd"}
-        result = _build_db_evidence("dmd", ref, extraction)
-        assert result["reference"]["source_name"] == "DMD"
-        assert result["reference"]["id"] == "dmd99"
+        assert _compute_median(evidences) is None
 
 
 class TestAddFoodatlasEvidence:
@@ -145,155 +129,224 @@ class TestAddFoodatlasEvidence:
         assert len(evidences) == 2
 
 
-class TestGroupEvidences:
-    def _make_att_map(self):
+class TestBuildEvidenceJson:
+    def _make_group(self, source, conc_value=10.0):
         return pd.DataFrame(
-            {
-                "evidence_id": ["ev1", "ev2", "ev3"],
-                "source": ["fdc", "lit2kg:gpt-3.5-ft", "dmd"],
-                "head_name_raw": ["food1", "food1", "food1"],
-                "tail_name_raw": ["chem1", "chem1", "chem1"],
-                "conc_value": [10.0, 5.0, 20.0],
-                "conc_unit": ["mg/100g", "mg/100g", "mg/100g"],
-                "conc_value_raw": ["10", "5", "20"],
-            },
-            index=["at1", "at2", "at3"],
+            [
+                {
+                    "source": source,
+                    "reference": {
+                        "url": "https://example.com",
+                        "pmcid": "PMC1",
+                        "text": "t",
+                    },
+                    "conc_value": conc_value,
+                    "conc_unit": "mg/100g",
+                    "conc_value_raw": str(conc_value),
+                    "conc_unit_raw": "mg/100g",
+                    "show_food": "apple",
+                    "show_chem": "vitamin c",
+                }
+            ]
         )
 
-    def _make_ev_map(self):
-        return pd.DataFrame(
-            {
-                "reference": [
-                    {"url": "https://fdc.example.com/1"},
-                    {"pmcid": "PMC1", "text": "premise"},
-                    {"dmd_concentration_id": "d1", "url": "https://dmd.com"},
-                ],
-            },
-            index=["ev1", "ev2", "ev3"],
-        )
+    def test_fdc_grouped(self):
+        group = self._make_group("fdc")
+        result = _build_evidence_json(group)
+        assert result["fdc"] is not None
+        assert len(result["fdc"]) == 1
+        assert result["foodatlas"] is None
+        assert result["dmd"] is None
 
-    def test_groups_by_source(self):
-        att_map = self._make_att_map()
-        ev_map = self._make_ev_map()
-        fdc, fa, dmd = _group_evidences(
-            ["at1", "at2", "at3"], att_map, ev_map, "food1", "chem1"
-        )
-        assert fdc is not None and len(fdc) == 1
-        assert fa is not None and len(fa) == 1
-        assert dmd is not None and len(dmd) == 1
+    def test_dmd_grouped(self):
+        group = self._make_group("dmd")
+        result = _build_evidence_json(group)
+        assert result["dmd"] is not None
+        assert result["fdc"] is None
 
-    def test_returns_none_for_empty_groups(self):
-        att_map = pd.DataFrame(
-            {
-                "evidence_id": ["ev1"],
-                "source": ["fdc"],
-                "head_name_raw": ["f"],
-                "tail_name_raw": ["c"],
-                "conc_value": [10.0],
-                "conc_unit": ["mg/100g"],
-                "conc_value_raw": ["10"],
-            },
-            index=["at1"],
-        )
-        ev_map = pd.DataFrame(
-            {
-                "reference": [{"url": "x"}],
-            },
-            index=["ev1"],
-        )
-        fdc, fa, dmd = _group_evidences(["at1"], att_map, ev_map, "f", "c")
-        assert fdc is not None
-        assert fa is None
-        assert dmd is None
+    def test_foodatlas_grouped(self):
+        group = self._make_group("lit2kg")
+        result = _build_evidence_json(group)
+        assert result["foodatlas"] is not None
+        assert result["fdc"] is None
 
-    def test_skips_zero_concentration(self):
-        att_map = pd.DataFrame(
-            {
-                "evidence_id": ["ev1"],
-                "source": ["fdc"],
-                "head_name_raw": ["f"],
-                "tail_name_raw": ["c"],
-                "conc_value": [0.0],
-                "conc_unit": ["mg/100g"],
-                "conc_value_raw": ["0"],
-            },
-            index=["at1"],
+    def test_mixed_sources(self):
+        group = pd.concat(
+            [
+                self._make_group("fdc"),
+                self._make_group("lit2kg", 5.0),
+            ],
+            ignore_index=True,
         )
-        ev_map = pd.DataFrame(
-            {
-                "reference": [{"url": "x"}],
-            },
-            index=["ev1"],
-        )
-        fdc, _fa, _dmd = _group_evidences(["at1"], att_map, ev_map, "f", "c")
-        assert fdc is None
+        result = _build_evidence_json(group)
+        assert result["fdc"] is not None
+        assert result["foodatlas"] is not None
 
-    def test_skips_missing_attestation(self):
-        att_map = pd.DataFrame(
+    def test_null_conc_value(self):
+        group = self._make_group("fdc", conc_value=float("nan"))
+        result = _build_evidence_json(group)
+        assert result["fdc"] is not None
+        ext = result["fdc"][0]["extraction"][0]
+        assert ext["converted_concentration"]["value"] is None
+
+    def test_fdc_reference_id(self):
+        group = pd.DataFrame(
+            [
+                {
+                    "source": "fdc",
+                    "reference": {"fdc_id": "12345", "url": "https://fdc.example.com"},
+                    "conc_value": 10.0,
+                    "conc_unit": "mg/100g",
+                    "conc_value_raw": "10",
+                    "conc_unit_raw": "mg/100g",
+                    "show_food": "apple",
+                    "show_chem": "vit c",
+                }
+            ]
+        )
+        result = _build_evidence_json(group)
+        assert result["fdc"][0]["reference"]["id"] == "12345"
+        assert result["fdc"][0]["reference"]["source_name"] == "FDC"
+
+    def test_dmd_reference_id(self):
+        group = pd.DataFrame(
+            [
+                {
+                    "source": "dmd",
+                    "reference": {
+                        "dmd_concentration_id": "dmd99",
+                        "url": "https://dmd.com",
+                    },
+                    "conc_value": 20.0,
+                    "conc_unit": "mg/100g",
+                    "conc_value_raw": "20",
+                    "conc_unit_raw": "mg/100g",
+                    "show_food": "milk",
+                    "show_chem": "casein",
+                }
+            ]
+        )
+        result = _build_evidence_json(group)
+        assert result["dmd"][0]["reference"]["id"] == "dmd99"
+        assert result["dmd"][0]["reference"]["source_name"] == "DMD"
+
+    def test_foodatlas_groups_by_premise(self):
+        group = pd.DataFrame(
+            [
+                {
+                    "source": "lit2kg",
+                    "reference": {"pmcid": "PMC1", "text": "same premise"},
+                    "conc_value": 5.0,
+                    "conc_unit": "mg/100g",
+                    "conc_value_raw": "5",
+                    "conc_unit_raw": "mg/100g",
+                    "show_food": "apple",
+                    "show_chem": "vit c",
+                },
+                {
+                    "source": "lit2kg",
+                    "reference": {"pmcid": "PMC1", "text": "same premise"},
+                    "conc_value": 10.0,
+                    "conc_unit": "mg/100g",
+                    "conc_value_raw": "10",
+                    "conc_unit_raw": "mg/100g",
+                    "show_food": "apple",
+                    "show_chem": "vit c",
+                },
+            ]
+        )
+        result = _build_evidence_json(group)
+        assert result["foodatlas"] is not None
+        assert len(result["foodatlas"]) == 1
+        assert len(result["foodatlas"][0]["extraction"]) == 2
+
+    def test_non_dict_reference(self):
+        group = pd.DataFrame(
+            [
+                {
+                    "source": "fdc",
+                    "reference": "not_a_dict",
+                    "conc_value": 10.0,
+                    "conc_unit": "mg/100g",
+                    "conc_value_raw": "10",
+                    "conc_unit_raw": "mg/100g",
+                    "show_food": "apple",
+                    "show_chem": "vit c",
+                }
+            ]
+        )
+        result = _build_evidence_json(group)
+        assert result["fdc"] is not None
+
+    def test_empty_group_returns_all_none(self):
+        group = pd.DataFrame(
             columns=[
-                "evidence_id",
                 "source",
-                "head_name_raw",
-                "tail_name_raw",
+                "reference",
                 "conc_value",
                 "conc_unit",
                 "conc_value_raw",
+                "conc_unit_raw",
+                "show_food",
+                "show_chem",
             ]
         )
-        ev_map = pd.DataFrame(columns=["reference"])
-        fdc, _fa, _dmd = _group_evidences(["missing"], att_map, ev_map, "f", "c")
-        assert fdc is None
+        result = _build_evidence_json(group)
+        assert result["fdc"] is None
+        assert result["foodatlas"] is None
+        assert result["dmd"] is None
+
+    def test_foodatlas_url_with_pmcid(self):
+        group = self._make_group("lit2kg")
+        result = _build_evidence_json(group)
+        url = result["foodatlas"][0]["reference"]["url"]
+        assert "PMC1" in url
+
+    def test_foodatlas_empty_pmcid(self):
+        group = pd.DataFrame(
+            [
+                {
+                    "source": "lit2kg",
+                    "reference": {"pmcid": "", "text": "premise"},
+                    "conc_value": 5.0,
+                    "conc_unit": "mg/100g",
+                    "conc_value_raw": "5",
+                    "conc_unit_raw": "mg/100g",
+                    "show_food": "apple",
+                    "show_chem": "vit c",
+                }
+            ]
+        )
+        result = _build_evidence_json(group)
+        assert result["foodatlas"][0]["reference"]["url"] == ""
 
 
-class TestBuildCompositionRow:
-    def test_builds_valid_row(self):
-        triplet = pd.Series(
-            {
-                "head_id": "e1",
-                "tail_id": "e2",
-                "attestation_ids": ["at1"],
-            }
-        )
-        name_map = {"e1": "tomato", "e2": "vitamin c"}
-        att_map = pd.DataFrame(
-            {
-                "evidence_id": ["ev1"],
-                "source": ["fdc"],
-                "head_name_raw": ["tomato"],
-                "tail_name_raw": ["vit c"],
-                "conc_value": [50.0],
-                "conc_unit": ["mg/100g"],
-                "conc_value_raw": ["50"],
-            },
-            index=["at1"],
-        )
-        ev_map = pd.DataFrame(
-            {
-                "reference": [{"url": "https://fdc.example.com/1"}],
-            },
-            index=["ev1"],
-        )
-        nutr_map = {"e2": ["vitamin"]}
+class TestMaterializeCompositionEmpty:
+    """Test materialize_food_chemical_composition with empty data."""
 
-        row = _build_composition_row(triplet, name_map, att_map, ev_map, nutr_map)
-        assert row is not None
-        assert row["food_name"] == "tomato"
-        assert row["chemical_name"] == "vitamin c"
-        assert row["nutrient_classification"] == ["vitamin"]
-
-    def test_returns_none_for_no_evidence(self):
-        triplet = pd.Series(
-            {
-                "head_id": "e1",
-                "tail_id": "e2",
-                "attestation_ids": [],
-            }
-        )
-        row = _build_composition_row(
-            triplet,
-            {"e1": "a", "e2": "b"},
-            pd.DataFrame(),
-            pd.DataFrame(),
-            {},
-        )
-        assert row is None
+    @patch("src.etl.materializer_composition.bulk_copy")
+    @patch("src.etl.materializer_composition.pd.read_sql")
+    def test_empty_triplets_produces_no_rows(self, mock_sql, mock_copy):
+        """No r1 triplets → no rows inserted."""
+        mock_sql.side_effect = [
+            pd.DataFrame(columns=["head_id", "tail_id", "attestation_ids"]),
+            pd.DataFrame(
+                columns=[
+                    "attestation_id",
+                    "evidence_id",
+                    "source",
+                    "head_name_raw",
+                    "tail_name_raw",
+                    "conc_value",
+                    "conc_unit",
+                    "conc_value_raw",
+                    "conc_unit_raw",
+                ]
+            ),
+            pd.DataFrame(columns=["evidence_id", "source_type", "reference"]),
+            pd.DataFrame(columns=["foodatlas_id", "common_name"]),
+            pd.DataFrame(columns=["foodatlas_id", "nutrient_classification"]),
+        ]
+        conn = MagicMock()
+        materialize_food_chemical_composition(conn)
+        mock_copy.assert_not_called()
