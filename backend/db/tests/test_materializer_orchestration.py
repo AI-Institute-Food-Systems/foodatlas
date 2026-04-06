@@ -20,7 +20,7 @@ class TestRefreshAll:
     """Test refresh_all orchestration."""
 
     @patch("src.etl.materializer.materialize_chemical_disease_correlation")
-    @patch("src.etl.materializer._materialize_food_chemical_composition")
+    @patch("src.etl.materializer.materialize_food_chemical_composition")
     @patch("src.etl.materializer._materialize_entity_views")
     @patch("src.etl.materializer.truncate_tables")
     def test_calls_truncate_then_materialize(
