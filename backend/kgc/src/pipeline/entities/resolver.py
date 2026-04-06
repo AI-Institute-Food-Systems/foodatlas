@@ -111,11 +111,12 @@ class EntityResolver:
             m,
         )
         link_fdc_nutrients(sources, self._entity_store, self._linked_native_ids, reg, m)
-        link_dmd(sources, self._entity_store, reg)
         # PubChem and MeSH are cross-references, not entity identifiers.
         # They enrich external_ids but are not registered in the registry.
+        # Must run BEFORE link_dmd so DMD Tier 2 can match via pubchem_compound.
         link_pubchem_to_chebi(sources, self._entity_store)
         link_mesh_to_chebi(sources, self._entity_store)
+        link_dmd(sources, self._entity_store, reg)
         logger.info("Pass 2 complete: %d entities.", len(self._entity_store._entities))
 
     def _pass3_unlinked(self, sources: dict[str, dict[str, pd.DataFrame]]) -> None:
