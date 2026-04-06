@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
+from tqdm import tqdm
 
 from .bulk_insert import bulk_copy
 
@@ -70,8 +71,11 @@ def materialize_food_chemical_composition(conn: Connection) -> None:
     )
 
     # Group by triplet and build evidence JSON.
+    grouped = merged.groupby(["head_id", "tail_id"])
     result_rows = []
-    for (head_id, tail_id), group in merged.groupby(["head_id", "tail_id"]):
+    for (head_id, tail_id), group in tqdm(
+        grouped, total=len(grouped), desc="composition", leave=True
+    ):
         ev = _build_evidence_json(group)
         if not any(ev.values()):
             continue
@@ -127,7 +131,9 @@ def _build_evidence_json(group: pd.DataFrame) -> dict[str, list | None]:
         extraction = {
             "extracted_food_name": row["show_food"],
             "extracted_chemical_name": row["show_chem"],
-            "extracted_concentration": row["conc_value_raw"] or None,
+            "extracted_concentration": (
+                f"{row['conc_value_raw']} {row['conc_unit_raw']}".strip() or None
+            ),
             "converted_concentration": {
                 "value": conc_val,
                 "unit": row["conc_unit"] or "",

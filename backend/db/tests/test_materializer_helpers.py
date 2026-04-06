@@ -143,6 +143,7 @@ class TestBuildEvidenceJson:
                     "conc_value": conc_value,
                     "conc_unit": "mg/100g",
                     "conc_value_raw": str(conc_value),
+                    "conc_unit_raw": "mg/100g",
                     "show_food": "apple",
                     "show_chem": "vitamin c",
                 }
@@ -197,6 +198,7 @@ class TestBuildEvidenceJson:
                     "conc_value": 10.0,
                     "conc_unit": "mg/100g",
                     "conc_value_raw": "10",
+                    "conc_unit_raw": "mg/100g",
                     "show_food": "apple",
                     "show_chem": "vit c",
                 }
@@ -218,6 +220,7 @@ class TestBuildEvidenceJson:
                     "conc_value": 20.0,
                     "conc_unit": "mg/100g",
                     "conc_value_raw": "20",
+                    "conc_unit_raw": "mg/100g",
                     "show_food": "milk",
                     "show_chem": "casein",
                 }
@@ -236,6 +239,7 @@ class TestBuildEvidenceJson:
                     "conc_value": 5.0,
                     "conc_unit": "mg/100g",
                     "conc_value_raw": "5",
+                    "conc_unit_raw": "mg/100g",
                     "show_food": "apple",
                     "show_chem": "vit c",
                 },
@@ -245,6 +249,7 @@ class TestBuildEvidenceJson:
                     "conc_value": 10.0,
                     "conc_unit": "mg/100g",
                     "conc_value_raw": "10",
+                    "conc_unit_raw": "mg/100g",
                     "show_food": "apple",
                     "show_chem": "vit c",
                 },
@@ -264,6 +269,7 @@ class TestBuildEvidenceJson:
                     "conc_value": 10.0,
                     "conc_unit": "mg/100g",
                     "conc_value_raw": "10",
+                    "conc_unit_raw": "mg/100g",
                     "show_food": "apple",
                     "show_chem": "vit c",
                 }
@@ -280,6 +286,7 @@ class TestBuildEvidenceJson:
                 "conc_value",
                 "conc_unit",
                 "conc_value_raw",
+                "conc_unit_raw",
                 "show_food",
                 "show_chem",
             ]
@@ -304,6 +311,7 @@ class TestBuildEvidenceJson:
                     "conc_value": 5.0,
                     "conc_unit": "mg/100g",
                     "conc_value_raw": "5",
+                    "conc_unit_raw": "mg/100g",
                     "show_food": "apple",
                     "show_chem": "vit c",
                 }

@@ -6,6 +6,7 @@ import logging
 import pandas as pd
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
+from tqdm import tqdm
 
 from .bulk_insert import bulk_copy
 
@@ -29,7 +30,9 @@ def materialize_chemical_disease_correlation(conn: Connection) -> None:
     ev_map = evidence.set_index("evidence_id")
 
     rows = []
-    for _, triplet in r3r4.iterrows():
+    for _, triplet in tqdm(
+        r3r4.iterrows(), total=len(r3r4), desc="correlation", leave=True
+    ):
         chem_id = triplet["head_id"]
         disease_id = triplet["tail_id"]
         att_ids = triplet["attestation_ids"] or []
