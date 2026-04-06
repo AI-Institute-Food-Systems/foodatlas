@@ -19,7 +19,7 @@ NUTRIENT_KEY_MAP = {
 VALID_SOURCES = {"fdc", "foodatlas", "dmd"}
 VALID_SORT_COLS = {
     "common_name": "chemical_name",
-    "median_concentration": "median_concentration",
+    "median_concentration": "(median_concentration->>'value')::NUMERIC",
 }
 VALID_DIRECTIONS = {"ASC", "DESC"}
 
@@ -54,7 +54,7 @@ async def get_profile(session: AsyncSession, common_name: str) -> dict[str, obje
                    nutrient_classification, median_concentration
             FROM mv_food_chemical_composition
             WHERE food_name = :name
-            ORDER BY median_concentration DESC NULLS LAST
+            ORDER BY (median_concentration->>'value')::NUMERIC DESC NULLS LAST
         """),
         {"name": common_name},
     )
@@ -70,6 +70,7 @@ async def get_profile(session: AsyncSession, common_name: str) -> dict[str, obje
         mapping = row._mapping
         classifications = mapping["nutrient_classification"] or []
         entry = {
+            "id": mapping["id"],
             "name": mapping["name"],
             "median_concentration": mapping["median_concentration"],
         }

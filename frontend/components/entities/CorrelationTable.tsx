@@ -67,9 +67,6 @@ const CorrelationTable = ({
     setSelectedEvidenceName(name);
   };
 
-  // calculate the number of empty rows needed
-  const emptyRowsCount = data ? 20 - data?.length : 20;
-
   return (
     <>
       <div>
@@ -103,7 +100,7 @@ const CorrelationTable = ({
             <tbody className="font-light">
               {isLoading ? (
                 // loading skeleton
-                Array.from({ length: 20 }, (_, index) => (
+                Array.from({ length: 10 }, (_, index) => (
                   <tr key={index}>
                     <td className="w-full py-3" colSpan={headers.length}>
                       <div className="h-12 flex items-center">
@@ -196,16 +193,6 @@ const CorrelationTable = ({
                   </td>
                 </tr>
               )}
-              {/* add empty rows to make up for the total of 20 rows */}
-              {numberOfPages > 1 &&
-                !isLoading &&
-                Array.from({ length: emptyRowsCount }, (_, index) => (
-                  <tr key={index}>
-                    <td className="py-3" colSpan={headers.length}>
-                      <div className="h-12" />
-                    </td>
-                  </tr>
-                ))}
             </tbody>
           </table>
         </div>

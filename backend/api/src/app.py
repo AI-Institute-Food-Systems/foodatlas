@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.config import APISettings
 from src.dependencies import init_session_factory
-from src.routes import chemical, disease, download, food, metadata
+from src.routes import chemical, disease, download, food, metadata, resolve
 
 
 def create_app(settings: APISettings | None = None) -> FastAPI:
@@ -34,6 +34,7 @@ def create_app(settings: APISettings | None = None) -> FastAPI:
     app.include_router(disease.router)
     app.include_router(metadata.router)
     app.include_router(download.router)
+    app.include_router(resolve.router)
 
     return app
 
