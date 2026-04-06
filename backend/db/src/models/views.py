@@ -43,6 +43,9 @@ class MVChemicalEntity(Base):
     chemical_classification: Mapped[list[str]] = mapped_column(
         ARRAY(Text), server_default="{}"
     )
+    flavor_descriptors: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), server_default="{}"
+    )
 
     __table_args__ = (Index("ix_mv_chem_common_name", "common_name"),)
 

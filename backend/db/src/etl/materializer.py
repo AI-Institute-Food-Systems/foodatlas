@@ -65,11 +65,14 @@ def _materialize_entity_views(conn: Connection) -> None:
     chemicals["chemical_classification"] = chemicals["attributes"].apply(
         lambda a: a.get("chemical_groups", []) if isinstance(a, dict) else []
     )
+    chemicals["flavor_descriptors"] = chemicals["attributes"].apply(
+        lambda a: a.get("flavor_descriptors", []) if isinstance(a, dict) else []
+    )
     _insert_mv_entities(
         conn,
         "mv_chemical_entities",
         chemicals,
-        ["chemical_classification"],
+        ["chemical_classification", "flavor_descriptors"],
     )
 
     disease_chem_ids = set(r3r4["head_id"]) & chem_ids
