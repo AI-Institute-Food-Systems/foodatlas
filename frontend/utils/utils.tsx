@@ -145,7 +145,7 @@ export const formatConcentrationValue = (value: number) => {
 
 // formats concentration values using scientific notation for small numbers
 export const formatConcentrationValueAlt = (value: number | undefined) => {
-  if (!value) return "n/a";
+  if (!value) return "—";
 
   const numValue = Number(value);
 
@@ -169,7 +169,7 @@ export const formatConcentration = (concentrationData: any) => {
     concentrationData.length === 0 ||
     (!concentrationData[0].value && !concentrationData[0].extracted[0])
   )
-    return "n/a";
+    return "—";
 
   // process each concentration and return an array of JSX elements
   const elements = concentrationData.flatMap(

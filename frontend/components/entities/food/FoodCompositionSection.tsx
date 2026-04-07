@@ -29,30 +29,39 @@ import Heading from "@/components/basic/Heading";
 import FoodCompositionEvidenceModal from "@/components/entities/food/FoodCompositionEvidenceModal";
 import { usePaginations } from "@/context/paginationsContext";
 import { encodeSpace, formatConcentrationValueAlt } from "@/utils/utils";
-import { getFoodCompositionData } from "@/utils/fetching";
+import {
+  getFoodCompositionCounts,
+  getFoodCompositionData,
+} from "@/utils/fetching";
 import { FoodCompositionData } from "@/types";
 import { FoodEvidence } from "@/types/Evidence";
 
 // headers for table
 const TABLE_HEADERS = [
+  { label: "Chemical", sortName: "common_name", align: "left" as const },
+  { label: "Classification", align: "left" as const, filterable: true },
   {
-    label: "Chemical",
-    sortName: "common_name",
-    align: "left" as const,
-  },
-  {
-    label: "Nutrient Classification",
-    align: "left" as const,
-  },
-  {
-    label: "Median Concentration (mg/100g)",
+    label: "Concentration (mg/100g)",
     sortName: "median_concentration",
     align: "right" as const,
   },
-  {
-    label: "Evidence",
-    align: "right" as const,
-  },
+  { label: "Evidence", align: "right" as const },
+];
+
+const CLASSIFICATION_OPTIONS = [
+  "alkaloid",
+  "amino acid",
+  "carbohydrate",
+  "fatty acid",
+  "flavonoid",
+  "glucosinolate",
+  "lignan",
+  "nucleotide",
+  "polyphenol",
+  "stilbenoid",
+  "tannin",
+  "terpenoid",
+  "n/a",
 ];
 
 // mapping of source filters to their labels
@@ -89,29 +98,24 @@ const FoodCompositionSection = ({
   const [showAllConcentrations, setShowAllConcentrations] = useState(true);
   const [selectedEvidenceName, setSelectedEvidenceName] = useState("");
   const [sourceCounts, setSourceCounts] = useState<Record<string, number>>({});
+  const [classificationFilter, setClassificationFilter] = useState<
+    string[]
+  >([]);
+  const [classificationCounts, setClassificationCounts] = useState<
+    Record<string, number>
+  >({});
 
-  // fetch per-source chemical counts on mount
+  // fetch source + classification counts in one call
   useEffect(() => {
     const fetchCounts = async () => {
-      const counts: Record<string, number> = {};
-      await Promise.all(
-        SOURCE_OPTIONS.map(async (option) => {
-          try {
-            const result = await getFoodCompositionData(
-              commonName,
-              1,
-              [option.value],
-              "",
-              { column: "median_concentration", direction: "desc" },
-              true
-            );
-            counts[option.value] = result.metadata.total_rows;
-          } catch {
-            counts[option.value] = 0;
-          }
-        })
-      );
-      setSourceCounts(counts);
+      try {
+        const counts = await getFoodCompositionCounts(commonName);
+        setSourceCounts(counts.source_counts);
+        setClassificationCounts(counts.classification_counts);
+      } catch {
+        setSourceCounts({});
+        setClassificationCounts({});
+      }
     };
     fetchCounts();
   }, [commonName]);
@@ -137,7 +141,8 @@ const FoodCompositionSection = ({
           sourceFilters,
           searchTerm,
           sort,
-          showAllConcentrations
+          showAllConcentrations,
+          classificationFilter
         );
         // client-side filter: only keep rows with evidence from selected sources
         const filteredData = (
@@ -170,6 +175,7 @@ const FoodCompositionSection = ({
     searchTerm,
     sort,
     showAllConcentrations,
+    classificationFilter,
   ]);
 
   // handle source filter change
@@ -348,6 +354,66 @@ const FoodCompositionSection = ({
                           : "px-4"
                       } ${header.align === "right" ? "text-right" : "text-left"}`}
                     >
+                      {header.filterable ? (
+                        <Listbox
+                          value={classificationFilter}
+                          onChange={(val: string[]) => {
+                            setTablePaginations(
+                              "food-composition-table",
+                              1,
+                              20
+                            );
+                            setClassificationFilter(val);
+                          }}
+                          multiple
+                        >
+                          <ListboxButton className="group flex gap-1 items-center cursor-pointer focus:outline-none">
+                            <span
+                              className={`select-none uppercase text-xs font-medium transition duration-300 ease-in-out ${
+                                classificationFilter.length > 0
+                                  ? "text-accent-600"
+                                  : "text-light-400 group-hover:text-light-100"
+                              }`}
+                            >
+                              {header.label}
+                              {classificationFilter.length > 0 &&
+                                ` (${classificationFilter.length})`}
+                            </span>
+                            <MdKeyboardArrowDown
+                              className={`transition duration-300 ease-in-out flex-shrink-0 ${
+                                classificationFilter.length > 0
+                                  ? "text-accent-600"
+                                  : "text-light-400 group-hover:text-light-100"
+                              }`}
+                            />
+                          </ListboxButton>
+                          <ListboxOptions
+                            anchor="bottom start"
+                            className={twMerge(
+                              "w-52 rounded-xl border border-white/5 bg-white/5 backdrop-blur-lg p-1 [--anchor-gap:var(--spacing-1)] focus:outline-none z-50",
+                              "transition duration-100 ease-in data-[leave]:data-[closed]:opacity-0"
+                            )}
+                          >
+                            {CLASSIFICATION_OPTIONS.map((cls) => (
+                              <ListboxOption
+                                key={cls}
+                                value={cls}
+                                className="group flex cursor-default items-center gap-2 rounded-lg py-1.5 px-4 select-none data-[focus]:bg-white/10 capitalize"
+                              >
+                                <MdCheck className="invisible size-4 fill-white group-data-[selected]:visible flex-shrink-0" />
+                                <span className="flex-1">
+                                  {cls === "n/a" ? "—" : cls}
+                                </span>
+                                {classificationCounts[cls] != null && (
+                                  <span className="text-xs text-light-400">
+                                    {classificationCounts[cls]}
+                                  </span>
+                                )}
+                              </ListboxOption>
+                            ))}
+                          </ListboxOptions>
+                        </Listbox>
+                      ) : (
                       <div
                         className={`group flex gap-1 items-center flex-nowrap w-full ${
                           header.sortName
@@ -378,6 +444,7 @@ const FoodCompositionSection = ({
                             <MdUnfoldMore className="text-light-400 group-hover:text-light-100 transition duration-300 ease-in-out flex-shrink-0" />
                           ))}
                       </div>
+                      )}
                     </th>
                   ))}
                 </tr>
@@ -423,10 +490,12 @@ const FoodCompositionSection = ({
                           </Link>
                         </div>
                       </td>
-                      {/* nutrient classification */}
+                      {/* classification */}
                       <td className="py-3 px-4">
                         <div className="flex min-h-12 capitalize items-center">
-                          {row.chemical_classification.join(", ")}
+                          {row.chemical_classification.length > 0
+                            ? row.chemical_classification.join(", ")
+                            : "—"}
                         </div>
                       </td>
                       {/* median concentration */}

@@ -85,35 +85,41 @@ const MetainformationSection = async ({
                 </Card>
               )}
               {/* chemical classification */}
-              {data?.chemical_classification &&
-                data.chemical_classification.length > 0 && (
-                  <Card>
-                    <Heading
-                      type="h4"
-                      className="font-mono italic text-light-400 text-xs"
-                    >
-                      Chemical Classification
-                    </Heading>
-                    <div className="mt-3 capitalize break-all">
-                      <p>{data.chemical_classification.join(", ")}</p>
-                    </div>
-                  </Card>
-                )}
+              {data?.chemical_classification && (
+                <Card>
+                  <Heading
+                    type="h4"
+                    className="font-mono italic text-light-400 text-xs"
+                  >
+                    Classification
+                  </Heading>
+                  <div className="mt-3 capitalize break-all">
+                    <p>
+                      {data.chemical_classification.length > 0
+                        ? data.chemical_classification.join(", ")
+                        : "—"}
+                    </p>
+                  </div>
+                </Card>
+              )}
               {/* flavor descriptors */}
-              {data?.flavor_descriptors &&
-                data.flavor_descriptors.length > 0 && (
-                  <Card>
-                    <Heading
-                      type="h4"
-                      className="font-mono italic text-light-400 text-xs"
-                    >
-                      Flavor Descriptors
-                    </Heading>
-                    <div className="mt-3 capitalize break-all">
-                      <p>{data.flavor_descriptors.join(", ")}</p>
-                    </div>
-                  </Card>
-                )}
+              {data?.flavor_descriptors && (
+                <Card>
+                  <Heading
+                    type="h4"
+                    className="font-mono italic text-light-400 text-xs"
+                  >
+                    Flavor
+                  </Heading>
+                  <div className="mt-3 capitalize break-all">
+                    <p>
+                      {data.flavor_descriptors.length > 0
+                        ? data.flavor_descriptors.join(", ")
+                        : "—"}
+                    </p>
+                  </div>
+                </Card>
+              )}
             </div>
             {/* synonyms */}
             {data?.synonyms && data.synonyms.length > 0 && (

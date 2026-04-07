@@ -62,7 +62,7 @@ const FdcEvidence = ({ evidence }: FdcEvidenceProps) => {
                   {extraction.extracted_chemical_name}
                 </td>
                 <td className="py-2 px-4 text-right whitespace-nowrap">
-                  {extraction.extracted_concentration ?? "n/a"}
+                  {extraction.extracted_concentration ?? "—"}
                 </td>
                 <td className="py-2 px-4 text-right whitespace-nowrap">
                   {extraction.converted_concentration.unit &&
@@ -70,7 +70,7 @@ const FdcEvidence = ({ evidence }: FdcEvidenceProps) => {
                     ? `${formatConcentrationValueAlt(
                         extraction.converted_concentration.value
                       )} ${extraction.converted_concentration.unit}`
-                    : "n/a"}
+                    : "—"}
                 </td>
                 <td className="py-2 pl-4 text-right uppercase whitespace-nowrap">
                   {extraction.method}

@@ -102,7 +102,7 @@ const MacrosAndMicrosSection = ({
                               ? `${formatConcentrationValueAlt(
                                   concentration.median_concentration.value
                                 )} ${concentration.median_concentration.unit}`
-                              : "n/a"}
+                              : "—"}
                           </span>
                         </p>
                       ))}
@@ -139,7 +139,7 @@ const MacrosAndMicrosSection = ({
                     ? `${formatConcentrationValueAlt(
                         concentration.median_concentration.value
                       )} ${concentration.median_concentration.unit}`
-                    : "n/a"}
+                    : "—"}
                 </span>
               </p>
             ))}

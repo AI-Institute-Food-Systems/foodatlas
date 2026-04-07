@@ -14,6 +14,7 @@ html {
   background-color: #0a0a09;
   color: #fff;
   padding: 0 !important;
+  scrollbar-gutter: stable;
 }
 
 a {
