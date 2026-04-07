@@ -1,14 +1,14 @@
-"""Tests for postprocessing modules: common_name, synonyms_display, grouping."""
+"""Tests for enrichment modules: common_name, synonyms_display, grouping."""
 
 import pandas as pd
 import pytest
-from src.pipeline.postprocessing.common_name import (
+from src.pipeline.enrichment.common_name import (
     _is_internal_mention,
     count_synonym_mentions,
     update_common_names,
 )
-from src.pipeline.postprocessing.grouping.foods import clean_groups
-from src.pipeline.postprocessing.synonyms_display import (
+from src.pipeline.enrichment.grouping.foods import clean_groups
+from src.pipeline.enrichment.synonyms_display import (
     build_synonyms_display,
     remove_plural_synonyms,
 )

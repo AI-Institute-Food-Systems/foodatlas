@@ -53,20 +53,20 @@ def test_run_selected_stages_in_order(runner: PipelineRunner) -> None:
         return _handler
 
     overrides = {
-        PipelineStage.POSTPROCESSING: _make_tracker("POSTPROCESSING"),
+        PipelineStage.ENRICHMENT: _make_tracker("ENRICHMENT"),
         PipelineStage.ENTITIES: _make_tracker("ENTITIES"),
         PipelineStage.INGEST: _make_tracker("INGEST"),
     }
     with patch.dict(_STAGE_HANDLERS, overrides):
         runner.run(
             [
-                PipelineStage.POSTPROCESSING,
+                PipelineStage.ENRICHMENT,
                 PipelineStage.ENTITIES,
                 PipelineStage.INGEST,
             ]
         )
 
-    assert called == ["INGEST", "ENTITIES", "POSTPROCESSING"]
+    assert called == ["INGEST", "ENTITIES", "ENRICHMENT"]
 
 
 def test_run_all_stages(runner: PipelineRunner) -> None:

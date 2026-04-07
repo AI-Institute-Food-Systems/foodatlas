@@ -80,7 +80,7 @@ FOOD_COMP_SAMPLE = {
         {
             "name": "glucose",
             "id": "FA:C001",
-            "nutrient_classification": ["carbohydrate (including fiber)"],
+            "chemical_classification": ["carbohydrate"],
             "median_concentration": 5.0,
         }
     ],

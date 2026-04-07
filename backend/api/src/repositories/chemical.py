@@ -14,7 +14,7 @@ async def get_metadata(session: AsyncSession, common_name: str) -> dict[str, obj
         text("""
             SELECT common_name, foodatlas_id AS id, entity_type,
                    scientific_name, synonyms, external_ids,
-                   chemical_classification, nutrient_classification
+                   chemical_classification, flavor_descriptors
             FROM mv_chemical_entities WHERE common_name = :name
         """),
         {"name": common_name},

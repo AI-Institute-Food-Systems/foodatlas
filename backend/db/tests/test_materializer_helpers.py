@@ -345,7 +345,7 @@ class TestMaterializeCompositionEmpty:
             ),
             pd.DataFrame(columns=["evidence_id", "source_type", "reference"]),
             pd.DataFrame(columns=["foodatlas_id", "common_name"]),
-            pd.DataFrame(columns=["foodatlas_id", "nutrient_classification"]),
+            pd.DataFrame(columns=["foodatlas_id", "chemical_classification"]),
         ]
         conn = MagicMock()
         materialize_food_chemical_composition(conn)

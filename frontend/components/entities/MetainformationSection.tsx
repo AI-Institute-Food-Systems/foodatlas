@@ -91,24 +91,32 @@ const MetainformationSection = async ({
                     type="h4"
                     className="font-mono italic text-light-400 text-xs"
                   >
-                    Chemical Classification
+                    Classification
                   </Heading>
                   <div className="mt-3 capitalize break-all">
-                    <p>{data.chemical_classification}</p>
+                    <p>
+                      {data.chemical_classification.length > 0
+                        ? data.chemical_classification.join(", ")
+                        : "—"}
+                    </p>
                   </div>
                 </Card>
               )}
-              {/* chemical nutrient classification */}
-              {data?.nutrient_classification && (
+              {/* flavor descriptors */}
+              {data?.flavor_descriptors && (
                 <Card>
                   <Heading
                     type="h4"
                     className="font-mono italic text-light-400 text-xs"
                   >
-                    Nutrient Classification
+                    Flavor
                   </Heading>
                   <div className="mt-3 capitalize break-all">
-                    <p>{data.nutrient_classification.join(", ")}</p>
+                    <p>
+                      {data.flavor_descriptors.length > 0
+                        ? data.flavor_descriptors.join(", ")
+                        : "—"}
+                    </p>
                   </div>
                 </Card>
               )}

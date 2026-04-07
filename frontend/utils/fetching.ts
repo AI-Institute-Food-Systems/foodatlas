@@ -60,8 +60,13 @@ export async function getFoodCompositionData(
   sourceFilters: string[],
   searchTerm: string,
   sort: { column: string; direction: string },
-  showAllConcentrations: boolean
+  showAllConcentrations: boolean,
+  classificationFilters: string[] = []
 ) {
+  const clsParam =
+    classificationFilters.length > 0
+      ? `&filter_classification=${classificationFilters.join("+")}`
+      : "";
   const response = await fetch(
     `${
       process.env.NEXT_PUBLIC_API_URL
@@ -71,7 +76,7 @@ export async function getFoodCompositionData(
       "+"
     )}&search=${encodeURIComponent(searchTerm)}&sort_by=${
       sort.column
-    }&sort_dir=${sort.direction}&show_all_rows=${showAllConcentrations}`,
+    }&sort_dir=${sort.direction}&show_all_rows=${showAllConcentrations}${clsParam}`,
     {
       headers: {
         Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
@@ -87,6 +92,33 @@ export async function getFoodCompositionData(
   const data = await response.json();
 
   return data;
+}
+
+// fetch food composition counts (classification + source counts in one call)
+export async function getFoodCompositionCounts(commonName: string) {
+  const response = await fetch(
+    `${
+      process.env.NEXT_PUBLIC_API_URL
+    }/food/composition/counts?common_name=${encodeURIComponent(commonName)}`,
+    {
+      headers: {
+        Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
+      },
+      next: { revalidate: 86400 },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Failed to fetch composition counts for food ${commonName}`
+    );
+  }
+
+  const data = await response.json();
+  return data.data as {
+    classification_counts: Record<string, number>;
+    source_counts: Record<string, number>;
+  };
 }
 
 // fetch chemical composition data, i.e. the foods containing it

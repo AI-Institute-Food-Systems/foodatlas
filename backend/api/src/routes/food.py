@@ -25,6 +25,14 @@ async def food_profile(
     return await food.get_profile(db, common_name)
 
 
+@router.get("/composition/counts")
+async def food_composition_counts(
+    common_name: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+):
+    return await food.get_composition_counts(db, common_name)
+
+
 @router.get("/composition")
 async def food_composition(
     common_name: str = Query(...),
@@ -34,6 +42,7 @@ async def food_composition(
     sort_by: str = Query("common_name"),
     sort_dir: str = Query("desc"),
     show_all_rows: str = Query("true"),
+    filter_classification: str = Query(""),
     db: AsyncSession = Depends(get_db),
 ):
     show_all = show_all_rows.lower() != "false"
@@ -46,4 +55,5 @@ async def food_composition(
         sort_by,
         sort_dir,
         show_all,
+        filter_classification,
     )

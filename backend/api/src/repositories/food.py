@@ -8,12 +8,10 @@ from .formatting import format_external_ids
 ROWS_PER_PAGE = 25
 
 NUTRIENT_KEY_MAP = {
-    "carbohydrate (including fiber)": "carbohydrates(incl.fiber)",
-    "lipid": "lipids",
-    "vitamin": "vitamins",
-    "amino acid and protein": "amino acids and proteins",
-    "mineral (including derivatives)": "minerals(incl.derivatives)",
-    "others": "others",
+    "carbohydrate": "carbohydrates(incl.fiber)",
+    "fatty acid": "lipids",
+    "amino acid": "amino acids and proteins",
+    "nucleotide": "others",
 }
 
 VALID_SOURCES = {"fdc", "foodatlas", "dmd"}
@@ -26,7 +24,7 @@ VALID_DIRECTIONS = {"ASC", "DESC"}
 ALL_EVIDENCE_COLS = "fdc_evidences, foodatlas_evidences, dmd_evidences"
 BASE_SELECT = (
     "chemical_name AS name, chemical_foodatlas_id AS id, "
-    "nutrient_classification, median_concentration"
+    "chemical_classification, median_concentration"
 )
 
 
@@ -51,7 +49,7 @@ async def get_profile(session: AsyncSession, common_name: str) -> dict[str, obje
     result = await session.execute(
         text("""
             SELECT chemical_name AS name, chemical_foodatlas_id AS id,
-                   nutrient_classification, median_concentration
+                   chemical_classification, median_concentration
             FROM mv_food_chemical_composition
             WHERE food_name = :name
             ORDER BY (median_concentration->>'value')::NUMERIC DESC NULLS LAST
@@ -68,7 +66,7 @@ async def get_profile(session: AsyncSession, common_name: str) -> dict[str, obje
     }
     for row in result:
         mapping = row._mapping
-        classifications = mapping["nutrient_classification"] or []
+        classifications = mapping["chemical_classification"] or []
         entry = {
             "id": mapping["id"],
             "name": mapping["name"],
@@ -82,6 +80,46 @@ async def get_profile(session: AsyncSession, common_name: str) -> dict[str, obje
     return {"data": profile}
 
 
+async def get_composition_counts(
+    session: AsyncSession, common_name: str
+) -> dict[str, object]:
+    """Get per-classification and per-source chemical counts."""
+    result = await session.execute(
+        text("""
+            SELECT
+                chemical_classification,
+                CASE WHEN fdc_evidences IS NOT NULL THEN 1 ELSE 0 END AS has_fdc,
+                CASE WHEN foodatlas_evidences IS NOT NULL THEN 1 ELSE 0 END AS has_fa,
+                CASE WHEN dmd_evidences IS NOT NULL THEN 1 ELSE 0 END AS has_dmd
+            FROM mv_food_chemical_composition
+            WHERE food_name = :name
+        """),
+        {"name": common_name},
+    )
+    cls_counts: dict[str, int] = {}
+    source_counts = {"fdc": 0, "foodatlas": 0, "dmd": 0}
+    for row in result:
+        mapping = row._mapping
+        if mapping["has_fdc"]:
+            source_counts["fdc"] += 1
+        if mapping["has_fa"]:
+            source_counts["foodatlas"] += 1
+        if mapping["has_dmd"]:
+            source_counts["dmd"] += 1
+        classifications = mapping["chemical_classification"] or []
+        if not classifications:
+            cls_counts["n/a"] = cls_counts.get("n/a", 0) + 1
+        else:
+            for cls in classifications:
+                cls_counts[cls] = cls_counts.get(cls, 0) + 1
+    return {
+        "data": {
+            "classification_counts": cls_counts,
+            "source_counts": source_counts,
+        }
+    }
+
+
 async def get_composition(
     session: AsyncSession,
     common_name: str,
@@ -91,6 +129,7 @@ async def get_composition(
     sort_by: str = "common_name",
     sort_dir: str = "desc",
     show_all_rows: bool = True,
+    filter_classification: str = "",
     rows_per_page: int = ROWS_PER_PAGE,
 ) -> dict[str, object]:
     """Get paginated food chemical composition with filtering/sorting."""
@@ -98,12 +137,19 @@ async def get_composition(
     if filter_source and not sources:
         return _empty_composition(rows_per_page)
 
+    classifications = (
+        [c for c in filter_classification.split("+") if c]
+        if filter_classification
+        else []
+    )
+
     # Validate and build query parts from allowlists (not user input)
     select_cols, where_parts, params = _build_query_parts(
         common_name,
         sources,
         search_term,
         show_all_rows,
+        classifications,
     )
     sort_col = VALID_SORT_COLS.get(sort_by, "chemical_name")
     direction = sort_dir.upper() if sort_dir.upper() in VALID_DIRECTIONS else "DESC"
@@ -141,6 +187,7 @@ def _build_query_parts(
     sources: list[str],
     search_term: str,
     show_all_rows: bool,
+    classifications: list[str] | None = None,
 ) -> tuple[str, list[str], dict]:
     """Build SELECT columns, WHERE conditions, and params from validated inputs."""
     # Evidence columns from allowlist
@@ -162,6 +209,18 @@ def _build_query_parts(
 
     if not show_all_rows:
         conditions.append("median_concentration IS NOT NULL")
+
+    if classifications:
+        has_named = [c for c in classifications if c != "n/a"]
+        has_unclassified = "n/a" in classifications
+        cls_parts: list[str] = []
+        if has_named:
+            cls_parts.append("chemical_classification && CAST(:cls_arr AS TEXT[])")
+            quoted = ",".join(f'"{c}"' for c in has_named)
+            params["cls_arr"] = "{" + quoted + "}"
+        if has_unclassified:
+            cls_parts.append("chemical_classification = '{}'")
+        conditions.append("(" + " OR ".join(cls_parts) + ")")
 
     return select_cols, conditions, params
 

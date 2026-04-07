@@ -8,6 +8,6 @@ export type Metadata = {
   synonyms: string[];
   food_classification?: string[];
   chemical_classification?: string[];
-  nutrient_classification?: string[];
+  flavor_descriptors?: string[];
   external_ids: ExternalIds;
 };

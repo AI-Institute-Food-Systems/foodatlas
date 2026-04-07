@@ -14,6 +14,5 @@ export type FoodCompositionData = {
   foodatlas_evidences: FoodEvidence[] | null;
   fdc_evidences: FoodEvidence[] | null;
   dmd_evidences: FoodEvidence[] | null;
-  nutrient_classification: string[];
   chemical_classification: string[];
 };

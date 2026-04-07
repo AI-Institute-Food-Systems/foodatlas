@@ -75,6 +75,9 @@ class EntityStore:
         else:
             self._entities = pd.DataFrame()
 
+        if "attributes" not in self._entities.columns and not self._entities.empty:
+            self._entities["attributes"] = [{}] * len(self._entities)
+
         self._lut_food = _load_lut(self.path_lut_food)
         self._lut_chemical = _load_lut(self.path_lut_chemical)
 
@@ -85,7 +88,7 @@ class EntityStore:
             self._curr_eid = max_eid + 1 if pd.notna(max_eid) else 1
 
     # Columns known to contain lists/dicts that need JSON serialization.
-    _JSON_COLUMNS = ("synonyms", "external_ids")
+    _JSON_COLUMNS = ("synonyms", "external_ids", "attributes")
 
     def save(self, path_output_dir: Path) -> None:
         path_output_dir = Path(path_output_dir)

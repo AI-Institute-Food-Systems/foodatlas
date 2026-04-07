@@ -10,7 +10,6 @@ class RelationshipType(StrEnum):
     IS_A = "r2"
     POSITIVELY_CORRELATES_WITH = "r3"
     NEGATIVELY_CORRELATES_WITH = "r4"
-    HAS_FLAVOR = "r5"
 
 
 class Relationship(BaseModel):

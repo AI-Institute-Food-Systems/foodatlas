@@ -123,6 +123,7 @@ class TestBaseEntityColumns:
             "scientific_name",
             "synonyms",
             "external_ids",
+            "attributes",
         }
         assert col_names == expected
 

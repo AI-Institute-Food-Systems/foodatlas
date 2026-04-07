@@ -34,12 +34,14 @@ def materialize_food_chemical_composition(conn: Connection) -> None:
         text("SELECT foodatlas_id, common_name FROM base_entities"), conn
     )
     chem_class = pd.read_sql(
-        text("SELECT foodatlas_id, nutrient_classification FROM mv_chemical_entities"),
+        text("SELECT foodatlas_id, chemical_classification FROM mv_chemical_entities"),
         conn,
     )
 
     name_map = entities.set_index("foodatlas_id")["common_name"].to_dict()
-    nutr_map = chem_class.set_index("foodatlas_id")["nutrient_classification"].to_dict()
+    chem_cls_map = chem_class.set_index("foodatlas_id")[
+        "chemical_classification"
+    ].to_dict()
 
     # Explode so each (triplet, att_id) is one row, then join.
     r1_ex = r1.explode("attestation_ids").rename(
@@ -70,13 +72,21 @@ def materialize_food_chemical_composition(conn: Connection) -> None:
         ),
     )
 
+    # Pre-build extraction dicts for all rows at once.
+    merged["_extraction"] = _build_extractions_vectorized(merged)
+    merged["_ref"] = merged["reference"].apply(
+        lambda x: x if isinstance(x, dict) else {}
+    )
+
     # Group by triplet and build evidence JSON.
     grouped = merged.groupby(["head_id", "tail_id"])
     result_rows = []
-    for (head_id, tail_id), group in tqdm(
-        grouped, total=len(grouped), desc="composition", leave=True
-    ):
-        ev = _build_evidence_json(group)
+
+    # Convert groups to tuples for faster iteration.
+    group_keys = list(grouped.groups.keys())
+    for head_id, tail_id in tqdm(group_keys, desc="composition", leave=True):
+        group = grouped.get_group((head_id, tail_id))
+        ev = _build_evidence_from_precomputed(group)
         if not any(ev.values()):
             continue
         all_ev = (ev["fdc"] or []) + (ev["foodatlas"] or []) + (ev["dmd"] or [])
@@ -87,7 +97,7 @@ def materialize_food_chemical_composition(conn: Connection) -> None:
                 "food_foodatlas_id": head_id,
                 "chemical_name": name_map.get(tail_id, ""),
                 "chemical_foodatlas_id": tail_id,
-                "nutrient_classification": nutr_map.get(tail_id, []),
+                "chemical_classification": chem_cls_map.get(tail_id, []),
                 "median_concentration": json.dumps(median_conc)
                 if median_conc
                 else None,
@@ -107,7 +117,7 @@ def materialize_food_chemical_composition(conn: Connection) -> None:
         "food_foodatlas_id",
         "chemical_name",
         "chemical_foodatlas_id",
-        "nutrient_classification",
+        "chemical_classification",
         "median_concentration",
         "fdc_evidences",
         "foodatlas_evidences",
@@ -117,30 +127,66 @@ def materialize_food_chemical_composition(conn: Connection) -> None:
     logger.info("Food-chemical composition: %d rows", len(result))
 
 
+def _build_extractions_vectorized(df: pd.DataFrame) -> pd.Series:
+    """Pre-build extraction dicts for all rows."""
+    conc_raw = (
+        df["conc_value_raw"].fillna("").astype(str)
+        + " "
+        + df["conc_unit_raw"].fillna("").astype(str)
+    ).str.strip()
+    conc_raw = [v if v else None for v in conc_raw]
+
+    conc_vals = [v if pd.notna(v) else None for v in df["conc_value"]]
+    conc_units = df["conc_unit"].fillna("")
+
+    return pd.Series(
+        [
+            {
+                "extracted_food_name": sf,
+                "extracted_chemical_name": sc,
+                "extracted_concentration": cr,
+                "converted_concentration": {"value": cv, "unit": cu},
+                "method": src,
+            }
+            for sf, sc, cr, cv, cu, src in zip(
+                df["show_food"],
+                df["show_chem"],
+                conc_raw,
+                conc_vals,
+                conc_units,
+                df["source"],
+                strict=False,
+            )
+        ],
+        index=df.index,
+    )
+
+
 def _build_evidence_json(group: pd.DataFrame) -> dict[str, list | None]:
-    """Build {fdc, foodatlas, dmd} evidence lists from a grouped DataFrame."""
+    """Build evidence JSON from a raw grouped DataFrame.
+
+    Pre-computes extraction dicts and delegates to the optimized path.
+    """
+    group = group.copy()
+    group["_extraction"] = _build_extractions_vectorized(group)
+    group["_ref"] = group["reference"].apply(lambda x: x if isinstance(x, dict) else {})
+    return _build_evidence_from_precomputed(group)
+
+
+def _build_evidence_from_precomputed(
+    group: pd.DataFrame,
+) -> dict[str, list | None]:
+    """Build evidence JSON from pre-computed extraction dicts."""
     fdc: list[dict] = []
     foodatlas: list[dict] = []
     dmd: list[dict] = []
 
-    for _, row in group.iterrows():
-        source = row["source"]
-        ref = row["reference"] if isinstance(row["reference"], dict) else {}
-        conc_val = row["conc_value"] if pd.notna(row["conc_value"]) else None
-
-        extraction = {
-            "extracted_food_name": row["show_food"],
-            "extracted_chemical_name": row["show_chem"],
-            "extracted_concentration": (
-                f"{row['conc_value_raw']} {row['conc_unit_raw']}".strip() or None
-            ),
-            "converted_concentration": {
-                "value": conc_val,
-                "unit": row["conc_unit"] or "",
-            },
-            "method": source,
-        }
-
+    for source, ref, extraction in zip(
+        group["source"],
+        group["_ref"],
+        group["_extraction"],
+        strict=False,
+    ):
         if source in ("fdc", "dmd"):
             bucket = fdc if source == "fdc" else dmd
             upper = source.upper()
@@ -161,7 +207,11 @@ def _build_evidence_json(group: pd.DataFrame) -> dict[str, list | None]:
         else:
             _add_foodatlas_evidence(foodatlas, ref, extraction)
 
-    return {"fdc": fdc or None, "foodatlas": foodatlas or None, "dmd": dmd or None}
+    return {
+        "fdc": fdc or None,
+        "foodatlas": foodatlas or None,
+        "dmd": dmd or None,
+    }
 
 
 def _add_foodatlas_evidence(evidences: list, ref: dict, extraction: dict) -> None:

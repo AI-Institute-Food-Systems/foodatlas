@@ -149,11 +149,6 @@ def upgrade() -> None:
             postgresql.ARRAY(sa.Text),
             server_default="{}",
         ),
-        sa.Column(
-            "nutrient_classification",
-            postgresql.ARRAY(sa.Text),
-            server_default="{}",
-        ),
     )
     op.create_index("ix_mv_chem_common_name", "mv_chemical_entities", ["common_name"])
 
@@ -176,7 +171,7 @@ def upgrade() -> None:
         sa.Column("chemical_name", sa.Text, nullable=False),
         sa.Column("chemical_foodatlas_id", sa.String(20), nullable=False),
         sa.Column(
-            "nutrient_classification",
+            "chemical_classification",
             postgresql.ARRAY(sa.Text),
             server_default="{}",
         ),

@@ -39,7 +39,6 @@ class TestChemicalGetMetadata:
             synonyms=[],
             external_ids={},
             chemical_classification=[],
-            nutrient_classification=[],
         )
         session = _mock_session_single([row])
         result = await chem_metadata(session, "glucose")
