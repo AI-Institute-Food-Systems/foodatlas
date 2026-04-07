@@ -1,8 +1,8 @@
 {
   "date": "",
   "model": "gpt-5.2",
-  "bioc_pmc_dir": "data/BioC-PMC",
-  "bioc_pmc_dl_dir": "data/BioC-PMC_download",
+  "bioc_pmc_dir": "/mnt/data/shared/BioC-PMC",
+  "bioc_pmc_dl_dir": "/mnt/data/shared/BioC-PMC_download",
   "biobert_model_dir": "outputs/biobert_binary_prod",
   "food_terms": "data/food_terms.txt",
   "translated_food_terms": "data/translated_food_terms.txt",
@@ -27,6 +27,10 @@
       "system_prompt": "You are an expert in food science and chemistry. ",
       "max_new_tokens": 512,
       "temperature": 0.0
+    },
+    "parse": {
+      "batch_input_pattern": "batch_input_{date}.tsv",
+      "output_tsv_pattern": "text_parser_predicted_{date}_{model}.tsv"
     }
   }
 }
