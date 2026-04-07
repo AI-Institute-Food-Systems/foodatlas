@@ -3,7 +3,7 @@
 from unittest.mock import MagicMock
 
 import pandas as pd
-from src.etl.materializer import _build_classification_map, _insert_mv_entities
+from src.etl.materializer import _insert_mv_entities
 from src.etl.materializer_composition import (
     _add_foodatlas_evidence,
     _compute_median,
@@ -165,44 +165,3 @@ class TestInsertMvEntities:
             cols = mock_copy.call_args[0][3]
             assert len(cols) == 6
             assert "external_ids" in cols
-
-
-class TestBuildClassificationMap:
-    """Test _build_classification_map with mock DataFrames."""
-
-    def test_finds_matching_classifications(self):
-        r2 = pd.DataFrame(
-            [
-                {"head_id": "c001", "tail_id": "class1", "source": "chebi_ontology"},
-                {"head_id": "c001", "tail_id": "class2", "source": "chebi_other"},
-                {"head_id": "c002", "tail_id": "class3", "source": "chebi_ontology"},
-            ]
-        )
-        name_map = {"class1": "ClassA", "class2": "ClassB", "class3": "ClassC"}
-        result = _build_classification_map(r2, name_map, "chebi")
-        assert result["c001"] == ["ClassA", "ClassB"]
-
-    def test_no_matching_source(self):
-        r2 = pd.DataFrame(
-            [
-                {"head_id": "c001", "tail_id": "class1", "source": "foodon_ontology"},
-            ]
-        )
-        name_map = {"class1": "X"}
-        result = _build_classification_map(r2, name_map, "chebi")
-        assert "c001" not in result
-
-    def test_empty_r2(self):
-        r2 = pd.DataFrame(columns=["head_id", "tail_id", "source"])
-        result = _build_classification_map(r2, {}, "chebi")
-        assert result == {}
-
-    def test_missing_tail_in_name_map(self):
-        r2 = pd.DataFrame(
-            [
-                {"head_id": "c001", "tail_id": "missing", "source": "chebi_x"},
-            ]
-        )
-        name_map = {"other": "A"}
-        result = _build_classification_map(r2, name_map, "chebi")
-        assert result.get("c001") == []

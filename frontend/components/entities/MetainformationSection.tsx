@@ -80,7 +80,11 @@ const MetainformationSection = async ({
                     Classification
                   </Heading>
                   <div className="mt-3 capitalize break-all">
-                    <p>{data.food_classification}</p>
+                    <p>
+                      {data.food_classification.length > 0
+                        ? data.food_classification.join(", ")
+                        : "—"}
+                    </p>
                   </div>
                 </Card>
               )}

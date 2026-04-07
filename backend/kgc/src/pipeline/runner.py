@@ -10,6 +10,7 @@ from ..utils.timing import log_duration
 from .checkpoint import load_checkpoint
 from .enrichment.classification import classify_chemicals
 from .enrichment.flavor import apply_flavor_descriptions
+from .enrichment.food_classification import classify_foods
 from .entities.runner import EntityRunner
 from .ie.runner import IERunner
 from .ingest.runner import IngestRunner
@@ -82,6 +83,7 @@ class PipelineRunner:
         sources = load_sources(self._settings)
         kg = KnowledgeGraph(self._settings)
         classify_chemicals(kg.entities, kg.triplets)
+        classify_foods(kg.entities, kg.triplets)
         apply_flavor_descriptions(kg, sources)
         kg.save()
 
