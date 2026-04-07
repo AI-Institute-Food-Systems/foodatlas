@@ -3,51 +3,12 @@
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
-from src.etl.materializer import _build_classification_map
 from src.etl.materializer_composition import (
     _add_foodatlas_evidence,
     _build_evidence_json,
     _compute_median,
     materialize_food_chemical_composition,
 )
-
-
-class TestBuildClassificationMap:
-    def test_returns_matching_labels(self):
-        r2 = pd.DataFrame(
-            {
-                "head_id": ["e1", "e1", "e2"],
-                "tail_id": ["e10", "e11", "e10"],
-                "source": ["foodon", "foodon", "chebi"],
-            }
-        )
-        name_map = {"e10": "fruit", "e11": "vegetable", "e12": "organic"}
-        result = _build_classification_map(r2, name_map, "foodon")
-        assert result["e1"] == ["fruit", "vegetable"]
-
-    def test_returns_empty_for_no_match(self):
-        r2 = pd.DataFrame(
-            {
-                "head_id": ["e2"],
-                "tail_id": ["e10"],
-                "source": ["chebi"],
-            }
-        )
-        name_map = {"e10": "x"}
-        result = _build_classification_map(r2, name_map, "foodon")
-        assert "e1" not in result
-
-    def test_skips_missing_tail_ids(self):
-        r2 = pd.DataFrame(
-            {
-                "head_id": ["e1"],
-                "tail_id": ["e999"],
-                "source": ["foodon"],
-            }
-        )
-        name_map = {"e10": "x"}
-        result = _build_classification_map(r2, name_map, "foodon")
-        assert result.get("e1") == []
 
 
 class TestComputeMedian:

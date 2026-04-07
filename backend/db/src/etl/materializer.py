@@ -38,22 +38,14 @@ def _materialize_entity_views(conn: Connection) -> None:
     triplets = pd.read_sql(text("SELECT * FROM base_triplets"), conn)
 
     r1 = triplets[triplets["relationship_id"] == "r1"]
-    r2 = triplets[triplets["relationship_id"] == "r2"]
     r3r4 = triplets[triplets["relationship_id"].isin(["r3", "r4"])]
-
-    entity_map = entities.set_index("foodatlas_id")
-    name_map = entity_map["common_name"].to_dict()
-
-    foodon_cls = _build_classification_map(r2, name_map, "foodon")
 
     food_ids = set(r1["head_id"])
     foods = entities[
         (entities["entity_type"] == "food") & (entities["foodatlas_id"].isin(food_ids))
     ].copy()
-    foods["food_classification"] = (
-        foods["foodatlas_id"]
-        .map(foodon_cls)
-        .apply(lambda x: x if isinstance(x, list) else [])
+    foods["food_classification"] = foods["attributes"].apply(
+        lambda a: a.get("food_groups", []) if isinstance(a, dict) else []
     )
     _insert_mv_entities(conn, "mv_food_entities", foods, ["food_classification"])
 
@@ -89,22 +81,6 @@ def _materialize_entity_views(conn: Connection) -> None:
         len(chemicals),
         len(diseases),
     )
-
-
-def _build_classification_map(
-    r2_triplets: pd.DataFrame,
-    name_map: dict[str, str],
-    source_prefix: str,
-) -> dict[str, list[str]]:
-    """Pre-build {entity_id: [classification names]} from IS_A triplets."""
-    filtered = r2_triplets[
-        r2_triplets["source"].str.contains(source_prefix, case=False, na=False)
-    ]
-    result: dict[str, list[str]] = {}
-    for head_id, group in filtered.groupby("head_id"):
-        names = [name_map[tid] for tid in group["tail_id"] if tid in name_map]
-        result[str(head_id)] = names
-    return result
 
 
 def _insert_mv_entities(
