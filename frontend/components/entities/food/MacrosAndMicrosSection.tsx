@@ -7,10 +7,9 @@ import { useEffect, useState } from "react";
 import Button from "@/components/basic/Button";
 import Card from "@/components/basic/Card";
 import Heading from "@/components/basic/Heading";
-import Link from "@/components/basic/Link";
 import Modal from "@/components/basic/Modal";
 import { getFoodMacroAndMicroData } from "@/utils/fetching";
-import { encodeSpace, formatConcentrationValueAlt } from "@/utils/utils";
+import { formatConcentrationValueAlt } from "@/utils/utils";
 import { MacroAndMicroData } from "@/types";
 
 const VALUES_CUTOFF = 5;
@@ -87,15 +86,9 @@ const MacrosAndMicrosSection = ({
                           key={concentration.name + "_" + index}
                           className="flex items-baseline w-full gap-2.5"
                         >
-                          <Link
-                            href={`/chemical/${encodeURIComponent(
-                              encodeSpace(concentration.name)
-                            )}`}
-                            className="capitalize"
-                            isExternal={false}
-                          >
+                          <span className="capitalize">
                             {concentration.name}
-                          </Link>
+                          </span>
                           <span className="flex-grow border-b-2 border-dotted border-light-700" />
                           <span className="text-right">
                             {concentration.median_concentration?.value
@@ -124,15 +117,9 @@ const MacrosAndMicrosSection = ({
                 key={concentration.name + "_" + index}
                 className="flex items-baseline w-full gap-2.5"
               >
-                <Link
-                  href={`/chemical/${encodeURIComponent(
-                    encodeSpace(concentration.name)
-                  )}`}
-                  className="capitalize"
-                  isExternal={false}
-                >
+                <span className="capitalize">
                   {concentration.name}
-                </Link>
+                </span>
                 <span className="flex-grow border-b-2 border-dotted border-light-700" />
                 <span className="text-right">
                   {concentration.median_concentration?.value
