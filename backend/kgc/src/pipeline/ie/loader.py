@@ -74,6 +74,8 @@ def _process_line(
     rows: list[dict],
     parse_errors: list[dict],
     conc_errors: list[dict],
+    *,
+    method: str,
 ) -> None:
     """Parse one response line into a row dict, or log an error."""
     parsed = _parse_tuple(line)
@@ -92,7 +94,7 @@ def _process_line(
         {
             "source_type": "pubmed",
             "reference": ref,
-            "source": "lit2kg",
+            "source": f"lit2kg:{method}",
             "head_name_raw": standardize_name(food),
             "tail_name_raw": standardize_name(chemical),
             "conc_value": conc_value_converted,
@@ -145,8 +147,13 @@ def _convert_quantity(
     return None, ""
 
 
-def load_ie_raw(path: Path, output_dir: Path) -> pd.DataFrame:
+def load_ie_raw(path: Path, output_dir: Path, *, method: str) -> pd.DataFrame:
     """Parse raw IE file (TSV or pkl) into a MetadataContains-compatible DataFrame.
+
+    Args:
+        path: Path to the raw IE file.
+        output_dir: Directory for diagnostics output.
+        method: IE method name (e.g. "gpt-4"), used in the attestation source field.
 
     Returns:
         DataFrame with evidence + extraction columns.
@@ -173,7 +180,7 @@ def load_ie_raw(path: Path, output_dir: Path) -> pd.DataFrame:
             )
             continue
         for line in response.split("\n"):
-            _process_line(line, rec, rows, parse_errors, conc_errors)
+            _process_line(line, rec, rows, parse_errors, conc_errors, method=method)
 
     if parse_errors:
         errors_path = output_dir / FILE_IE_PARSE_ERRORS

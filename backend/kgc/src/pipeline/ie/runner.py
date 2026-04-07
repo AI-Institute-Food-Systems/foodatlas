@@ -60,15 +60,15 @@ class IERunner:
             logger.info("No IE raw paths configured — skipping expansion.")
             return
 
-        for raw_path in ie_config.ie_raw_paths:
+        for method, raw_path in ie_config.ie_raw_paths.items():
             path = Path(raw_path)
             if not path.exists():
                 logger.warning("IE raw file not found at %s — skipping.", path)
                 continue
 
-            logger.info("Processing IE file: %s", path)
+            logger.info("Processing IE file: %s (method=%s)", path, method)
             with log_duration(f"Load IE raw: {path.name}", logger):
-                metadata = load_ie_raw(path, kg_dir)
+                metadata = load_ie_raw(path, kg_dir, method=method)
             if metadata.empty:
                 logger.info("IE loader produced no rows — skipping.")
                 continue

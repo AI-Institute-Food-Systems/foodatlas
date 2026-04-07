@@ -35,7 +35,7 @@ class MetadataProcessingStageConfig(BaseModel):
 
 
 class TripletExpansionStageConfig(BaseModel):
-    ie_raw_paths: list[str] = Field(default_factory=list)
+    ie_raw_paths: dict[str, str] = Field(default_factory=dict)
     ie_prob_threshold: float = 0.95
 
 
