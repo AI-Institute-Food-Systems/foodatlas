@@ -15,10 +15,12 @@ interface NoConcentrationRow {
 
 interface NoConcentrationCompositionProps {
   data: NoConcentrationRow[] | undefined | null;
+  chemicalName?: string;
 }
 
 const NoConcentrationComposition = ({
   data,
+  chemicalName,
 }: NoConcentrationCompositionProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -43,12 +45,17 @@ const NoConcentrationComposition = ({
           </button>
           {/* expanded content */}
           {isExpanded && (
+            <div className="flex flex-col gap-3">
+            <p className="text-xs text-light-500">
+              Number in parentheses indicates the number of evidence
+              sources supporting this food-chemical relationship.
+            </p>
             <div className="flex gap-2 flex-wrap font-light">
               {data.map((row) => (
                 <span key={row.id} className="flex items-baseline gap-1">
                   <Link
                     className="capitalize"
-                    href={`/food/${encodeURIComponent(encodeSpace(row.name))}`}
+                    href={`/food/${encodeURIComponent(encodeSpace(row.name))}${chemicalName ? `?search=${encodeURIComponent(chemicalName)}#composition` : ""}`}
                     isExternal={false}
                   >
                     {row.name}
@@ -60,6 +67,7 @@ const NoConcentrationComposition = ({
                   )}
                 </span>
               ))}
+            </div>
             </div>
           )}
         </div>

@@ -40,11 +40,12 @@ interface DotPlotProps {
       }[]
     | undefined
     | null;
+  chemicalName?: string;
 }
 
 type SortedData = { food: string; value: any; id: string };
 
-const ConcentrationCompositionPlot = ({ data }: DotPlotProps) => {
+const ConcentrationCompositionPlot = ({ data, chemicalName }: DotPlotProps) => {
   const router = useRouter();
   const [sortedData, setSortedData] = useState<SortedData[]>([]);
   const [sortOrder, setSortOrder] = useState("desc");
@@ -147,7 +148,12 @@ const ConcentrationCompositionPlot = ({ data }: DotPlotProps) => {
   const graph = useMemo(() => {
     // handle bar click
     const handleClick = (commonName: string) => {
-      router.push(`/food/${encodeURIComponent(encodeSpace(commonName))}`);
+      const search = chemicalName
+        ? `?search=${encodeURIComponent(chemicalName)}#composition`
+        : "";
+      router.push(
+        `/food/${encodeURIComponent(encodeSpace(commonName))}${search}`
+      );
     };
 
     return (
@@ -200,7 +206,7 @@ const ConcentrationCompositionPlot = ({ data }: DotPlotProps) => {
         </BarChart>
       </ResponsiveContainer>
     );
-  }, [chartHeight, sortedData, router]);
+  }, [chartHeight, sortedData, router, chemicalName]);
 
   return (
     <Card>

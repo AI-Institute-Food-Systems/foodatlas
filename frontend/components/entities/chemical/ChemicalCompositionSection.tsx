@@ -35,6 +35,7 @@ const ChemicalCompositionSection = async ({
           </div>
           <ConcentrationCompositionPlot
             data={compositionData?.with_concentrations}
+            chemicalName={metaData?.id}
           />
         </div>
         {/* without concentration section */}
@@ -52,6 +53,7 @@ const ChemicalCompositionSection = async ({
           </div>
           <NoConcentrationComposition
             data={compositionData?.without_concentrations}
+            chemicalName={metaData?.id}
           />
         </div>
       </div>
