@@ -4,10 +4,7 @@ _SOURCE_CONFIG: dict[str, tuple[str, str]] = {
     "foodon": ("FoodOn", ""),
     "chebi": ("ChEBI", "https://www.ebi.ac.uk/chebi/searchId.do?chebiId=CHEBI:{}"),
     "fdc": ("FDC", "https://fdc.nal.usda.gov/fdc-app.html#/food-details/{}"),
-    "fdc_nutrient": (
-        "FDC Nutrient",
-        "https://fdc.nal.usda.gov/fdc-app.html#/food-details/{}",
-    ),
+    "fdc_nutrient": ("FDC Nutrient", ""),
     "cdno": ("CDNO", ""),
     "ctd": ("CTD", "https://ctdbase.org/detail.go?type=disease&acc={}"),
     "dmd": ("DMD", ""),

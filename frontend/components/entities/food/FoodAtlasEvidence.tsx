@@ -3,6 +3,7 @@ import Badge from "@/components/basic/Badge";
 import Card from "@/components/basic/Card";
 import { FoodEvidence } from "@/types/Evidence";
 import { formatConcentrationValueAlt } from "@/utils/utils";
+import { greekVariants, matchesWithGreek } from "@/utils/greekLetters";
 
 type FoodAtlasEvidenceProps = {
   evidence: FoodEvidence;
@@ -25,9 +26,12 @@ const FoodAtlasEvidence = ({ evidence }: FoodAtlasEvidenceProps) => {
           .split(
             new RegExp(
               `(${evidence.extraction
-                .map(
-                  (e) =>
-                    `${e.extracted_chemical_name}|${e.extracted_food_name}|${e.extracted_concentration}`
+                .flatMap((e) =>
+                  [
+                    e.extracted_chemical_name,
+                    e.extracted_food_name,
+                    e.extracted_concentration,
+                  ].flatMap((name) => greekVariants(name))
                 )
                 .join("|")})`,
               "gi"
@@ -36,24 +40,19 @@ const FoodAtlasEvidence = ({ evidence }: FoodAtlasEvidenceProps) => {
           .map((part, index) => {
             const matchingExtraction = evidence.extraction.find(
               (e) =>
-                part?.toLowerCase() === e.extracted_food_name?.toLowerCase() ||
-                part?.toLowerCase() ===
-                  e.extracted_chemical_name?.toLowerCase() ||
-                part?.toLowerCase() === e.extracted_concentration?.toLowerCase()
+                matchesWithGreek(part, e.extracted_food_name) ||
+                matchesWithGreek(part, e.extracted_chemical_name) ||
+                matchesWithGreek(part, e.extracted_concentration)
             );
 
-            if (
-              matchingExtraction?.extracted_food_name?.toLowerCase() ===
-              part?.toLowerCase()
-            ) {
+            if (matchesWithGreek(part, matchingExtraction?.extracted_food_name)) {
               return (
                 <span key={index} className="text-amber-600 bg-amber-600/10">
                   {part}
                 </span>
               );
             } else if (
-              matchingExtraction?.extracted_chemical_name?.toLowerCase() ===
-              part?.toLowerCase()
+              matchesWithGreek(part, matchingExtraction?.extracted_chemical_name)
             ) {
               return (
                 <span key={index} className="text-cyan-600 bg-cyan-600/10">
@@ -61,8 +60,10 @@ const FoodAtlasEvidence = ({ evidence }: FoodAtlasEvidenceProps) => {
                 </span>
               );
             } else if (
-              matchingExtraction?.extracted_concentration?.toLowerCase() ===
-              part?.toLowerCase()
+              matchesWithGreek(
+                part,
+                matchingExtraction?.extracted_concentration
+              )
             ) {
               return (
                 <span key={index} className="text-teal-600 bg-teal-600/10">

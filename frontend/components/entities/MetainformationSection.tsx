@@ -139,51 +139,55 @@ const MetainformationSection = async ({
           >
             Identifiers
           </Heading>
-          <div
-            className="grid gap-3"
-            style={{
-              gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-            }}
-          >
-            {/* foodatlas id */}
-            <Card>
-              <Heading
-                type="h4"
-                className="font-mono italic text-light-400 text-xs"
-              >
-                FoodAtlas
-              </Heading>
-              <div className="mt-3">{data.id}</div>
-            </Card>
-            {/* external ids */}
-            {data?.external_ids &&
-              // create a card for each source
-              Object.values(data.external_ids).map((reference) => (
-                <Card key={reference.display_name}>
-                  <Heading
-                    type="h4"
-                    className="font-mono italic text-light-400 text-xs"
-                  >
-                    {reference.display_name}
-                  </Heading>
-                  <div className="mt-3 flex flex-wrap gap-3">
-                    {reference.ids.map((id) => {
-                      return id.url ? (
-                        <Link
-                          key={id.url}
-                          href={id.url}
-                          className="whitespace-nowrap"
-                        >
-                          {id.id}
-                        </Link>
-                      ) : (
-                        <p>{id.id}</p>
-                      );
-                    })}
-                  </div>
-                </Card>
-              ))}
-          </div>
+          <Card>
+            <table className="w-full table-fixed text-sm">
+              <colgroup>
+                <col className="w-[30%]" />
+                <col className="w-[70%]" />
+              </colgroup>
+              <thead>
+                <tr className="border-b border-light-50/10">
+                  <th className="py-2 pr-4 text-left font-mono text-xs font-medium italic text-light-400">
+                    Source
+                  </th>
+                  <th className="py-2 text-left font-mono text-xs font-medium italic text-light-400">
+                    Identifier
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {/* foodatlas id */}
+                <tr className="border-b border-light-50/[0.05]">
+                  <td className="py-2 pr-4 whitespace-nowrap">FoodAtlas</td>
+                  <td className="py-2 break-all">{data.id}</td>
+                </tr>
+                {/* external ids */}
+                {data?.external_ids &&
+                  Object.values(data.external_ids).map((reference) => (
+                    <tr
+                      key={reference.display_name}
+                      className="border-b border-light-50/[0.05]"
+                    >
+                      <td className="py-2 pr-4 align-top whitespace-nowrap">
+                        {reference.display_name}
+                      </td>
+                      <td className="py-2 break-all">
+                        {reference.ids.map((id, idx) => (
+                          <span key={id.id}>
+                            {idx > 0 && ", "}
+                            {id.url ? (
+                              <Link href={id.url}>{id.id}</Link>
+                            ) : (
+                              id.id
+                            )}
+                          </span>
+                        ))}
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </Card>
         </div>
       </div>
     </div>

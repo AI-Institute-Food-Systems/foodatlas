@@ -214,10 +214,10 @@ def _build_query_parts(
         has_named = [c for c in classifications if c != "n/a"]
         has_unclassified = "n/a" in classifications
         cls_parts: list[str] = []
-        if has_named:
-            cls_parts.append("chemical_classification && CAST(:cls_arr AS TEXT[])")
-            quoted = ",".join(f'"{c}"' for c in has_named)
-            params["cls_arr"] = "{" + quoted + "}"
+        for i, cls in enumerate(has_named):
+            key = f"cls_{i}"
+            cls_parts.append(f":{key} = ANY(chemical_classification)")
+            params[key] = cls
         if has_unclassified:
             cls_parts.append("chemical_classification = '{}'")
         conditions.append("(" + " OR ".join(cls_parts) + ")")
