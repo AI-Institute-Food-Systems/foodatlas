@@ -27,18 +27,28 @@ async def get_metadata(session: AsyncSession, common_name: str) -> dict[str, obj
 
 async def get_composition(session: AsyncSession, common_name: str) -> dict[str, object]:
     """Get foods containing this chemical, split by concentration."""
-    base = """
-        SELECT food_foodatlas_id AS id, food_name AS name,
-               median_concentration
-        FROM mv_food_chemical_composition
-        WHERE chemical_name = :name
-    """
     with_conc = await session.execute(
-        text(f"{base} AND median_concentration IS NOT NULL"),
+        text("""
+            SELECT food_foodatlas_id AS id, food_name AS name,
+                   median_concentration
+            FROM mv_food_chemical_composition
+            WHERE chemical_name = :name AND median_concentration IS NOT NULL
+        """),
         {"name": common_name},
     )
     without_conc = await session.execute(
-        text(f"{base} AND median_concentration IS NULL"),
+        text("""
+            SELECT food_foodatlas_id AS id, food_name AS name,
+                   COALESCE(jsonb_array_length(fdc_evidences), 0)
+                   + COALESCE(jsonb_array_length(foodatlas_evidences), 0)
+                   + COALESCE(jsonb_array_length(dmd_evidences), 0)
+                   AS evidence_count
+            FROM mv_food_chemical_composition
+            WHERE chemical_name = :name AND median_concentration IS NULL
+            ORDER BY COALESCE(jsonb_array_length(fdc_evidences), 0)
+                   + COALESCE(jsonb_array_length(foodatlas_evidences), 0)
+                   + COALESCE(jsonb_array_length(dmd_evidences), 0) DESC
+        """),
         {"name": common_name},
     )
     with_data = [dict(r._mapping) for r in with_conc]
