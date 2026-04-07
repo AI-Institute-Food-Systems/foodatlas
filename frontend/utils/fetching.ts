@@ -65,7 +65,7 @@ export async function getFoodCompositionData(
 ) {
   const clsParam =
     classificationFilters.length > 0
-      ? `&filter_classification=${classificationFilters.join("+")}`
+      ? `&filter_classification=${classificationFilters.map(encodeURIComponent).join("%2B")}`
       : "";
   const response = await fetch(
     `${
@@ -73,7 +73,7 @@ export async function getFoodCompositionData(
     }/food/composition?common_name=${encodeURIComponent(
       commonName
     )}&page=${currentPage}&filter_source=${sourceFilters.join(
-      "+"
+      "%2B"
     )}&search=${encodeURIComponent(searchTerm)}&sort_by=${
       sort.column
     }&sort_dir=${sort.direction}&show_all_rows=${showAllConcentrations}${clsParam}`,

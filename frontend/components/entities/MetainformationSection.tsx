@@ -140,7 +140,11 @@ const MetainformationSection = async ({
             Identifiers
           </Heading>
           <Card>
-            <table className="w-full text-sm">
+            <table className="w-full table-fixed text-sm">
+              <colgroup>
+                <col className="w-[30%]" />
+                <col className="w-[70%]" />
+              </colgroup>
               <thead>
                 <tr className="border-b border-light-50/10">
                   <th className="py-2 pr-4 text-left font-mono text-xs font-medium italic text-light-400">
@@ -159,30 +163,28 @@ const MetainformationSection = async ({
                 </tr>
                 {/* external ids */}
                 {data?.external_ids &&
-                  Object.values(data.external_ids).map((reference) =>
-                    reference.ids.map((id, idx) => (
-                      <tr
-                        key={`${reference.display_name}-${id.id}`}
-                        className="border-b border-light-50/[0.05]"
-                      >
-                        {idx === 0 && (
-                          <td
-                            className="py-2 pr-4 align-top whitespace-nowrap"
-                            rowSpan={reference.ids.length}
-                          >
-                            {reference.display_name}
-                          </td>
-                        )}
-                        <td className="py-2 break-all">
-                          {id.url ? (
-                            <Link href={id.url}>{id.id}</Link>
-                          ) : (
-                            id.id
-                          )}
-                        </td>
-                      </tr>
-                    )),
-                  )}
+                  Object.values(data.external_ids).map((reference) => (
+                    <tr
+                      key={reference.display_name}
+                      className="border-b border-light-50/[0.05]"
+                    >
+                      <td className="py-2 pr-4 align-top whitespace-nowrap">
+                        {reference.display_name}
+                      </td>
+                      <td className="py-2 break-all">
+                        {reference.ids.map((id, idx) => (
+                          <span key={id.id}>
+                            {idx > 0 && ", "}
+                            {id.url ? (
+                              <Link href={id.url}>{id.id}</Link>
+                            ) : (
+                              id.id
+                            )}
+                          </span>
+                        ))}
+                      </td>
+                    </tr>
+                  ))}
               </tbody>
             </table>
           </Card>

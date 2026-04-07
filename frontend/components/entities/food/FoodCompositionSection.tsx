@@ -6,6 +6,9 @@ import {
   ListboxButton,
   ListboxOption,
   ListboxOptions,
+  Popover,
+  PopoverButton,
+  PopoverPanel,
   Portal,
   Switch,
 } from "@headlessui/react";
@@ -100,7 +103,7 @@ const FoodCompositionSection = ({
   const [sourceCounts, setSourceCounts] = useState<Record<string, number>>({});
   const [classificationFilter, setClassificationFilter] = useState<
     string[]
-  >([]);
+  >([...CLASSIFICATION_OPTIONS]);
   const [classificationCounts, setClassificationCounts] = useState<
     Record<string, number>
   >({});
@@ -112,6 +115,12 @@ const FoodCompositionSection = ({
         const counts = await getFoodCompositionCounts(commonName);
         setSourceCounts(counts.source_counts);
         setClassificationCounts(counts.classification_counts);
+        // Initialize filter to only classes that have results
+        setClassificationFilter(
+          CLASSIFICATION_OPTIONS.filter(
+            (cls) => (counts.classification_counts[cls] ?? 0) > 0
+          )
+        );
       } catch {
         setSourceCounts({});
         setClassificationCounts({});
@@ -135,6 +144,13 @@ const FoodCompositionSection = ({
       try {
         setIsError(false);
         setIsLoading(true);
+        const visibleCount = CLASSIFICATION_OPTIONS.filter(
+          (cls) => (classificationCounts[cls] ?? 0) > 0
+        ).length;
+        const activeClsFilter =
+          classificationFilter.length >= visibleCount
+            ? []
+            : classificationFilter;
         const result = await getFoodCompositionData(
           commonName,
           currentPage,
@@ -142,7 +158,7 @@ const FoodCompositionSection = ({
           searchTerm,
           sort,
           showAllConcentrations,
-          classificationFilter
+          activeClsFilter
         );
         // client-side filter: only keep rows with evidence from selected sources
         const filteredData = (
@@ -176,6 +192,7 @@ const FoodCompositionSection = ({
     sort,
     showAllConcentrations,
     classificationFilter,
+    classificationCounts,
   ]);
 
   // handle source filter change
@@ -355,64 +372,113 @@ const FoodCompositionSection = ({
                       } ${header.align === "right" ? "text-right" : "text-left"}`}
                     >
                       {header.filterable ? (
-                        <Listbox
-                          value={classificationFilter}
-                          onChange={(val: string[]) => {
-                            setTablePaginations(
-                              "food-composition-table",
-                              1,
-                              20
-                            );
-                            setClassificationFilter(val);
-                          }}
-                          multiple
-                        >
-                          <ListboxButton className="group flex gap-1 items-center cursor-pointer focus:outline-none">
-                            <span
-                              className={`select-none uppercase text-xs font-medium transition duration-300 ease-in-out ${
-                                classificationFilter.length > 0
-                                  ? "text-accent-600"
-                                  : "text-light-400 group-hover:text-light-100"
-                              }`}
-                            >
-                              {header.label}
-                              {classificationFilter.length > 0 &&
-                                ` (${classificationFilter.length})`}
-                            </span>
-                            <MdKeyboardArrowDown
-                              className={`transition duration-300 ease-in-out flex-shrink-0 ${
-                                classificationFilter.length > 0
-                                  ? "text-accent-600"
-                                  : "text-light-400 group-hover:text-light-100"
-                              }`}
-                            />
-                          </ListboxButton>
-                          <ListboxOptions
-                            anchor="bottom start"
-                            className={twMerge(
-                              "w-52 rounded-xl border border-white/5 bg-white/5 backdrop-blur-lg p-1 [--anchor-gap:var(--spacing-1)] focus:outline-none z-50",
-                              "transition duration-100 ease-in data-[leave]:data-[closed]:opacity-0"
-                            )}
-                          >
-                            {CLASSIFICATION_OPTIONS.map((cls) => (
-                              <ListboxOption
-                                key={cls}
-                                value={cls}
-                                className="group flex cursor-default items-center gap-2 rounded-lg py-1.5 px-4 select-none data-[focus]:bg-white/10 capitalize"
-                              >
-                                <MdCheck className="invisible size-4 fill-white group-data-[selected]:visible flex-shrink-0" />
-                                <span className="flex-1">
-                                  {cls === "n/a" ? "—" : cls}
-                                </span>
-                                {classificationCounts[cls] != null && (
-                                  <span className="text-xs text-light-400">
-                                    {classificationCounts[cls]}
+                        <Popover className="relative">
+                          <PopoverButton className="group flex gap-1 items-center cursor-pointer focus:outline-none">
+                            {(() => {
+                              const visibleCls = CLASSIFICATION_OPTIONS.filter(
+                                (cls) => (classificationCounts[cls] ?? 0) > 0
+                              );
+                              const isFiltered =
+                                classificationFilter.length < visibleCls.length;
+                              return (
+                                <>
+                                  <span
+                                    className={`select-none uppercase text-xs font-medium transition duration-300 ease-in-out ${
+                                      isFiltered
+                                        ? "text-accent-600"
+                                        : "text-light-400 group-hover:text-light-100"
+                                    }`}
+                                  >
+                                    {header.label}
+                                    {isFiltered &&
+                                      ` (${classificationFilter.length})`}
                                   </span>
-                                )}
-                              </ListboxOption>
+                                  <MdKeyboardArrowDown
+                                    className={`transition duration-300 ease-in-out flex-shrink-0 ${
+                                      isFiltered
+                                        ? "text-accent-600"
+                                        : "text-light-400 group-hover:text-light-100"
+                                    }`}
+                                  />
+                                </>
+                              );
+                            })()}
+                          </PopoverButton>
+                          <PopoverPanel
+                            anchor="bottom start"
+                            className="w-56 rounded-xl border border-white/5 bg-neutral-900 backdrop-blur-lg p-1 z-50 shadow-lg"
+                          >
+                            {/* select all / deselect all */}
+                            {(() => {
+                              const visibleOpts =
+                                CLASSIFICATION_OPTIONS.filter(
+                                  (cls) =>
+                                    (classificationCounts[cls] ?? 0) > 0
+                                );
+                              const allChecked =
+                                classificationFilter.length >=
+                                visibleOpts.length;
+                              return (
+                                <button
+                                  type="button"
+                                  className="w-full text-left text-xs text-light-400 hover:text-light-100 px-4 py-1.5"
+                                  onClick={() => {
+                                    setTablePaginations(
+                                      "food-composition-table",
+                                      1,
+                                      20
+                                    );
+                                    setClassificationFilter(
+                                      allChecked ? [] : [...visibleOpts]
+                                    );
+                                  }}
+                                >
+                                  {allChecked
+                                    ? "Deselect all"
+                                    : "Select all"}
+                                </button>
+                              );
+                            })()}
+                            <div className="border-b border-white/5 my-1" />
+                            {CLASSIFICATION_OPTIONS.filter(
+                              (cls) =>
+                                (classificationCounts[cls] ?? 0) > 0
+                            ).map((cls) => (
+                              <label
+                                key={cls}
+                                className="flex cursor-pointer items-center gap-2 rounded-lg py-1.5 px-4 hover:bg-white/10 capitalize"
+                              >
+                                <input
+                                  type="checkbox"
+                                  className="size-4 rounded border-white/20 bg-transparent accent-accent-600"
+                                  checked={classificationFilter.includes(
+                                    cls
+                                  )}
+                                  onChange={() => {
+                                    setTablePaginations(
+                                      "food-composition-table",
+                                      1,
+                                      20
+                                    );
+                                    setClassificationFilter((prev) =>
+                                      prev.includes(cls)
+                                        ? prev.filter((c) => c !== cls)
+                                        : [...prev, cls]
+                                    );
+                                  }}
+                                />
+                                <span className="flex-1 text-sm">
+                                  {cls === "n/a"
+                                    ? "Unclassified"
+                                    : cls}
+                                </span>
+                                <span className="text-xs text-light-400">
+                                  {classificationCounts[cls]}
+                                </span>
+                              </label>
                             ))}
-                          </ListboxOptions>
-                        </Listbox>
+                          </PopoverPanel>
+                        </Popover>
                       ) : (
                       <div
                         className={`group flex gap-1 items-center flex-nowrap w-full ${
