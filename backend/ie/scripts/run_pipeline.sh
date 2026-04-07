@@ -16,8 +16,6 @@
 #   NCBI_API_KEY        Optional API key for NCBI E-utilities
 #   NCBI_EMAIL          Email for NCBI E-utility API (default: user@example.com)
 #   SLURM_MAIL_USER     Email for SLURM notifications (optional)
-#   CONDA_ENV_NAME      Conda environment name (default: foodatlas_pipeline)
-#   CONDA_SH_PATH       Path to conda.sh (default: from CONDA_EXE or conda)
 #
 # Example:
 #   bash scripts/run_pipeline.sh 2026_03_22 gpt-5.2
@@ -30,20 +28,8 @@ LOG_DIR=${PIPELINE_DIR}/scripts/logs
 DATE=${1:-$(date +%Y_%m_%d)}
 MODEL_NAME=${2:-gpt-5.2}
 RUN_DIR=${PIPELINE_DIR}/outputs/text_parser/${DATE}
-CONDA_ENV=${CONDA_ENV_NAME:-foodatlas_pipeline}
 MAIL_USER=${SLURM_MAIL_USER:-}
-
-# Locate conda.sh from environment or default
-if [[ -n "${CONDA_SH_PATH:-}" ]]; then
-    source "${CONDA_SH_PATH}"
-elif [[ -n "${CONDA_EXE:-}" ]]; then
-    source "$(dirname "$(dirname "${CONDA_EXE}")")/etc/profile.d/conda.sh"
-else
-    echo "ERROR: Set CONDA_SH_PATH or ensure conda is on PATH" >&2
-    exit 1
-fi
-conda activate "${CONDA_ENV}"
-PYTHON=$(which python)
+UV_RUN="uv run --project ${PIPELINE_DIR}"
 
 mkdir -p "${LOG_DIR}"
 mkdir -p "${RUN_DIR}/retrieved_sentences"
@@ -104,7 +90,7 @@ JOB1=$(sbatch_after "$LAST_JOB" \
     --wrap="
         set -eu
         cd ${PIPELINE_DIR}
-        ${PYTHON} -u src/lit2kg/0_update_PMC_BioC.py
+        ${UV_RUN} python -u src/lit2kg/0_update_PMC_BioC.py
     ")
 LAST_JOB=$JOB1
 echo "  [1] update_PMC_BioC     ${JOB1}"
@@ -125,7 +111,7 @@ echo "  [1] update_PMC_BioC     ${JOB1}"
 #     --wrap="
 #         set -eu
 #         cd ${PIPELINE_DIR}
-#         ${PYTHON} -u src/lit2kg/1_search_pubmed_pmc.py \
+#         ${UV_RUN} python -u src/lit2kg/1_search_pubmed_pmc.py \
 #             --query data/food_terms.txt \
 #             --query_uid_results_filepath outputs/text_parser/${DATE}/query_uid_results.tsv \
 #             --filtered_sentences_filepath outputs/text_parser/${DATE}/retrieved_sentences/result_{i}.tsv \
@@ -151,7 +137,7 @@ echo "  [1] update_PMC_BioC     ${JOB1}"
 #     --wrap="
 #         set -eu
 #         cd ${PIPELINE_DIR}
-#         ${PYTHON} -u src/lit2kg/2_run_sentence_filtering.py \
+#         ${UV_RUN} python -u src/lit2kg/2_run_sentence_filtering.py \
 #             --input_file_path outputs/text_parser/${DATE}/retrieved_sentences/sentence_filtering_input.tsv \
 #             --save_file_path  outputs/text_parser/${DATE}/sentence_filtering \
 #             --model_dir       outputs/biobert_binary_prod \
@@ -178,7 +164,7 @@ echo "  [1] update_PMC_BioC     ${JOB1}"
 #     --wrap="
 #         set -eu
 #         cd ${PIPELINE_DIR}
-#         ${PYTHON} -u src/lit2kg/3_aggregate_sentence_filtering_results.py \
+#         ${UV_RUN} python -u src/lit2kg/3_aggregate_sentence_filtering_results.py \
 #             --input_dir       outputs/text_parser/${DATE}/sentence_filtering \
 #             --aggregated_path outputs/text_parser/${DATE}/filtered_sentences/filtered_sentence_aggregated.tsv \
 #             --ie_input_path   outputs/text_parser/${DATE}/filtered_sentences/information_extraction_input.tsv \
@@ -205,7 +191,7 @@ echo "  [1] update_PMC_BioC     ${JOB1}"
 #         set -euo pipefail
 #         cd ${PIPELINE_DIR}
 #         echo 'Starting information extraction: \$(date)'
-#         ${PYTHON} -u src/lit2kg/4_run_information_extraction.py \
+#         ${UV_RUN} python -u src/lit2kg/4_run_information_extraction.py \
 #             --input_path  outputs/text_parser/${DATE}/filtered_sentences/information_extraction_input.tsv \
 #             --output_dir  outputs/past_sentence_filtering_preds/${DATE}_prediction_batch \
 #             --model       ${MODEL_NAME} \
@@ -232,7 +218,7 @@ echo "  [1] update_PMC_BioC     ${JOB1}"
 #         set -euo pipefail
 #         cd ${PIPELINE_DIR}
 #         echo 'Parsing predictions: \$(date)'
-#         ${PYTHON} -u src/lit2kg/5_parse_text_parser_predictions.py \
+#         ${UV_RUN} python -u src/lit2kg/5_parse_text_parser_predictions.py \
 #             --batch_input_path outputs/past_sentence_filtering_preds/${DATE}_prediction_batch/batch_input_${DATE}.tsv \
 #             --batch_results_dir outputs/past_sentence_filtering_preds/${DATE}_prediction_batch \
 #             --output_tsv outputs/past_sentence_filtering_preds/text_parser_predicted_${DATE}.tsv \
