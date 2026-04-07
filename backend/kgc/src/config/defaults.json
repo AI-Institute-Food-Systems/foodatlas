@@ -16,8 +16,8 @@
       "metadata_processing": {},
       "triplet_expansion": {
         "ie_raw_paths": {
-          "gpt-4": "data/Lit2KG/2024_12_31/text_parser_predicted_2024_02_25.parquet",
-          "gpt-3.5-finetuned": "data/Lit2KG/2024_12_31/text_parser_predicted_gpt3.tsv"
+          "gpt-4": "data/Lit2KG/text_parser_predicted_2024_02_25_gpt-4.parquet",
+          "gpt-3.5-finetuned": "data/Lit2KG/text_parser_predicted_2024_07_11_gpt-3.5-ft.tsv"
         }
       },
       "enrichment": {}
