@@ -1,0 +1,32 @@
+{
+  "date": "",
+  "model": "gpt-5.2",
+  "bioc_pmc_dir": "data/BioC-PMC",
+  "bioc_pmc_dl_dir": "data/BioC-PMC_download",
+  "biobert_model_dir": "outputs/biobert_binary_prod",
+  "food_terms": "data/food_terms.txt",
+  "translated_food_terms": "data/translated_food_terms.txt",
+  "ncbi_email": "user@example.com",
+  "pipeline": {
+    "search": {
+      "save_every": 50,
+      "query_uid_results": "outputs/text_parser/{date}/query_uid_results.tsv",
+      "filtered_sentences": "outputs/text_parser/{date}/retrieved_sentences/result_{i}.tsv",
+      "last_search_date": "outputs/text_parser/last_search_date.txt"
+    },
+    "biobert_filter": {
+      "sentence_col": "sentence",
+      "chunk_size": 10000,
+      "batch_size": 64
+    },
+    "aggregate": {
+      "threshold": 0.99,
+      "reference_dir": "outputs/past_sentence_filtering_preds"
+    },
+    "extraction": {
+      "system_prompt": "You are an expert in food science and chemistry. ",
+      "max_new_tokens": 512,
+      "temperature": 0.0
+    }
+  }
+}
