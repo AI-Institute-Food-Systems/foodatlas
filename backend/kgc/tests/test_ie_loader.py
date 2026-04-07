@@ -102,26 +102,30 @@ class TestLoadIeRaw:
         return path
 
     def test_greek_normalized(self, ie_tsv: Path) -> None:
-        df = load_ie_raw(ie_tsv, ie_tsv.parent)
+        df = load_ie_raw(ie_tsv, ie_tsv.parent, method="gpt-4")
         assert "beta-carotene" in df["_chemical_name"].values
 
     def test_multi_tuple_response(self, ie_tsv: Path) -> None:
-        df = load_ie_raw(ie_tsv, ie_tsv.parent)
+        df = load_ie_raw(ie_tsv, ie_tsv.parent, method="gpt-4")
         berry_rows = df[df["_food_name"] == "berry"]
         assert len(berry_rows) == 2
 
-    def test_source_and_reference(self, ie_tsv: Path) -> None:
-        df = load_ie_raw(ie_tsv, ie_tsv.parent)
+    def test_source_includes_method(self, ie_tsv: Path) -> None:
+        df = load_ie_raw(ie_tsv, ie_tsv.parent, method="gpt-4")
         row = df[df["_food_name"] == "apple"].iloc[0]
-        assert row["source"] == "lit2kg"
+        assert row["source"] == "lit2kg:gpt-4"
         assert row["source_type"] == "pubmed"
         assert "111" in row["reference"]
+
+    def test_source_different_method(self, ie_tsv: Path) -> None:
+        df = load_ie_raw(ie_tsv, ie_tsv.parent, method="gpt-3.5-finetuned")
+        assert (df["source"] == "lit2kg:gpt-3.5-finetuned").all()
 
     def test_missing_column_raises(self, tmp_path: Path) -> None:
         path = tmp_path / "bad.tsv"
         path.write_text("col_a\tcol_b\n1\t2\n")
         with pytest.raises(ValueError, match="missing columns"):
-            load_ie_raw(path, tmp_path)
+            load_ie_raw(path, tmp_path, method="gpt-4")
 
     def test_quantity_parsed_into_raw_fields(self, tmp_path: Path) -> None:
         path = tmp_path / "conc.tsv"
@@ -136,7 +140,7 @@ class TestLoadIeRaw:
             },
         ]
         pd.DataFrame(rows).to_csv(path, sep="\t", index=False)
-        df = load_ie_raw(path, tmp_path)
+        df = load_ie_raw(path, tmp_path, method="gpt-4")
         row = df.iloc[0]
         assert row["conc_value_raw"] == "1.5"
         assert row["conc_unit_raw"] == "mg/g"
@@ -154,7 +158,7 @@ class TestLoadIeRaw:
             },
         ]
         pd.DataFrame(rows).to_csv(path, sep="\t", index=False)
-        df = load_ie_raw(path, tmp_path)
+        df = load_ie_raw(path, tmp_path, method="gpt-4")
         # Row is still created, with empty raw fields.
         assert len(df) == 1
         assert df.iloc[0]["conc_value_raw"] == ""
@@ -166,7 +170,7 @@ class TestLoadIeRaw:
         assert (errors["reason"] == "bad_conc").any()
 
     def test_empty_quantity_no_error(self, ie_tsv: Path) -> None:
-        df = load_ie_raw(ie_tsv, ie_tsv.parent)
+        df = load_ie_raw(ie_tsv, ie_tsv.parent, method="gpt-4")
         # All fixtures have empty quantities — should not produce bad_conc errors.
         assert (df["conc_value_raw"] == "").all()
         assert (df["conc_unit_raw"] == "").all()
@@ -178,5 +182,5 @@ class TestLoadIeRaw:
             "111\tINTRO\tapple\tSentence.\t0.99\t",
         ]
         path.write_text("\n".join(lines))
-        df = load_ie_raw(path, tmp_path)
+        df = load_ie_raw(path, tmp_path, method="gpt-4")
         assert df.empty

@@ -20,7 +20,7 @@ def settings(tmp_path: Path) -> KGCSettings:
         output_dir=str(tmp_path / "out"),
         cache_dir=str(tmp_path / "cache"),
     )
-    s.pipeline.stages.triplet_expansion.ie_raw_paths = []
+    s.pipeline.stages.triplet_expansion.ie_raw_paths = {}
     return s
 
 
@@ -60,7 +60,7 @@ def test_ie_expansion_calls_resolver(
         cache_dir=str(tmp_path / "cache"),
     )
     (tmp_path / "kg").mkdir()
-    settings.pipeline.stages.triplet_expansion.ie_raw_paths = [str(ie_path)]
+    settings.pipeline.stages.triplet_expansion.ie_raw_paths = {"gpt-4": str(ie_path)}
 
     kg = MagicMock()
     mock_kg_cls.return_value = kg
