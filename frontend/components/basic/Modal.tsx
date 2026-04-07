@@ -1,11 +1,10 @@
 // modal wrapper for headless ui dialog
 
-import { Dialog, DialogBackdrop, DialogPanel, Portal } from "@headlessui/react";
+import { Dialog, DialogPanel } from "@headlessui/react";
 import { MdClose } from "react-icons/md";
 
 import Heading from "@/components/basic/Heading";
 import Button from "@/components/basic/Button";
-import { useEffect } from "react";
 
 interface ModalProps {
   children: React.ReactNode;
@@ -22,21 +21,9 @@ const Modal = ({
   title,
   description,
 }: ModalProps) => {
-  // add useEffect to handle body scroll
-  useEffect(() => {
-    if (isOpen) {
-      // prevent scrolling on body when modal is open
-      document.body.style.overflow = "hidden";
-    } else {
-      // restore scrolling when modal is closed
-      document.body.style.overflow = "unset";
-    }
-
-    // cleanup on unmount
-    return () => {
-      document.body.style.overflow = "unset";
-    };
-  }, [isOpen]);
+  // Headless UI Dialog handles scroll locking internally.
+  // scrollbar-gutter: stable on <html> (globals.css) reserves scrollbar
+  // space, preventing layout shift when the scrollbar is hidden.
 
   return (
     <Dialog
