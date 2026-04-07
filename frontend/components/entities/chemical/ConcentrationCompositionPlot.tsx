@@ -49,24 +49,13 @@ const ConcentrationCompositionPlot = ({ data }: DotPlotProps) => {
   const [sortedData, setSortedData] = useState<SortedData[]>([]);
   const [sortOrder, setSortOrder] = useState("desc");
 
-  // whether values span enough orders of magnitude to warrant log scale
-  const useLogScale = useMemo(() => {
-    if (!data || data.length < 2) return false;
-    const values = data
-      .map((r) => r.median_concentration?.value ?? 0)
-      .filter((v) => v > 0);
-    if (values.length < 2) return false;
-    const min = Math.min(...values);
-    const max = Math.max(...values);
-    return max / min > 100;
-  }, [data]);
 
   // sort data
   useEffect(() => {
     if (!data) return;
 
     const d = data
-      .filter((row) => !useLogScale || (row.median_concentration?.value ?? 0) > 0)
+      .filter((row) => (row.median_concentration?.value ?? 0) >= 0)
       .map((row) => ({
         food: row.name,
         value: row.median_concentration?.value ?? 0,
@@ -81,7 +70,7 @@ const ConcentrationCompositionPlot = ({ data }: DotPlotProps) => {
     });
 
     setSortedData(sortedData);
-  }, [data, sortOrder, useLogScale]);
+  }, [data, sortOrder]);
 
   // custom bar
   const CustomBar = (props: BarProps) => {
@@ -179,12 +168,11 @@ const ConcentrationCompositionPlot = ({ data }: DotPlotProps) => {
             name="concentration (mg/100g)"
             orientation="top"
             fontSize={10}
-            tickCount={useLogScale ? 5 : 10}
             axisLine={false}
             label={{ angle: -90, offset: 10 }}
-            scale={useLogScale ? "log" : "auto"}
-            domain={useLogScale ? ["auto", "auto"] : undefined}
-            tickFormatter={(v: number) => formatConcentrationValueAlt(v)}
+            domain={[0, "dataMax"]}
+            allowDecimals={false}
+            allowDataOverflow={false}
           />
           <YAxis
             type="category"
@@ -212,7 +200,7 @@ const ConcentrationCompositionPlot = ({ data }: DotPlotProps) => {
         </BarChart>
       </ResponsiveContainer>
     );
-  }, [chartHeight, sortedData, router, useLogScale]);
+  }, [chartHeight, sortedData, router]);
 
   return (
     <Card>
@@ -271,12 +259,6 @@ const ConcentrationCompositionPlot = ({ data }: DotPlotProps) => {
               <MdInfo className="flex-shrink-0" />
               All concentrations shown are measured in mg / 100g
             </div>
-            {useLogScale && (
-              <div className="flex items-center gap-1.5">
-                <MdInfo className="flex-shrink-0" />
-                Logarithmic scale applied due to wide range of values
-              </div>
-            )}
           </div>
         </div>
       ) : (
