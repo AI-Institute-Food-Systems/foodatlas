@@ -1,9 +1,5 @@
 #!/bin/bash
 #SBATCH --job-name=biobert_binary
-#SBATCH --mail-type=ALL
-#SBATCH --mail-user=kcxie@ucdavis.edu
-#SBATCH --output=/mnt/share/kaichixie/foodatlas_pipeline/scripts/logs/%j.out
-#SBATCH --error=/mnt/share/kaichixie/foodatlas_pipeline/scripts/logs/%j.err
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
@@ -11,16 +7,23 @@
 #SBATCH --mem=32G
 #SBATCH --time=12:00:00
 
-source /mnt/share/kaichixie/miniconda3/etc/profile.d/conda.sh
-conda activate foodatlas_pipeline
+set -euo pipefail
 
-cd /mnt/share/kaichixie/foodatlas_pipeline
+# Locate conda.sh from environment or default
+if [[ -n "${CONDA_SH_PATH:-}" ]]; then
+    source "${CONDA_SH_PATH}"
+elif [[ -n "${CONDA_EXE:-}" ]]; then
+    source "$(dirname "$(dirname "${CONDA_EXE}")")/etc/profile.d/conda.sh"
+else
+    echo "ERROR: Set CONDA_SH_PATH or ensure conda is on PATH" >&2
+    exit 1
+fi
+conda activate "${CONDA_ENV_NAME:-foodatlas_pipeline}"
 
-# Development run (train/val/test splits, saves best checkpoint by val F1)
-# python -m src.Lit2_KG.biobert.train \
-#     --output_dir outputs/biobert_binary
+SCRIPT_DIR=$(cd "$(dirname "$0")/.." && pwd)
+cd "${SCRIPT_DIR}"
 
 # Production run (all data, full 9 epochs, saves final model)
-python -m src.Lit2_KG.biobert.train \
+python -m src.lit2kg.biobert.train \
     --output_dir outputs/biobert_binary_prod \
     --production

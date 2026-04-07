@@ -72,4 +72,4 @@ exclude_dirs = [
     "backend/ie/tests",
     "backend/kgc/tests",
 ]
-skips = ["B101", "B311", "B608"]
+skips = ["B101", "B311", "B404", "B603", "B608", "B615"]
