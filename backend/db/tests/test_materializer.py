@@ -24,7 +24,7 @@ class TestComputeMedian:
         result = _compute_median(evidences)
         assert result is not None
         assert result["unit"] == "mg/100g"
-        assert result["value"] == "10"
+        assert result["value"] == 10.0
 
     def test_multiple_values_median(self):
         evidences = [
@@ -37,7 +37,7 @@ class TestComputeMedian:
         ]
         result = _compute_median(evidences)
         assert result is not None
-        assert result["value"] == "5"
+        assert result["value"] == 5.0
 
     def test_skips_zero_values(self):
         evidences = [
@@ -50,7 +50,7 @@ class TestComputeMedian:
         ]
         result = _compute_median(evidences)
         assert result is not None
-        assert result["value"] == "6"
+        assert result["value"] == 6.0
 
     def test_skips_non_mg_units(self):
         evidences = [
@@ -95,7 +95,7 @@ class TestComputeMedian:
         ]
         result = _compute_median(evidences)
         assert result is not None
-        assert result["value"] == "2.5"
+        assert result["value"] == 2.5
 
 
 class TestAddFoodatlasEvidence:

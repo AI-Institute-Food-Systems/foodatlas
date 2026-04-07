@@ -22,7 +22,7 @@ class TestComputeMedian:
             },
         ]
         result = _compute_median(evidences)
-        assert result == {"unit": "mg/100g", "value": "15"}
+        assert result == {"unit": "mg/100g", "value": 15.0}
 
     def test_returns_none_for_empty(self):
         assert _compute_median([]) is None
@@ -38,7 +38,7 @@ class TestComputeMedian:
         ]
         result = _compute_median(evidences)
         assert result is not None
-        assert result["value"] == "5"
+        assert result["value"] == 5.0
 
     def test_skips_non_mg100g_units(self):
         evidences = [
