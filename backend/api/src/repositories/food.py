@@ -204,8 +204,12 @@ def _build_query_parts(
         conditions.append(valid[0] + "_evidences IS NOT NULL")
 
     if search_term:
-        conditions.append("chemical_name ILIKE :search")
-        params["search"] = "%" + search_term + "%"
+        if search_term.startswith("e") and search_term[1:].isdigit():
+            conditions.append("chemical_foodatlas_id = :search")
+            params["search"] = search_term
+        else:
+            conditions.append("chemical_name ILIKE :search")
+            params["search"] = "%" + search_term + "%"
 
     if not show_all_rows:
         conditions.append("median_concentration IS NOT NULL")

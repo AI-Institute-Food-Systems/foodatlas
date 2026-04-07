@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Listbox,
   ListboxButton,
@@ -81,6 +82,7 @@ interface FoodCompositionSectionProps {
 const FoodCompositionSection = ({
   commonName,
 }: FoodCompositionSectionProps) => {
+  const searchParams = useSearchParams();
   const [data, setData] = useState<FoodCompositionData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
@@ -88,7 +90,9 @@ const FoodCompositionSection = ({
   const { currentPage } = getTablePaginations("food-composition-table");
   const [numberOfPages, setNumberOfPages] = useState(-1);
   const [numberOfRows, setNumberOfRows] = useState(-1);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState(
+    searchParams.get("search") ?? ""
+  );
   const [sourceFilters, setSourceFilters] = useState<string[]>([
     "fdc",
     "foodatlas",
@@ -247,7 +251,7 @@ const FoodCompositionSection = ({
 
   return (
     <>
-      <div className="flex flex-col gap-7">
+      <div id="composition" className="flex flex-col gap-7 scroll-mt-8">
         <Heading type="h2" variant="boxed">
           Full Chemical Composition
         </Heading>
@@ -261,6 +265,7 @@ const FoodCompositionSection = ({
                 className="pl-9 w-full lg:w-72 h-9 text-sm rounded-lg border border-light-50/5 bg-light-900 focus:bg-light-400/20 hover:bg-light-400/20 text-light-100 placeholder-light-400 transition duration-100 ease-in-out outline-light-50/60"
                 type="text"
                 placeholder="Search for a chemical"
+                value={searchTerm}
                 onChange={handleSearch}
               />
             </div>

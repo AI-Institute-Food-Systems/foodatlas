@@ -49,7 +49,7 @@ class TestChemicalGetComposition:
     @pytest.mark.asyncio
     async def test_splits_by_concentration(self) -> None:
         with_row = _make_row(id="FA:F001", name="apple", median_concentration=5.0)
-        without_row = _make_row(id="FA:F002", name="banana", median_concentration=None)
+        without_row = _make_row(id="FA:F002", name="banana", evidence_count=3)
         session = AsyncMock()
         r_with = MagicMock()
         r_with.__iter__ = lambda self: iter([with_row])

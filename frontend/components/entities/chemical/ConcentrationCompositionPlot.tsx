@@ -26,7 +26,6 @@ import {
   ValueType,
   NameType,
 } from "recharts/types/component/DefaultTooltipContent";
-
 import Card from "@/components/basic/Card";
 import { encodeSpace, formatConcentrationValueAlt } from "@/utils/utils";
 
@@ -41,28 +40,28 @@ interface DotPlotProps {
       }[]
     | undefined
     | null;
+  chemicalName?: string;
 }
 
 type SortedData = { food: string; value: any; id: string };
 
-const ConcentrationCompositionPlot = ({ data }: DotPlotProps) => {
+const ConcentrationCompositionPlot = ({ data, chemicalName }: DotPlotProps) => {
   const router = useRouter();
   const [sortedData, setSortedData] = useState<SortedData[]>([]);
   const [sortOrder, setSortOrder] = useState("desc");
+
 
   // sort data
   useEffect(() => {
     if (!data) return;
 
-    const d = Array.from(
-      data.map((row) => {
-        return {
-          food: row.name,
-          value: row.median_concentration?.value ?? 0,
-          id: row.id,
-        };
-      })
-    );
+    const d = data
+      .filter((row) => (row.median_concentration?.value ?? 0) >= 0)
+      .map((row) => ({
+        food: row.name,
+        value: row.median_concentration?.value ?? 0,
+        id: row.id,
+      }));
 
     const sortedData = [...d].sort((a, b) => {
       if (a.value === undefined) return 1;
@@ -149,7 +148,12 @@ const ConcentrationCompositionPlot = ({ data }: DotPlotProps) => {
   const graph = useMemo(() => {
     // handle bar click
     const handleClick = (commonName: string) => {
-      router.push(`/food/${encodeURIComponent(encodeSpace(commonName))}`);
+      const search = chemicalName
+        ? `?search=${encodeURIComponent(chemicalName)}#composition`
+        : "";
+      router.push(
+        `/food/${encodeURIComponent(encodeSpace(commonName))}${search}`
+      );
     };
 
     return (
@@ -170,9 +174,11 @@ const ConcentrationCompositionPlot = ({ data }: DotPlotProps) => {
             name="concentration (mg/100g)"
             orientation="top"
             fontSize={10}
-            tickCount={10}
             axisLine={false}
             label={{ angle: -90, offset: 10 }}
+            domain={[0, "dataMax"]}
+            allowDecimals={false}
+            allowDataOverflow={false}
           />
           <YAxis
             type="category"
@@ -200,23 +206,12 @@ const ConcentrationCompositionPlot = ({ data }: DotPlotProps) => {
         </BarChart>
       </ResponsiveContainer>
     );
-  }, [chartHeight, sortedData, router]);
+  }, [chartHeight, sortedData, router, chemicalName]);
 
   return (
     <Card>
       {data && data.length > 0 ? (
         <div className="flex flex-col gap-5">
-          {/* info & sort container */}
-          {/* search */}
-          {/* <div className="relative flex items-center">
-          <MdSearch className="absolute left-2.5 w-5 h-5 text-light-400" />
-          <input
-            className="pl-9 w-60 h-9 text-sm rounded-lg border border-light-50/5 bg-light-800 focus:bg-light-400/20 hover:bg-light-400/20 text-light-100 placeholder-light-400 transition duration-100 ease-in-out outline-light-50/60"
-            type="text"
-            placeholder="Search foods"
-            onChange={handleSearchChange}
-          />
-        </ */}
           {/* label & sort container */}
           <div className="flex justify-between items-center">
             <span className="text-light-400">Found {data.length} foods</span>
@@ -265,9 +260,11 @@ const ConcentrationCompositionPlot = ({ data }: DotPlotProps) => {
           {/* graph container */}
           <div className="mt-2 min-h-16 max-h-80 overflow-y-auto">{graph}</div>
           {/* concentration unit info */}
-          <div className="flex items-center gap-1.5 text-sm text-light-400">
-            <MdInfo />
-            All concentrations shown are measured in mg / 100g
+          <div className="flex flex-col gap-1 text-sm text-light-400">
+            <div className="flex items-center gap-1.5">
+              <MdInfo className="flex-shrink-0" />
+              All concentrations shown are measured in mg / 100g
+            </div>
           </div>
         </div>
       ) : (

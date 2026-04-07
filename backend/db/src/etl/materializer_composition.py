@@ -249,5 +249,4 @@ def _compute_median(evidences: list) -> dict | None:
     if not values:
         return None
     median = float(np.median(values))
-    formatted = f"{median:.6f}".rstrip("0").rstrip(".")
-    return {"unit": "mg/100g", "value": formatted}
+    return {"unit": "mg/100g", "value": median}
