@@ -34,6 +34,10 @@ class IERunner:
         self._pipeline_dir = Path.cwd()
 
     @property
+    def _corpus_dir(self) -> Path:
+        return self._pipeline_dir / "outputs" / "corpus"
+
+    @property
     def _run_dir(self) -> Path:
         return self._pipeline_dir / "outputs" / "search" / self._s.resolved_date
 
@@ -67,7 +71,7 @@ class IERunner:
 
     def _run_corpus(self) -> None:
         """Download PMC-ids.csv and update BioC-PMC corpus."""
-        ncbi_dir = self._pipeline_dir / "data" / "NCBI"
+        ncbi_dir = self._corpus_dir / "NCBI"
         if ncbi_dir.exists():
             shutil.rmtree(ncbi_dir)
         ncbi_dir.mkdir(parents=True)

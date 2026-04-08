@@ -32,7 +32,7 @@ def parse_query(query: str) -> list[str]:
 
 
 def get_pmcid_pmid_mapping(
-    filepath: str = "data/NCBI/PMC-ids.csv",
+    filepath: str = "outputs/corpus/NCBI/PMC-ids.csv",
 ) -> tuple[dict[str, str], dict[str, str]]:
     """Load PMCID<->PMID mapping from the NCBI CSV file."""
     log.info("Fetching PMCID-PMID mapping...")
