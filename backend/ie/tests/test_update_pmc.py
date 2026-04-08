@@ -1,16 +1,15 @@
-"""Tests for step 0: 0_update_PMC_BioC."""
+"""Tests for corpus/update_bioc module."""
 
 from __future__ import annotations
 
-import importlib
 import json
 
-step0 = importlib.import_module("src.lit2kg.0_update_PMC_BioC")
-
-archive_start_id = step0.archive_start_id
-archive_end_id = step0.archive_end_id
-read_meta = step0.read_meta
-write_meta = step0.write_meta
+from src.pipeline.corpus.update_bioc import (
+    archive_end_id,
+    archive_start_id,
+    read_meta,
+    write_meta,
+)
 
 
 def test_archive_start_id_old_format():

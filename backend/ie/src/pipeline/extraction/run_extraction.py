@@ -1,4 +1,4 @@
-"""Step 4: Information extraction using the OpenAI Batch API.
+"""Information extraction using the OpenAI Batch API.
 
 Reads information_extraction_input.tsv, splits into chunks, submits each
 as a separate OpenAI batch, polls until complete, then saves raw results.
@@ -6,20 +6,16 @@ as a separate OpenAI batch, polls until complete, then saves raw results.
 
 from __future__ import annotations
 
-import argparse
 import io
 import json
 import logging
 import os
 import time
-from datetime import date
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 from openai import OpenAI
-
-import src.lit2kg.information_extraction_model_config as config
 
 logging.basicConfig(
     level=logging.INFO,
@@ -28,31 +24,42 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-DEFAULT_INPUT = (
-    "outputs/text_parser/filtered_sentences/information_extraction_input.tsv"
-)
-DEFAULT_OUTPUT_DIR = "outputs/past_sentence_filtering_preds"
-DEFAULT_MODEL = "gpt-5.2"
 BATCH_SIZE = 50_000
 POLL_INTERVAL = 60
 TERMINAL = {"completed", "failed", "expired", "cancelled"}
 
+_PROMPTS_DIR = Path(__file__).parent / "prompts"
 
-def build_batch_jsonl(df: pd.DataFrame, model: str) -> bytes:
+
+def load_prompt(version: str) -> str:
+    """Load a user prompt template by version name."""
+    path = _PROMPTS_DIR / f"{version}.txt"
+    return path.read_text(encoding="utf-8")
+
+
+def build_batch_jsonl(
+    df: pd.DataFrame,
+    model: str,
+    *,
+    prompt_template: str,
+    system_prompt: str,
+    temperature: float,
+    max_new_tokens: int,
+) -> bytes:
     """Build a JSONL byte string with one chat completion request per row."""
     lines: list[str] = []
     for idx, row in df.iterrows():
-        prompt = config.PROMPT_TEMPLATE.format(sentence=row["sentence"])
+        prompt = prompt_template.format(sentence=row["sentence"])
         request = {
             "custom_id": str(idx),
             "method": "POST",
             "url": "/v1/chat/completions",
             "body": {
                 "model": model,
-                "temperature": config.TEMPERATURE,
-                "max_completion_tokens": config.MAX_NEW_TOKENS,
+                "temperature": temperature,
+                "max_completion_tokens": max_new_tokens,
                 "messages": [
-                    {"role": "system", "content": config.SYSTEM_PROMPT},
+                    {"role": "system", "content": system_prompt},
                     {"role": "user", "content": prompt},
                 ],
             },
@@ -107,31 +114,28 @@ def _poll_batches(client: OpenAI, batches: list[Any]) -> list[Any]:
     return batches
 
 
-def main() -> None:
+def run_extraction(
+    *,
+    input_path: str,
+    output_dir: str,
+    model: str,
+    date: str,
+    prompt_version: str = "v1",
+    system_prompt: str = "You are an expert in food science and chemistry. ",
+    temperature: float = 0.0,
+    max_new_tokens: int = 512,
+    api_key: str | None = None,
+    num_rows: int | None = None,
+) -> None:
     """Run the OpenAI Batch API information extraction pipeline."""
-    parser = argparse.ArgumentParser(
-        description="Run information extraction via the OpenAI Batch API",
-    )
-    parser.add_argument("--input_path", default=DEFAULT_INPUT)
-    parser.add_argument("--output_dir", default=DEFAULT_OUTPUT_DIR)
-    parser.add_argument("--model", default=DEFAULT_MODEL)
-    parser.add_argument("--api_key", default=None)
-    parser.add_argument("--num_rows", type=int, default=None)
-    parser.add_argument("--date", default=None)
-    args = parser.parse_args()
+    resolved_key = api_key or os.environ["OPENAI_API_KEY"]
+    client = OpenAI(api_key=resolved_key)
+    prompt_template = load_prompt(prompt_version)
 
-    api_key = args.api_key or os.environ["OPENAI_API_KEY"]
-    client = OpenAI(api_key=api_key)
-
-    log.info("Reading %s", args.input_path)
-    df = pd.read_csv(
-        args.input_path,
-        sep="\t",
-        dtype=str,
-        keep_default_na=False,
-    )
-    if args.num_rows:
-        df = df.head(args.num_rows)
+    log.info("Reading %s", input_path)
+    df = pd.read_csv(input_path, sep="\t", dtype=str, keep_default_na=False)
+    if num_rows:
+        df = df.head(num_rows)
     log.info("  %d sentences to process", len(df))
 
     chunks = [df.iloc[i : i + BATCH_SIZE] for i in range(0, len(df), BATCH_SIZE)]
@@ -143,7 +147,14 @@ def main() -> None:
 
     batches: list[Any] = []
     for i, chunk in enumerate(chunks):
-        jsonl_bytes = build_batch_jsonl(chunk, args.model)
+        jsonl_bytes = build_batch_jsonl(
+            chunk,
+            model,
+            prompt_template=prompt_template,
+            system_prompt=system_prompt,
+            temperature=temperature,
+            max_new_tokens=max_new_tokens,
+        )
         log.info(
             "  [%d/%d] Uploading %d rows (%d bytes) ...",
             i + 1,
@@ -169,20 +180,15 @@ def main() -> None:
 
     batches = _poll_batches(client, batches)
 
-    today = args.date if args.date else date.today().strftime("%Y_%m_%d")
-    output_dir = Path(args.output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    out = Path(output_dir)
+    out.mkdir(parents=True, exist_ok=True)
 
     log.info("Downloading results ...")
     for i, b in enumerate(batches):
-        result_path = str(output_dir / f"batch_{i}_results_{today}.jsonl")
+        result_path = str(out / f"batch_{i}_results_{date}.jsonl")
         download_raw_results(client, b, result_path)
         log.info("  Saved batch %d results to %s", i, result_path)
 
-    input_save_path = output_dir / f"batch_input_{today}.tsv"
+    input_save_path = out / f"batch_input_{date}.tsv"
     df.to_csv(input_save_path, sep="\t", index=True, index_label="custom_id")
     log.info("Saved input (%d rows) to %s", len(df), input_save_path)
-
-
-if __name__ == "__main__":
-    main()

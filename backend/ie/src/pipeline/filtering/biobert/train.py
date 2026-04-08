@@ -1,10 +1,10 @@
 """Fine-tune BioBERT for binary food-chemical sentence classification.
 
 Development (train/val/test splits, saves best checkpoint by val F1):
-    python -m src.lit2kg.biobert.train --output_dir outputs/biobert_binary
+    python -m src.pipeline.filtering.biobert.train --output_dir outputs/biobert_binary
 
 Production (all data, trains full 9 epochs, saves final model):
-    python -m src.lit2kg.biobert.train \
+    python -m src.pipeline.filtering.biobert.train \
         --output_dir outputs/biobert_binary_prod --production
 """
 

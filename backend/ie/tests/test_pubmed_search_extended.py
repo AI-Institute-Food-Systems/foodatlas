@@ -2,18 +2,16 @@
 
 from __future__ import annotations
 
-import importlib
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
-from src.lit2kg.pubmed_search import (
+from src.pipeline.search import runner as step1
+from src.pipeline.search.pubmed_search import (
     _search_single_db,
     get_pmcid_pmid_mapping,
     save_data,
     search_queries,
 )
-
-step1 = importlib.import_module("src.lit2kg.1_search_pubmed_pmc")
 
 
 def test_get_pmcid_pmid_mapping(tmp_path):
@@ -30,7 +28,7 @@ def test_get_pmcid_pmid_mapping(tmp_path):
     assert pmid_pmcid["2"] == "PMC200"
 
 
-@patch("src.lit2kg.pubmed_search.subprocess")
+@patch("src.pipeline.search.pubmed_search.subprocess")
 def test_search_single_db_pmc(mock_subprocess):
     mock_esearch = MagicMock()
     mock_esearch.stdout = MagicMock()
@@ -42,7 +40,7 @@ def test_search_single_db_pmc(mock_subprocess):
     assert result == ["PMC123", "PMC456"]
 
 
-@patch("src.lit2kg.pubmed_search.subprocess")
+@patch("src.pipeline.search.pubmed_search.subprocess")
 def test_search_single_db_pubmed(mock_subprocess):
     mock_esearch = MagicMock()
     mock_esearch.stdout = MagicMock()
@@ -54,7 +52,7 @@ def test_search_single_db_pubmed(mock_subprocess):
     assert result == ["789"]
 
 
-@patch("src.lit2kg.pubmed_search.subprocess")
+@patch("src.pipeline.search.pubmed_search.subprocess")
 def test_search_single_db_with_mindate(mock_subprocess):
     mock_esearch = MagicMock()
     mock_esearch.stdout = MagicMock()
@@ -68,7 +66,7 @@ def test_search_single_db_with_mindate(mock_subprocess):
     assert "2024/01/01" in popen_args
 
 
-@patch("src.lit2kg.pubmed_search._search_single_db")
+@patch("src.pipeline.search.pubmed_search._search_single_db")
 def test_search_queries_basic(mock_search):
     mock_search.return_value = ["PMC100"]
 
@@ -91,7 +89,7 @@ def test_search_queries_basic(mock_search):
     assert ("1", "PMC100") in result
 
 
-@patch("src.lit2kg.pubmed_search._search_single_db")
+@patch("src.pipeline.search.pubmed_search._search_single_db")
 def test_search_queries_skips_previous(mock_search):
     mock_search.return_value = ["PMC100"]
 
@@ -113,7 +111,7 @@ def test_search_queries_skips_previous(mock_search):
     mock_search.assert_not_called()
 
 
-@patch("src.lit2kg.pubmed_search._search_single_db")
+@patch("src.pipeline.search.pubmed_search._search_single_db")
 def test_search_queries_exception_handling(mock_search):
     mock_search.side_effect = RuntimeError("test error")
 
@@ -142,8 +140,5 @@ def test_save_data_roundtrip(tmp_path):
     assert df.iloc[0]["pmid"] == "pmid1"
 
 
-def test_step1_parse_argument_defaults():
-    with patch("sys.argv", ["prog", "--query", "cocoa"]):
-        args = step1.parse_argument()
-    assert args.query == "cocoa"
-    assert args.save_every == 50
+def test_step1_run_search_exists():
+    assert callable(step1.run_search)

@@ -5,7 +5,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 import torch
-from src.lit2kg.biobert.model import BioBERTRunner, _SentenceDataset
+from src.pipeline.filtering.biobert.model import BioBERTRunner, _SentenceDataset
 
 
 def test_sentence_dataset():
@@ -30,8 +30,8 @@ def test_sentence_dataset_single():
 
 
 @patch("torch.cuda.is_available", return_value=False)
-@patch("src.lit2kg.biobert.model.AutoModelForSequenceClassification")
-@patch("src.lit2kg.biobert.model.AutoTokenizer")
+@patch("src.pipeline.filtering.biobert.model.AutoModelForSequenceClassification")
+@patch("src.pipeline.filtering.biobert.model.AutoTokenizer")
 def test_biobert_runner_infer(mock_tokenizer_cls, mock_model_cls, _mock_cuda):
     mock_tokenizer = MagicMock()
     mock_tokenizer_cls.from_pretrained.return_value = mock_tokenizer

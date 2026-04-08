@@ -25,6 +25,7 @@
     },
     "extraction": {
       "system_prompt": "You are an expert in food science and chemistry. ",
+      "prompt_version": "v1",
       "max_new_tokens": 512,
       "temperature": 0.0
     },

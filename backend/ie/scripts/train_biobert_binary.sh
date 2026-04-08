@@ -13,6 +13,6 @@ SCRIPT_DIR=$(cd "$(dirname "$0")/.." && pwd)
 cd "${SCRIPT_DIR}"
 
 # Production run (all data, full 9 epochs, saves final model)
-uv run python -m src.lit2kg.biobert.train \
+uv run python -m src.pipeline.filtering.biobert.train \
     --output_dir outputs/biobert_binary_prod \
     --production

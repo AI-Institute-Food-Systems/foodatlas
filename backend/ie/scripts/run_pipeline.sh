@@ -90,7 +90,7 @@ JOB1=$(sbatch_after "$LAST_JOB" \
     --wrap="
         set -eu
         cd ${PIPELINE_DIR}
-        ${UV_RUN} python -u src/lit2kg/0_update_PMC_BioC.py
+        ${UV_RUN} python -u -m src.pipeline.corpus.update_bioc
     ")
 LAST_JOB=$JOB1
 echo "  [1] update_PMC_BioC     ${JOB1}"

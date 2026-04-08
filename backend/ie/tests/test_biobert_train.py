@@ -6,7 +6,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import numpy as np
-from src.lit2kg.biobert.train import (
+from src.pipeline.filtering.biobert.train import (
     BATCH_SIZE,
     DATA_ROOT,
     EPOCHS,
@@ -56,12 +56,12 @@ def test_compute_metrics():
     assert result["f1"] == 1.0
 
 
-@patch("src.lit2kg.biobert.train.TrainingArguments")
-@patch("src.lit2kg.biobert.train.DataCollatorWithPadding")
-@patch("src.lit2kg.biobert.train.AutoModelForSequenceClassification")
-@patch("src.lit2kg.biobert.train.AutoTokenizer")
-@patch("src.lit2kg.biobert.train.Trainer")
-@patch("src.lit2kg.biobert.train.load_split")
+@patch("src.pipeline.filtering.biobert.train.TrainingArguments")
+@patch("src.pipeline.filtering.biobert.train.DataCollatorWithPadding")
+@patch("src.pipeline.filtering.biobert.train.AutoModelForSequenceClassification")
+@patch("src.pipeline.filtering.biobert.train.AutoTokenizer")
+@patch("src.pipeline.filtering.biobert.train.Trainer")
+@patch("src.pipeline.filtering.biobert.train.load_split")
 def test_main_production(
     mock_load,
     mock_trainer_cls,
@@ -92,12 +92,12 @@ def test_main_production(
     mock_trainer.save_model.assert_called_once_with(output_dir)
 
 
-@patch("src.lit2kg.biobert.train.TrainingArguments")
-@patch("src.lit2kg.biobert.train.DataCollatorWithPadding")
-@patch("src.lit2kg.biobert.train.AutoModelForSequenceClassification")
-@patch("src.lit2kg.biobert.train.AutoTokenizer")
-@patch("src.lit2kg.biobert.train.Trainer")
-@patch("src.lit2kg.biobert.train.load_split")
+@patch("src.pipeline.filtering.biobert.train.TrainingArguments")
+@patch("src.pipeline.filtering.biobert.train.DataCollatorWithPadding")
+@patch("src.pipeline.filtering.biobert.train.AutoModelForSequenceClassification")
+@patch("src.pipeline.filtering.biobert.train.AutoTokenizer")
+@patch("src.pipeline.filtering.biobert.train.Trainer")
+@patch("src.pipeline.filtering.biobert.train.load_split")
 def test_main_dev(
     mock_load,
     mock_trainer_cls,

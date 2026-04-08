@@ -1,13 +1,12 @@
-"""Extended tests for step 0: download, extract, local_max, main."""
+"""Extended tests for corpus/update_bioc: download, extract, local_max, main."""
 
 from __future__ import annotations
 
-import importlib
 import json
 import tarfile
 from unittest.mock import MagicMock
 
-step0 = importlib.import_module("src.lit2kg.0_update_PMC_BioC")
+from src.pipeline.corpus import update_bioc as step0
 
 
 def test_local_max_pmc_id_from_cache(tmp_path):

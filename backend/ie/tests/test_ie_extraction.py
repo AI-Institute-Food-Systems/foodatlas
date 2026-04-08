@@ -1,40 +1,40 @@
-"""Tests for step 4: information extraction (build_batch_jsonl)."""
+"""Tests for extraction/run_extraction module."""
 
 from __future__ import annotations
 
-import importlib
 import json
 from pathlib import Path
 from unittest.mock import MagicMock
 
 import pandas as pd
-from src.lit2kg.information_extraction_model_config import (
-    MAX_NEW_TOKENS,
-    PROMPT_TEMPLATE,
-    SYSTEM_PROMPT,
-    TEMPERATURE,
+from src.pipeline.extraction.run_extraction import (
+    build_batch_jsonl,
+    download_raw_results,
+    load_prompt,
 )
 
-step4 = importlib.import_module("src.lit2kg.4_run_information_extraction")
-build_batch_jsonl = step4.build_batch_jsonl
-download_raw_results = step4.download_raw_results
+_SYSTEM = "You are an expert in food science and chemistry. "
+_TEMP = 0.0
+_MAX_TOKENS = 512
 
 
-def test_model_config():
-    assert isinstance(SYSTEM_PROMPT, str)
-    assert len(SYSTEM_PROMPT) > 0
-    assert isinstance(MAX_NEW_TOKENS, int)
-    assert isinstance(TEMPERATURE, float)
-    assert "{sentence}" in PROMPT_TEMPLATE
+def test_load_prompt_v1():
+    template = load_prompt("v1")
+    assert isinstance(template, str)
+    assert "{sentence}" in template
 
 
 def test_build_batch_jsonl_single_row():
-    df = pd.DataFrame(
-        {
-            "sentence": ["Cocoa contains polyphenols."],
-        }
+    df = pd.DataFrame({"sentence": ["Cocoa contains polyphenols."]})
+    template = load_prompt("v1")
+    result = build_batch_jsonl(
+        df,
+        "gpt-4",
+        prompt_template=template,
+        system_prompt=_SYSTEM,
+        temperature=_TEMP,
+        max_new_tokens=_MAX_TOKENS,
     )
-    result = build_batch_jsonl(df, "gpt-4")
     lines = result.decode().strip().split("\n")
     assert len(lines) == 1
     obj = json.loads(lines[0])
@@ -45,12 +45,16 @@ def test_build_batch_jsonl_single_row():
 
 
 def test_build_batch_jsonl_multiple_rows():
-    df = pd.DataFrame(
-        {
-            "sentence": ["First sentence.", "Second sentence."],
-        }
+    df = pd.DataFrame({"sentence": ["First sentence.", "Second sentence."]})
+    template = load_prompt("v1")
+    result = build_batch_jsonl(
+        df,
+        "gpt-5",
+        prompt_template=template,
+        system_prompt=_SYSTEM,
+        temperature=_TEMP,
+        max_new_tokens=_MAX_TOKENS,
     )
-    result = build_batch_jsonl(df, "gpt-5")
     lines = result.decode().strip().split("\n")
     assert len(lines) == 2
     for i, line in enumerate(lines):

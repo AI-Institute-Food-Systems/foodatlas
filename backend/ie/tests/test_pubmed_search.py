@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pandas as pd
-from src.lit2kg.pubmed_search import (
+from src.pipeline.search.pubmed_search import (
     _resolve_uid,
     load_data,
     parse_query,

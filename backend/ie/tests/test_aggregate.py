@@ -1,14 +1,9 @@
-"""Tests for step 3: aggregate_sentence_filtering_results."""
+"""Tests for filtering/aggregate module."""
 
 from __future__ import annotations
 
-import importlib
-
 import pandas as pd
-
-step3 = importlib.import_module("src.lit2kg.3_aggregate_sentence_filtering_results")
-aggregate_food_chem_sentences = step3.aggregate_food_chem_sentences
-strip_pmc = step3.strip_pmc
+from src.pipeline.filtering.aggregate import aggregate_food_chem_sentences, strip_pmc
 
 
 def test_strip_pmc_with_prefix():

@@ -9,10 +9,7 @@ import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
-
-if TYPE_CHECKING:
-    from types import ModuleType
+from typing import Any
 
 from openai import OpenAI
 
@@ -26,16 +23,18 @@ class OpenAIRunner:
 
     def __init__(
         self,
-        config: ModuleType,
+        system_prompt: str,
         model_name: str | None = None,
         api_key: str | None = None,
+        max_tokens: int = 512,
+        temperature: float = 0.0,
         use_batch: bool = True,
         max_workers: int = 32,
     ) -> None:
-        self._system_prompt: str = config.SYSTEM_PROMPT
+        self._system_prompt = system_prompt
         self._model_name = model_name or self.DEFAULT_MODEL
-        self._max_tokens: int = getattr(config, "MAX_NEW_TOKENS", 1)
-        self._temperature: float = getattr(config, "TEMPERATURE", 0.0)
+        self._max_tokens = max_tokens
+        self._temperature = temperature
         resolved_key = api_key or os.environ.get("OPENAI_API_KEY", "")
         self._client = OpenAI(api_key=resolved_key)
         self._use_batch = use_batch

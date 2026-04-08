@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 
 import pandas as pd
-from src.lit2kg.sentence_retrieval import retrieve_sentences
+from src.pipeline.search.sentence_retrieval import retrieve_sentences
 
 
 def test_retrieve_sentences_integration(tmp_path):

@@ -7,7 +7,7 @@ import json
 import pandas as pd
 import pytest
 from nltk.tokenize.punkt import PunktSentenceTokenizer
-from src.lit2kg.sentence_retrieval import (
+from src.pipeline.search.sentence_retrieval import (
     _build_translated_queries,
     _is_valid_passage,
     get_all_foods,

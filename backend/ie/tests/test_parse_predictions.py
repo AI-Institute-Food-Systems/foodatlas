@@ -1,17 +1,16 @@
-"""Tests for step 5: parse_text_parser_predictions."""
+"""Tests for extraction/parse_predictions module."""
 
 from __future__ import annotations
 
-import importlib
 import json
 
 import pandas as pd
 import pytest
-
-step5 = importlib.import_module("src.lit2kg.5_parse_text_parser_predictions")
-aggregate_batch_predictions = step5.aggregate_batch_predictions
-parse_response = step5.parse_response
-tsv_to_json = step5.tsv_to_json
+from src.pipeline.extraction.parse_predictions import (
+    aggregate_batch_predictions,
+    parse_response,
+    tsv_to_json,
+)
 
 
 def test_parse_response_single_triplet():
