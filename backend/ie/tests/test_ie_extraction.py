@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pandas as pd
-from src.pipeline.extraction.run_extraction import (
+from src.pipeline.extraction.runner import (
     build_batch_jsonl,
     download_raw_results,
     load_prompt,

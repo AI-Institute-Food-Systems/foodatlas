@@ -6,7 +6,7 @@ import json
 import tarfile
 from unittest.mock import MagicMock
 
-from src.pipeline.corpus import update_bioc as step0
+from src.pipeline.corpus import runner as step0
 
 
 def test_local_max_pmc_id_from_cache(tmp_path):

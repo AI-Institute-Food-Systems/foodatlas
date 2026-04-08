@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from src.pipeline.corpus.update_bioc import (
+from src.pipeline.corpus.runner import (
     archive_end_id,
     archive_start_id,
     read_meta,

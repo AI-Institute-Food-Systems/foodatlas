@@ -9,14 +9,14 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from .corpus.update_bioc import main as update_bioc
+from .corpus.runner import main as update_bioc
 from .extraction.parse_predictions import (
     aggregate_batch_predictions,
     tsv_to_json,
 )
-from .extraction.run_extraction import run_extraction
+from .extraction.runner import run_extraction
 from .filtering.aggregate import aggregate_food_chem_sentences
-from .filtering.run_filtering import run_biobert_filter
+from .filtering.runner import run_biobert_filter
 from .search.runner import run_search
 from .stages import ALL_STAGES, IEStage
 

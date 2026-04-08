@@ -6,8 +6,8 @@ from unittest.mock import MagicMock
 
 import pandas as pd
 import pytest
-from src.pipeline.extraction.run_extraction import build_batch_jsonl, load_prompt
-from src.pipeline.filtering.run_filtering import run_biobert_filter
+from src.pipeline.extraction.runner import build_batch_jsonl, load_prompt
+from src.pipeline.filtering.runner import run_biobert_filter
 from src.pipeline.search.runner import run_search
 
 _SYSTEM = "You are an expert in food science and chemistry. "
@@ -29,7 +29,7 @@ def test_run_biobert_filter_no_chunks(tmp_path, monkeypatch):
     mock_runner = MagicMock()
     mock_runner.infer.return_value = [0.99]
     monkeypatch.setattr(
-        "src.pipeline.filtering.run_filtering.BioBERTRunner",
+        "src.pipeline.filtering.runner.BioBERTRunner",
         MagicMock(return_value=mock_runner),
     )
 
@@ -52,7 +52,7 @@ def test_run_biobert_filter_with_chunks(tmp_path, monkeypatch):
     mock_runner = MagicMock()
     mock_runner.infer.return_value = [0.99]
     monkeypatch.setattr(
-        "src.pipeline.filtering.run_filtering.BioBERTRunner",
+        "src.pipeline.filtering.runner.BioBERTRunner",
         MagicMock(return_value=mock_runner),
     )
 
@@ -78,7 +78,7 @@ def test_run_biobert_filter_with_num_data_points(tmp_path, monkeypatch):
     mock_runner = MagicMock()
     mock_runner.infer.return_value = [0.99]
     monkeypatch.setattr(
-        "src.pipeline.filtering.run_filtering.BioBERTRunner",
+        "src.pipeline.filtering.runner.BioBERTRunner",
         MagicMock(return_value=mock_runner),
     )
 
@@ -101,7 +101,7 @@ def test_run_biobert_filter_chunk_resume(tmp_path, monkeypatch):
     mock_runner = MagicMock()
     mock_runner.infer.return_value = [0.5]
     monkeypatch.setattr(
-        "src.pipeline.filtering.run_filtering.BioBERTRunner",
+        "src.pipeline.filtering.runner.BioBERTRunner",
         MagicMock(return_value=mock_runner),
     )
 
