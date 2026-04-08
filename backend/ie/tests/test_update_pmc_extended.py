@@ -5,31 +5,25 @@ from __future__ import annotations
 import importlib
 import json
 import tarfile
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 step0 = importlib.import_module("src.lit2kg.0_update_PMC_BioC")
 
 
-def test_local_max_pmc_id_from_cache(tmp_path, monkeypatch):
+def test_local_max_pmc_id_from_cache(tmp_path):
     meta_file = tmp_path / "meta.json"
     meta_file.write_text(json.dumps({"max_pmc_id": 9999}))
-    monkeypatch.setattr(step0, "META_FILE", meta_file)
-    monkeypatch.setattr(step0, "LOCAL_DIR", tmp_path)
-    assert step0.local_max_pmc_id() == 9999
+    assert step0.local_max_pmc_id(tmp_path) == 9999
 
 
-def test_local_max_pmc_id_from_scan(tmp_path, monkeypatch):
-    meta_file = tmp_path / "meta.json"
-    monkeypatch.setattr(step0, "META_FILE", meta_file)
-    monkeypatch.setattr(step0, "LOCAL_DIR", tmp_path)
-
+def test_local_max_pmc_id_from_scan(tmp_path):
     (tmp_path / "PMC100.xml").touch()
     (tmp_path / "PMC200.xml").touch()
     (tmp_path / "other.txt").touch()
 
-    result = step0.local_max_pmc_id()
+    result = step0.local_max_pmc_id(tmp_path)
     assert result == 200
-    assert meta_file.exists()
+    assert (tmp_path / "meta.json").exists()
 
 
 def test_download(tmp_path, monkeypatch):
@@ -63,8 +57,7 @@ def test_extract_all(tmp_path):
         tar.add(inner_dir / "PMC300.xml", arcname="subdir/PMC300.xml")
         tar.add(inner_dir / "other.txt", arcname="subdir/other.txt")
 
-    with patch.object(step0, "LOCAL_DIR", local_dir):
-        count, max_id = step0.extract_all(archive_path)
+    count, max_id = step0.extract_all(archive_path, local_dir)
 
     assert count == 2
     assert max_id == 300
@@ -89,59 +82,50 @@ def test_fetch_ftp_filenames(monkeypatch):
 
 
 def test_main_no_files(tmp_path, monkeypatch):
-    monkeypatch.setattr(step0, "LOCAL_DIR", tmp_path / "local")
-    monkeypatch.setattr(step0, "DL_DIR", tmp_path / "dl")
     monkeypatch.setattr(step0, "fetch_ftp_filenames", lambda: [])
-    step0.main()
+    step0.main(bioc_pmc_dir=tmp_path / "local")
 
 
 def test_main_skips_old_archives(tmp_path, monkeypatch):
-    monkeypatch.setattr(step0, "LOCAL_DIR", tmp_path / "local")
-    monkeypatch.setattr(step0, "DL_DIR", tmp_path / "dl")
     monkeypatch.setattr(
         step0,
         "fetch_ftp_filenames",
         lambda: ["PMC10XXXXX_json_unicode.tar.gz"],
     )
-    monkeypatch.setattr(step0, "local_max_pmc_id", lambda: 1100000)
+    monkeypatch.setattr(step0, "local_max_pmc_id", lambda _d: 1100000)
     mock_dl = MagicMock()
     monkeypatch.setattr(step0, "download", mock_dl)
 
-    step0.main()
+    step0.main(bioc_pmc_dir=tmp_path / "local", dl_dir=tmp_path / "dl")
     mock_dl.assert_not_called()
 
 
 def test_main_downloads_new_archives(tmp_path, monkeypatch):
     local_dir = tmp_path / "local"
     dl_dir = tmp_path / "dl"
-    monkeypatch.setattr(step0, "LOCAL_DIR", local_dir)
-    monkeypatch.setattr(step0, "DL_DIR", dl_dir)
-    monkeypatch.setattr(step0, "META_FILE", local_dir / "meta.json")
     monkeypatch.setattr(
         step0,
         "fetch_ftp_filenames",
         lambda: ["PMC10XXXXX_json_unicode.tar.gz"],
     )
-    monkeypatch.setattr(step0, "local_max_pmc_id", lambda: 500000)
+    monkeypatch.setattr(step0, "local_max_pmc_id", lambda _d: 500000)
     mock_dl = MagicMock()
     monkeypatch.setattr(step0, "download", mock_dl)
-    monkeypatch.setattr(step0, "extract_all", lambda archive: (10, 1050000))
+    monkeypatch.setattr(step0, "extract_all", lambda archive, _d: (10, 1050000))
 
-    step0.main()
+    step0.main(bioc_pmc_dir=local_dir, dl_dir=dl_dir)
     mock_dl.assert_called_once()
 
 
 def test_main_old_format_skip(tmp_path, monkeypatch):
-    monkeypatch.setattr(step0, "LOCAL_DIR", tmp_path / "local")
-    monkeypatch.setattr(step0, "DL_DIR", tmp_path / "dl")
     monkeypatch.setattr(
         step0,
         "fetch_ftp_filenames",
         lambda: ["PMC0100000_json_unicode.tar.gz"],
     )
-    monkeypatch.setattr(step0, "local_max_pmc_id", lambda: 200000)
+    monkeypatch.setattr(step0, "local_max_pmc_id", lambda _d: 200000)
     mock_dl = MagicMock()
     monkeypatch.setattr(step0, "download", mock_dl)
 
-    step0.main()
+    step0.main(bioc_pmc_dir=tmp_path / "local", dl_dir=tmp_path / "dl")
     mock_dl.assert_not_called()

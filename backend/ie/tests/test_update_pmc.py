@@ -40,32 +40,28 @@ def test_archive_end_id_unknown():
     assert result is None
 
 
-def test_read_meta_nonexistent(tmp_path, monkeypatch):
-    monkeypatch.setattr(step0, "META_FILE", tmp_path / "nonexistent.json")
-    result = read_meta()
+def test_read_meta_nonexistent(tmp_path):
+    result = read_meta(tmp_path / "nonexistent.json")
     assert result == {}
 
 
-def test_read_meta_valid(tmp_path, monkeypatch):
+def test_read_meta_valid(tmp_path):
     meta_file = tmp_path / "meta.json"
     meta_file.write_text(json.dumps({"max_pmc_id": 12345}))
-    monkeypatch.setattr(step0, "META_FILE", meta_file)
-    result = read_meta()
+    result = read_meta(meta_file)
     assert result["max_pmc_id"] == 12345
 
 
-def test_read_meta_corrupt(tmp_path, monkeypatch):
+def test_read_meta_corrupt(tmp_path):
     meta_file = tmp_path / "meta.json"
     meta_file.write_text("not json{")
-    monkeypatch.setattr(step0, "META_FILE", meta_file)
-    result = read_meta()
+    result = read_meta(meta_file)
     assert result == {}
 
 
-def test_write_meta(tmp_path, monkeypatch):
+def test_write_meta(tmp_path):
     meta_file = tmp_path / "meta.json"
-    monkeypatch.setattr(step0, "META_FILE", meta_file)
-    write_meta({"max_pmc_id": 999})
+    write_meta(meta_file, {"max_pmc_id": 999})
     data = json.loads(meta_file.read_text())
     assert data["max_pmc_id"] == 999
 

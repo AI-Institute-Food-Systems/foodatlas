@@ -113,7 +113,7 @@ class IERunner:
     def _step1_update_bioc(self) -> None:
         """Update BioC-PMC corpus."""
         mod = self._load_step(0)
-        mod.main()  # type: ignore[attr-defined]
+        mod.main(bioc_pmc_dir=self._config.bioc_pmc_dir)  # type: ignore[attr-defined]
 
     def _step2_search_pubmed(self) -> None:
         """Search PubMed/PMC for food-chemical sentences."""

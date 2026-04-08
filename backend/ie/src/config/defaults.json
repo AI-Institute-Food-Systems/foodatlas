@@ -3,7 +3,7 @@
   "model": "gpt-5.2",
   "bioc_pmc_dir": "/mnt/data/shared/BioC-PMC",
   "bioc_pmc_dl_dir": "/mnt/data/shared/BioC-PMC_download",
-  "biobert_model_dir": "outputs/biobert_binary_prod",
+  "biobert_model_dir": "/mnt/data/shared/biobert_binary_prod",
   "food_terms": "data/food_terms.txt",
   "translated_food_terms": "data/translated_food_terms.txt",
   "ncbi_email": "user@example.com",
