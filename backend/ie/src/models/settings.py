@@ -7,8 +7,12 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from dotenv import load_dotenv
 from pydantic import BaseModel, model_validator
 from pydantic_settings import BaseSettings
+
+_ROOT_ENV = Path(__file__).resolve().parents[4] / ".env"
+load_dotenv(_ROOT_ENV)
 
 _DEFAULTS_PATH = Path(__file__).resolve().parent.parent / "config" / "defaults.json"
 
@@ -71,7 +75,6 @@ class IESettings(BaseSettings):
     biobert_model_dir: str = ""
     food_terms: str = "data/food_terms.txt"
     translated_food_terms: str = "data/translated_food_terms.txt"
-    ncbi_email: str = "user@example.com"
     pipeline: PipelineConfig = PipelineConfig()
 
     @property

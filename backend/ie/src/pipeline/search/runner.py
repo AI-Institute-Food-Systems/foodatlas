@@ -6,6 +6,7 @@ Thin orchestrator that delegates to pubmed_search and sentence_retrieval.
 from __future__ import annotations
 
 import logging
+import os
 from datetime import date
 from pathlib import Path
 
@@ -32,7 +33,6 @@ def run_search(
     filtered_sentences_filepath: str,
     filepath_bioc_pmc: str,
     filepath_food_names: str,
-    email: str = "user@example.com",
     save_every: int = 50,
     min_date: str | None = None,
     last_search_date_filepath: str | None = None,
@@ -45,12 +45,6 @@ def run_search(
     ):
         min_date = Path(last_search_date_filepath).read_text().strip()
         log.info("Using saved min_date: %s", min_date)
-
-    if last_search_date_filepath:
-        today = date.today().strftime("%Y/%m/%d")
-        Path(last_search_date_filepath).parent.mkdir(exist_ok=True, parents=True)
-        Path(last_search_date_filepath).write_text(today)
-        log.info("Recorded search date: %s -> %s", today, last_search_date_filepath)
 
     pmcid_pmid_dict, pmid_pmcid_dict = get_pmcid_pmid_mapping()
 
@@ -71,7 +65,7 @@ def run_search(
         previous_queries=previous_queries,
         pmcid_pmid_dict=pmcid_pmid_dict,
         pmid_pmcid_dict=pmid_pmcid_dict,
-        email=email,
+        email=os.environ.get("NCBI_EMAIL", "user@example.com"),
         min_date=min_date,
         save_every=save_every,
         save_filepath=query_uid_results_filepath,
@@ -83,3 +77,9 @@ def run_search(
         filepath_food_names=filepath_food_names,
         filtered_sentences_filepath=filtered_sentences_filepath,
     )
+
+    if last_search_date_filepath:
+        today = date.today().strftime("%Y/%m/%d")
+        Path(last_search_date_filepath).parent.mkdir(exist_ok=True, parents=True)
+        Path(last_search_date_filepath).write_text(today)
+        log.info("Recorded search date: %s -> %s", today, last_search_date_filepath)

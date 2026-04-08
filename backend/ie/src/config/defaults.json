@@ -6,7 +6,6 @@
   "biobert_model_dir": "/mnt/data/shared/biobert_binary_prod",
   "food_terms": "data/food_terms.txt",
   "translated_food_terms": "data/translated_food_terms.txt",
-  "ncbi_email": "user@example.com",
   "pipeline": {
     "search": {
       "save_every": 50,

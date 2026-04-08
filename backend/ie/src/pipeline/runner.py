@@ -105,7 +105,6 @@ class IERunner:
             ),
             filepath_bioc_pmc=s.bioc_pmc_dir,
             filepath_food_names=s.translated_food_terms,
-            email=s.ncbi_email,
         )
 
     def _run_filtering(self) -> None:

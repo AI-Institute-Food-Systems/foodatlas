@@ -21,7 +21,6 @@ def _make_settings(**overrides: str) -> IESettings:
             "biobert_model_dir": "outputs/biobert",
             "food_terms": "data/food_terms.txt",
             "translated_food_terms": "data/translated_food_terms.txt",
-            "ncbi_email": "user@example.com",
             **overrides,
         }
     )
