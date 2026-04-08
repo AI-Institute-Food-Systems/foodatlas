@@ -1,10 +1,9 @@
-import { Fragment } from "react";
-
 import Card from "@/components/basic/Card";
 import Heading from "@/components/basic/Heading";
+import TaxonomyTree from "@/components/entities/TaxonomyTree";
 import { getTaxonomyData } from "@/utils/fetching";
 import { TaxonomyEdge, TaxonomyNode } from "@/types";
-import { encodeSpace } from "@/utils/utils";
+import type { TreeNode } from "@/components/entities/TaxonomyTree";
 
 interface TaxonomySectionProps {
   commonName: string;
@@ -18,44 +17,59 @@ const ENTITY_COLOR: Record<string, string> = {
 };
 
 /**
- * Build all root-to-entity paths from a flat node+edge graph.
- * Walks from the entity upward, then reverses each path.
+ * Build a tree from roots down to the target entity.
+ * In a DAG a node may appear under multiple parents (branches).
  */
-function buildPaths(
+function buildTree(
   entityId: string,
   nodes: TaxonomyNode[],
   edges: TaxonomyEdge[]
-): TaxonomyNode[][] {
+): TreeNode[] {
   const nameMap = new Map(nodes.map((n) => [n.id, n]));
-  // child -> parents
-  const parentMap = new Map<string, string[]>();
+
+  const childrenOf = new Map<string, string[]>();
+  const hasParent = new Set<string>();
   for (const e of edges) {
-    const existing = parentMap.get(e.child_id) ?? [];
-    existing.push(e.parent_id);
-    parentMap.set(e.child_id, existing);
+    const existing = childrenOf.get(e.parent_id) ?? [];
+    existing.push(e.child_id);
+    childrenOf.set(e.parent_id, existing);
+    hasParent.add(e.child_id);
   }
 
-  const paths: TaxonomyNode[][] = [];
-  const MAX_PATHS = 500;
+  const allIds = new Set(nodes.map((n) => n.id));
+  const roots = Array.from(allIds).filter((id) => !hasParent.has(id));
 
-  function walk(nodeId: string, path: TaxonomyNode[], visited: Set<string>) {
-    if (paths.length >= MAX_PATHS) return;
-    const node = nameMap.get(nodeId);
-    if (!node || visited.has(nodeId)) return;
-    const current = [node, ...path];
-    const next = new Set(visited).add(nodeId);
-    const parents = parentMap.get(nodeId);
-    if (!parents || parents.length === 0) {
-      paths.push(current);
-    } else {
-      for (const pid of parents) {
-        walk(pid, current, next);
-      }
+  const reachable = new Set<string>();
+  function markReachable(nodeId: string): boolean {
+    if (nodeId === entityId) {
+      reachable.add(nodeId);
+      return true;
     }
+    const kids = childrenOf.get(nodeId) ?? [];
+    let reaches = false;
+    for (const kid of kids) {
+      if (markReachable(kid)) reaches = true;
+    }
+    if (reaches) reachable.add(nodeId);
+    return reaches;
+  }
+  for (const r of roots) markReachable(r);
+
+  function build(nodeId: string, visited: Set<string>): TreeNode | null {
+    const node = nameMap.get(nodeId);
+    if (!node || visited.has(nodeId)) return null;
+    const next = new Set(visited).add(nodeId);
+    const kids = (childrenOf.get(nodeId) ?? [])
+      .filter((kid) => reachable.has(kid))
+      .map((kid) => build(kid, next))
+      .filter((t): t is TreeNode => t !== null);
+    return { node, children: kids };
   }
 
-  walk(entityId, [], new Set());
-  return paths;
+  return roots
+    .filter((r) => reachable.has(r))
+    .map((r) => build(r, new Set()))
+    .filter((t): t is TreeNode => t !== null);
 }
 
 const TaxonomySection = async ({
@@ -73,11 +87,8 @@ const TaxonomySection = async ({
     return null;
   }
 
-  const paths = buildPaths(data.entity_id, data.nodes, data.edges);
-
-  if (paths.length === 0) {
-    return null;
-  }
+  const trees = buildTree(data.entity_id, data.nodes, data.edges);
+  if (trees.length === 0) return null;
 
   const colorClass = ENTITY_COLOR[entityType] ?? "text-light-100";
 
@@ -86,40 +97,13 @@ const TaxonomySection = async ({
       <Heading type="h4" className="font-mono italic text-light-400 text-xs">
         Taxonomy
       </Heading>
-      <div className="mt-3 flex flex-col gap-1.5">
-        {paths.map((path, i) => (
-          <div
-            key={i}
-            className="flex flex-wrap items-center gap-1 text-sm leading-relaxed"
-          >
-            {path.map((node, j) => {
-              const isEntity = node.id === data.entity_id;
-              return (
-                <Fragment key={`${node.id}-${j}`}>
-                  {j > 0 && (
-                    <span className="text-light-400 mx-1 text-base font-bold">&#8594;</span>
-                  )}
-                  {isEntity ? (
-                    <span className={`font-medium ${colorClass} capitalize`}>
-                      {node.name}
-                    </span>
-                  ) : node.has_page ? (
-                    <a
-                      href={`/${entityType}/${encodeURIComponent(encodeSpace(node.name))}`}
-                      className="text-light-300 capitalize underline decoration-1 underline-offset-4 hover:text-light-100 transition duration-300"
-                    >
-                      {node.name}
-                    </a>
-                  ) : (
-                    <span className="text-light-500 capitalize">
-                      {node.name}
-                    </span>
-                  )}
-                </Fragment>
-              );
-            })}
-          </div>
-        ))}
+      <div className="mt-3">
+        <TaxonomyTree
+          trees={trees}
+          entityId={data.entity_id}
+          entityType={entityType}
+          colorClass={colorClass}
+        />
       </div>
     </Card>
   );
