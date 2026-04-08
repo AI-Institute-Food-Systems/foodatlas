@@ -1,4 +1,4 @@
-import { MacroAndMicroData, Metadata } from "@/types";
+import { MacroAndMicroData, Metadata, TaxonomyData } from "@/types";
 
 // fetch metadata for a given entity
 export async function getMetaData(
@@ -24,6 +24,34 @@ export async function getMetaData(
   const data = await res.json();
 
   return data.data[0];
+}
+
+// fetch taxonomy ancestry for a given entity
+export async function getTaxonomyData(
+  commonName: string,
+  entityType: string
+): Promise<TaxonomyData> {
+  const res = await fetch(
+    `${
+      process.env.NEXT_PUBLIC_API_URL
+    }/${entityType}/taxonomy?common_name=${encodeURIComponent(commonName)}`,
+    {
+      headers: {
+        Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
+      },
+      next: { revalidate: 86400 },
+    }
+  );
+
+  if (!res.ok) {
+    throw new Error(
+      `Failed to fetch taxonomy for ${entityType} ${commonName}`
+    );
+  }
+
+  const data = await res.json();
+
+  return data.data;
 }
 
 // fetch food macro & micro data

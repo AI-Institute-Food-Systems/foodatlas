@@ -13,6 +13,7 @@ import { Metadata } from "@/types/Metadata";
 import { ChemicalCorrelation } from "@/types/ChemicalCorrelation";
 import { FoodCompositionData } from "@/types/FoodCompositionData";
 import { MacroAndMicroData } from "./MacroAndMicroData";
+import { TaxonomyData, TaxonomyNode, TaxonomyEdge } from "./TaxonomyData";
 
 export type {
   TeamMember,
@@ -30,4 +31,7 @@ export type {
   ChemicalCorrelation,
   FoodCompositionData,
   MacroAndMicroData,
+  TaxonomyData,
+  TaxonomyNode,
+  TaxonomyEdge,
 };
