@@ -42,7 +42,7 @@ const HeaderSection = async ({
         </Badge>
         <div className="border-l h-6 border-light-500" />
         <span className="font-mono font-medium italic text-sm text-light-300">
-          FoodAtlas {data.id}
+          FoodAtlas {data?.id ?? "—"}
         </span>
       </div>
       {/* name */}

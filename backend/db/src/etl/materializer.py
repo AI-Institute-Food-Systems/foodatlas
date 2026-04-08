@@ -49,7 +49,12 @@ def _materialize_entity_views(conn: Connection) -> None:
     )
     _insert_mv_entities(conn, "mv_food_entities", foods, ["food_classification"])
 
-    chem_ids = set(r1["tail_id"])
+    # Include chemicals from food composition (r1), disease correlations (r3/r4),
+    # and their IS_A ancestors (so ancestor pages have metadata).
+    r2 = triplets[triplets["relationship_id"] == "r2"]
+    disease_chem_ids = set(r3r4["head_id"])
+    ancestor_ids = _collect_ancestors(r2, disease_chem_ids, entities)
+    chem_ids = set(r1["tail_id"]) | disease_chem_ids | ancestor_ids
     chemicals = entities[
         (entities["entity_type"] == "chemical")
         & (entities["foodatlas_id"].isin(chem_ids))
@@ -67,8 +72,7 @@ def _materialize_entity_views(conn: Connection) -> None:
         ["chemical_classification", "flavor_descriptors"],
     )
 
-    disease_chem_ids = set(r3r4["head_id"]) & chem_ids
-    relevant_disease_ids = set(r3r4[r3r4["head_id"].isin(disease_chem_ids)]["tail_id"])
+    relevant_disease_ids = set(r3r4["tail_id"])
     diseases = entities[
         (entities["entity_type"] == "disease")
         & (entities["foodatlas_id"].isin(relevant_disease_ids))
@@ -81,6 +85,27 @@ def _materialize_entity_views(conn: Connection) -> None:
         len(chemicals),
         len(diseases),
     )
+
+
+def _collect_ancestors(
+    r2: pd.DataFrame, seed_ids: set[str], entities: pd.DataFrame
+) -> set[str]:
+    """Return all chemical ancestors of seed_ids via IS_A (r2) triplets."""
+    chem_ids_all = set(entities[entities["entity_type"] == "chemical"]["foodatlas_id"])
+    chem_r2 = r2[r2["head_id"].isin(chem_ids_all) & r2["tail_id"].isin(chem_ids_all)]
+    parents_of: dict[str, set[str]] = {}
+    for _, row in chem_r2.iterrows():
+        parents_of.setdefault(row["head_id"], set()).add(row["tail_id"])
+
+    ancestors: set[str] = set()
+    for node in seed_ids:
+        stack = list(parents_of.get(node, set()))
+        while stack:
+            parent = stack.pop()
+            if parent not in ancestors:
+                ancestors.add(parent)
+                stack.extend(parents_of.get(parent, set()))
+    return ancestors
 
 
 def _insert_mv_entities(

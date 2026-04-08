@@ -3,7 +3,7 @@
 from unittest.mock import MagicMock
 
 import pandas as pd
-from src.etl.materializer import _insert_mv_entities
+from src.etl.materializer import _collect_ancestors, _insert_mv_entities
 from src.etl.materializer_composition import (
     _add_foodatlas_evidence,
     _compute_median,
@@ -165,3 +165,62 @@ class TestInsertMvEntities:
             cols = mock_copy.call_args[0][3]
             assert len(cols) == 6
             assert "external_ids" in cols
+
+
+class TestCollectAncestors:
+    """Test _collect_ancestors IS_A hierarchy traversal."""
+
+    def _make_entities(self, ids_and_types):
+        return pd.DataFrame(
+            [
+                {"foodatlas_id": fid, "entity_type": etype}
+                for fid, etype in ids_and_types
+            ]
+        )
+
+    def test_direct_parent(self):
+        r2 = pd.DataFrame([{"head_id": "c1", "tail_id": "p1"}])
+        entities = self._make_entities([("c1", "chemical"), ("p1", "chemical")])
+        result = _collect_ancestors(r2, {"c1"}, entities)
+        assert result == {"p1"}
+
+    def test_transitive_ancestors(self):
+        r2 = pd.DataFrame(
+            [
+                {"head_id": "c1", "tail_id": "p1"},
+                {"head_id": "p1", "tail_id": "gp1"},
+            ]
+        )
+        entities = self._make_entities(
+            [
+                ("c1", "chemical"),
+                ("p1", "chemical"),
+                ("gp1", "chemical"),
+            ]
+        )
+        result = _collect_ancestors(r2, {"c1"}, entities)
+        assert result == {"p1", "gp1"}
+
+    def test_ignores_non_chemical(self):
+        r2 = pd.DataFrame([{"head_id": "c1", "tail_id": "d1"}])
+        entities = self._make_entities([("c1", "chemical"), ("d1", "disease")])
+        result = _collect_ancestors(r2, {"c1"}, entities)
+        assert result == set()
+
+    def test_no_parents(self):
+        r2 = pd.DataFrame(columns=["head_id", "tail_id"])
+        entities = self._make_entities([("c1", "chemical")])
+        result = _collect_ancestors(r2, {"c1"}, entities)
+        assert result == set()
+
+    def test_seed_not_in_hierarchy(self):
+        r2 = pd.DataFrame([{"head_id": "c2", "tail_id": "p1"}])
+        entities = self._make_entities(
+            [
+                ("c1", "chemical"),
+                ("c2", "chemical"),
+                ("p1", "chemical"),
+            ]
+        )
+        result = _collect_ancestors(r2, {"c1"}, entities)
+        assert result == set()

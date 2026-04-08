@@ -83,10 +83,11 @@ async def get_correlation(
     result = await session.execute(
         text("""
             SELECT disease_foodatlas_id AS id, disease_name AS name,
-                   sources, evidences
+                   source_chemical_name, source_chemical_foodatlas_id,
+                   sources, evidences, evidence_count
             FROM mv_chemical_disease_correlation
             WHERE chemical_name = :name AND relationship_id = :rel
-            ORDER BY jsonb_array_length(evidences) DESC
+            ORDER BY evidence_count DESC
             OFFSET :offset ROWS FETCH FIRST :limit ROWS ONLY
         """),
         {

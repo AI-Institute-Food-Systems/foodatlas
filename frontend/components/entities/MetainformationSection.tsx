@@ -159,7 +159,7 @@ const MetainformationSection = async ({
                 {/* foodatlas id */}
                 <tr className="border-b border-light-50/[0.05]">
                   <td className="py-2 pr-4 whitespace-nowrap">FoodAtlas</td>
-                  <td className="py-2 break-all">{data.id}</td>
+                  <td className="py-2 break-all">{data?.id ?? "—"}</td>
                 </tr>
                 {/* external ids */}
                 {data?.external_ids &&

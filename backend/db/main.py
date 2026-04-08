@@ -23,7 +23,8 @@ def cli() -> None:
 @click.option(
     "--parquet-dir",
     type=click.Path(exists=True, path_type=Path),
-    required=True,
+    default=Path(__file__).resolve().parent.parent / "kgc" / "outputs" / "kg",
+    show_default=True,
     help="Path to KGC output directory containing parquet files.",
 )
 def load(parquet_dir: Path) -> None:

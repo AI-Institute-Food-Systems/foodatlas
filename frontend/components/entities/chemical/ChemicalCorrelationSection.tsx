@@ -54,7 +54,7 @@ const ChemicalCorrelationSection = ({
             <CorrelationTable
               commonName={commonName}
               tableLocation={"chemical"}
-              headers={[{ label: "Disease" }, { label: "Publication (PMID)" }]}
+              headers={[{ label: "Chemical" }, { label: "Disease" }, { label: "Publication (PMID)" }]}
               correlationType={"positive"}
             />
           </Card>
@@ -77,7 +77,7 @@ const ChemicalCorrelationSection = ({
             <CorrelationTable
               commonName={commonName}
               tableLocation={"chemical"}
-              headers={[{ label: "Disease" }, { label: "Publication (PMID)" }]}
+              headers={[{ label: "Chemical" }, { label: "Disease" }, { label: "Publication (PMID)" }]}
               correlationType={"negative"}
             />
           </Card>
