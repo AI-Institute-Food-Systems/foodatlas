@@ -83,25 +83,32 @@ def merge_ctd_triplets(
         logger.info("No CTD data to merge after resolution.")
         return
 
-    # Build evidence references.
-    df["source_type"] = "ctd"
-    df["reference"] = df["raw_attrs"].apply(
-        lambda x: json.dumps(
-            {
-                "ctd_direct_evidence": x.get("direct_evidence", ""),
-                "pubmed": x.get("PubMedIDs", []),
-            }
-        )
+    # Explode PubMedIDs so each PMID is its own evidence record.
+    df["_pmids"] = df["raw_attrs"].apply(lambda x: x.get("PubMedIDs", []))
+    df["_de"] = df["raw_attrs"].apply(lambda x: x.get("direct_evidence", ""))
+    exploded = df.explode("_pmids", ignore_index=True)
+    exploded = exploded[exploded["_pmids"].notna() & (exploded["_pmids"] != "")]
+
+    if exploded.empty:
+        logger.info("No CTD edges with PubMed IDs after explode.")
+        return
+
+    exploded["source_type"] = "ctd"
+    exploded["reference"] = exploded.apply(
+        lambda r: json.dumps(
+            {"ctd_direct_evidence": r["_de"], "pmid": str(r["_pmids"])}
+        ),
+        axis=1,
     )
-    df["source"] = "ctd"
-    df["head_name_raw"] = df["head_native_id"].astype(str)
-    df["tail_name_raw"] = df["tail_native_id"].astype(str)
+    exploded["source"] = "ctd"
+    exploded["head_name_raw"] = exploded["head_native_id"].astype(str)
+    exploded["tail_name_raw"] = exploded["tail_native_id"].astype(str)
 
-    ev_result = kg.evidence.create(df[["source_type", "reference"]])
-    df["evidence_id"] = ev_result.index
-    attestations = kg.attestations.create(df)
+    ev_result = kg.evidence.create(exploded[["source_type", "reference"]])
+    exploded["evidence_id"] = ev_result.index
+    attestations = kg.attestations.create(exploded)
 
-    triplet_input = df[["_head_id", "_tail_id", "_rel_id"]].copy()
+    triplet_input = exploded[["_head_id", "_tail_id", "_rel_id"]].copy()
     triplet_input.columns = pd.Index(["head_id", "tail_id", "relationship_id"])
     triplet_input.index = attestations.index
     triplets = kg.triplets.create(triplet_input)

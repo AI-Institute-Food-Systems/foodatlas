@@ -73,7 +73,10 @@ class TestMergeCtdTriplets:
                             "head_native_id": "D001241",
                             "tail_native_id": "MESH:D001249",
                             "edge_type": "chemical_disease_association",
-                            "raw_attrs": {"direct_evidence": "therapeutic"},
+                            "raw_attrs": {
+                                "direct_evidence": "therapeutic",
+                                "PubMedIDs": [12345],
+                            },
                         },
                     ]
                 ),
@@ -105,7 +108,10 @@ class TestMergeCtdTriplets:
                             "head_native_id": "D001241",
                             "tail_native_id": "MESH:D999999",
                             "edge_type": "chemical_disease_association",
-                            "raw_attrs": {"direct_evidence": "therapeutic"},
+                            "raw_attrs": {
+                                "direct_evidence": "therapeutic",
+                                "PubMedIDs": [99999],
+                            },
                         },
                     ]
                 ),

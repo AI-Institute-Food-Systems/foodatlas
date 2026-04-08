@@ -33,7 +33,7 @@ const CorrelationTable = ({
   const [numberOfPages, setNumberOfPages] = useState(1);
   const { getTablePaginations } = usePaginations();
   const { currentPage } = getTablePaginations(tableId);
-  const [selectedEvidenceName, setSelectedEvidenceName] = useState("");
+  const [selectedRowIdx, setSelectedRowIdx] = useState(-1);
 
   // fetch data
   useEffect(() => {
@@ -63,8 +63,8 @@ const CorrelationTable = ({
   }, [tableLocation, correlationType, currentPage, commonName]);
 
   // handle evidence show more click
-  const handleEvidenceShowMoreClick = (name: string) => {
-    setSelectedEvidenceName(name);
+  const handleEvidenceShowMoreClick = (idx: number) => {
+    setSelectedRowIdx(idx);
   };
 
   return (
@@ -121,19 +121,44 @@ const CorrelationTable = ({
                 </tr>
               ) : data.length > 0 ? (
                 // data rows
-                data.map((row) => (
-                  <tr key={row.id}>
+                data.map((row, rowIdx) => (
+                  <tr key={`${row.id}-${rowIdx}`}>
+                    {/* source chemical (chemical page only) */}
+                    {tableLocation === "chemical" && (
+                      <td className="py-3 pr-4">
+                        <div className="flex gap-2.5 min-h-12 capitalize items-center">
+                          {correlationType === "negative" ? (
+                            <div className="w-[1.2rem] h-[1.2rem] flex justify-center items-center rounded-full border-[1.5px] border-red-600 text-red-600 bg-red-600/10 shadow-red-800/50 shadow-[inset_0_2px_8px_rgba(0,0,0,0.4)] md:shadow-inset_0_2px_8px_rgba(0,0,0,0.6) font-bold">
+                              <MdRemove />
+                            </div>
+                          ) : (
+                            <div className="w-[1.2rem] h-[1.2rem] flex justify-center items-center rounded-full border-[1.5px] border-lime-600 text-lime-600 bg-lime-600/10 shadow-lime-800/50 shadow-[inset_0_2px_8px_rgba(0,0,0,0.4)] md:shadow-inset_0_2px_8px_rgba(0,0,0,0.6) font-bold">
+                              <MdAdd />
+                            </div>
+                          )}
+                          <Link
+                            className="capitalize"
+                            href={`/chemical/${encodeURIComponent(encodeSpace(row.source_chemical_name ?? commonName))}`}
+                            isExternal={false}
+                          >
+                            {row.source_chemical_name ?? commonName}
+                          </Link>
+                        </div>
+                      </td>
+                    )}
                     {/* entity name */}
                     <td className="py-3 pr-4">
                       <div className="flex gap-2.5 min-h-12 capitalize items-center">
-                        {correlationType === "negative" ? (
-                          <div className="w-[1.2rem] h-[1.2rem] flex justify-center items-center rounded-full border-[1.5px] border-red-600 text-red-600 bg-red-600/10 shadow-red-800/50 shadow-[inset_0_2px_8px_rgba(0,0,0,0.4)] md:shadow-inset_0_2px_8px_rgba(0,0,0,0.6) font-bold">
-                            <MdRemove />
-                          </div>
-                        ) : (
-                          <div className="w-[1.2rem] h-[1.2rem] flex justify-center items-center rounded-full border-[1.5px] border-lime-600 text-lime-600 bg-lime-600/10 shadow-lime-800/50 shadow-[inset_0_2px_8px_rgba(0,0,0,0.4)] md:shadow-inset_0_2px_8px_rgba(0,0,0,0.6) font-bold">
-                            <MdAdd />
-                          </div>
+                        {tableLocation !== "chemical" && (
+                          correlationType === "negative" ? (
+                            <div className="w-[1.2rem] h-[1.2rem] flex justify-center items-center rounded-full border-[1.5px] border-red-600 text-red-600 bg-red-600/10 shadow-red-800/50 shadow-[inset_0_2px_8px_rgba(0,0,0,0.4)] md:shadow-inset_0_2px_8px_rgba(0,0,0,0.6) font-bold">
+                              <MdRemove />
+                            </div>
+                          ) : (
+                            <div className="w-[1.2rem] h-[1.2rem] flex justify-center items-center rounded-full border-[1.5px] border-lime-600 text-lime-600 bg-lime-600/10 shadow-lime-800/50 shadow-[inset_0_2px_8px_rgba(0,0,0,0.4)] md:shadow-inset_0_2px_8px_rgba(0,0,0,0.6) font-bold">
+                              <MdAdd />
+                            </div>
+                          )
                         )}
                         <Link
                           className="capitalize"
@@ -152,7 +177,7 @@ const CorrelationTable = ({
                     <td className="py-3 pl-4">
                       {
                         <div className="flex min-h-12 capitalize items-center justify-end">
-                          <div className="flex gap-2 justify-end items-center flex-wrap">
+                          <div className="flex gap-2 justify-end items-center flex-nowrap">
                             {row.evidences.slice(0, 3).map((evidence) => (
                               <Link
                                 className="whitespace-nowrap"
@@ -170,7 +195,7 @@ const CorrelationTable = ({
                                   variant="outlined"
                                   size="sm"
                                   onClick={() =>
-                                    handleEvidenceShowMoreClick(row.name)
+                                    handleEvidenceShowMoreClick(rowIdx)
                                   }
                                 >
                                   {`${row.evidences.length - 3} more`}...
@@ -212,20 +237,20 @@ const CorrelationTable = ({
         entityType={tableLocation as "chemical" | "disease"}
         correlationType={correlationType}
         chemicalName={
-          tableLocation === "chemical" ? commonName : selectedEvidenceName
+          tableLocation === "chemical"
+            ? (data[selectedRowIdx]?.source_chemical_name ?? commonName)
+            : (data[selectedRowIdx]?.name ?? "")
         }
         diseaseName={
-          tableLocation === "chemical" ? selectedEvidenceName : commonName
+          tableLocation === "chemical"
+            ? (data[selectedRowIdx]?.name ?? "")
+            : commonName
         }
         evidences={
-          selectedEvidenceName === ""
-            ? undefined
-            : data?.filter((row) => {
-                return row.name === selectedEvidenceName;
-              })[0].evidences
+          selectedRowIdx < 0 ? undefined : data[selectedRowIdx]?.evidences
         }
-        isOpen={selectedEvidenceName !== ""}
-        onClose={() => setSelectedEvidenceName("")}
+        isOpen={selectedRowIdx >= 0}
+        onClose={() => setSelectedRowIdx(-1)}
       />
     </>
   );

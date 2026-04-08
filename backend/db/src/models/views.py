@@ -96,7 +96,9 @@ class MVFoodChemicalComposition(Base):
 class MVChemicalDiseaseCorrelation(Base):
     """Denormalized chemical-disease correlations with evidence.
 
-    One row per chemical-disease-relationship triplet (r3/r4).
+    One row per (chemical, source_chemical, disease, relationship).
+    For direct connections source_chemical = chemical itself.
+    For inherited connections source_chemical = the descendant chemical.
     """
 
     __tablename__ = "mv_chemical_disease_correlation"
@@ -107,8 +109,13 @@ class MVChemicalDiseaseCorrelation(Base):
     relationship_id: Mapped[str] = mapped_column(String(10), nullable=False)
     disease_name: Mapped[str] = mapped_column(Text, nullable=False)
     disease_foodatlas_id: Mapped[str] = mapped_column(String(20), nullable=False)
+    source_chemical_name: Mapped[str] = mapped_column(Text, server_default="")
+    source_chemical_foodatlas_id: Mapped[str] = mapped_column(
+        String(20), server_default=""
+    )
     sources: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default="{}")
     evidences: Mapped[list] = mapped_column(JSONB, server_default="[]")
+    evidence_count: Mapped[int] = mapped_column(Integer, server_default="0")
 
     __table_args__ = (
         Index("ix_mv_cdc_chem_rel", "chemical_name", "relationship_id"),

@@ -162,7 +162,11 @@ def _build_chemdis_edges(chemdis: pd.DataFrame) -> pd.DataFrame:
         }
     )
     de = chemdis["DirectEvidence"].fillna("")
-    result["raw_attrs"] = de.apply(lambda x: {"direct_evidence": x})
+    pmids = chemdis["PubMedIDs"]
+    result["raw_attrs"] = [
+        {"direct_evidence": d, "PubMedIDs": p if isinstance(p, list) else []}
+        for d, p in zip(de, pmids, strict=False)
+    ]
     return result
 
 

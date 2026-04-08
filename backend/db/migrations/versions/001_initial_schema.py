@@ -197,8 +197,11 @@ def upgrade() -> None:
         sa.Column("relationship_id", sa.String(10), nullable=False),
         sa.Column("disease_name", sa.Text, nullable=False),
         sa.Column("disease_foodatlas_id", sa.String(20), nullable=False),
+        sa.Column("source_chemical_name", sa.Text, server_default=""),
+        sa.Column("source_chemical_foodatlas_id", sa.String(20), server_default=""),
         sa.Column("sources", postgresql.ARRAY(sa.Text), server_default="{}"),
         sa.Column("evidences", postgresql.JSONB, server_default="[]"),
+        sa.Column("evidence_count", sa.Integer, server_default="0"),
     )
     op.create_index(
         "ix_mv_cdc_chem_rel",

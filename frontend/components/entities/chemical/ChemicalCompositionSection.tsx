@@ -17,7 +17,7 @@ const ChemicalCompositionSection = async ({
   return (
     <div className="flex flex-col gap-7">
       <Heading type="h2" variant="boxed">
-        {`Foods containing ${capitalizeFirstLetter(metaData?.common_name)}`}
+        {`Foods containing ${capitalizeFirstLetter(metaData?.common_name ?? "")}`}
       </Heading>
       <div className="flex flex-col gap-7">
         {/* with concentration section */}
