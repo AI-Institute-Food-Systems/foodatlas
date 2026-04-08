@@ -62,7 +62,7 @@ def aggregate_food_chem_sentences(
 
     reference_pmcids: set[int] = set()
     ref_path = Path(reference_dir)
-    ref_files = sorted(ref_path.glob("text_parser_predicted_*"))
+    ref_files = sorted(ref_path.glob("extraction_predicted_*"))
     if ref_files:
         ref_frames = [pd.read_csv(f, sep="\t") for f in ref_files]
         reference_pmcids = set(
@@ -98,26 +98,22 @@ if __name__ == "__main__":
     parser.add_argument(
         "--input_dir",
         type=str,
-        default="outputs/text_parser/sentence_filtering",
+        default="outputs/search/sentence_filtering",
     )
     parser.add_argument(
         "--aggregated_path",
         type=str,
-        default=(
-            "outputs/text_parser/filtered_sentences/filtered_sentence_aggregated.tsv"
-        ),
+        default=("outputs/search/filtered_sentences/filtered_sentence_aggregated.tsv"),
     )
     parser.add_argument(
         "--ie_input_path",
         type=str,
-        default=(
-            "outputs/text_parser/filtered_sentences/information_extraction_input.tsv"
-        ),
+        default=("outputs/search/filtered_sentences/information_extraction_input.tsv"),
     )
     parser.add_argument(
         "--reference_dir",
         type=str,
-        default="outputs/past_sentence_filtering_preds",
+        default="outputs/extraction",
     )
     parser.add_argument(
         "--threshold",

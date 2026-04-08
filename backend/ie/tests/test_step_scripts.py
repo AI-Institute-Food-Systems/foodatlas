@@ -159,6 +159,8 @@ def test_run_search_integration(tmp_path, monkeypatch):
         filtered_sentences_filepath=str(filtered_file),
         filepath_bioc_pmc="/tmp/bioc",
         filepath_food_names="/tmp/foods.tsv",
+        output_base_dir=str(tmp_path / "outputs"),
+        current_date="2026_04_08",
     )
 
     mock_search.assert_called_once()

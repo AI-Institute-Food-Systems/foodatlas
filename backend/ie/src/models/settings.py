@@ -27,11 +27,8 @@ def _load_defaults() -> dict[str, Any]:
 
 class SearchConfig(BaseModel):
     save_every: int = 50
-    query_uid_results: str = "outputs/text_parser/{date}/query_uid_results.tsv"
-    filtered_sentences: str = (
-        "outputs/text_parser/{date}/retrieved_sentences/result_{i}.tsv"
-    )
-    last_search_date: str = "outputs/text_parser/last_search_date.txt"
+    query_uid_results: str = "outputs/search/{date}/query_uid_results.tsv"
+    filtered_sentences: str = "outputs/search/{date}/retrieved_sentences/result_{i}.tsv"
 
 
 class BiobertFilterConfig(BaseModel):
@@ -42,7 +39,7 @@ class BiobertFilterConfig(BaseModel):
 
 class AggregateConfig(BaseModel):
     threshold: float = 0.99
-    reference_dir: str = "outputs/past_sentence_filtering_preds"
+    reference_dir: str = "outputs/extraction"
 
 
 class ExtractionConfig(BaseModel):
@@ -54,7 +51,7 @@ class ExtractionConfig(BaseModel):
 
 class ParseConfig(BaseModel):
     batch_input_pattern: str = "batch_input_{date}.tsv"
-    output_tsv_pattern: str = "text_parser_predicted_{date}_{model}.tsv"
+    output_tsv_pattern: str = "extraction_predicted_{date}_{model}.tsv"
 
 
 class PipelineConfig(BaseModel):

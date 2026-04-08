@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 import os
-from datetime import date
+import re
 from pathlib import Path
 
 from .pubmed_search import (
@@ -25,6 +25,30 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
+_DATE_PATTERN = re.compile(r"^\d{4}_\d{2}_\d{2}$")
+
+
+def _latest_run_date(output_base_dir: str, current_date: str) -> str | None:
+    """Find the most recent completed YYYY_MM_DD folder, excluding *current_date*.
+
+    A folder is considered completed if it contains a
+    ``sentence_filtering_input.tsv`` (output of the search stage).
+    """
+    base = Path(output_base_dir)
+    if not base.is_dir():
+        return None
+    dates = sorted(
+        d.name
+        for d in base.iterdir()
+        if d.is_dir()
+        and _DATE_PATTERN.match(d.name)
+        and d.name != current_date
+        and (d / "retrieved_sentences" / "sentence_filtering_input.tsv").exists()
+    )
+    if not dates:
+        return None
+    return dates[-1].replace("_", "/")
+
 
 def run_search(
     *,
@@ -33,18 +57,16 @@ def run_search(
     filtered_sentences_filepath: str,
     filepath_bioc_pmc: str,
     filepath_food_names: str,
+    output_base_dir: str,
+    current_date: str,
     save_every: int = 50,
     min_date: str | None = None,
-    last_search_date_filepath: str | None = None,
 ) -> None:
     """Run the PubMed/PMC search and sentence retrieval pipeline."""
-    if (
-        min_date is None
-        and last_search_date_filepath
-        and Path(last_search_date_filepath).is_file()
-    ):
-        min_date = Path(last_search_date_filepath).read_text().strip()
-        log.info("Using saved min_date: %s", min_date)
+    if min_date is None:
+        min_date = _latest_run_date(output_base_dir, current_date)
+        if min_date:
+            log.info("Derived min_date from latest run folder: %s", min_date)
 
     pmcid_pmid_dict, pmid_pmcid_dict = get_pmcid_pmid_mapping()
 
@@ -77,9 +99,3 @@ def run_search(
         filepath_food_names=filepath_food_names,
         filtered_sentences_filepath=filtered_sentences_filepath,
     )
-
-    if last_search_date_filepath:
-        today = date.today().strftime("%Y/%m/%d")
-        Path(last_search_date_filepath).parent.mkdir(exist_ok=True, parents=True)
-        Path(last_search_date_filepath).write_text(today)
-        log.info("Recorded search date: %s -> %s", today, last_search_date_filepath)

@@ -1,4 +1,4 @@
-"""Step 5: Parse text_parser TSV predictions into JSON format.
+"""Step 5: Parse extraction TSV predictions into JSON format.
 
 Can also aggregate OpenAI batch prediction results into the TSV format first.
 """
@@ -106,7 +106,7 @@ def parse_response(response_str: str) -> list[list[str]]:
 
 
 def tsv_to_json(input_path: str) -> None:
-    """Convert a text_parser TSV to JSON format."""
+    """Convert a extraction TSV to JSON format."""
     df = pd.read_csv(input_path, sep="\t")
     output: dict[str, dict[str, object]] = {}
 
@@ -131,7 +131,7 @@ def tsv_to_json(input_path: str) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description=(
-            "Aggregate batch predictions and/or convert text_parser TSV to JSON"
+            "Aggregate batch predictions and/or convert extraction TSV to JSON"
         ),
     )
     parser.add_argument(

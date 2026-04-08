@@ -7,7 +7,7 @@
 #   bash scripts/run_pipeline.sh [DATE] [MODEL_NAME]
 #
 # Arguments:
-#   DATE        Run date tag used for outputs/text_parser/{DATE}/ subfolder
+#   DATE        Run date tag used for outputs/search/{DATE}/ subfolder
 #               and parse step filenames (default: today, format YYYY_MM_DD)
 #   MODEL_NAME  Model name for parse step  (default: gpt-5.2)
 #
@@ -27,7 +27,7 @@ PIPELINE_DIR=$(cd "$(dirname "$0")/.." && pwd)
 LOG_DIR=${PIPELINE_DIR}/scripts/logs
 DATE=${1:-$(date +%Y_%m_%d)}
 MODEL_NAME=${2:-gpt-5.2}
-RUN_DIR=${PIPELINE_DIR}/outputs/text_parser/${DATE}
+RUN_DIR=${PIPELINE_DIR}/outputs/search/${DATE}
 MAIL_USER=${SLURM_MAIL_USER:-}
 UV_RUN="uv run --project ${PIPELINE_DIR}"
 
@@ -113,8 +113,8 @@ echo "  [1] update_PMC_BioC     ${JOB1}"
 #         cd ${PIPELINE_DIR}
 #         ${UV_RUN} python -u src/lit2kg/1_search_pubmed_pmc.py \
 #             --query data/food_terms.txt \
-#             --query_uid_results_filepath outputs/text_parser/${DATE}/query_uid_results.tsv \
-#             --filtered_sentences_filepath outputs/text_parser/${DATE}/retrieved_sentences/result_{i}.tsv \
+#             --query_uid_results_filepath outputs/search/${DATE}/query_uid_results.tsv \
+#             --filtered_sentences_filepath outputs/search/${DATE}/retrieved_sentences/result_{i}.tsv \
 #             --filepath_BioC_PMC \${BIOC_PMC_DIR:-/mnt/data/shared/BioC-PMC}
 #     ")
 # LAST_JOB=$JOB2
@@ -138,8 +138,8 @@ echo "  [1] update_PMC_BioC     ${JOB1}"
 #         set -eu
 #         cd ${PIPELINE_DIR}
 #         ${UV_RUN} python -u src/lit2kg/2_run_sentence_filtering.py \
-#             --input_file_path outputs/text_parser/${DATE}/retrieved_sentences/sentence_filtering_input.tsv \
-#             --save_file_path  outputs/text_parser/${DATE}/sentence_filtering \
+#             --input_file_path outputs/search/${DATE}/retrieved_sentences/sentence_filtering_input.tsv \
+#             --save_file_path  outputs/search/${DATE}/sentence_filtering \
 #             --model_dir       outputs/biobert_binary_prod \
 #             --sentence_col    sentence \
 #             --chunk_size      10000 \
@@ -165,10 +165,10 @@ echo "  [1] update_PMC_BioC     ${JOB1}"
 #         set -eu
 #         cd ${PIPELINE_DIR}
 #         ${UV_RUN} python -u src/lit2kg/3_aggregate_sentence_filtering_results.py \
-#             --input_dir       outputs/text_parser/${DATE}/sentence_filtering \
-#             --aggregated_path outputs/text_parser/${DATE}/filtered_sentences/filtered_sentence_aggregated.tsv \
-#             --ie_input_path   outputs/text_parser/${DATE}/filtered_sentences/information_extraction_input.tsv \
-#             --reference_dir   outputs/past_sentence_filtering_preds \
+#             --input_dir       outputs/search/${DATE}/sentence_filtering \
+#             --aggregated_path outputs/search/${DATE}/filtered_sentences/filtered_sentence_aggregated.tsv \
+#             --ie_input_path   outputs/search/${DATE}/filtered_sentences/information_extraction_input.tsv \
+#             --reference_dir   outputs/extraction \
 #             --threshold       0.99
 #     ")
 # LAST_JOB=$JOB4
@@ -192,8 +192,8 @@ echo "  [1] update_PMC_BioC     ${JOB1}"
 #         cd ${PIPELINE_DIR}
 #         echo 'Starting information extraction: \$(date)'
 #         ${UV_RUN} python -u src/lit2kg/4_run_information_extraction.py \
-#             --input_path  outputs/text_parser/${DATE}/filtered_sentences/information_extraction_input.tsv \
-#             --output_dir  outputs/past_sentence_filtering_preds/${DATE}_prediction_batch \
+#             --input_path  outputs/search/${DATE}/filtered_sentences/information_extraction_input.tsv \
+#             --output_dir  outputs/extraction/${DATE}_prediction_batch \
 #             --model       ${MODEL_NAME} \
 #             --date        ${DATE}
 #         echo 'Finished: \$(date)'
@@ -219,9 +219,9 @@ echo "  [1] update_PMC_BioC     ${JOB1}"
 #         cd ${PIPELINE_DIR}
 #         echo 'Parsing predictions: \$(date)'
 #         ${UV_RUN} python -u src/lit2kg/5_parse_text_parser_predictions.py \
-#             --batch_input_path outputs/past_sentence_filtering_preds/${DATE}_prediction_batch/batch_input_${DATE}.tsv \
-#             --batch_results_dir outputs/past_sentence_filtering_preds/${DATE}_prediction_batch \
-#             --output_tsv outputs/past_sentence_filtering_preds/text_parser_predicted_${DATE}.tsv \
+#             --batch_input_path outputs/extraction/${DATE}_prediction_batch/batch_input_${DATE}.tsv \
+#             --batch_results_dir outputs/extraction/${DATE}_prediction_batch \
+#             --output_tsv outputs/extraction/extraction_predicted_${DATE}.tsv \
 #             --model_name ${MODEL_NAME}
 #         echo 'Done: \$(date)'
 #     ")

@@ -35,11 +35,11 @@ class IERunner:
 
     @property
     def _run_dir(self) -> Path:
-        return self._pipeline_dir / "outputs" / "text_parser" / self._s.resolved_date
+        return self._pipeline_dir / "outputs" / "search" / self._s.resolved_date
 
     @property
-    def _preds_dir(self) -> Path:
-        return self._pipeline_dir / "outputs" / "past_sentence_filtering_preds"
+    def _extraction_dir(self) -> Path:
+        return self._pipeline_dir / "outputs" / "extraction"
 
     def run(self, stages: list[IEStage] | None = None) -> None:
         """Run the given stages (or all if None)."""
@@ -105,6 +105,8 @@ class IERunner:
             ),
             filepath_bioc_pmc=s.bioc_pmc_dir,
             filepath_food_names=s.translated_food_terms,
+            output_base_dir=str(self._pipeline_dir / "outputs" / "search"),
+            current_date=s.resolved_date,
         )
 
     def _run_filtering(self) -> None:
@@ -134,7 +136,7 @@ class IERunner:
             ie_input_path=str(
                 run_dir / "filtered_sentences" / "information_extraction_input.tsv"
             ),
-            reference_dir=str(self._preds_dir),
+            reference_dir=str(self._extraction_dir),
             threshold=s.threshold,
         )
 
@@ -143,7 +145,7 @@ class IERunner:
         s = self._s
         ex = s.pipeline.extraction
         date = s.resolved_date
-        batch_dir = self._preds_dir / f"{date}_prediction_batch"
+        batch_dir = self._extraction_dir / f"{date}_prediction_batch"
 
         run_extraction(
             input_path=str(
@@ -160,7 +162,7 @@ class IERunner:
             max_new_tokens=ex.max_new_tokens,
         )
 
-        output_tsv = self._preds_dir / f"text_parser_predicted_{date}.tsv"
+        output_tsv = self._extraction_dir / f"extraction_predicted_{date}.tsv"
         aggregate_batch_predictions(
             batch_input_path=str(batch_dir / f"batch_input_{date}.tsv"),
             results_dir=str(batch_dir),
