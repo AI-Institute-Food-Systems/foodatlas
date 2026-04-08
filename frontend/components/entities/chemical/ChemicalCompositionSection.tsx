@@ -1,6 +1,11 @@
+import dynamic from "next/dynamic";
 import NoConcentrationComposition from "@/components/entities/chemical/NoConcentrationComposition";
-import ConcentrationCompositionPlot from "@/components/entities/chemical/ConcentrationCompositionPlot";
 import Heading from "@/components/basic/Heading";
+
+const ConcentrationCompositionPlot = dynamic(
+  () => import("@/components/entities/chemical/ConcentrationCompositionPlot"),
+  { ssr: false }
+);
 import { getChemicalCompositionData, getMetaData } from "@/utils/fetching";
 import { capitalizeFirstLetter } from "@/utils/utils";
 

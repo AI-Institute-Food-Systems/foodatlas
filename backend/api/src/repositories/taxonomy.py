@@ -42,6 +42,7 @@ async def get_taxonomy(
     rows = [dict(r._mapping) for r in result]
 
     nodes_seen: dict[str, str] = {}
+    edges_seen: set[tuple[str, str]] = set()
     edges: list[dict[str, str]] = []
     for row in rows:
         nid = row["node_id"]
@@ -51,7 +52,10 @@ async def get_taxonomy(
             nodes_seen[nid] = name
         if came_from is not None:
             nodes_seen.setdefault(came_from, row.get("came_from_name", ""))
-            edges.append({"child_id": came_from, "parent_id": nid})
+            pair = (came_from, nid)
+            if pair not in edges_seen:
+                edges_seen.add(pair)
+                edges.append({"child_id": came_from, "parent_id": nid})
 
     # Check which ancestor nodes have entity pages in the MV table.
     page_ids = await _find_ids_with_pages(
