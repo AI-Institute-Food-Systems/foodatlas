@@ -5,6 +5,7 @@ import Card from "@/components/basic/Card";
 import Link from "@/components/basic/Link";
 import Heading from "@/components/basic/Heading";
 import Synonyms from "@/components/entities/food/Synonyms";
+import TaxonomySection from "@/components/entities/TaxonomySection";
 import { getMetaData } from "@/utils/fetching";
 import { capitalizeFirstLetter } from "@/utils/utils";
 
@@ -129,6 +130,11 @@ const MetainformationSection = async ({
             {data?.synonyms && data.synonyms.length > 0 && (
               <Synonyms synonyms={data.synonyms} />
             )}
+            {/* taxonomy */}
+            <TaxonomySection
+              commonName={commonName}
+              entityType={entityType}
+            />
           </div>
         </div>
         {/* identifiers container */}
