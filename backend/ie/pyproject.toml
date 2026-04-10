@@ -4,6 +4,23 @@ version = "0.1.0"
 description = "FoodAtlas information extraction"
 readme = "README.md"
 requires-python = ">=3.12"
+dependencies = [
+    "datasets>=2.18",
+    "nltk>=3.8",
+    "numpy>=1.26",
+    "openai>=1.0",
+    "pandas>=2.0",
+    "pydantic>=2.0",
+    "pydantic-settings>=2.0",
+    "python-dotenv>=1.0",
+    "requests>=2.31",
+    "scikit-learn>=1.4",
+    "thefuzz>=0.22",
+    "torch>=2.2",
+    "tqdm>=4.66",
+    "transformers>=4.40",
+    "accelerate>=1.1.0",
+]
 
 [tool.uv]
 python-preference = "system"
@@ -28,6 +45,8 @@ dev = [
     "ruff>=0.9.0",
     "mypy>=1.14.0",
     "bandit>=1.8.0",
+    "types-requests>=2.31.0",
+    "types-tqdm>=4.66.0",
 ]
 
 # PYTEST

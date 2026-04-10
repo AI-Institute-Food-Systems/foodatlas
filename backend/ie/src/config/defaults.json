@@ -1,0 +1,35 @@
+{
+  "date": "",
+  "model": "gpt-5.2",
+  "bioc_pmc_dir": "/mnt/data/shared/BioC-PMC",
+  "bioc_pmc_dl_dir": "/mnt/data/shared/BioC-PMC_download",
+  "biobert_model_dir": "/mnt/data/shared/biobert_binary_prod",
+  "food_terms": "data/food_terms.txt",
+  "translated_food_terms": "data/translated_food_terms.txt",
+  "pipeline": {
+    "search": {
+      "save_every": 50,
+      "query_uid_results": "outputs/search/{date}/query_uid_results.tsv",
+      "filtered_sentences": "outputs/search/{date}/retrieved_sentences/result_{i}.tsv"
+    },
+    "biobert_filter": {
+      "sentence_col": "sentence",
+      "chunk_size": 10000,
+      "batch_size": 64
+    },
+    "aggregate": {
+      "threshold": 0.99,
+      "reference_dir": "outputs/extraction"
+    },
+    "extraction": {
+      "system_prompt": "You are an expert in food science and chemistry. ",
+      "prompt_version": "v1",
+      "max_new_tokens": 512,
+      "temperature": 0.0
+    },
+    "parse": {
+      "batch_input_pattern": "batch_input_{date}.tsv",
+      "output_tsv_pattern": "extraction_predicted_{date}_{model}.tsv"
+    }
+  }
+}

@@ -145,29 +145,94 @@ def _build_exact_tokens(
 
 
 def _materialize_statistics(conn: Connection) -> None:
-    """Compute aggregate statistics for the landing page."""
-    stats = [
-        ("number of foods", "SELECT COUNT(*) FROM mv_food_entities"),
-        ("number of chemicals", "SELECT COUNT(*) FROM mv_chemical_entities"),
-        ("number of diseases", "SELECT COUNT(*) FROM mv_disease_entities"),
-        (
-            "number of associations",
-            "SELECT COUNT(*) FROM base_triplets "
-            "WHERE relationship_id IN ('r1', 'r3', 'r4')",
-        ),
-        (
-            "number of publications",
-            "SELECT COUNT(DISTINCT evidence_id) FROM base_evidence "
-            "WHERE source_type = 'pubmed'",
-        ),
-    ]
-    rows = []
-    for field, sql in stats:
-        result = conn.execute(text(sql))
-        count = result.scalar() or 0
-        rows.append({"field": field, "count": count})
+    """Compute aggregate statistics scoped to the food→chem→disease chain.
 
-    if rows:
-        df = pd.DataFrame(rows)
-        bulk_copy(conn, "mv_metadata_statistics", df, ["field", "count"])
+    Entities: only those with empirical evidence (r1, scoped r3/r4).
+    Associations: empirical edges + IS_A edges from seed entities to root.
+    Publications: distinct PMCIDs (food-chem) + distinct PMIDs (scoped CTD).
+    """
+    triplets = pd.read_sql(
+        text("SELECT head_id, tail_id, relationship_id FROM base_triplets"),
+        conn,
+    )
+    entity_types = pd.read_sql(
+        text("SELECT foodatlas_id, entity_type FROM base_entities"), conn
+    )
+    type_map = entity_types.groupby("entity_type")["foodatlas_id"].apply(set).to_dict()
+
+    r1 = triplets[triplets["relationship_id"] == "r1"]
+    r2 = triplets[triplets["relationship_id"] == "r2"]
+    r3r4 = triplets[triplets["relationship_id"].isin(["r3", "r4"])]
+
+    food_ids = set(r1["head_id"])
+    chem_ids = set(r1["tail_id"])
+    scoped_r3r4 = r3r4[r3r4["head_id"].isin(chem_ids)]
+    disease_ids = set(scoped_r3r4["tail_id"])
+
+    assoc_r2 = (
+        _count_scoped_r2(r2, food_ids, type_map.get("food", set()))
+        + _count_scoped_r2(r2, chem_ids, type_map.get("chemical", set()))
+        + _count_scoped_r2(r2, disease_ids, type_map.get("disease", set()))
+    )
+    associations = len(r1) + len(scoped_r3r4) + assoc_r2
+
+    pubmed_pmcids = (
+        conn.execute(
+            text(
+                "SELECT COUNT(DISTINCT (reference->>'pmcid'))"
+                " FROM base_evidence WHERE source_type = 'pubmed'"
+            )
+        ).scalar()
+        or 0
+    )
+    ctd_pmids = (
+        conn.execute(
+            text(
+                "SELECT COUNT(DISTINCT (e.reference->>'pmid'))"
+                " FROM base_triplets t,"
+                "  LATERAL unnest(t.attestation_ids) AS att_id"
+                " JOIN base_attestations a ON a.attestation_id = att_id"
+                " JOIN base_evidence e ON e.evidence_id = a.evidence_id"
+                " WHERE t.relationship_id IN ('r3','r4')"
+                "  AND t.head_id IN (SELECT DISTINCT tail_id FROM base_triplets"
+                "   WHERE relationship_id = 'r1')"
+                "  AND e.source_type = 'ctd'"
+                "  AND e.reference->>'pmid' IS NOT NULL"
+            )
+        ).scalar()
+        or 0
+    )
+    publications = pubmed_pmcids + ctd_pmids
+
+    rows = [
+        {"field": "number of foods", "count": len(food_ids)},
+        {"field": "number of chemicals", "count": len(chem_ids)},
+        {"field": "number of diseases", "count": len(disease_ids)},
+        {"field": "number of associations", "count": associations},
+        {"field": "number of publications", "count": publications},
+    ]
+    df = pd.DataFrame(rows)
+    bulk_copy(conn, "mv_metadata_statistics", df, ["field", "count"])
     logger.info("Statistics: %d entries", len(rows))
+
+
+def _count_scoped_r2(r2: pd.DataFrame, seed_ids: set[str], type_ids: set[str]) -> int:
+    """Count IS_A edges reachable from seed entities to root."""
+    typed_r2 = r2[r2["head_id"].isin(type_ids) & r2["tail_id"].isin(type_ids)]
+    parents_of: dict[str, set[str]] = {}
+    for _, row in typed_r2.iterrows():
+        parents_of.setdefault(row["head_id"], set()).add(row["tail_id"])
+
+    reachable = set(seed_ids)
+    stack = list(seed_ids)
+    while stack:
+        node = stack.pop()
+        for parent in parents_of.get(node, set()):
+            if parent not in reachable:
+                reachable.add(parent)
+                stack.append(parent)
+
+    scoped = typed_r2[
+        typed_r2["head_id"].isin(reachable) & typed_r2["tail_id"].isin(reachable)
+    ]
+    return len(scoped)

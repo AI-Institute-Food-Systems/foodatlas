@@ -1,0 +1,32 @@
+# Outputs and generated files
+outputs/*
+!outputs/biobert_binary_prod/
+outputs/biobert_binary_prod/*
+!outputs/biobert_binary_prod/.gitkeep
+!outputs/biobert_binary_prod/download.sh
+!outputs/past_sentence_filtering_preds/
+outputs/past_sentence_filtering_preds/*
+!outputs/past_sentence_filtering_preds/.gitkeep
+!outputs/past_sentence_filtering_preds/download.sh
+!outputs/text_parser/
+outputs/text_parser/*
+!outputs/text_parser/last_search_date.txt
+
+# Data (only food_terms.txt, translated_food_terms.txt, and NCBI/ placeholder are tracked)
+data/*
+!data/food_terms.txt
+!data/translated_food_terms.txt
+!data/NCBI/
+data/NCBI/*
+!data/NCBI/.gitkeep
+
+# Scripts (only run_pipeline.sh and train_biobert_binary.sh are tracked)
+scripts/logs/
+scripts/_*.sh
+
+# Lit2_KG (only numbered steps, biobert, openai, and information_extraction_model_config are tracked)
+src/Lit2_KG/_*
+src/Lit2_KG/__pycache__/
+
+# KG construction (not tracked)
+src/_FoodAtlas-KGv2/
