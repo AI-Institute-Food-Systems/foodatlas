@@ -38,9 +38,9 @@ def aggregate_batch_predictions(
 
     responses: dict[str, str] = {}
     results_path = Path(results_dir)
-    result_files = sorted(results_path.glob("batch_*_results_*.jsonl"))
+    result_files = sorted(results_path.glob("batch_*_results*.jsonl"))
     if not result_files:
-        msg = f"No batch_*_results_*.jsonl files found in {results_dir}"
+        msg = f"No batch_*_results*.jsonl files found in {results_dir}"
         raise FileNotFoundError(msg)
 
     for fpath in result_files:

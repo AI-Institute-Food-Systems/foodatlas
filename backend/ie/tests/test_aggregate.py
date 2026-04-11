@@ -88,7 +88,8 @@ def test_aggregate_with_reference_dedup(tmp_path):
     df.to_csv(input_dir / "chunk_0.tsv", sep="\t", index=False)
 
     ref_dir = tmp_path / "ref"
-    ref_dir.mkdir()
+    ref_date_dir = ref_dir / "2025_01_01"
+    ref_date_dir.mkdir(parents=True)
     ref_df = pd.DataFrame(
         {
             "pmcid": [100],
@@ -97,7 +98,7 @@ def test_aggregate_with_reference_dedup(tmp_path):
             "sentence": ["old"],
         }
     )
-    ref_df.to_csv(ref_dir / "extraction_predicted_2025.tsv", sep="\t", index=False)
+    ref_df.to_csv(ref_date_dir / "extraction_predicted.tsv", sep="\t", index=False)
 
     agg_path = tmp_path / "agg.tsv"
     ie_path = tmp_path / "ie.tsv"

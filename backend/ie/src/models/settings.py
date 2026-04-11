@@ -45,15 +45,15 @@ class AggregateConfig(BaseModel):
 
 
 class ExtractionConfig(BaseModel):
-    system_prompt: str = "You are an expert in food science and chemistry. "
-    prompt_version: str = "v1"
+    system_prompt: str = "src/pipeline/extraction/prompts/system/v1.txt"
+    user_prompt: str = "src/pipeline/extraction/prompts/user/v1.txt"
     max_new_tokens: int = 512
     temperature: float = 0.0
 
 
 class ParseConfig(BaseModel):
-    batch_input_pattern: str = "batch_input_{date}.tsv"
-    output_tsv_pattern: str = "extraction_predicted_{date}_{model}.tsv"
+    batch_input: str = "batch_input.tsv"
+    output_tsv: str = "extraction_predicted.tsv"
 
 
 class PipelineConfig(BaseModel):
@@ -83,10 +83,6 @@ class IESettings(BaseSettings):
     @property
     def threshold(self) -> float:
         return self.pipeline.aggregate.threshold
-
-    @property
-    def prompt_version(self) -> str:
-        return self.pipeline.extraction.prompt_version
 
     @model_validator(mode="before")
     @classmethod

@@ -61,9 +61,10 @@ class TestIESettings:
         settings = _make_settings()
         assert settings.threshold == 0.99
 
-    def test_prompt_version_property(self) -> None:
+    def test_extraction_prompt_paths(self) -> None:
         settings = _make_settings()
-        assert settings.prompt_version == "v1"
+        assert "system" in settings.pipeline.extraction.system_prompt
+        assert "user" in settings.pipeline.extraction.user_prompt
 
 
 class TestIERunner:
@@ -83,6 +84,7 @@ class TestIERunner:
         filter_dir = tmp_path / "outputs" / "filtering" / date
         (filter_dir / "filtered_sentences").mkdir(parents=True)
         (filter_dir / "filtered_sentences" / "information_extraction_input.tsv").touch()
+        (tmp_path / "outputs" / "extraction").mkdir(parents=True)
         return r
 
     def test_run_calls_stages_in_order(self, runner: IERunner) -> None:

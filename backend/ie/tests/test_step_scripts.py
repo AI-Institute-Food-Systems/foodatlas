@@ -10,7 +10,8 @@ from src.pipeline.extraction.runner import build_batch_jsonl, load_prompt
 from src.pipeline.filtering.runner import run_biobert_filter
 from src.pipeline.search.runner import run_search
 
-_SYSTEM = "You are an expert in food science and chemistry. "
+_SYSTEM_PATH = "src/pipeline/extraction/prompts/system/v1.txt"
+_USER_PATH = "src/pipeline/extraction/prompts/user/v1.txt"
 
 
 def test_run_biobert_filter_missing_column(tmp_path):
@@ -124,12 +125,13 @@ def test_run_biobert_filter_chunk_resume(tmp_path, monkeypatch):
 
 def test_build_batch_jsonl_content():
     df = pd.DataFrame({"sentence": ["test sentence"]})
-    template = load_prompt("v1")
+    template = load_prompt(_USER_PATH)
+    system = load_prompt(_SYSTEM_PATH)
     result = build_batch_jsonl(
         df,
         "gpt-4",
         prompt_template=template,
-        system_prompt=_SYSTEM,
+        system_prompt=system,
         temperature=0.0,
         max_new_tokens=512,
     )

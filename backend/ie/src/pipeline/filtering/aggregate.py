@@ -62,7 +62,7 @@ def aggregate_food_chem_sentences(
 
     reference_pmcids: set[int] = set()
     ref_path = Path(reference_dir)
-    ref_files = sorted(ref_path.glob("extraction_predicted_*"))
+    ref_files = sorted(ref_path.glob("*/extraction_predicted.tsv"))
     if ref_files:
         ref_frames = [pd.read_csv(f, sep="\t") for f in ref_files]
         reference_pmcids = set(

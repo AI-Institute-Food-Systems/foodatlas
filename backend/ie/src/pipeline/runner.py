@@ -239,7 +239,8 @@ class IERunner:
             msg = f"Filtering results not found: {filter_dir}"
             raise FileNotFoundError(msg)
 
-        batch_dir = self._extraction_dir / f"{run_date}_prediction_batch"
+        extract_dir = self._extraction_dir / run_date
+        batch_dir = extract_dir / "prediction_batch"
 
         run_extraction(
             input_path=str(
@@ -247,16 +248,15 @@ class IERunner:
             ),
             output_dir=str(batch_dir),
             model=s.model,
-            date=run_date,
-            prompt_version=ex.prompt_version,
-            system_prompt=ex.system_prompt,
+            system_prompt_path=ex.system_prompt,
+            user_prompt_path=ex.user_prompt,
             temperature=ex.temperature,
             max_new_tokens=ex.max_new_tokens,
         )
 
-        output_tsv = self._extraction_dir / f"extraction_predicted_{run_date}.tsv"
+        output_tsv = extract_dir / "extraction_predicted.tsv"
         aggregate_batch_predictions(
-            batch_input_path=str(batch_dir / f"batch_input_{run_date}.tsv"),
+            batch_input_path=str(batch_dir / "batch_input.tsv"),
             results_dir=str(batch_dir),
             output_path=str(output_tsv),
         )
