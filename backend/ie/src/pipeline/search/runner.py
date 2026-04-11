@@ -91,6 +91,7 @@ def run_search(
         min_date=min_date,
         save_every=save_every,
         save_filepath=query_uid_results_filepath,
+        api_key=os.environ.get("NCBI_API_KEY"),
     )
 
     retrieve_sentences(

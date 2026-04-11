@@ -11,7 +11,9 @@ from dotenv import load_dotenv
 from pydantic import BaseModel, model_validator
 from pydantic_settings import BaseSettings
 
+_PROJECT_ENV = Path(__file__).resolve().parents[2] / ".env"
 _ROOT_ENV = Path(__file__).resolve().parents[4] / ".env"
+load_dotenv(_PROJECT_ENV)
 load_dotenv(_ROOT_ENV)
 
 _DEFAULTS_PATH = Path(__file__).resolve().parent.parent / "config" / "defaults.json"
@@ -26,7 +28,7 @@ def _load_defaults() -> dict[str, Any]:
 
 
 class SearchConfig(BaseModel):
-    save_every: int = 50
+    save_every: int = 10
     query_uid_results: str = "outputs/search/{date}/query_uid_results.tsv"
     filtered_sentences: str = "outputs/search/{date}/retrieved_sentences/result_{i}.tsv"
 

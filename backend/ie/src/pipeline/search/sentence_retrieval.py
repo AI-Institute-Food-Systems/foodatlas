@@ -13,7 +13,7 @@ from typing import Any
 
 import pandas as pd
 from nltk.tokenize.punkt import PunktSentenceTokenizer
-from thefuzz import fuzz
+from rapidfuzz import fuzz, process, utils
 from tqdm import tqdm
 
 log = logging.getLogger(__name__)
@@ -92,23 +92,35 @@ def get_filtered_sentences(
     """Extract matching sentences from a single BioC-PMC article."""
     key, queries = key_val_pair
     _pmid, pmcid = key
-    empty: dict[str, list[Any]] = {
-        "pmcid": [],
-        "section": [],
-        "matched_query": [],
-        "sentence": [],
-    }
 
     if not pmcid.replace("PMC", "").isdigit():
-        return pd.DataFrame(empty)
+        return _empty_df()
 
     filepath = pmcid_to_filepath(pmcid, filepath_bioc_pmc)
+
     if not filepath.is_file():
-        return pd.DataFrame(empty)
+        return _empty_df()
 
     with filepath.open() as f:
         json_data = json.load(f)
 
+    return _process_article(
+        sentence_tokenizer,
+        foods_trans_dict,
+        pmcid,
+        queries,
+        json_data,
+    )
+
+
+def _process_article(
+    sentence_tokenizer: PunktSentenceTokenizer,
+    foods_trans_dict: dict[str, list[str]],
+    pmcid: str,
+    queries: list[str],
+    json_data: dict[str, Any],
+) -> pd.DataFrame:
+    """Extract matching sentences from pre-loaded article JSON."""
     documents = json_data["documents"]
     if len(documents) != 1:
         msg = f"Expected 1 document, got {len(documents)}"
@@ -131,15 +143,47 @@ def get_filtered_sentences(
         for sentence in sentence_tokenizer.tokenize(passage["text"]):
             if len(sentence) < 20 or len(sentence) > 1000:
                 continue
-            for tq in translated:
-                if fuzz.token_set_ratio(sentence, tq) > 90:
-                    result["pmcid"].append(pmcid)
-                    result["section"].append(section)
-                    result["matched_query"].append(tq)
-                    result["sentence"].append(sentence)
-                    break
+            match = process.extractOne(
+                sentence,
+                translated,
+                scorer=fuzz.token_set_ratio,
+                processor=utils.default_process,
+                score_cutoff=91,
+            )
+            if match is not None:
+                result["pmcid"].append(pmcid)
+                result["section"].append(section)
+                result["matched_query"].append(match[0])
+                result["sentence"].append(sentence)
 
     return pd.DataFrame(result)
+
+
+def _empty_df() -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "pmcid": [],
+            "section": [],
+            "matched_query": [],
+            "sentence": [],
+        }
+    )
+
+
+def _process_preloaded(
+    sentence_tokenizer: PunktSentenceTokenizer,
+    foods_trans_dict: dict[str, list[str]],
+    item: tuple[str, list[str], dict[str, Any]],
+) -> pd.DataFrame:
+    """Process a pre-loaded article (module-level for multiprocessing)."""
+    pmcid, queries, json_data = item
+    return _process_article(
+        sentence_tokenizer,
+        foods_trans_dict,
+        pmcid,
+        queries,
+        json_data,
+    )
 
 
 def retrieve_sentences(
@@ -177,23 +221,28 @@ def retrieve_sentences(
             yield {k: d[k] for k in islice(it, size)}
 
     total_chunks = (len(data) + DEFAULT_CHUNK_SIZE - 1) // DEFAULT_CHUNK_SIZE
-    for idx, small_data in enumerate(tqdm(chunks(data), total=total_chunks)):
-        workers = max(1, cpu_count() - 1)
-        with Pool(workers) as p:
-            partial_function = partial(
-                get_filtered_sentences,
-                sentence_tokenizer,
-                filepath_bioc_pmc,
-                foods_trans_dict,
-            )
+    workers = max(1, cpu_count() - 1)
+    partial_function = partial(
+        get_filtered_sentences,
+        sentence_tokenizer,
+        filepath_bioc_pmc,
+        foods_trans_dict,
+    )
+    skipped = 0
+    with Pool(workers) as p:
+        for idx, small_data in enumerate(tqdm(chunks(data), total=total_chunks)):
+            chunk_path = filtered_sentences_filepath.format(i=idx)
+            if Path(chunk_path).is_file():
+                skipped += 1
+                continue
+
             r = list(p.imap_unordered(partial_function, small_data.items()))
 
-        chunk_df = pd.concat(r)
-        chunk_df.to_csv(
-            filtered_sentences_filepath.format(i=idx),
-            sep="\t",
-            index=False,
-        )
+            chunk_df = pd.concat(r) if r else _empty_df()
+            chunk_df.to_csv(chunk_path, sep="\t", index=False)
+
+    if skipped:
+        log.info("Skipped %d existing chunks", skipped)
 
     chunk_dir = Path(filtered_sentences_filepath).parent
     chunk_files = sorted(chunk_dir.glob("result_*.tsv"))

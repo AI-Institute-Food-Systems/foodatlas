@@ -5,13 +5,20 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
+import pytest
 from src.pipeline.search import runner as step1
 from src.pipeline.search.pubmed_search import (
+    _init_rate_limiter,
     _search_single_db,
     get_pmcid_pmid_mapping,
     save_data,
     search_queries,
 )
+
+
+@pytest.fixture(autouse=True)
+def _setup_rate_limiter():
+    _init_rate_limiter(None)
 
 
 def test_get_pmcid_pmid_mapping(tmp_path):
@@ -28,42 +35,54 @@ def test_get_pmcid_pmid_mapping(tmp_path):
     assert pmid_pmcid["2"] == "PMC200"
 
 
-@patch("src.pipeline.search.pubmed_search.subprocess")
-def test_search_single_db_pmc(mock_subprocess):
-    mock_esearch = MagicMock()
-    mock_esearch.stdout = MagicMock()
-    mock_subprocess.Popen.return_value = mock_esearch
-    mock_subprocess.check_output.return_value = "123\n456\n"
-    mock_subprocess.PIPE = -1
+@patch("src.pipeline.search.pubmed_search.Entrez")
+def test_search_single_db_pmc(mock_entrez):
+    mock_entrez.esearch.return_value.__enter__ = lambda s: s
+    mock_entrez.esearch.return_value.__exit__ = MagicMock(return_value=False)
+    mock_entrez.read.return_value = {
+        "Count": "2",
+        "IdList": ["123", "456"],
+    }
 
-    result = _search_single_db("pmc", "cocoa", "e@e.com", None)
+    result = _search_single_db("pmc", "cocoa", None)
     assert result == ["PMC123", "PMC456"]
 
 
-@patch("src.pipeline.search.pubmed_search.subprocess")
-def test_search_single_db_pubmed(mock_subprocess):
-    mock_esearch = MagicMock()
-    mock_esearch.stdout = MagicMock()
-    mock_subprocess.Popen.return_value = mock_esearch
-    mock_subprocess.check_output.return_value = "789\n"
-    mock_subprocess.PIPE = -1
+@patch("src.pipeline.search.pubmed_search.Entrez")
+def test_search_single_db_pubmed(mock_entrez):
+    mock_entrez.esearch.return_value.__enter__ = lambda s: s
+    mock_entrez.esearch.return_value.__exit__ = MagicMock(return_value=False)
+    mock_entrez.read.return_value = {
+        "Count": "1",
+        "IdList": ["789"],
+    }
 
-    result = _search_single_db("pubmed", "banana", "e@e.com", "2024/01")
+    result = _search_single_db("pubmed", "banana", "2024/01")
     assert result == ["789"]
 
 
-@patch("src.pipeline.search.pubmed_search.subprocess")
-def test_search_single_db_with_mindate(mock_subprocess):
-    mock_esearch = MagicMock()
-    mock_esearch.stdout = MagicMock()
-    mock_subprocess.Popen.return_value = mock_esearch
-    mock_subprocess.check_output.return_value = "111\n"
-    mock_subprocess.PIPE = -1
+@patch("src.pipeline.search.pubmed_search.Entrez")
+def test_search_single_db_with_mindate(mock_entrez):
+    mock_entrez.esearch.return_value.__enter__ = lambda s: s
+    mock_entrez.esearch.return_value.__exit__ = MagicMock(return_value=False)
+    mock_entrez.read.return_value = {
+        "Count": "1",
+        "IdList": ["111"],
+    }
 
-    _search_single_db("pubmed", "cocoa", "e@e.com", "2024/01/01")
-    popen_args = mock_subprocess.Popen.call_args[0][0]
-    assert "-mindate" in popen_args
-    assert "2024/01/01" in popen_args
+    _search_single_db("pubmed", "cocoa", "2024/01/01")
+    call_kwargs = mock_entrez.esearch.call_args[1]
+    assert call_kwargs["mindate"] == "2024/01/01"
+
+
+@patch("src.pipeline.search.pubmed_search.Entrez")
+def test_search_single_db_empty(mock_entrez):
+    mock_entrez.esearch.return_value.__enter__ = lambda s: s
+    mock_entrez.esearch.return_value.__exit__ = MagicMock(return_value=False)
+    mock_entrez.read.return_value = {"Count": "0", "IdList": []}
+
+    result = _search_single_db("pubmed", "zzz_nonexistent", None)
+    assert result == []
 
 
 @patch("src.pipeline.search.pubmed_search._search_single_db")
