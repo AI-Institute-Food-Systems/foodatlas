@@ -61,7 +61,7 @@ uv run alembic upgrade head
 
 ```bash
 cd backend/db
-uv run python main.py load --parquet-dir ../kgc/outputs/kg
+uv run python main.py load
 ```
 
 This loads KGC parquet output into PostgreSQL. See [`backend/kgc/README.md`](backend/kgc/README.md) for how to generate the parquet files.
