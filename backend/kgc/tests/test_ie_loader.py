@@ -1,5 +1,6 @@
-"""Tests for ie_loader — raw TSV parsing and name standardization."""
+"""Tests for ie_loader — raw TSV/JSON parsing and name standardization."""
 
+import json
 from pathlib import Path
 
 import pandas as pd
@@ -184,3 +185,38 @@ class TestLoadIeRaw:
         path.write_text("\n".join(lines))
         df = load_ie_raw(path, tmp_path, method="gpt-4")
         assert df.empty
+
+    def test_load_json_format(self, tmp_path: Path) -> None:
+        path = tmp_path / "ie.json"
+        data = {
+            "0": {
+                "pmcid": 111,
+                "section": "INTRO",
+                "matched_query": "apple",
+                "text": "Apples have vitamin C.",
+                "prob": 0.99,
+                "response": "(apple, peel, vitamin c, )",
+                "triplets": [["apple", "peel", "vitamin c", ""]],
+            },
+        }
+        path.write_text(json.dumps(data))
+        df = load_ie_raw(path, tmp_path, method="gpt-4")
+        assert len(df) == 1
+        assert df.iloc[0]["source"] == "lit2kg:gpt-4"
+        assert df.iloc[0]["_food_name"] == "apple"
+
+    def test_load_json_null_prob(self, tmp_path: Path) -> None:
+        path = tmp_path / "ie.json"
+        data = {
+            "0": {
+                "pmcid": 111,
+                "text": "Apples have vitamin C.",
+                "prob": None,
+                "response": "(apple, , vitamin c, )",
+                "triplets": [["apple", "", "vitamin c", ""]],
+            },
+        }
+        path.write_text(json.dumps(data))
+        df = load_ie_raw(path, tmp_path, method="gpt-4")
+        assert len(df) == 1
+        assert df.iloc[0]["filter_score"] == 0.0

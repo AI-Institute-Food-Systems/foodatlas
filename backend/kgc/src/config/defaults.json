@@ -3,8 +3,7 @@
   "data_dir": "data",
   "output_dir": "outputs",
   "cache_dir": "outputs/cache",
-  "openai_api_key": "",
-  "pubchem_mapping_file": "",
+  "ie_raw_dir": "../ie/outputs/extraction",
   "pipeline": {
     "stages": {
       "data_cleaning": {
@@ -12,15 +11,7 @@
       },
       "kg_init": {
         "previous_kg_entities": "data/PreviousFAKG/v3.3/entities.tsv"
-      },
-      "metadata_processing": {},
-      "triplet_expansion": {
-        "ie_raw_paths": {
-          "gpt-4": "data/Lit2KG/text_parser_predicted_2024_02_25_gpt-4.parquet",
-          "gpt-3.5-finetuned": "data/Lit2KG/text_parser_predicted_2024_07_11_gpt-3.5-ft.tsv"
-        }
-      },
-      "enrichment": {}
+      }
     }
   }
 }

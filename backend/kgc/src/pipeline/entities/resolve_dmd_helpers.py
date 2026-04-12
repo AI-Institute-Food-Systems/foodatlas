@@ -45,15 +45,6 @@ def _get_xrefs(
     return result
 
 
-def _build_ext_index(store: EntityStore, key: str) -> dict[str, str]:
-    """Build ``{external_id_string: foodatlas_id}`` for *key*."""
-    result: dict[str, str] = {}
-    for eid, row in store._entities.iterrows():
-        for val in row["external_ids"].get(key, []):
-            result[str(val)] = str(eid)
-    return result
-
-
 def _pick_display_xref(
     xrefs: dict[str, list[str]],
     native_id: str,
@@ -126,8 +117,8 @@ def _collect_unlinked(
         if native in seen:
             continue
         seen.add(native)
-        existing_id = registry.resolve("dmd", native)
-        if existing_id and existing_id in store._entities.index:
+        existing_ids = registry.resolve("dmd", native)
+        if any(eid in store._entities.index for eid in existing_ids):
             continue
         unlinked.append((native, row))
     return unlinked

@@ -111,7 +111,7 @@ def load_kg(conn: Connection, parquet_dir: Path) -> None:
             "conc_unit_raw",
             "food_part",
             "food_processing",
-            "quality_score",
+            "filter_score",
             "validated",
             "validated_correct",
             "head_candidates",

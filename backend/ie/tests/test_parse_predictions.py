@@ -131,5 +131,10 @@ def test_tsv_to_json(tmp_path):
     assert json_path.exists()
     data = json.loads(json_path.read_text())
     assert "0" in data
-    assert data["0"]["pmcid"] == 123
-    assert len(data["0"]["triplets"]) == 1
+    entry = data["0"]
+    assert entry["pmcid"] == 123
+    assert entry["section"] == "ABSTRACT"
+    assert entry["matched_query"] == "cocoa"
+    assert entry["text"] == "Cocoa has polyphenols."
+    assert entry["prob"] == 0.99
+    assert len(entry["triplets"]) == 1

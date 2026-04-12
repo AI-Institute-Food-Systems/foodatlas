@@ -30,29 +30,13 @@ def _extract_chebi_int(chebi_ref: str) -> int:
     return int(chebi_ref)
 
 
-def _build_chebi_to_fa(store: EntityStore) -> dict[int, str]:
-    result: dict[int, str] = {}
-    for eid, row in store._entities.iterrows():
-        for cid in row["external_ids"].get("chebi", []):
-            result[int(cid)] = str(eid)
-    return result
-
-
-def _build_foodon_to_fa(store: EntityStore) -> dict[str, str]:
-    result: dict[str, str] = {}
-    for eid, row in store._entities.iterrows():
-        for fid in row["external_ids"].get("foodon", []):
-            result[str(fid)] = str(eid)
-    return result
-
-
-def _build_external_index(store: EntityStore, key: str) -> dict[str, str]:
-    """Build a hash map from external_ids[key] values → entity ID."""
-    result: dict[str, str] = {}
-    for eid, row in store._entities.iterrows():
-        for val in row["external_ids"].get(key, []):
-            result[str(val)] = str(eid)
-    return result
+def _add_ext_id(store: EntityStore, fa_id: str, key: str, value: object) -> None:
+    """Append *value* to entity's external_ids[key] if not present."""
+    ext = store._entities.at[fa_id, "external_ids"]
+    if key not in ext:
+        ext[key] = []
+    if value not in ext[key]:
+        ext[key].append(value)
 
 
 # -- Pass 2 ---------------------------------------------------------------
@@ -62,7 +46,6 @@ def link_cdno_to_chebi(
     sources: dict[str, dict[str, pd.DataFrame]],
     store: EntityStore,
     registry: EntityRegistry,
-    merges: dict[str, str],
 ) -> None:
     """Link CDNO entries to existing ChEBI entities via xrefs."""
     cdno = sources.get("cdno")
@@ -72,20 +55,17 @@ def link_cdno_to_chebi(
     if xrefs.empty:
         return
     chebi_xrefs = xrefs[xrefs["target_source"] == "chebi"]
-    chebi2fa = _build_chebi_to_fa(store)
+    store_index = store._entities.index
     linked = 0
     for _, xref in chebi_xrefs.iterrows():
         chebi_id = _extract_chebi_int(xref["target_id"])
-        if chebi_id in chebi2fa:
-            fa_id = chebi2fa[chebi_id]
-            ext = store._entities.at[fa_id, "external_ids"]
-            if "cdno" not in ext:
-                ext["cdno"] = []
-            if xref["native_id"] not in ext["cdno"]:
-                ext["cdno"].append(xref["native_id"])
-            old = registry.register_alias("cdno", str(xref["native_id"]), fa_id)
-            if old:
-                merges[old] = fa_id
+        fa_ids = [
+            f for f in registry.resolve("chebi", str(chebi_id)) if f in store_index
+        ]
+        for fa_id in fa_ids:
+            _add_ext_id(store, fa_id, "cdno", xref["native_id"])
+            registry.register_alias("cdno", str(xref["native_id"]), fa_id)
+        if fa_ids:
             linked += 1
     logger.info("Pass 2: linked %d CDNO → ChEBI.", linked)
 
@@ -96,7 +76,6 @@ def link_fdc_foods_to_foodon(
     corrections: Corrections,
     linked_ids: set[str],
     registry: EntityRegistry,
-    merges: dict[str, str],
 ) -> None:
     """Link FDC food entries to existing FoodOn entities via xrefs."""
     fdc = sources.get("fdc")
@@ -106,7 +85,7 @@ def link_fdc_foods_to_foodon(
     if xrefs.empty:
         return
     foodon_xrefs = xrefs[xrefs["target_source"] == "foodon"]
-    foodon2fa = _build_foodon_to_fa(store)
+    store_index = store._entities.index
     linked = 0
     for _, xref in foodon_xrefs.iterrows():
         fdc_native = xref["native_id"]
@@ -116,16 +95,11 @@ def link_fdc_foods_to_foodon(
             foodon_url = corrections.fdc.food_overrides[fdc_id]
         if fdc_id in corrections.fdc.multi_foodon_resolution:
             foodon_url = corrections.fdc.multi_foodon_resolution[fdc_id]
-        if foodon_url in foodon2fa:
-            fa_id = foodon2fa[foodon_url]
-            ext = store._entities.at[fa_id, "external_ids"]
-            if "fdc" not in ext:
-                ext["fdc"] = []
-            if fdc_id not in ext["fdc"]:
-                ext["fdc"].append(fdc_id)
-            old = registry.register_alias("fdc", str(fdc_id), fa_id)
-            if old:
-                merges[old] = fa_id
+        fa_ids = [f for f in registry.resolve("foodon", foodon_url) if f in store_index]
+        for fa_id in fa_ids:
+            _add_ext_id(store, fa_id, "fdc", fdc_id)
+            registry.register_alias("fdc", str(fdc_id), fa_id)
+        if fa_ids:
             linked += 1
             linked_ids.add(fdc_native)
     logger.info("Pass 2: linked %d FDC foods → FoodOn.", linked)
@@ -136,7 +110,6 @@ def link_fdc_nutrients(
     store: EntityStore,
     linked_ids: set[str],
     registry: EntityRegistry,
-    merges: dict[str, str],
 ) -> None:
     """Link FDC nutrients to existing entities via CDNO xrefs."""
     fdc = sources.get("fdc")
@@ -156,31 +129,23 @@ def link_fdc_nutrients(
     for _, xref in fdc_nutrient_xrefs.iterrows():
         fdc_to_cdno.setdefault(xref["target_id"], []).append(xref["native_id"])
 
-    cdno_index = _build_external_index(store, "cdno")
-
+    store_index = store._entities.index
     linked = 0
     for _, row in nutrients.iterrows():
         nutrient_id = row["native_id"].split(":")[-1]
         cdno_ids = fdc_to_cdno.get(nutrient_id, [])
         if not cdno_ids:
             continue
-        fa_ids = {cdno_index[c] for c in cdno_ids if c in cdno_index}
-        if not fa_ids:
+        # Resolve CDNO IDs via registry to find matching entities.
+        fa_id_set: set[str] = set()
+        for c in cdno_ids:
+            fa_id_set.update(f for f in registry.resolve("cdno", c) if f in store_index)
+        if not fa_id_set:
             continue
-        # Append fdc_nutrient to ALL matching entities (may be >1).
         nid = int(nutrient_id)
-        for fa_id in fa_ids:
-            ext = store._entities.at[fa_id, "external_ids"]
-            if "fdc_nutrient" not in ext:
-                ext["fdc_nutrient"] = []
-            if nid not in ext["fdc_nutrient"]:
-                ext["fdc_nutrient"].append(nid)
-        # Only register alias when there's a single unambiguous target.
-        if len(fa_ids) == 1:
-            fa_id = next(iter(fa_ids))
-            old = registry.register_alias("fdc_nutrient", str(nutrient_id), fa_id)
-            if old and old != fa_id:
-                merges[old] = fa_id
+        for fa_id in fa_id_set:
+            _add_ext_id(store, fa_id, "fdc_nutrient", nid)
+            registry.register_alias("fdc_nutrient", str(nutrient_id), fa_id)
         linked += 1
         linked_ids.add(row["native_id"])
     logger.info("Pass 2: linked %d FDC nutrients.", linked)
@@ -200,22 +165,26 @@ def create_unlinked_cdno(
     if cdno is None:
         return
     nodes = cdno["nodes"]
-    linked_ids = _build_external_index(store, "cdno")
+    # A CDNO ID is "linked" if the registry has it.
+    linked_natives = {
+        native
+        for _, row in nodes.iterrows()
+        if registry.resolve("cdno", (native := str(row["native_id"])))
+    }
 
-    unlinked = nodes[~nodes["native_id"].isin(linked_ids)]
+    unlinked = nodes[~nodes["native_id"].isin(linked_natives)]
     rows_by_id: dict[str, dict] = {}
     for _, row in unlinked.iterrows():
         native = str(row["native_id"])
-        fa_id = registry.resolve("cdno", native)
-        if not fa_id:
+        fa_ids = registry.resolve("cdno", native)
+        if not fa_ids:
             fa_id = f"e{registry.next_eid}"
             registry.register("cdno", native, fa_id)
+        else:
+            fa_id = fa_ids[0]
 
         if fa_id in store._entities.index:
-            ext = store._entities.at[fa_id, "external_ids"]
-            ext.setdefault("cdno", [])
-            if native not in ext["cdno"]:
-                ext["cdno"].append(native)
+            _add_ext_id(store, fa_id, "cdno", native)
             continue
         if fa_id in rows_by_id:
             ext = rows_by_id[fa_id]["external_ids"]
@@ -255,16 +224,15 @@ def create_unlinked_fdc_foods(
     for _, row in unlinked.iterrows():
         fdc_id = int(row["native_id"].split(":")[-1])
         native = str(fdc_id)
-        fa_id = registry.resolve("fdc", native)
-        if not fa_id:
+        fa_ids = registry.resolve("fdc", native)
+        if not fa_ids:
             fa_id = f"e{registry.next_eid}"
             registry.register("fdc", native, fa_id)
+        else:
+            fa_id = fa_ids[0]
 
         if fa_id in store._entities.index:
-            ext = store._entities.at[fa_id, "external_ids"]
-            ext.setdefault("fdc", [])
-            if fdc_id not in ext["fdc"]:
-                ext["fdc"].append(fdc_id)
+            _add_ext_id(store, fa_id, "fdc", fdc_id)
             continue
         if fa_id in rows_by_id:
             ext = rows_by_id[fa_id]["external_ids"]
@@ -304,16 +272,15 @@ def create_unlinked_fdc_nutrients(
     for _, row in unlinked.iterrows():
         nutrient_id = int(row["native_id"].split(":")[-1])
         native = str(nutrient_id)
-        fa_id = registry.resolve("fdc_nutrient", native)
-        if not fa_id:
+        fa_ids = registry.resolve("fdc_nutrient", native)
+        if not fa_ids:
             fa_id = f"e{registry.next_eid}"
             registry.register("fdc_nutrient", native, fa_id)
+        else:
+            fa_id = fa_ids[0]
 
         if fa_id in store._entities.index:
-            ext = store._entities.at[fa_id, "external_ids"]
-            ext.setdefault("fdc_nutrient", [])
-            if nutrient_id not in ext["fdc_nutrient"]:
-                ext["fdc_nutrient"].append(nutrient_id)
+            _add_ext_id(store, fa_id, "fdc_nutrient", nutrient_id)
             continue
         if fa_id in rows_by_id:
             ext = rows_by_id[fa_id]["external_ids"]

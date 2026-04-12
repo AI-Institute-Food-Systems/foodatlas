@@ -13,7 +13,7 @@ uv sync
 uv run alembic upgrade head
 
 # Load KGC parquet output into the database
-uv run python main.py load --parquet-dir /path/to/kgc/outputs
+uv run python main.py load
 ```
 
 ## Configuration

@@ -28,13 +28,10 @@ BATCH_SIZE = 50_000
 POLL_INTERVAL = 60
 TERMINAL = {"completed", "failed", "expired", "cancelled"}
 
-_PROMPTS_DIR = Path(__file__).parent / "prompts"
 
-
-def load_prompt(version: str) -> str:
-    """Load a user prompt template by version name."""
-    path = _PROMPTS_DIR / f"{version}.txt"
-    return path.read_text(encoding="utf-8")
+def load_prompt(path: str) -> str:
+    """Load a prompt template from a file path."""
+    return Path(path).read_text(encoding="utf-8")
 
 
 def build_batch_jsonl(
@@ -119,9 +116,8 @@ def run_extraction(
     input_path: str,
     output_dir: str,
     model: str,
-    date: str,
-    prompt_version: str = "v1",
-    system_prompt: str = "You are an expert in food science and chemistry. ",
+    system_prompt_path: str,
+    user_prompt_path: str,
     temperature: float = 0.0,
     max_new_tokens: int = 512,
     api_key: str | None = None,
@@ -130,7 +126,8 @@ def run_extraction(
     """Run the OpenAI Batch API information extraction pipeline."""
     resolved_key = api_key or os.environ["OPENAI_API_KEY"]
     client = OpenAI(api_key=resolved_key)
-    prompt_template = load_prompt(prompt_version)
+    system_prompt = load_prompt(system_prompt_path)
+    prompt_template = load_prompt(user_prompt_path)
 
     log.info("Reading %s", input_path)
     df = pd.read_csv(input_path, sep="\t", dtype=str, keep_default_na=False)
@@ -185,10 +182,10 @@ def run_extraction(
 
     log.info("Downloading results ...")
     for i, b in enumerate(batches):
-        result_path = str(out / f"batch_{i}_results_{date}.jsonl")
+        result_path = str(out / f"batch_{i}_results.jsonl")
         download_raw_results(client, b, result_path)
         log.info("  Saved batch %d results to %s", i, result_path)
 
-    input_save_path = out / f"batch_input_{date}.tsv"
+    input_save_path = out / "batch_input.tsv"
     df.to_csv(input_save_path, sep="\t", index=True, index_label="custom_id")
     log.info("Saved input (%d rows) to %s", len(df), input_save_path)

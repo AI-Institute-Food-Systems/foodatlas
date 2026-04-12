@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+import json
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
@@ -57,9 +62,10 @@ class TestIESettings:
         settings = _make_settings()
         assert settings.threshold == 0.99
 
-    def test_prompt_version_property(self) -> None:
+    def test_extraction_prompt_paths(self) -> None:
         settings = _make_settings()
-        assert settings.prompt_version == "v1"
+        assert "system" in settings.pipeline.extraction.system_prompt
+        assert "user" in settings.pipeline.extraction.user_prompt
 
 
 class TestIERunner:
@@ -67,8 +73,22 @@ class TestIERunner:
     def settings(self) -> IESettings:
         return _make_settings()
 
-    def test_run_calls_stages_in_order(self, settings: IESettings) -> None:
-        runner = IERunner(settings)
+    @pytest.fixture()
+    def runner(self, settings: IESettings, tmp_path: Path) -> IERunner:
+        r = IERunner(settings)
+        r._pipeline_dir = tmp_path
+        # Create dirs that downstream stages expect from prior stages
+        date = settings.resolved_date
+        search_dir = tmp_path / "outputs" / "search" / date
+        (search_dir / "retrieved_sentences").mkdir(parents=True)
+        (search_dir / "retrieved_sentences" / "sentence_filtering_input.tsv").touch()
+        filter_dir = tmp_path / "outputs" / "filtering" / date
+        (filter_dir / "filtered_sentences").mkdir(parents=True)
+        (filter_dir / "filtered_sentences" / "information_extraction_input.tsv").touch()
+        (tmp_path / "outputs" / "extraction").mkdir(parents=True)
+        return r
+
+    def test_run_calls_stages_in_order(self, runner: IERunner) -> None:
         called: list[str] = []
 
         with (
@@ -83,8 +103,7 @@ class TestIERunner:
 
         assert called == ["search", "filtering"]
 
-    def test_run_all_stages(self, settings: IESettings) -> None:
-        runner = IERunner(settings)
+    def test_run_all_stages(self, runner: IERunner) -> None:
         called: list[str] = []
 
         with (
@@ -102,9 +121,8 @@ class TestIERunner:
     @patch("src.pipeline.runner.update_bioc")
     @patch("src.pipeline.runner.subprocess.run")
     def test_corpus_downloads_and_updates(
-        self, mock_run: MagicMock, mock_update: MagicMock, settings: IESettings
+        self, mock_run: MagicMock, mock_update: MagicMock, runner: IERunner
     ) -> None:
-        runner = IERunner(settings)
         runner._run_corpus()
 
         assert mock_run.call_count == 2
@@ -118,9 +136,8 @@ class TestIERunner:
         self,
         mock_filter: MagicMock,
         mock_agg: MagicMock,
-        settings: IESettings,
+        runner: IERunner,
     ) -> None:
-        runner = IERunner(settings)
         runner._run_filtering()
         mock_filter.assert_called_once()
         mock_agg.assert_called_once()
@@ -133,13 +150,32 @@ class TestIERunner:
         mock_extract: MagicMock,
         mock_agg: MagicMock,
         mock_json: MagicMock,
-        settings: IESettings,
+        runner: IERunner,
     ) -> None:
-        runner = IERunner(settings)
         runner._run_extraction()
         mock_extract.assert_called_once()
         mock_agg.assert_called_once()
         mock_json.assert_called_once()
+
+    @patch("src.pipeline.runner.tsv_to_json")
+    @patch("src.pipeline.runner.aggregate_batch_predictions")
+    @patch("src.pipeline.runner.run_extraction")
+    def test_extraction_writes_run_info(
+        self,
+        mock_extract: MagicMock,
+        mock_agg: MagicMock,
+        mock_json: MagicMock,
+        runner: IERunner,
+        settings: IESettings,
+        tmp_path: Path,
+    ) -> None:
+        runner._run_extraction()
+        extract_dir = tmp_path / "outputs" / "extraction"
+        run_info_path = extract_dir / settings.resolved_date / "run_info.json"
+        assert run_info_path.exists()
+        info = json.loads(run_info_path.read_text())
+        assert info["model"] == "gpt-4"
+        assert info["date"] == "2026_04_06"
 
 
 class TestCLI:

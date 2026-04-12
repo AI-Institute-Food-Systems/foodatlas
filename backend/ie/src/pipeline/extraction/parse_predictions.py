@@ -38,9 +38,9 @@ def aggregate_batch_predictions(
 
     responses: dict[str, str] = {}
     results_path = Path(results_dir)
-    result_files = sorted(results_path.glob("batch_*_results_*.jsonl"))
+    result_files = sorted(results_path.glob("batch_*_results*.jsonl"))
     if not result_files:
-        msg = f"No batch_*_results_*.jsonl files found in {results_dir}"
+        msg = f"No batch_*_results*.jsonl files found in {results_dir}"
         raise FileNotFoundError(msg)
 
     for fpath in result_files:
@@ -93,7 +93,7 @@ def parse_response(response_str: str) -> list[list[str]]:
     """Parse a response into sorted [food, part, compound, qty] triplets."""
     triplets: list[list[str]] = []
     for raw_line in response_str.strip().splitlines():
-        stripped = raw_line.strip()
+        stripped = raw_line.strip().lstrip("(").rstrip(")")
         if not stripped:
             continue
         parts = [p.strip() for p in stripped.split(",", 3)]
@@ -106,19 +106,23 @@ def parse_response(response_str: str) -> list[list[str]]:
 
 
 def tsv_to_json(input_path: str) -> None:
-    """Convert a extraction TSV to JSON format."""
+    """Convert an extraction TSV to JSON, preserving all fields."""
     df = pd.read_csv(input_path, sep="\t")
     output: dict[str, dict[str, object]] = {}
 
     for i, row in df.iterrows():
-        triplets = parse_response(str(row["response"]))
-        response_str = "\n".join("(" + ", ".join(t) + ")" for t in triplets)
-        output[str(i)] = {
-            "text": row["sentence"],
+        raw_response = str(row["response"])
+        triplets = parse_response(raw_response)
+        entry: dict[str, object] = {
             "pmcid": int(row["pmcid"]),
-            "response": response_str,
+            "section": row.get("section", ""),
+            "matched_query": row.get("matched_query", ""),
+            "text": row["sentence"],
+            "prob": _safe_float(row.get("prob")),
+            "response": raw_response,
             "triplets": triplets,
         }
+        output[str(i)] = entry
 
     output_path = input_path.replace(".tsv", ".json")
     Path(output_path).write_text(
@@ -126,6 +130,13 @@ def tsv_to_json(input_path: str) -> None:
         encoding="utf-8",
     )
     log.info("Saved %d entries to %s", len(output), output_path)
+
+
+def _safe_float(val: object) -> float | None:
+    """Convert to float, returning None for missing/NaN values."""
+    if val is None or (isinstance(val, float) and pd.isna(val)):
+        return None
+    return float(val)  # type: ignore[arg-type]
 
 
 if __name__ == "__main__":

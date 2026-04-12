@@ -22,14 +22,14 @@
       "reference_dir": "outputs/extraction"
     },
     "extraction": {
-      "system_prompt": "You are an expert in food science and chemistry. ",
-      "prompt_version": "v1",
+      "system_prompt": "src/pipeline/extraction/prompts/system/v1.txt",
+      "user_prompt": "src/pipeline/extraction/prompts/user/v1.txt",
       "max_new_tokens": 512,
       "temperature": 0.0
     },
     "parse": {
-      "batch_input_pattern": "batch_input_{date}.tsv",
-      "output_tsv_pattern": "extraction_predicted_{date}_{model}.tsv"
+      "batch_input": "batch_input.tsv",
+      "output_tsv": "extraction_predicted.tsv"
     }
   }
 }

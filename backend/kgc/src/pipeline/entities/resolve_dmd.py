@@ -12,11 +12,11 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+import pandas as pd
+
 from .resolve_dmd_helpers import (
     _add_dmd_to_entity,
-    _append_entities,
     _build_entity,
-    _build_ext_index,
     _collect_unlinked,
     _get_molecules,
     _get_xrefs,
@@ -24,13 +24,17 @@ from .resolve_dmd_helpers import (
 )
 
 if TYPE_CHECKING:
-    import pandas as pd
-
     from ...stores.entity_registry import EntityRegistry
     from ...stores.entity_store import EntityStore
     from .utils.lut import EntityLUT
 
 logger = logging.getLogger(__name__)
+
+
+def _append_entities(store: EntityStore, rows: list[dict]) -> None:
+    if rows:
+        new_df = pd.DataFrame(rows).set_index("foodatlas_id")
+        store._entities = pd.concat([store._entities, new_df])
 
 
 # ---------------------------------------------------------------------------
@@ -60,17 +64,17 @@ def create_chemicals_from_dmd(
         if native in seen:
             continue
         seen.add(native)
-        fa_id = registry.resolve("dmd", native)
-        if not fa_id:
+        fa_ids = registry.resolve("dmd", native)
+        if not fa_ids:
             continue
-        # Only enrich if the entity already exists (seeded from another
-        # source like ChEBI).  DMD-only seeds skip to Pass 2/3.
-        if fa_id not in store._entities.index:
-            continue
-        _add_dmd_to_entity(store, fa_id, native)
-        if row["name"]:
-            lut.add("chemical", row["name"], fa_id)
-        linked += 1
+        # Only enrich entities that already exist in the store (seeded
+        # from another source like ChEBI). DMD-only seeds go to Pass 2/3.
+        for fa_id in fa_ids:
+            if fa_id in store._entities.index:
+                _add_dmd_to_entity(store, fa_id, native)
+                if row["name"]:
+                    lut.add("chemical", row["name"], fa_id)
+                linked += 1
 
     store._curr_eid = registry.next_eid
     logger.info("Pass 1: DMD enriched %d existing entities.", linked)
@@ -88,8 +92,8 @@ def link_dmd(
 ) -> None:
     """Pass 2: link DMD molecules to existing entities via xrefs.
 
-    Tier 1 — ChEBI: 1:1, highest confidence.
-    Tier 2 — PubChem: good confidence, may have ambiguous matches.
+    Tier 1 — ChEBI: highest confidence, resolved via registry.
+    Tier 2 — PubChem: good confidence, resolved via registry.
 
     Only the DMD native ID is added to linked entities; other xrefs are
     NOT propagated to avoid contaminating curated external_ids.
@@ -98,9 +102,7 @@ def link_dmd(
     if molecules is None:
         return
     xref_map = _get_xrefs(sources)
-
-    chebi_index = _build_ext_index(store, "chebi")
-    pubchem_index = _build_ext_index(store, "pubchem_compound")
+    store_index = store._entities.index
 
     linked_chebi = 0
     linked_pubchem = 0
@@ -108,40 +110,38 @@ def link_dmd(
 
     for _, row in molecules.iterrows():
         native = str(row["native_id"])
-        # Skip if already resolved to an entity that exists in the store
-        # (handled in Pass 1).  Seeded molecules whose entity was NOT
-        # created by another source still need xref linking here.
-        existing_id = registry.resolve("dmd", native)
-        if existing_id and existing_id in store._entities.index:
+        # Skip if already resolved to an entity that exists in the store.
+        existing_ids = registry.resolve("dmd", native)
+        if any(eid in store._entities.index for eid in existing_ids):
             continue
         mol_xrefs = xref_map.get(native, {})
 
-        # Tier 1: ChEBI match
+        # Tier 1: ChEBI match — use registry lookup
         chebi_ids = list(dict.fromkeys(mol_xrefs.get("chebi", [])))
         matched: set[str] = set()
         for cid in chebi_ids:
-            fa_id = chebi_index.get(cid)
-            if fa_id:
-                matched.add(fa_id)
+            matched.update(
+                f for f in registry.resolve("chebi", str(cid)) if f in store_index
+            )
 
         if matched:
-            for fa_id in matched:
+            for fa_id in sorted(matched):
                 _add_dmd_to_entity(store, fa_id, native)
                 registry.register_alias("dmd", native, fa_id)
             linked_chebi += 1 if len(matched) == 1 else 0
             ambiguous += 1 if len(matched) > 1 else 0
             continue
 
-        # Tier 2: PubChem match
+        # Tier 2: PubChem match — use registry lookup
         pubchem_ids = mol_xrefs.get("pubchem_cid", [])
         matched = set()
         for pid in pubchem_ids:
-            fa_id = pubchem_index.get(pid)
-            if fa_id:
-                matched.add(fa_id)
+            matched.update(
+                f for f in registry.resolve("pubchem", str(pid)) if f in store_index
+            )
 
         if matched:
-            for fa_id in matched:
+            for fa_id in sorted(matched):
                 _add_dmd_to_entity(store, fa_id, native)
                 registry.register_alias("dmd", native, fa_id)
             linked_pubchem += 1 if len(matched) == 1 else 0
@@ -203,9 +203,17 @@ def create_unlinked_dmd(
             else:
                 display_name = name
 
-            existing_id = registry.resolve("dmd", native)
-            if existing_id:
-                fa_id = existing_id
+            existing_ids = registry.resolve("dmd", native)
+            if existing_ids:
+                fa_id = existing_ids[0]
+                if len(existing_ids) > 1:
+                    logger.warning(
+                        "DMD %s has %d seeded IDs %s — using %s.",
+                        native,
+                        len(existing_ids),
+                        existing_ids,
+                        fa_id,
+                    )
             else:
                 fa_id = f"e{registry.next_eid}"
                 registry.register("dmd", native, fa_id)

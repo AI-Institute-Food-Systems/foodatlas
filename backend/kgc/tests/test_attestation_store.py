@@ -28,7 +28,7 @@ def _make_row(**overrides: float | str | bool | None) -> dict:
         "conc_unit_raw": "",
         "food_part": "",
         "food_processing": "",
-        "quality_score": 0.95,
+        "filter_score": 0.95,
         "validated": False,
         "validated_correct": True,
     }

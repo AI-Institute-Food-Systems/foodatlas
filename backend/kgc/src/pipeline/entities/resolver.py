@@ -57,7 +57,6 @@ class EntityResolver:
         self._corrections = corrections
         self._registry = registry
         self._old_ids: set[str] = registry.all_ids()
-        self._merges: dict[str, str] = {}
         self._entity_store = EntityStore(
             path_entities=kg_dir / FILE_ENTITIES,
             path_lut_food=kg_dir / FILE_LUT_FOOD,
@@ -100,20 +99,18 @@ class EntityResolver:
         logger.info("Pass 1 complete: %d entities.", len(self._entity_store._entities))
 
     def _pass2_link(self, sources: dict[str, dict[str, pd.DataFrame]]) -> None:
-        reg, m = self._registry, self._merges
-        link_cdno_to_chebi(sources, self._entity_store, reg, m)
+        reg = self._registry
+        link_cdno_to_chebi(sources, self._entity_store, reg)
         link_fdc_foods_to_foodon(
             sources,
             self._entity_store,
             self._corrections,
             self._linked_native_ids,
             reg,
-            m,
         )
-        link_fdc_nutrients(sources, self._entity_store, self._linked_native_ids, reg, m)
-        # PubChem and MeSH are cross-references, not entity identifiers.
-        # They enrich external_ids but are not registered in the registry.
-        # Must run BEFORE link_dmd so DMD Tier 2 can match via pubchem_compound.
+        link_fdc_nutrients(sources, self._entity_store, self._linked_native_ids, reg)
+        # PubChem and MeSH xrefs enrich external_ids on entities.
+        # Now also registered in the registry via the seeder for lookup.
         link_pubchem_to_chebi(sources, self._entity_store)
         link_mesh_to_chebi(sources, self._entity_store)
         link_dmd(sources, self._entity_store, reg)
@@ -145,7 +142,7 @@ class EntityResolver:
     def _finalize_registry(self) -> None:
         """Compute diff, write retired.parquet, save registry."""
         new_ids = self._registry.all_ids()
-        diff = compute_diff(self._old_ids, new_ids, self._merges)
+        diff = compute_diff(self._old_ids, new_ids, {})
         retired_df = build_retired_df(diff)
         retired_df.to_parquet(self._kg_dir / FILE_RETIRED, index=False)
         self._registry.save()

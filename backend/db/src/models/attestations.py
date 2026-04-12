@@ -27,7 +27,7 @@ class BaseAttestation(Base):
     conc_unit_raw: Mapped[str] = mapped_column(Text, server_default="")
     food_part: Mapped[str] = mapped_column(Text, server_default="")
     food_processing: Mapped[str] = mapped_column(Text, server_default="")
-    quality_score: Mapped[float | None] = mapped_column(Double, nullable=True)
+    filter_score: Mapped[float | None] = mapped_column(Double, nullable=True)
     validated: Mapped[bool] = mapped_column(Boolean, server_default="false")
     validated_correct: Mapped[bool] = mapped_column(Boolean, server_default="true")
     head_candidates: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default="{}")

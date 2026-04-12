@@ -32,7 +32,6 @@ class TestKGCSettings:
         )
         assert settings.data_cleaning_dir == "/custom"
 
-    def test_api_key_defaults_empty(self, monkeypatch):
-        monkeypatch.delenv("KGC_OPENAI_API_KEY", raising=False)
+    def test_ie_raw_dir_default(self):
         settings = KGCSettings()
-        assert settings.openai_api_key == ""
+        assert settings.ie_raw_dir == "../ie/outputs/extraction"

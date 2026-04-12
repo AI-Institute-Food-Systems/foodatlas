@@ -13,25 +13,27 @@ from src.pipeline.extraction.runner import (
     load_prompt,
 )
 
-_SYSTEM = "You are an expert in food science and chemistry. "
+_SYSTEM_PATH = "src/pipeline/extraction/prompts/system/v1.txt"
+_USER_PATH = "src/pipeline/extraction/prompts/user/v1.txt"
 _TEMP = 0.0
 _MAX_TOKENS = 512
 
 
 def test_load_prompt_v1():
-    template = load_prompt("v1")
+    template = load_prompt(_USER_PATH)
     assert isinstance(template, str)
     assert "{sentence}" in template
 
 
 def test_build_batch_jsonl_single_row():
     df = pd.DataFrame({"sentence": ["Cocoa contains polyphenols."]})
-    template = load_prompt("v1")
+    template = load_prompt(_USER_PATH)
+    system = load_prompt(_SYSTEM_PATH)
     result = build_batch_jsonl(
         df,
         "gpt-4",
         prompt_template=template,
-        system_prompt=_SYSTEM,
+        system_prompt=system,
         temperature=_TEMP,
         max_new_tokens=_MAX_TOKENS,
     )
@@ -46,12 +48,13 @@ def test_build_batch_jsonl_single_row():
 
 def test_build_batch_jsonl_multiple_rows():
     df = pd.DataFrame({"sentence": ["First sentence.", "Second sentence."]})
-    template = load_prompt("v1")
+    template = load_prompt(_USER_PATH)
+    system = load_prompt(_SYSTEM_PATH)
     result = build_batch_jsonl(
         df,
         "gpt-5",
         prompt_template=template,
-        system_prompt=_SYSTEM,
+        system_prompt=system,
         temperature=_TEMP,
         max_new_tokens=_MAX_TOKENS,
     )
