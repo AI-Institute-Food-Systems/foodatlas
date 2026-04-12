@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import shutil
 from pathlib import Path
@@ -51,21 +52,48 @@ class IERunner:
             save_checkpoint(kg_dir, "ie")
         logger.info("IE stage complete.")
 
+    def _discover_ie_files(self) -> list[tuple[str, Path]]:
+        """Scan ie_raw_dir for extraction files with model metadata.
+
+        Each subdirectory should contain ``extraction_predicted.tsv``
+        and optionally ``run_info.json`` with a ``model`` key.
+        Returns a list of ``(method, path)`` pairs.
+        """
+        ie_raw_dir = self._settings.ie_raw_dir
+        if not ie_raw_dir:
+            return []
+        raw_dir = Path(ie_raw_dir)
+        if not raw_dir.is_dir():
+            logger.warning("ie_raw_dir not found: %s", raw_dir)
+            return []
+
+        entries: list[tuple[str, Path]] = []
+        for tsv in sorted(raw_dir.glob("*/extraction_predicted.json")):
+            info_file = tsv.parent / "run_info.json"
+            if info_file.exists():
+                info: dict[str, str] = json.loads(info_file.read_text())
+                method = info["model"]
+            else:
+                method = tsv.parent.name
+                logger.warning(
+                    "No run_info.json in %s — using dir name as method.",
+                    tsv.parent,
+                )
+            entries.append((method, tsv))
+
+        logger.info("Discovered %d IE extraction files in %s.", len(entries), raw_dir)
+        return entries
+
     def _expand(self, kg: KnowledgeGraph) -> None:
         """Integrate IE-extracted metadata with lookup-only resolution."""
-        ie_config = self._settings.pipeline.stages.triplet_expansion
         kg_dir = Path(self._settings.kg_dir)
+        entries = self._discover_ie_files()
 
-        if not ie_config.ie_raw_paths:
-            logger.info("No IE raw paths configured — skipping expansion.")
+        if not entries:
+            logger.info("No IE files found — skipping expansion.")
             return
 
-        for method, raw_path in ie_config.ie_raw_paths.items():
-            path = Path(raw_path)
-            if not path.exists():
-                logger.warning("IE raw file not found at %s — skipping.", path)
-                continue
-
+        for method, path in entries:
             logger.info("Processing IE file: %s (method=%s)", path, method)
             with log_duration(f"Load IE raw: {path.name}", logger):
                 metadata = load_ie_raw(path, kg_dir, method=method)
@@ -78,7 +106,9 @@ class IERunner:
 
             if not result.resolved.empty:
                 with log_duration("Add IE triplets to KG", logger):
-                    n_triplets = kg.add_triplets_from_resolved_ie(result.resolved)
+                    n_triplets = kg.add_triplets_from_resolved_ie(
+                        result.resolved,
+                    )
                 result.stats["triplets_created"] = n_triplets
 
             with log_duration("Write unresolved report", logger):

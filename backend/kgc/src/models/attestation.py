@@ -26,7 +26,7 @@ class Attestation(BaseModel):
     conc_unit_raw: str = ""
     food_part: str = ""
     food_processing: str = ""
-    quality_score: float | None = None
+    filter_score: float | None = None
     validated: bool = False
     validated_correct: bool = True
     head_candidates: list[str] = Field(default_factory=list)

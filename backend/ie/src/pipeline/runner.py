@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 import shutil
@@ -240,6 +241,7 @@ class IERunner:
             raise FileNotFoundError(msg)
 
         extract_dir = self._extraction_dir / run_date
+        extract_dir.mkdir(parents=True, exist_ok=True)
         batch_dir = extract_dir / "prediction_batch"
 
         run_extraction(
@@ -261,3 +263,9 @@ class IERunner:
             output_path=str(output_tsv),
         )
         tsv_to_json(str(output_tsv))
+
+        run_info = {"model": s.model, "date": run_date}
+        (extract_dir / "run_info.json").write_text(
+            json.dumps(run_info, indent=2) + "\n"
+        )
+        log.info("Wrote run_info.json: %s", run_info)

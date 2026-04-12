@@ -113,7 +113,7 @@ class TestAttestation:
             source="lit2kg:gpt-3.5-ft",
             head_name_raw="apple",
             tail_name_raw="vitamin c",
-            quality_score=0.99,
+            filter_score=0.99,
         )
         assert att.source == "lit2kg:gpt-3.5-ft"
         assert att.validated is False

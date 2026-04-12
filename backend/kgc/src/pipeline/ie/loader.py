@@ -103,7 +103,7 @@ def _process_line(
             "conc_unit_raw": conc_unit_raw,
             "food_part": food_part.strip().lower(),
             "food_processing": "",
-            "quality_score": float(rec["prob"]),
+            "filter_score": float(rec["prob"]),
             "_food_name": standardize_name(food),
             "_chemical_name": standardize_name(chemical),
         }
@@ -147,8 +147,27 @@ def _convert_quantity(
     return None, ""
 
 
+def _load_json(path: Path) -> pd.DataFrame:
+    """Load extraction JSON into a DataFrame with standard columns."""
+    with path.open(encoding="utf-8") as f:
+        data: dict[str, dict[str, object]] = json.load(f)
+    rows: list[dict[str, object]] = []
+    for entry in data.values():
+        rows.append(
+            {
+                "pmcid": str(entry["pmcid"]),
+                "section": entry.get("section", ""),
+                "matched_query": entry.get("matched_query", ""),
+                "sentence": entry.get("text", ""),
+                "prob": entry.get("prob", 0.0) or 0.0,
+                "response": entry.get("response", ""),
+            }
+        )
+    return pd.DataFrame(rows, columns=_RAW_COLUMNS)
+
+
 def load_ie_raw(path: Path, output_dir: Path, *, method: str) -> pd.DataFrame:
-    """Parse raw IE file (TSV or pkl) into a MetadataContains-compatible DataFrame.
+    """Parse raw IE file (JSON, TSV, or parquet) into a DataFrame.
 
     Args:
         path: Path to the raw IE file.
@@ -158,13 +177,16 @@ def load_ie_raw(path: Path, output_dir: Path, *, method: str) -> pd.DataFrame:
     Returns:
         DataFrame with evidence + extraction columns.
     """
-    if str(path).endswith(".parquet"):
+    suffix = path.suffix.lower()
+    if suffix == ".json":
+        raw = _load_json(path)
+    elif suffix == ".parquet":
         raw = pd.read_parquet(path)
     else:
         raw = pd.read_csv(path, sep="\t", dtype={"pmcid": str})
     missing = set(_RAW_COLUMNS) - set(raw.columns)
     if missing:
-        msg = f"IE TSV missing columns: {missing}"
+        msg = f"IE file missing columns: {missing}"
         raise ValueError(msg)
 
     logger.info("IE raw: %d rows from %s.", len(raw), path)

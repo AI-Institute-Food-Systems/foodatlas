@@ -23,6 +23,10 @@
     {
       "path": "backend/kgc",
       "name": "backend/kgc"
+    },
+    {
+      "path": "infra",
+      "name": "infra"
     }
   ],
   "settings": {}

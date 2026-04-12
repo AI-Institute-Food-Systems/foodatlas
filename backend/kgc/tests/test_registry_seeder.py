@@ -79,9 +79,27 @@ class TestExtractRegistryPairs:
         assert pairs[0] == ("dmd", "DMD302680", True)
 
     def test_unknown_keys_skipped(self) -> None:
-        ext = {"pubchem_compound": [6213], "some_unknown": ["val"]}
+        ext = {"some_unknown": ["val"], "another_unknown": ["x"]}
         pairs = extract_registry_pairs("chemical", ext)
         assert len(pairs) == 0
+
+    def test_pubchem_compound_registered(self) -> None:
+        ext = {"pubchem_compound": ["6213"]}
+        pairs = extract_registry_pairs("chemical", ext)
+        assert len(pairs) == 1
+        assert pairs[0] == ("pubchem", "6213", False)
+
+    def test_pubchem_cid_same_source(self) -> None:
+        ext = {"pubchem_cid": ["6213"]}
+        pairs = extract_registry_pairs("chemical", ext)
+        assert len(pairs) == 1
+        assert pairs[0] == ("pubchem", "6213", False)
+
+    def test_mesh_chemical_registered(self) -> None:
+        ext = {"mesh": ["D007538"]}
+        pairs = extract_registry_pairs("chemical", ext)
+        assert len(pairs) == 1
+        assert pairs[0] == ("mesh", "D007538", False)
 
     def test_empty_dict(self) -> None:
         assert extract_registry_pairs("food", {}) == []
@@ -124,7 +142,7 @@ class TestSeedRegistry:
         )
         count = seed_registry(empty_registry, tsv)
         assert count == 1
-        assert empty_registry.resolve("foodon", "http://example.org/FOOD_001") == "e1"
+        assert empty_registry.resolve("foodon", "http://example.org/FOOD_001") == ["e1"]
 
     def test_seeds_chemical_entities(
         self, empty_registry: EntityRegistry, tmp_path: Path
@@ -143,7 +161,7 @@ class TestSeedRegistry:
             ],
         )
         seed_registry(empty_registry, tsv)
-        assert empty_registry.resolve("chebi", "15377") == "e100"
+        assert empty_registry.resolve("chebi", "15377") == ["e100"]
 
     def test_seeds_disease_with_mesh_prefix(
         self, empty_registry: EntityRegistry, tmp_path: Path
@@ -162,7 +180,7 @@ class TestSeedRegistry:
             ],
         )
         seed_registry(empty_registry, tsv)
-        assert empty_registry.resolve("ctd", "MESH:D000006") == "e200"
+        assert empty_registry.resolve("ctd", "MESH:D000006") == ["e200"]
 
     def test_next_eid_reflects_max(
         self, empty_registry: EntityRegistry, tmp_path: Path
@@ -236,7 +254,7 @@ class TestSeedRegistry:
         )
         count = seed_registry(empty_registry, tsv)
         assert count == 1
-        assert empty_registry.resolve("foodon", "http://x/F2") == "e2"
+        assert empty_registry.resolve("foodon", "http://x/F2") == ["e2"]
 
     def test_skips_placeholder_entities(
         self, empty_registry: EntityRegistry, tmp_path: Path
@@ -258,7 +276,7 @@ class TestSeedRegistry:
         )
         count = seed_registry(empty_registry, tsv)
         assert count == 0
-        assert empty_registry.resolve("dmd", "DMD001") == ""
+        assert empty_registry.resolve("dmd", "DMD001") == []
 
     def test_skips_empty_external_ids(
         self, empty_registry: EntityRegistry, tmp_path: Path
@@ -305,7 +323,7 @@ class TestSeedRegistry:
         )
         count = seed_registry(empty_registry, tsv)
         assert count == 1
-        assert empty_registry.resolve("foodon", "http://x/F1") == "e1"
+        assert empty_registry.resolve("foodon", "http://x/F1") == ["e1"]
 
     def test_max_eid_covers_unregisterable_entities(
         self, empty_registry: EntityRegistry, tmp_path: Path
@@ -357,7 +375,7 @@ class TestSeedRegistry:
             ],
         )
         count = seed_registry(empty_registry, tsv)
-        assert count == 1
-        assert empty_registry.resolve("chebi", "27732") == "e42"
-        # pubchem and mesh are not mapped for chemicals
-        assert empty_registry.resolve("pubchem_compound", "2519") == ""
+        assert count == 3  # chebi (primary) + pubchem + mesh
+        assert empty_registry.resolve("chebi", "27732") == ["e42"]
+        assert empty_registry.resolve("pubchem", "2519") == ["e42"]
+        assert empty_registry.resolve("mesh", "D002110") == ["e42"]

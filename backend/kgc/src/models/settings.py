@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, model_validator
 from pydantic_settings import BaseSettings
 
 from ..utils.json_io import read_json
@@ -30,25 +30,9 @@ class KgInitStageConfig(BaseModel):
     previous_kg_entities: str = ""
 
 
-class MetadataProcessingStageConfig(BaseModel):
-    pass
-
-
-class TripletExpansionStageConfig(BaseModel):
-    ie_raw_paths: dict[str, str] = Field(default_factory=dict)
-    ie_prob_threshold: float = 0.95
-
-
-class EnrichmentStageConfig(BaseModel):
-    pass
-
-
 class StagesConfig(BaseModel):
     data_cleaning: DataCleaningStageConfig = DataCleaningStageConfig()
     kg_init: KgInitStageConfig = KgInitStageConfig()
-    metadata_processing: MetadataProcessingStageConfig = MetadataProcessingStageConfig()
-    triplet_expansion: TripletExpansionStageConfig = TripletExpansionStageConfig()
-    enrichment: EnrichmentStageConfig = EnrichmentStageConfig()
 
 
 class PipelineConfig(BaseModel):
@@ -62,8 +46,7 @@ class KGCSettings(BaseSettings):
     data_dir: str = ""
     output_dir: str = ""
     cache_dir: str = ""
-    openai_api_key: str = ""
-    pubchem_mapping_file: str = ""
+    ie_raw_dir: str = ""
     pipeline: PipelineConfig = PipelineConfig()
 
     @property

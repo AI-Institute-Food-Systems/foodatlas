@@ -84,7 +84,8 @@ def test_link_cdno_to_chebi(tmp_path: Path, registry: EntityRegistry) -> None:
             ),
         }
     }
-    link_cdno_to_chebi(sources, store, registry, {})
+    registry.register("chebi", "2345", "e1")
+    link_cdno_to_chebi(sources, store, registry)
     ext = store._entities.at["e1", "external_ids"]
     assert "cdno" in ext
     assert "CDNO_001" in ext["cdno"]
@@ -120,7 +121,8 @@ def test_link_fdc_foods_to_foodon(tmp_path: Path, registry: EntityRegistry) -> N
         }
     }
     corrections = Corrections()
-    link_fdc_foods_to_foodon(sources, store, corrections, linked, registry, {})
+    registry.register("foodon", "http://foodon/F1", "e1")
+    link_fdc_foods_to_foodon(sources, store, corrections, linked, registry)
     ext = store._entities.at["e1", "external_ids"]
     assert "fdc" in ext
     assert 100 in ext["fdc"]
@@ -163,7 +165,8 @@ def test_link_fdc_nutrients(tmp_path: Path, registry: EntityRegistry) -> None:
             ),
         },
     }
-    link_fdc_nutrients(sources, store, linked, registry, {})
+    registry.register_alias("cdno", "CDNO_X", "e1")
+    link_fdc_nutrients(sources, store, linked, registry)
     ext = store._entities.at["e1", "external_ids"]
     assert "fdc_nutrient" in ext
     assert 1001 in ext["fdc_nutrient"]
@@ -220,7 +223,9 @@ def test_link_fdc_nutrients_multi_cdno_links_all(
             ),
         },
     }
-    link_fdc_nutrients(sources, store, linked, registry, {})
+    registry.register_alias("cdno", "CDNO_A", "e1")
+    registry.register_alias("cdno", "CDNO_B", "e2")
+    link_fdc_nutrients(sources, store, linked, registry)
     # Both entities should have fdc_nutrient appended.
     assert 1038 in store._entities.at["e1", "external_ids"]["fdc_nutrient"]
     assert 1038 in store._entities.at["e2", "external_ids"]["fdc_nutrient"]

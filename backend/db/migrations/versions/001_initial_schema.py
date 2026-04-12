@@ -109,7 +109,7 @@ def upgrade() -> None:
         sa.Column("conc_unit_raw", sa.Text, server_default=""),
         sa.Column("food_part", sa.Text, server_default=""),
         sa.Column("food_processing", sa.Text, server_default=""),
-        sa.Column("quality_score", sa.Double, nullable=True),
+        sa.Column("filter_score", sa.Double, nullable=True),
         sa.Column("validated", sa.Boolean, server_default="false"),
         sa.Column("validated_correct", sa.Boolean, server_default="true"),
         sa.Column("head_candidates", postgresql.ARRAY(sa.Text), server_default="{}"),

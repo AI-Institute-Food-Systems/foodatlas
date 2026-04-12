@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
@@ -155,6 +156,26 @@ class TestIERunner:
         mock_extract.assert_called_once()
         mock_agg.assert_called_once()
         mock_json.assert_called_once()
+
+    @patch("src.pipeline.runner.tsv_to_json")
+    @patch("src.pipeline.runner.aggregate_batch_predictions")
+    @patch("src.pipeline.runner.run_extraction")
+    def test_extraction_writes_run_info(
+        self,
+        mock_extract: MagicMock,
+        mock_agg: MagicMock,
+        mock_json: MagicMock,
+        runner: IERunner,
+        settings: IESettings,
+        tmp_path: Path,
+    ) -> None:
+        runner._run_extraction()
+        extract_dir = tmp_path / "outputs" / "extraction"
+        run_info_path = extract_dir / settings.resolved_date / "run_info.json"
+        assert run_info_path.exists()
+        info = json.loads(run_info_path.read_text())
+        assert info["model"] == "gpt-4"
+        assert info["date"] == "2026_04_06"
 
 
 class TestCLI:

@@ -129,6 +129,7 @@ class TestLinkDmd:
 
     def test_links_via_chebi(self, tmp_path: Path, registry: EntityRegistry) -> None:
         store = _make_store(tmp_path, [_CHEBI_ENTITY])
+        registry.register("chebi", "123", "e1")
         xrefs = [
             {
                 "source_id": "dmd",
@@ -143,6 +144,8 @@ class TestLinkDmd:
 
     def test_links_via_pubchem(self, tmp_path: Path, registry: EntityRegistry) -> None:
         store = _make_store(tmp_path, [_PUBCHEM_ENTITY])
+        registry.register("chebi", "456", "e2")
+        registry.register_alias("pubchem", "5793", "e2")
         xrefs = [
             {
                 "source_id": "dmd",
@@ -160,6 +163,9 @@ class TestLinkDmd:
     ) -> None:
         """If both ChEBI and PubChem match, ChEBI wins."""
         store = _make_store(tmp_path, [_CHEBI_ENTITY, _PUBCHEM_ENTITY])
+        registry.register("chebi", "123", "e1")
+        registry.register("chebi", "456", "e2")
+        registry.register_alias("pubchem", "5793", "e2")
         xrefs = [
             {
                 "source_id": "dmd",
@@ -195,6 +201,8 @@ class TestLinkDmd:
             "external_ids": {"chebi": [200]},
         }
         store = _make_store(tmp_path, [entity_a, entity_b])
+        registry.register("chebi", "100", "e10")
+        registry.register("chebi", "200", "e11")
         xrefs = [
             {
                 "source_id": "dmd",
@@ -215,7 +223,8 @@ class TestLinkDmd:
 
     def test_skips_registered(self, tmp_path: Path, registry: EntityRegistry) -> None:
         store = _make_store(tmp_path, [_CHEBI_ENTITY])
-        registry.register("dmd", "DMD001", "e1")
+        registry.register("chebi", "123", "e1")
+        registry.register_alias("dmd", "DMD001", "e1")
         xrefs = [
             {
                 "source_id": "dmd",

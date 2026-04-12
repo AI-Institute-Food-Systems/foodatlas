@@ -21,7 +21,7 @@ class TestResolveIeMetadata:
                 "source": "lit2kg",
                 "reference": [f"pmcid:{i}"],
                 "entity_linking_method": "ie_lut_lookup",
-                "quality_score": 0.99,
+                "filter_score": 0.99,
             }
             for i, (food, chem) in enumerate(pairs)
         ]

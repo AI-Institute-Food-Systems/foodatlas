@@ -91,7 +91,7 @@ def _make_kg_dir(tmp_path: Path) -> Path:
             "conc_unit": "mg/g",
             "food_part": "peel",
             "food_processing": "raw",
-            "quality_score": 0.95,
+            "filter_score": 0.95,
             "validated": False,
             "validated_correct": True,
         },

@@ -29,13 +29,20 @@ def _mesh_to_ctd(val: Any) -> str:
 
 # (entity_type, external_ids_key) → (registry_source, transform, is_primary)
 _SOURCE_MAP: dict[tuple[str, str], tuple[str, Any, bool]] = {
+    # Primary sources
     ("food", "foodon"): ("foodon", str, True),
-    ("food", "fdc"): ("fdc", _str_int, False),
     ("chemical", "chebi"): ("chebi", _str_int, True),
-    ("chemical", "cdno"): ("cdno", str, False),
-    ("chemical", "fdc_nutrient"): ("fdc_nutrient", _str_int, False),
     ("chemical", "dmd"): ("dmd", str, True),
     ("disease", "mesh"): ("ctd", _mesh_to_ctd, True),
+    # Secondary / alias sources
+    ("food", "fdc"): ("fdc", _str_int, False),
+    ("chemical", "cdno"): ("cdno", str, False),
+    ("chemical", "fdc_nutrient"): ("fdc_nutrient", _str_int, False),
+    ("chemical", "pubchem_compound"): ("pubchem", str, False),
+    ("chemical", "pubchem_cid"): ("pubchem", str, False),
+    ("chemical", "mesh"): ("mesh", str, False),
+    ("chemical", "kegg"): ("kegg", str, False),
+    ("chemical", "mirbase"): ("mirbase", str, False),
 }
 
 
