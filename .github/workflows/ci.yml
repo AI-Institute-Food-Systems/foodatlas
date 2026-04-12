@@ -7,6 +7,7 @@ on:
     paths:
       - "backend/**"
       - "frontend/**"
+      - "infra/cdk/**"
       - "!**/*.md"
 
 concurrency:
@@ -25,6 +26,7 @@ jobs:
       ie: ${{ steps.diff.outputs.ie }}
       kgc: ${{ steps.diff.outputs.kgc }}
       frontend: ${{ steps.diff.outputs.frontend }}
+      infra_cdk: ${{ steps.diff.outputs.infra_cdk }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -40,10 +42,11 @@ jobs:
           echo "ie=$(  echo "$CHANGED" | grep -q '^backend/ie/'  && echo true || echo false )" >> "$GITHUB_OUTPUT"
           echo "kgc=$( echo "$CHANGED" | grep -q '^backend/kgc/' && echo true || echo false )" >> "$GITHUB_OUTPUT"
           echo "frontend=$( echo "$CHANGED" | grep -q '^frontend/' && echo true || echo false )" >> "$GITHUB_OUTPUT"
+          echo "infra_cdk=$( echo "$CHANGED" | grep -q '^infra/cdk/' && echo true || echo false )" >> "$GITHUB_OUTPUT"
 
   backend-lint:
     needs: changes
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.db == 'true' || needs.changes.outputs.ie == 'true' || needs.changes.outputs.kgc == 'true'
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.db == 'true' || needs.changes.outputs.ie == 'true' || needs.changes.outputs.kgc == 'true' || needs.changes.outputs.infra_cdk == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -52,19 +55,19 @@ jobs:
         uses: astral-sh/ruff-action@v3
         with:
           version: "0.15.8"
-          src: backend/
+          src: backend/ infra/cdk/
           args: check
 
       - name: Ruff format check
         uses: astral-sh/ruff-action@v3
         with:
           version: "0.15.8"
-          src: backend/
+          src: backend/ infra/cdk/
           args: format --check
 
   backend-security:
     needs: changes
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.db == 'true' || needs.changes.outputs.ie == 'true' || needs.changes.outputs.kgc == 'true'
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.db == 'true' || needs.changes.outputs.ie == 'true' || needs.changes.outputs.kgc == 'true' || needs.changes.outputs.infra_cdk == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -78,11 +81,11 @@ jobs:
         run: pip install "bandit[toml]"
 
       - name: Bandit security scan
-        run: bandit -c pyproject.toml -r backend/ --exclude "backend/api/tests,backend/db/tests,backend/ie/tests,backend/kgc/tests,backend/api/.venv,backend/db/.venv,backend/ie/.venv,backend/kgc/.venv"
+        run: bandit -c pyproject.toml -r backend/ infra/cdk/ --exclude "backend/api/tests,backend/db/tests,backend/ie/tests,backend/kgc/tests,backend/api/.venv,backend/db/.venv,backend/ie/.venv,backend/kgc/.venv,infra/cdk/tests,infra/cdk/.venv"
 
   backend-typecheck:
     needs: changes
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.db == 'true' || needs.changes.outputs.ie == 'true' || needs.changes.outputs.kgc == 'true'
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.db == 'true' || needs.changes.outputs.ie == 'true' || needs.changes.outputs.kgc == 'true' || needs.changes.outputs.infra_cdk == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -96,7 +99,7 @@ jobs:
         run: pip install mypy types-requests types-beautifulsoup4 types-PyYAML
 
       - name: Mypy type check
-        run: mypy --explicit-package-bases --exclude '\.venv' backend/
+        run: mypy --explicit-package-bases --exclude '\.venv' backend/ infra/cdk/
 
   backend-test:
     needs: changes
@@ -126,6 +129,38 @@ jobs:
             cd ../..
             echo "::endgroup::"
           done
+
+  infra-cdk-test:
+    needs: changes
+    if: needs.changes.outputs.infra_cdk == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Node.js (for cdk synth)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install CDK CLI
+        run: npm install -g aws-cdk@2
+
+      - name: Run CDK tests
+        run: cd infra/cdk && uv sync && uv run pytest
+
+      - name: CDK synth
+        run: cd infra/cdk && uv run cdk synth --quiet
+        env:
+          CDK_DEFAULT_ACCOUNT: "000000000000"
+          CDK_DEFAULT_REGION: us-east-1
 
   frontend-lint:
     needs: changes
