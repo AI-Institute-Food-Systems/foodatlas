@@ -65,7 +65,6 @@ repos:
         entry: bash -c 'cd backend/api && uv run pytest'
         language: system
         pass_filenames: false
-        always_run: true
         files: ^backend/api/
         stages: [pre-push]
 
@@ -74,7 +73,6 @@ repos:
         entry: bash -c 'cd backend/db && uv run pytest'
         language: system
         pass_filenames: false
-        always_run: true
         files: ^backend/db/
         stages: [pre-push]
 
@@ -83,7 +81,6 @@ repos:
         entry: bash -c 'cd backend/ie && uv run pytest'
         language: system
         pass_filenames: false
-        always_run: true
         files: ^backend/ie/
         stages: [pre-push]
 
@@ -92,7 +89,6 @@ repos:
         entry: bash -c 'cd backend/kgc && uv run pytest'
         language: system
         pass_filenames: false
-        always_run: true
         files: ^backend/kgc/
         stages: [pre-push]
 
@@ -101,7 +97,6 @@ repos:
         entry: bash -c 'cd infra/cdk && uv run pytest'
         language: system
         pass_filenames: false
-        always_run: true
         files: ^infra/cdk/
         stages: [pre-push]
 
