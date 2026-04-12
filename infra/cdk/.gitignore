@@ -1,0 +1,8 @@
+.venv/
+cdk.out/
+cdk.context.json
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/
