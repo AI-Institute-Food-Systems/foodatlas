@@ -7,6 +7,7 @@ from aws_cdk.assertions import Match, Template
 
 from stacks.api_stack import ApiStack
 from stacks.database_stack import DatabaseStack
+from stacks.ecr_stack import EcrStack
 from stacks.network_stack import NetworkStack
 from stacks.storage_stack import StorageStack
 
@@ -15,6 +16,7 @@ def _synth() -> Template:
     app = cdk.App()
     network = NetworkStack(app, "TestNetworkStack")
     storage = StorageStack(app, "TestStorageStack")
+    ecr_stack = EcrStack(app, "TestEcrStack")
     database = DatabaseStack(
         app,
         "TestDatabaseStack",
@@ -24,6 +26,7 @@ def _synth() -> Template:
         app,
         "TestApiStack",
         vpc=network.vpc,
+        repository=ecr_stack.repository,
         db_instance=database.db_instance,
         db_secret=database.db_secret,
         parquet_bucket=storage.parquet_bucket,
@@ -31,13 +34,9 @@ def _synth() -> Template:
     return Template.from_stack(stack)
 
 
-def test_ecr_repository_exists() -> None:
+def test_api_stack_does_not_declare_ecr_repository() -> None:
     template = _synth()
-    template.resource_count_is("AWS::ECR::Repository", 1)
-    template.has_resource_properties(
-        "AWS::ECR::Repository",
-        Match.object_like({"RepositoryName": "foodatlas-api"}),
-    )
+    template.resource_count_is("AWS::ECR::Repository", 0)
 
 
 def test_ecs_cluster_and_service_exist() -> None:

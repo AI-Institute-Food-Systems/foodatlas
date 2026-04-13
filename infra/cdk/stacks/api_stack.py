@@ -1,8 +1,9 @@
-"""API stack: ECR repository + ECS Fargate service behind an ALB.
+"""API stack: ECS Fargate service behind an ALB.
 
-The Fargate task runs the FastAPI backend image from ECR. Secrets Manager
-supplies DB credentials at task start; the ALB listens on port 80 (HTTPS
-upgrade pending ACM cert) and forwards to the task on port 8000.
+The Fargate task runs the FastAPI backend image from the ECR repository
+provided by :class:`stacks.ecr_stack.EcrStack`. Secrets Manager supplies DB
+credentials at task start; the ALB listens on port 80 (HTTPS upgrade pending
+ACM cert) and forwards to the task on port 8000.
 
 Networking: tasks are placed in public subnets with public IPs so they can
 pull from ECR and reach Secrets Manager without a NAT gateway. Security
@@ -11,8 +12,9 @@ groups for the ALB and the Fargate task are auto-created by the
 stack avoids cross-stack SG dependency cycles with NetworkStack.
 
 **Before first deploy** an image must exist in the ECR repository — otherwise
-the service will fail to start. Build + push the API image from
-`backend/api/` to the created repository, then deploy this stack.
+the service will fail to start. Deploy :class:`EcrStack`, then build + push
+the API image from ``backend/api/`` to that repository, then deploy this
+stack.
 
 The stack uses a build-time context variable `api_image_tag` (default `latest`)
 to pick the image tag. Override with `cdk deploy -c api_image_tag=<sha>`.
@@ -38,7 +40,7 @@ if TYPE_CHECKING:
 
 
 class ApiStack(cdk.Stack):
-    """ECR + ECS Fargate + ALB hosting the FastAPI backend."""
+    """ECS Fargate + ALB hosting the FastAPI backend."""
 
     def __init__(
         self,
@@ -46,6 +48,7 @@ class ApiStack(cdk.Stack):
         construct_id: str,
         *,
         vpc: ec2.IVpc,
+        repository: ecr.IRepository,
         db_instance: rds.IDatabaseInstance,
         db_secret: secretsmanager.ISecret,
         parquet_bucket: s3.IBucket,
@@ -54,21 +57,6 @@ class ApiStack(cdk.Stack):
         super().__init__(scope, construct_id, **kwargs)
 
         image_tag = self.node.try_get_context("api_image_tag") or "latest"
-
-        self.repository = ecr.Repository(
-            self,
-            "ApiRepository",
-            repository_name="foodatlas-api",
-            image_scan_on_push=True,
-            removal_policy=RemovalPolicy.RETAIN,
-            lifecycle_rules=[
-                ecr.LifecycleRule(
-                    description="Keep last 10 images",
-                    max_image_count=10,
-                    rule_priority=1,
-                ),
-            ],
-        )
 
         cluster = ecs.Cluster(
             self,
@@ -97,7 +85,7 @@ class ApiStack(cdk.Stack):
         task_definition.add_container(
             "ApiContainer",
             image=ecs.ContainerImage.from_ecr_repository(
-                self.repository,
+                repository,
                 tag=image_tag,
             ),
             logging=ecs.LogDrivers.aws_logs(
@@ -152,10 +140,4 @@ class ApiStack(cdk.Stack):
             "ApiUrl",
             value=f"http://{self.service.load_balancer.load_balancer_dns_name}",
             description="Public API URL (ALB DNS)",
-        )
-        cdk.CfnOutput(
-            self,
-            "EcrRepositoryUri",
-            value=self.repository.repository_uri,
-            description="ECR repository URI for pushing the API image",
         )
