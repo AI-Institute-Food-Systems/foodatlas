@@ -1,17 +1,21 @@
 """CLI entry point for the database layer."""
 
 import logging
+import tempfile
 from pathlib import Path
 
 import click
 from src.config import DBSettings
 from src.engine import create_sync_engine
 from src.etl.loader import load_kg
+from src.etl.s3_sync import download_s3_prefix, is_s3_uri
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)-8s %(name)s: %(message)s",
 )
+
+_DEFAULT_PARQUET_DIR = Path(__file__).resolve().parent.parent / "kgc" / "outputs" / "kg"
 
 
 @click.group()
@@ -22,17 +26,34 @@ def cli() -> None:
 @cli.command()
 @click.option(
     "--parquet-dir",
-    type=click.Path(exists=True, path_type=Path),
-    default=Path(__file__).resolve().parent.parent / "kgc" / "outputs" / "kg",
+    type=str,
+    default=str(_DEFAULT_PARQUET_DIR),
     show_default=True,
-    help="Path to KGC output directory containing parquet files.",
+    help=(
+        "Path to KGC output directory containing parquet files. Accepts a "
+        "local path or an s3:// URI (e.g. s3://bucket/kg). S3 URIs are "
+        "downloaded to a temporary directory first."
+    ),
 )
-def load(parquet_dir: Path) -> None:
+def load(parquet_dir: str) -> None:
     """Load KGC parquet output into PostgreSQL."""
     settings = DBSettings()
     engine = create_sync_engine(settings)
-    with engine.connect() as conn:
-        load_kg(conn, parquet_dir)
+
+    if is_s3_uri(parquet_dir):
+        with tempfile.TemporaryDirectory(prefix="foodatlas-s3-") as tmp:
+            local_dir = Path(tmp)
+            download_s3_prefix(parquet_dir, local_dir)
+            with engine.connect() as conn:
+                load_kg(conn, local_dir)
+    else:
+        local_path = Path(parquet_dir)
+        if not local_path.exists():
+            msg = f"Parquet directory does not exist: {local_path}"
+            raise click.BadParameter(msg, param_hint="--parquet-dir")
+        with engine.connect() as conn:
+            load_kg(conn, local_path)
+
     click.echo("Done.")
 
 
