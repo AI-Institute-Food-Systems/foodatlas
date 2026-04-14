@@ -37,13 +37,13 @@ PostgreSQL 16 (Docker) → DB migrations (Alembic) → Data load (ETL) → FastA
 
 ```bash
 # Start PostgreSQL
-docker compose -f infra/docker-compose.yml up -d
+docker compose -f infra/local/docker-compose.yml up -d
 
 # Run DB migrations
 cd backend/db && uv run alembic upgrade head
 
 # Load KGC data into PostgreSQL
-cd backend/db && uv run python main.py load --parquet-dir ../kgc/outputs/kg
+cd backend/db && uv run python main.py load
 
 # Start API server (port 8000)
 cd backend/api && uv run python main.py

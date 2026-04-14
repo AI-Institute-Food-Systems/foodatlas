@@ -2,19 +2,25 @@
 # Monthly IE → KGC → DB pipeline orchestrator.
 #
 # Usage:
-#   bash infra/monthly_pipeline.sh [OPTIONS]
+#   bash infra/local/scripts/run_monthly.sh [OPTIONS]
 #
 # Options:
 #   --date YYYY_MM_DD   Override run date (default: today UTC)
 #   --skip-ie           Skip IE pipeline, use existing extraction outputs
 #   --skip-ingest       Skip KGC ingest stage (ontologies rarely change)
 #   --skip-db           Skip database load step
+#   --skip-s3           Skip S3 upload of KGC parquet outputs
 #   --ie-only           Run IE pipeline only, stop before KGC
 #
-# Environment variables (see monthly_pipeline.env.example):
-#   OPENAI_API_KEY      Required for IE extraction and KGC enrichment
-#   NCBI_API_KEY        Required for IE corpus/search stages
-#   NCBI_EMAIL          Required for IE corpus/search stages
+# Required environment variables:
+#   OPENAI_API_KEY              Required for IE extraction and KGC enrichment
+#   NCBI_API_KEY                Required for IE corpus/search stages
+#   NCBI_EMAIL                  Required for IE corpus/search stages
+#
+# The S3 upload step shells out to backend/kgc/scripts/sync-outputs-to-s3.sh,
+# which resolves the bucket name from the FoodAtlasStorageStack CloudFormation
+# outputs. It requires the AWS CLI to be installed and authenticated against
+# an account where FoodAtlasStorageStack has been deployed.
 
 set -euo pipefail
 
@@ -22,7 +28,7 @@ set -euo pipefail
 # Paths
 # ---------------------------------------------------------------------------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 IE_DIR="$REPO_ROOT/backend/ie"
 KGC_DIR="$REPO_ROOT/backend/kgc"
 DB_DIR="$REPO_ROOT/backend/db"
@@ -35,6 +41,7 @@ RUN_DATE="$(date -u +%Y_%m_%d)"
 SKIP_IE=false
 SKIP_INGEST=false
 SKIP_DB=false
+SKIP_S3=false
 IE_ONLY=false
 
 # ---------------------------------------------------------------------------
@@ -46,6 +53,7 @@ while [[ $# -gt 0 ]]; do
         --skip-ie)    SKIP_IE=true;  shift ;;
         --skip-ingest) SKIP_INGEST=true; shift ;;
         --skip-db)    SKIP_DB=true;  shift ;;
+        --skip-s3)    SKIP_S3=true;  shift ;;
         --ie-only)    IE_ONLY=true;  shift ;;
         *)
             echo "Unknown option: $1" >&2
@@ -98,9 +106,14 @@ validate_env() {
         exit 1
     fi
 
+    if [[ "$SKIP_S3" == false ]] && ! command -v aws &>/dev/null; then
+        echo "ERROR: aws CLI not found on PATH (required unless --skip-s3)." >&2
+        exit 1
+    fi
+
     if [[ ${#missing[@]} -gt 0 ]]; then
         echo "ERROR: Missing required environment variables: ${missing[*]}" >&2
-        echo "See infra/monthly_pipeline.env.example for details." >&2
+        echo "See the script header for required variables." >&2
         exit 1
     fi
 }
@@ -162,9 +175,25 @@ run_db() {
 }
 
 # ---------------------------------------------------------------------------
+# Stage 4: S3 Upload (KGC parquet outputs)
+# ---------------------------------------------------------------------------
+run_s3_upload() {
+    log "=== S3 Upload ==="
+
+    if [[ ! -d "$KGC_DIR/outputs" ]]; then
+        log "Skipping S3 upload: $KGC_DIR/outputs missing."
+        return
+    fi
+
+    log "Running: backend/kgc/scripts/sync-outputs-to-s3.sh"
+    "$KGC_DIR/scripts/sync-outputs-to-s3.sh" 2>&1 | tee "$LOG_DIR/s3.log"
+    log "S3 upload complete."
+}
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
-log "Pipeline started (date=$RUN_DATE, skip_ie=$SKIP_IE, skip_ingest=$SKIP_INGEST, skip_db=$SKIP_DB, ie_only=$IE_ONLY)"
+log "Pipeline started (date=$RUN_DATE, skip_ie=$SKIP_IE, skip_ingest=$SKIP_INGEST, skip_db=$SKIP_DB, skip_s3=$SKIP_S3, ie_only=$IE_ONLY)"
 
 if [[ "$SKIP_IE" == false ]]; then
     run_ie
@@ -180,6 +209,10 @@ run_kgc
 
 if [[ "$SKIP_DB" == false ]]; then
     run_db
+fi
+
+if [[ "$SKIP_S3" == false ]]; then
+    run_s3_upload
 fi
 
 log "Pipeline finished successfully."

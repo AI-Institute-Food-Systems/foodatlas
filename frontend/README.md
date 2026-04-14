@@ -44,14 +44,24 @@ frontend/
 
 ## Environment Variables
 
-Create a `.env.local` file (or set env vars) before running:
+Create a `.env.local` file (or set env vars) before running locally:
 
-| Variable | Default | Description |
-|---|---|---|
-| `NEXT_PUBLIC_API_URL` | — | Backend API URL (`http://localhost:8000` for local dev) |
-| `NEXT_PUBLIC_API_KEY` | — | Backend API key (not needed when API runs in debug mode) |
-| `VALIDATION_PAGE_PASSWORD` | — | Password for the validation page (NextAuth) |
-| `NEXTAUTH_SECRET` | — | NextAuth.js secret |
-| `RESEND_API_KEY` | — | Resend API key (contact form) |
-| `EMAIL_FROM` | — | Sender email address |
-| `EMAIL_TO` | — | Recipient email address(es) |
+| Variable | Local default | Production source | Description |
+|---|---|---|---|
+| `NEXT_PUBLIC_API_URL` | `http://localhost:8000` | Vercel project env var → ALB DNS or domain | Backend API URL |
+| `NEXT_PUBLIC_API_KEY` | — | Vercel project env var | Backend API key (not needed when API runs in debug mode) |
+| `VALIDATION_PAGE_PASSWORD` | — | Vercel project env var | Password for the validation page (NextAuth) |
+| `NEXTAUTH_SECRET` | — | Vercel project env var | NextAuth.js secret |
+| `RESEND_API_KEY` | — | Vercel project env var | Resend API key (contact form) |
+| `EMAIL_FROM` | — | Vercel project env var | Sender email address |
+| `EMAIL_TO` | — | Vercel project env var | Recipient email address(es) |
+
+## Production
+
+The frontend is deployed via **Vercel**, which watches this repo and auto-builds on push (preview builds for branches, production builds for `main`). The only setup needed beyond pushing code:
+
+1. Set `NEXT_PUBLIC_API_URL` in the Vercel project to the production API endpoint. Today that's the raw ALB DNS; long-term it should be a custom domain with HTTPS via ACM. See [`infra/README.md`](../infra/README.md) for the API deployment.
+2. Set `NEXT_PUBLIC_API_KEY` to match the API's bearer token (the `API_KEY` env var injected into the ECS task).
+3. Set the contact-form and auth-related env vars as needed.
+
+> **Mixed content note.** As of writing, the ALB serves HTTP only. Browsers block HTTPS pages from making HTTP requests, so until HTTPS is wired up on the ALB, end-to-end calls from a Vercel-hosted Next.js page to the API will fail with a mixed-content error. Tracked as a deferred infrastructure task.

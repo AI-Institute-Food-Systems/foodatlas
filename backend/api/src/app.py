@@ -29,6 +29,11 @@ def create_app(settings: APISettings | None = None) -> FastAPI:
         allow_headers=["*"],
     )
 
+    @app.get("/health", tags=["health"])
+    async def health() -> dict[str, str]:
+        """Liveness probe for the ALB target group (no auth required)."""
+        return {"status": "ok"}
+
     app.include_router(food.router)
     app.include_router(chemical.router)
     app.include_router(disease.router)

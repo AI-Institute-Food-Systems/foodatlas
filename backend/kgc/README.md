@@ -95,16 +95,18 @@ Pydantic models in `src/models/` are the single source of truth for the KG schem
 
 ### Output Files
 
+The pipeline writes parquet files to `outputs/kg/` (the loadable knowledge graph) plus sidecars in `outputs/kg/{checkpoints,diagnostics,intermediate}/` and per-source ingestion outputs in `outputs/ingest/`.
+
 | File | Description |
 |------|-------------|
-| `entities.json` | All entities (food, chemical, disease) |
-| `triplets.json` | Relationship triplets (head, rel, tail) |
-| `metadata_contains.json` | Food-chemical concentration metadata |
-| `lookup_table_food.json` | Synonym → food entity ID mapping |
-| `lookup_table_chemical.json` | Synonym → chemical entity ID mapping |
-| `relationships.json` | Relationship type definitions |
-| `food_ontology.json` | FoodOn is_a hierarchy |
-| `chemical_ontology.json` | ChEBI hierarchy |
+| `entities.parquet` | All entities (food, chemical, disease) |
+| `entity_registry.parquet` | Persistent (source, native_id) → foodatlas_id mapping for stable IDs |
+| `triplets.parquet` | Relationship triplets (head, rel, tail) |
+| `relationships.parquet` | Relationship type definitions (`r1`–`r5`) |
+| `evidence.parquet` | Per-triplet evidence rows |
+| `attestations.parquet` | Per-triplet attestation/provenance |
+| `attestations_ambiguous.parquet` | Attestations whose entity resolution was ambiguous |
+| `retired.parquet` | Entities retired in the latest run (for downstream reconciliation) |
 
 ## Project Structure
 
@@ -150,4 +152,33 @@ kgc/
 ## Data Sources
 
 See [`data/README.md`](data/README.md) for details on external data sources:
-FoodOn, ChEBI, CDNO, FDC, CTD, FlavorDB, FlavorGraph, HSDB, Lit2KG, MeSH, PubChem.
+FoodOn, ChEBI, CDNO, FDC, CTD, FlavorDB, FlavorGraph, HSDB, MeSH, PubChem.
+
+> `data/Lit2KG/` is **deprecated** — the pipeline no longer reads from it. The legacy text-parser outputs remain on disk for historical reference and are excluded from the S3 sync. The `"lit2kg:..."` source tag in `src/pipeline/ie/loader.py` is a provenance label, not a filesystem path; the actual literature inputs now flow from [`backend/ie/`](../ie/).
+
+## Publishing & Loading (production)
+
+Local KGC runs produce parquet under `outputs/kg/`. To publish to AWS and load into RDS:
+
+```bash
+# Publish source ontologies (only when registries refresh — quarterly)
+./scripts/sync-data-to-s3.sh
+
+# Publish the KGC pipeline output (after each run)
+./scripts/sync-outputs-to-s3.sh
+
+# Load the published outputs into RDS via a one-off ECS task
+cd ../../infra/cdk && ./scripts/run-data-load.sh
+```
+
+Each sync creates an immutable timestamped directory under `s3://<bucket>/data/<UTC-ts>/` or `s3://<bucket>/outputs/<UTC-ts>/` and updates a `LATEST` pointer file. Old versions stay forever for traceability and rollback. See [`infra/README.md#s3-layout`](../../infra/README.md#s3-layout) for the full layout and [`infra/README.md#helper-scripts`](../../infra/README.md#helper-scripts) for the script catalog.
+
+To pull a previous run as the baseline for the next KGC build:
+
+```bash
+# Source ontologies from the latest published version
+./scripts/pull-data-from-s3.sh
+
+# Previous KG outputs as PreviousFAKG/ baseline
+./scripts/pull-from-s3.sh
+```
