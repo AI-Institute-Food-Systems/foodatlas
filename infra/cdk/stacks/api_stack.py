@@ -2,8 +2,12 @@
 
 The Fargate task runs the FastAPI backend image from the ECR repository
 provided by :class:`stacks.ecr_stack.EcrStack`. Secrets Manager supplies DB
-credentials at task start; the ALB listens on port 80 (HTTPS upgrade pending
-ACM cert) and forwards to the task on port 8000.
+credentials at task start; the ALB forwards to the task on port 8000.
+
+When the context variable ``api_cert_arn`` is set, the ALB listens on 443
+with HTTPS (cert imported from ACM by ARN) and redirects port 80 → 443.
+Without the context variable, the ALB falls back to plain HTTP on port 80
+so that local ``cdk synth`` and snapshot tests don't require a real cert.
 
 Networking: tasks are placed in public subnets with public IPs so they can
 pull from ECR and reach Secrets Manager without a NAT gateway. Security
@@ -16,20 +20,24 @@ the service will fail to start. Deploy :class:`EcrStack`, then build + push
 the API image from ``backend/api/`` to that repository, then deploy this
 stack.
 
-The stack uses a build-time context variable `api_image_tag` (default `latest`)
-to pick the image tag. Override with `cdk deploy -c api_image_tag=<sha>`.
+Context variables:
+- ``api_image_tag`` (default ``latest``): image tag in ECR to deploy.
+- ``api_cert_arn`` (optional): ACM certificate ARN in the same region as
+  the ALB. When set, enables HTTPS termination on port 443.
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import aws_cdk as cdk
 from aws_cdk import Duration, RemovalPolicy
+from aws_cdk import aws_certificatemanager as acm
 from aws_cdk import aws_ec2 as ec2
 from aws_cdk import aws_ecr as ecr
 from aws_cdk import aws_ecs as ecs
 from aws_cdk import aws_ecs_patterns as ecs_patterns
+from aws_cdk import aws_elasticloadbalancingv2 as elbv2
 from aws_cdk import aws_logs as logs
 from aws_cdk import aws_rds as rds
 from aws_cdk import aws_s3 as s3
@@ -71,6 +79,16 @@ class ApiStack(cdk.Stack):
             removal_policy=RemovalPolicy.DESTROY,
         )
 
+        api_key_secret = secretsmanager.Secret(
+            self,
+            "ApiKeySecret",
+            description="Bearer token for the FoodAtlas API (polite gate).",
+            generate_secret_string=secretsmanager.SecretStringGenerator(
+                password_length=32,
+                exclude_punctuation=True,
+            ),
+        )
+
         task_definition = ecs.FargateTaskDefinition(
             self,
             "ApiTaskDefinition",
@@ -104,6 +122,7 @@ class ApiStack(cdk.Stack):
             secrets={
                 "DB_USER": ecs.Secret.from_secrets_manager(db_secret, "username"),
                 "DB_PASSWORD": ecs.Secret.from_secrets_manager(db_secret, "password"),
+                "API_KEY": ecs.Secret.from_secrets_manager(api_key_secret),
             },
             port_mappings=[
                 ecs.PortMapping(container_port=8000, protocol=ecs.Protocol.TCP),
@@ -113,18 +132,36 @@ class ApiStack(cdk.Stack):
         # Task role needs read access to KGC bucket for ad-hoc fetches
         kgc_bucket.grant_read(task_definition.task_role)
 
+        cert_arn = self.node.try_get_context("api_cert_arn")
+        service_kwargs: dict[str, Any] = {
+            "cluster": self.cluster,
+            "task_definition": task_definition,
+            "desired_count": 1,
+            "min_healthy_percent": 100,
+            "public_load_balancer": True,
+            "assign_public_ip": True,
+            "task_subnets": ec2.SubnetSelection(subnet_type=ec2.SubnetType.PUBLIC),
+            "health_check_grace_period": Duration.seconds(60),
+        }
+        if cert_arn:
+            certificate = acm.Certificate.from_certificate_arn(
+                self,
+                "ApiCertificate",
+                cert_arn,
+            )
+            service_kwargs.update(
+                certificate=certificate,
+                protocol=elbv2.ApplicationProtocol.HTTPS,
+                redirect_http=True,
+                listener_port=443,
+            )
+        else:
+            service_kwargs["listener_port"] = 80
+
         self.service = ecs_patterns.ApplicationLoadBalancedFargateService(
             self,
             "ApiService",
-            cluster=self.cluster,
-            task_definition=task_definition,
-            desired_count=1,
-            min_healthy_percent=100,
-            public_load_balancer=True,
-            assign_public_ip=True,
-            task_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PUBLIC),
-            listener_port=80,  # TODO: switch to 443 after ACM cert is added
-            health_check_grace_period=Duration.seconds(60),
+            **service_kwargs,
         )
 
         self.service.target_group.configure_health_check(
@@ -136,9 +173,21 @@ class ApiStack(cdk.Stack):
             unhealthy_threshold_count=3,
         )
 
+        scheme = "https" if cert_arn else "http"
         cdk.CfnOutput(
             self,
             "ApiUrl",
-            value=f"http://{self.service.load_balancer.load_balancer_dns_name}",
+            value=f"{scheme}://{self.service.load_balancer.load_balancer_dns_name}",
             description="Public API URL (ALB DNS)",
+        )
+
+        cdk.CfnOutput(
+            self,
+            "ApiKeySecretArn",
+            value=api_key_secret.secret_arn,
+            description=(
+                "Secrets Manager ARN for the API bearer token. Fetch the "
+                "value with: aws secretsmanager get-secret-value "
+                "--secret-id <arn> --query SecretString --output text"
+            ),
         )
