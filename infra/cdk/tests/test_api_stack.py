@@ -11,9 +11,15 @@ from stacks.ecr_stack import EcrStack
 from stacks.network_stack import NetworkStack
 from stacks.storage_stack import StorageStack
 
+_FAKE_CERT_ARN = (
+    "arn:aws:acm:us-west-1:123456789012:certificate/"
+    "11111111-2222-3333-4444-555555555555"
+)
 
-def _synth() -> Template:
-    app = cdk.App()
+
+def _synth(*, cert_arn: str | None = None) -> Template:
+    context = {"api_cert_arn": cert_arn} if cert_arn else None
+    app = cdk.App(context=context)
     network = NetworkStack(app, "TestNetworkStack")
     storage = StorageStack(app, "TestStorageStack")
     ecr_stack = EcrStack(app, "TestEcrStack")
@@ -87,4 +93,92 @@ def test_log_group_retention_one_month() -> None:
     template.has_resource_properties(
         "AWS::Logs::LogGroup",
         Match.object_like({"RetentionInDays": 30}),
+    )
+
+
+def test_api_key_secret_resource_exists() -> None:
+    template = _synth()
+    template.has_resource_properties(
+        "AWS::SecretsManager::Secret",
+        Match.object_like(
+            {
+                "GenerateSecretString": Match.object_like(
+                    {
+                        "PasswordLength": 32,
+                        "ExcludePunctuation": True,
+                    },
+                ),
+            },
+        ),
+    )
+
+
+def test_task_definition_injects_api_key_secret() -> None:
+    template = _synth()
+    template.has_resource_properties(
+        "AWS::ECS::TaskDefinition",
+        Match.object_like(
+            {
+                "ContainerDefinitions": Match.array_with(
+                    [
+                        Match.object_like(
+                            {
+                                "Secrets": Match.array_with(
+                                    [Match.object_like({"Name": "API_KEY"})],
+                                ),
+                            },
+                        ),
+                    ],
+                ),
+            },
+        ),
+    )
+
+
+def test_http_mode_has_single_port_80_listener() -> None:
+    template = _synth()
+    template.resource_count_is("AWS::ElasticLoadBalancingV2::Listener", 1)
+    template.has_resource_properties(
+        "AWS::ElasticLoadBalancingV2::Listener",
+        Match.object_like({"Protocol": "HTTP", "Port": 80}),
+    )
+
+
+def test_https_mode_declares_443_listener_with_cert() -> None:
+    template = _synth(cert_arn=_FAKE_CERT_ARN)
+    template.has_resource_properties(
+        "AWS::ElasticLoadBalancingV2::Listener",
+        Match.object_like(
+            {
+                "Protocol": "HTTPS",
+                "Port": 443,
+                "Certificates": [{"CertificateArn": _FAKE_CERT_ARN}],
+            },
+        ),
+    )
+
+
+def test_https_mode_redirects_port_80_to_443() -> None:
+    template = _synth(cert_arn=_FAKE_CERT_ARN)
+    template.resource_count_is("AWS::ElasticLoadBalancingV2::Listener", 2)
+    template.has_resource_properties(
+        "AWS::ElasticLoadBalancingV2::Listener",
+        Match.object_like(
+            {
+                "Protocol": "HTTP",
+                "Port": 80,
+                "DefaultActions": [
+                    {
+                        "Type": "redirect",
+                        "RedirectConfig": Match.object_like(
+                            {
+                                "Protocol": "HTTPS",
+                                "Port": "443",
+                                "StatusCode": "HTTP_301",
+                            },
+                        ),
+                    },
+                ],
+            },
+        ),
     )
