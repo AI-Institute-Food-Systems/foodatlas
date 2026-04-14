@@ -1,0 +1,56 @@
+<svg
+  width="1728"
+  height="1117"
+  viewBox="0 0 1728 1117"
+  fill="none"
+  xmlns="http://www.w3.org/2000/svg"
+>
+  <g id="MacBook Pro 16&#34; - 1">
+    <rect width="1728" height="1117" fill="black" />
+    <line
+      id="node_1_node_3"
+      x1="752.16"
+      y1="599.784"
+      x2="648.16"
+      y2="355.784"
+      stroke="url(#paint0_linear_1297_1171)"
+      stroke-width="4"
+    />
+    <circle id="node_3" cx="650.5" cy="355.5" r="17.5" fill="#FFF200" />
+    <line
+      id="node_1_node_2"
+      x1="752.674"
+      y1="597.503"
+      x2="988.674"
+      y2="388.503"
+      stroke="url(#paint1_linear_1297_1171)"
+      stroke-width="4"
+    />
+    <circle id="node_1" cx="754.5" cy="598.5" r="17.5" fill="#00A2FF" />
+    <circle id="node_2" cx="989.5" cy="390.5" r="17.5" fill="#FF00EE" />
+  </g>
+  <defs>
+    <linearGradient
+      id="paint0_linear_1297_1171"
+      x1="754.46"
+      y1="598.804"
+      x2="650.46"
+      y2="354.804"
+      gradientUnits="userSpaceOnUse"
+    >
+      <stop stop-color="#00A1FF" />
+      <stop offset="1" stop-color="#FFF200" />
+    </linearGradient>
+    <linearGradient
+      id="paint1_linear_1297_1171"
+      x1="754.331"
+      y1="599.374"
+      x2="990.331"
+      y2="390.374"
+      gradientUnits="userSpaceOnUse"
+    >
+      <stop stop-color="#00A1FF" />
+      <stop offset="1" stop-color="#FF00EE" />
+    </linearGradient>
+  </defs>
+</svg>

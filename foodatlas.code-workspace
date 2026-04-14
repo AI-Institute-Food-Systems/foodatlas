@@ -1,0 +1,33 @@
+{
+  "folders": [
+    {
+      "path": ".",
+      "name": "foodatlas"
+    },
+    {
+      "path": "frontend",
+      "name": "frontend"
+    },
+    {
+      "path": "backend/api",
+      "name": "backend/api"
+    },
+    {
+      "path": "backend/db",
+      "name": "backend/db"
+    },
+    {
+      "path": "backend/ie",
+      "name": "backend/ie"
+    },
+    {
+      "path": "backend/kgc",
+      "name": "backend/kgc"
+    },
+    {
+      "path": "infra",
+      "name": "infra"
+    }
+  ],
+  "settings": {}
+}

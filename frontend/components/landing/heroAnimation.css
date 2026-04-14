@@ -1,0 +1,30 @@
+* {
+  transition: all 1s ease;
+}
+
+#node_1,
+#node_2,
+#node_3 {
+  animation: moveRandomly 5s infinite alternate;
+}
+
+@keyframes moveRandomly {
+  0% {
+    transform: translate(0, 0);
+  }
+  20% {
+    transform: translate(var(--kf20-x), var(--kf20-y));
+  }
+  /* 40% {
+    transform: translate(var(--kf40-x), var(--kf40-y));
+  }
+  60% {
+    transform: translate(var(--kf60-x), var(--kf60-y));
+  }
+  80% {
+    transform: translate(var(--kf80-x), var(--kf80-y));
+  } */
+  100% {
+    transform: translate(0, 0);
+  }
+}

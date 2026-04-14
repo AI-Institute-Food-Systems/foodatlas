@@ -134,3 +134,32 @@ dmypy.json
 # Mutagen
 mutagen.yml
 mutagen.yml.lock
+
+# Node.js / Next.js
+node_modules/
+.next/
+out/
+.DS_Store
+*.pem
+npm-debug.log*
+.vercel
+*.tsbuildinfo
+next-env.d.ts
+
+# Coding assistant
+.claude/
+_bmad/
+_bmad_output/
+
+# Sandbox
+.bash_profile
+.bashrc
+.gitconfig
+.gitmodules
+.idea
+.mcp.json
+.profile
+.ripgreprc
+.vscode
+.zprofile
+.zshrc

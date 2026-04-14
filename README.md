@@ -1,128 +1,153 @@
-# [Project Title]
+# FoodAtlas
 
-[One-paragraph project description. What does this project do? What problem does it solve?]
+A food knowledge graph platform. This monorepo contains the frontend, backend services, infrastructure-as-code, and data pipelines for ingesting, storing, and serving structured food–chemical–disease relationships.
 
-## 0. Project Setup
+## Operating Modes
 
-After cloning this template, run these steps to configure it for your project:
+FoodAtlas runs in two distinct modes that share **only the application code** — networking, credentials, and deploy steps diverge by mode.
 
-1. **Rename the source package** — rename `src/mypackage/` to your package name
-2. **Update `pyproject.toml`** — set `name`, `description`, and `--cov=src` target to match your package
-3. **Update `.pre-commit-config.yaml`** — update any paths that reference the old package name
-4. **Set up git hooks**
-   ```bash
-   ./scripts/setup-git-hooks.sh
-   ```
-5. **Set up Claude Code** (optional)
-   ```bash
-   ./scripts/setup-claude-code.sh
-   ```
-6. **Install dependencies**
-   ```bash
-   uv sync
-   ```
+- **Local development** — Docker Compose Postgres on your laptop, app servers running directly from `uv run python main.py` and `npm run dev`. Use this for day-to-day code changes and tests. See [Running Locally](#running-locally) below.
+- **AWS production** — RDS Postgres, ECS Fargate API behind an ALB, S3 for KGC artifacts, deployed via AWS CDK. Use this for live deployments. See [`infra/README.md`](infra/README.md) for the full deploy guide, stack inventory, scripts, and troubleshooting.
 
-## 1. Directories
+The high-level data flow:
+
+```mermaid
+flowchart LR
+    literature["PubMed / PMC<br/>biomedical literature"]
+    ontologies["Ontologies and datasets<br/>FoodOn / ChEBI / FDC / CTD / ..."]
+    ie["IE pipeline<br/>(backend/ie)"]
+    kgc["KGC pipeline<br/>(backend/kgc)"]
+    db[("PostgreSQL<br/>local: Docker<br/>prod: RDS")]
+    api["FastAPI<br/>(backend/api)"]
+    frontend["Next.js<br/>(frontend)"]
+    user(("User"))
+
+    literature --> ie
+    ontologies --> kgc
+    ie --> kgc
+    kgc --> db
+    db --> api
+    api --> frontend
+    frontend --> user
+```
+
+## Repository Structure
 
 ```
 .
-├── src/
-│   └── mypackage/      # Rename to your package name
-│       └── __init__.py
-├── tests/              # Test files
-├── data/               # Data files
-├── outputs/            # Output files
-└── pyproject.toml      # Project configuration
+├── frontend/                  # Next.js 14 web app (React 18, TypeScript, Tailwind)
+├── backend/
+│   ├── api/                   # FastAPI REST service (port 8000)
+│   ├── db/                    # PostgreSQL schema, migrations, ETL loader
+│   ├── ie/                    # Information extraction pipeline (LLM-based)
+│   └── kgc/                   # Knowledge graph construction pipeline
+├── infra/
+│   ├── README.md              # Local + AWS infrastructure guide
+│   ├── local/                 # Docker Compose + monthly pipeline orchestrator
+│   └── cdk/                   # AWS CDK Python project (six stacks)
+├── docs/                      # Architecture and planning docs
+├── scripts/                   # Repo-wide setup utilities
+├── .github/workflows/         # CI pipelines
+├── pyproject.toml             # Shared linter/checker configs (ruff, mypy, bandit)
+└── .pre-commit-config.yaml    # Git hooks
 ```
 
-## 2. Getting Started
+## Running Locally
 
-Tested environments:
-- Python [version] (e.g., 3.10+)
-- Ubuntu [version]
-- CUDA [version] (if applicable)
+The local stack is **PostgreSQL → DB migrations & data load → FastAPI → Next.js**, all on one machine.
 
-### 2a. Clone this repository
+### Prerequisites
+
+- [Docker](https://docs.docker.com/get-docker/) — for PostgreSQL
+- [uv](https://docs.astral.sh/uv/) — Python package manager (handles Python install)
+- Node.js 20+
+- npm
+
+### 1. Clone and install
 
 ```bash
-git clone https://github.com/[username]/[repo].git
-cd [repo]
+git clone https://github.com/AI-Institute-Food-Systems/foodatlas.git
+cd foodatlas
+./scripts/check-prereqs.sh
 ```
 
-### 2b. Install uv (if not already installed)
+The setup script auto-installs uv, git hooks, backend dependencies, and frontend dependencies. Node.js and npm must be installed separately.
+
+### 2. Start PostgreSQL
 
 ```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
+docker compose -f infra/local/docker-compose.yml up -d
 ```
 
-### 2c. Install Mutagen (if syncing to a remote machine)
+This starts a PostgreSQL 16 container on port 5432 with database `foodatlas` (user: `foodatlas`, password: `foodatlas`). Credentials are committed in `docker-compose.yml` deliberately — they only work against your local container.
+
+### 3. Run database migrations
 
 ```bash
-# macOS
-brew install mutagen-io/mutagen/mutagen
-
-# Linux
-curl -sS https://webi.sh/mutagen | sh
+cd backend/db
+uv run alembic upgrade head
 ```
 
-Run this command to update your PATH:
+### 4. Load knowledge graph data
 
 ```bash
-source ~/.config/envman/PATH.env
+cd backend/db
+uv run python main.py load
 ```
 
-Copy the example config and edit it for your setup:
+This loads KGC parquet output into PostgreSQL. See [`backend/kgc/README.md`](backend/kgc/README.md) for how to generate the parquet files locally, or [`infra/README.md`](infra/README.md) for how to pull them from the production S3 bucket.
+
+### 5. Start the API server
 
 ```bash
-cp mutagen.yml.example mutagen.yml
-# Edit mutagen.yml with your remote host and path
-mutagen project start
+cd backend/api
+uv run python main.py
 ```
 
-### 2d. Install dependencies
+The FastAPI server runs at `http://localhost:8000`. In debug mode (default), API key authentication is skipped.
+
+### 6. Start the frontend
 
 ```bash
-uv sync
+cd frontend
+npm run dev
 ```
 
-### 2e. (Optional) Set up pre-commit hooks
+The frontend runs at `http://localhost:3001`. It reads `NEXT_PUBLIC_API_URL` from `frontend/.env.local`; default is `http://localhost:8000`.
+
+### Remote access (SSH tunnel)
+
+If running on a remote dev server, forward both ports from your local machine:
 
 ```bash
-uv run pre-commit install
-uv run pre-commit install --hook-type pre-push
+ssh -L 3001:localhost:3001 -L 8000:localhost:8000 user@your-server
 ```
 
-### 2f. Run the code
+Then open `http://localhost:3001` in your local browser.
 
-[Describe how to run your project]
+### Local environment variables
 
-```bash
-uv run python src/[your_script].py
-```
+Each sub-project reads its own `.env` file. Defaults work out of the box for local dev.
 
-## 3. Authors
+| Variable | Default (local) | Description |
+|---|---|---|
+| `DB_HOST` | `localhost` | PostgreSQL host |
+| `DB_PORT` | `5432` | PostgreSQL port |
+| `DB_NAME` | `foodatlas` | Database name |
+| `DB_USER` | `foodatlas` | Database user |
+| `DB_PASSWORD` | `foodatlas` | Database password |
+| `API_KEY` | (empty) | Bearer token (skipped in debug mode) |
+| `API_CORS_ORIGINS` | `http://localhost:3000` | Comma-separated allowed origins |
+| `API_DEBUG` | `true` | Skip API key verification when true |
+| `NEXT_PUBLIC_API_URL` | — | Backend API URL (set to `http://localhost:8000`) |
+| `NEXT_PUBLIC_API_KEY` | — | Backend API key (not needed in debug mode) |
 
-- [Your Name] - [@github_username](https://github.com/[username])
+In **production**, `DB_USER` and `DB_PASSWORD` are injected from AWS Secrets Manager; `API_DEBUG` is `False`; `NEXT_PUBLIC_API_URL` points at the ALB DNS (or eventually a custom domain). See [`infra/README.md`](infra/README.md).
 
-## 4. Contact
+## Running on AWS
 
-[Your email or preferred contact method]
+For deploying to AWS production — first-time setup, ongoing deploys, scripts, troubleshooting — see **[`infra/README.md`](infra/README.md)**.
 
-## 5. Citation
+## License
 
-```bibtex
-@misc{[project],
-  author = {[Your Name]},
-  title = {[Project Title]},
-  year = {[Year]},
-  url = {https://github.com/[username]/[repo]}
-}
-```
-
-## 6. License
-
-[License type] - see [LICENSE](LICENSE) for details.
-
-## 7. Acknowledgements
-
-- [Acknowledge contributors, funding, or inspirations]
+See [LICENSE](LICENSE) for details.

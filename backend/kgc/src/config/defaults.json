@@ -1,0 +1,17 @@
+{
+  "kg_dir": "outputs/kg",
+  "data_dir": "data",
+  "output_dir": "outputs",
+  "cache_dir": "outputs/cache",
+  "ie_raw_dir": "../ie/outputs/extraction",
+  "pipeline": {
+    "stages": {
+      "data_cleaning": {
+        "output_dir": "outputs/data_cleaning"
+      },
+      "kg_init": {
+        "previous_kg_entities": "data/PreviousFAKG/v3.3/entities.tsv"
+      }
+    }
+  }
+}

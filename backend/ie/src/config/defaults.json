@@ -1,0 +1,35 @@
+{
+  "date": "",
+  "model": "gpt-5.2",
+  "bioc_pmc_dir": "/mnt/data/shared/BioC-PMC",
+  "bioc_pmc_dl_dir": "/mnt/data/shared/BioC-PMC_download",
+  "biobert_model_dir": "/mnt/data/shared/biobert_binary_prod",
+  "food_terms": "data/food_terms.txt",
+  "translated_food_terms": "data/translated_food_terms.txt",
+  "pipeline": {
+    "search": {
+      "save_every": 50,
+      "query_uid_results": "outputs/search/{date}/query_uid_results.tsv",
+      "filtered_sentences": "outputs/search/{date}/retrieved_sentences/result_{i}.tsv"
+    },
+    "biobert_filter": {
+      "sentence_col": "sentence",
+      "chunk_size": 10000,
+      "batch_size": 64
+    },
+    "aggregate": {
+      "threshold": 0.99,
+      "reference_dir": "outputs/extraction"
+    },
+    "extraction": {
+      "system_prompt": "src/pipeline/extraction/prompts/system/v1.txt",
+      "user_prompt": "src/pipeline/extraction/prompts/user/v1.txt",
+      "max_new_tokens": 512,
+      "temperature": 0.0
+    },
+    "parse": {
+      "batch_input": "batch_input.tsv",
+      "output_tsv": "extraction_predicted.tsv"
+    }
+  }
+}

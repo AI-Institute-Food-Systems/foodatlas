@@ -2,13 +2,15 @@ default_language_version:
   python: python3
 
 repos:
-  # Fast checks first
+  # Fast checks first (all files)
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.5.0
     hooks:
       - id: check-yaml
         stages: [pre-commit]
       - id: check-toml
+        stages: [pre-commit]
+      - id: check-json
         stages: [pre-commit]
       - id: end-of-file-fixer
         stages: [pre-commit]
@@ -19,42 +21,92 @@ repos:
       - id: check-merge-conflict
         stages: [pre-commit]
 
-  # Local hooks using project dependencies (via uv)
-  # All tools configured in pyproject.toml (single source of truth)
-  - repo: local
+  # Ruff — linting and formatting
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.8
     hooks:
       - id: ruff
-        name: ruff
-        entry: uv run ruff check --config pyproject.toml --fix --exit-non-zero-on-fix
-        language: system
-        types: [python]
+        args: [--fix, --exit-non-zero-on-fix]
+        files: ^(backend|infra/cdk)/
         stages: [pre-commit]
-
       - id: ruff-format
-        name: ruff-format
-        entry: uv run ruff format --config pyproject.toml
-        language: system
-        types: [python]
+        files: ^(backend|infra/cdk)/
         stages: [pre-commit]
 
+  # Bandit — security scanning
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.8.3
+    hooks:
       - id: bandit
-        name: bandit
-        entry: uv run bandit -c pyproject.toml
-        language: system
-        types: [python]
+        args: [-c, pyproject.toml]
+        files: ^(backend|infra/cdk)/
+        exclude: /tests/
         stages: [pre-commit]
+        additional_dependencies: ["bandit[toml]"]
 
+  # Mypy — type checking
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.15.0
+    hooks:
       - id: mypy
-        name: mypy
-        entry: uv run mypy --config-file pyproject.toml
-        language: system
-        types: [python]
+        args: [--explicit-package-bases]
+        files: ^(backend|infra/cdk)/
         stages: [pre-commit]
+        additional_dependencies:
+          - types-requests>=2.31.0
+          - types-beautifulsoup4>=4.12.0
+          - types-PyYAML>=6.0.0
 
-      - id: pytest
-        name: pytest
-        entry: uv run pytest -c pyproject.toml
+  # Backend tests — per sub-project on pre-push
+  - repo: local
+    hooks:
+      - id: pytest-backend-api
+        name: pytest (backend/api)
+        entry: bash -c 'cd backend/api && uv run pytest'
         language: system
         pass_filenames: false
-        always_run: true
+        files: ^backend/api/
         stages: [pre-push]
+
+      - id: pytest-backend-db
+        name: pytest (backend/db)
+        entry: bash -c 'cd backend/db && uv run pytest'
+        language: system
+        pass_filenames: false
+        files: ^backend/db/
+        stages: [pre-push]
+
+      - id: pytest-backend-ie
+        name: pytest (backend/ie)
+        entry: bash -c 'cd backend/ie && uv run pytest'
+        language: system
+        pass_filenames: false
+        files: ^backend/ie/
+        stages: [pre-push]
+
+      - id: pytest-backend-kgc
+        name: pytest (backend/kgc)
+        entry: bash -c 'cd backend/kgc && uv run pytest'
+        language: system
+        pass_filenames: false
+        files: ^backend/kgc/
+        stages: [pre-push]
+
+      - id: pytest-infra-cdk
+        name: pytest (infra/cdk)
+        entry: bash -c 'cd infra/cdk && uv run pytest'
+        language: system
+        pass_filenames: false
+        files: ^infra/cdk/
+        stages: [pre-push]
+
+  # Frontend hooks
+  - repo: local
+    hooks:
+      - id: eslint-frontend
+        name: eslint (frontend)
+        entry: bash -c 'cd frontend && npx eslint --max-warnings=0'
+        language: system
+        types_or: [javascript, tsx, ts]
+        files: ^frontend/
+        stages: [pre-commit]
