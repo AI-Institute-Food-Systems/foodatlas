@@ -1,13 +1,20 @@
-"""ECR stack: repository for the FastAPI backend image.
+"""ECR stack: container repositories for FoodAtlas backend images.
 
-Split from ApiStack to break the chicken-and-egg at first deploy: ApiStack's
-ECS service cannot start until an image exists in the repository, but the
-repository itself used to be created by ApiStack. Keeping the repository in a
-standalone stack lets the deploy sequence be:
+Holds two repositories:
 
-1. ``cdk deploy FoodAtlasEcrStack``           -- empty repo exists
-2. ``docker build`` + ``docker push``         -- populate the repo
-3. ``cdk deploy FoodAtlasApiStack``           -- ECS pulls the image
+- ``foodatlas-api``  — the long-running FastAPI service image (ApiStack)
+- ``foodatlas-db``   — the ad-hoc one-off jobs image used for Alembic
+  migrations and ETL data loads (JobsStack)
+
+Split from the consuming stacks to break the chicken-and-egg at first
+deploy: ECS cannot start a task until an image already exists in the
+repository, so the repos must be created and populated before the stacks
+that reference them deploy. The deploy sequence is:
+
+1. ``cdk deploy FoodAtlasEcrStack``           -- empty repos exist
+2. ``docker build`` + ``docker push``         -- populate each repo
+3. ``cdk deploy FoodAtlasApiStack``           -- ECS pulls the API image
+4. ``cdk deploy FoodAtlasJobsStack``          -- task definition references db image
 """
 
 from __future__ import annotations
@@ -22,8 +29,25 @@ if TYPE_CHECKING:
     from constructs import Construct
 
 
+def _build_repository(scope: cdk.Stack, construct_id: str, name: str) -> ecr.Repository:
+    return ecr.Repository(
+        scope,
+        construct_id,
+        repository_name=name,
+        image_scan_on_push=True,
+        removal_policy=RemovalPolicy.RETAIN,
+        lifecycle_rules=[
+            ecr.LifecycleRule(
+                description="Keep last 10 images",
+                max_image_count=10,
+                rule_priority=1,
+            ),
+        ],
+    )
+
+
 class EcrStack(cdk.Stack):
-    """ECR repository for the FoodAtlas API image."""
+    """ECR repositories for the FoodAtlas backend images."""
 
     def __init__(
         self,
@@ -33,24 +57,18 @@ class EcrStack(cdk.Stack):
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        self.repository = ecr.Repository(
-            self,
-            "ApiRepository",
-            repository_name="foodatlas-api",
-            image_scan_on_push=True,
-            removal_policy=RemovalPolicy.RETAIN,
-            lifecycle_rules=[
-                ecr.LifecycleRule(
-                    description="Keep last 10 images",
-                    max_image_count=10,
-                    rule_priority=1,
-                ),
-            ],
-        )
+        self.api_repository = _build_repository(self, "ApiRepository", "foodatlas-api")
+        self.db_repository = _build_repository(self, "DbRepository", "foodatlas-db")
 
         cdk.CfnOutput(
             self,
-            "EcrRepositoryUri",
-            value=self.repository.repository_uri,
+            "ApiRepositoryUri",
+            value=self.api_repository.repository_uri,
             description="ECR repository URI for pushing the API image",
+        )
+        cdk.CfnOutput(
+            self,
+            "DbRepositoryUri",
+            value=self.db_repository.repository_uri,
+            description="ECR repository URI for pushing the db jobs image",
         )

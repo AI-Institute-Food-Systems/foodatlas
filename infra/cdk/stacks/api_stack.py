@@ -58,7 +58,7 @@ class ApiStack(cdk.Stack):
 
         image_tag = self.node.try_get_context("api_image_tag") or "latest"
 
-        cluster = ecs.Cluster(
+        self.cluster = ecs.Cluster(
             self,
             "ApiCluster",
             vpc=vpc,
@@ -116,7 +116,7 @@ class ApiStack(cdk.Stack):
         self.service = ecs_patterns.ApplicationLoadBalancedFargateService(
             self,
             "ApiService",
-            cluster=cluster,
+            cluster=self.cluster,
             task_definition=task_definition,
             desired_count=1,
             public_load_balancer=True,

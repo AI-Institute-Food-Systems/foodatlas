@@ -1,15 +1,17 @@
 """CDK app entry point.
 
-Instantiates the five stacks that make up the FoodAtlas AWS infrastructure:
+Instantiates the six stacks that make up the FoodAtlas AWS infrastructure:
 
 - NetworkStack: VPC, subnets, security groups
 - StorageStack: S3 bucket for KGC parquet outputs
-- EcrStack: ECR repository for the FastAPI backend image
+- EcrStack: ECR repositories for the API and db jobs images
 - DatabaseStack: RDS PostgreSQL + Secrets Manager
 - ApiStack: ECS Fargate + ALB hosting the FastAPI backend
+- JobsStack: one-off Fargate task definition for migrations and ETL loads
 
-EcrStack is separate from ApiStack so the repo can be populated with a
-Docker image before the ECS service tries to pull on first deploy.
+EcrStack is separate from the consuming stacks so the repos can be populated
+with Docker images before ECS tries to pull them on first deploy. JobsStack
+reuses the ECS cluster from ApiStack to keep the operational surface small.
 
 Dependencies between stacks are wired via constructor arguments, so CDK
 resolves deploy order automatically.
@@ -24,6 +26,7 @@ import aws_cdk as cdk
 from stacks.api_stack import ApiStack
 from stacks.database_stack import DatabaseStack
 from stacks.ecr_stack import EcrStack
+from stacks.jobs_stack import JobsStack
 from stacks.network_stack import NetworkStack
 from stacks.storage_stack import StorageStack
 
@@ -59,11 +62,23 @@ database = DatabaseStack(
     env=env,
 )
 
-ApiStack(
+api_stack = ApiStack(
     app,
     "FoodAtlasApiStack",
     vpc=network.vpc,
-    repository=ecr_stack.repository,
+    repository=ecr_stack.api_repository,
+    db_instance=database.db_instance,
+    db_secret=database.db_secret,
+    parquet_bucket=storage.parquet_bucket,
+    env=env,
+)
+
+JobsStack(
+    app,
+    "FoodAtlasJobsStack",
+    vpc=network.vpc,
+    cluster=api_stack.cluster,
+    repository=ecr_stack.db_repository,
     db_instance=database.db_instance,
     db_secret=database.db_secret,
     parquet_bucket=storage.parquet_bucket,

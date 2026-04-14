@@ -1,4 +1,4 @@
-"""Snapshot tests for ApiStack."""
+"""Snapshot tests for JobsStack."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ from aws_cdk.assertions import Match, Template
 from stacks.api_stack import ApiStack
 from stacks.database_stack import DatabaseStack
 from stacks.ecr_stack import EcrStack
+from stacks.jobs_stack import JobsStack
 from stacks.network_stack import NetworkStack
 from stacks.storage_stack import StorageStack
 
@@ -22,7 +23,7 @@ def _synth() -> Template:
         "TestDatabaseStack",
         vpc=network.vpc,
     )
-    stack = ApiStack(
+    api_stack = ApiStack(
         app,
         "TestApiStack",
         vpc=network.vpc,
@@ -31,28 +32,33 @@ def _synth() -> Template:
         db_secret=database.db_secret,
         parquet_bucket=storage.parquet_bucket,
     )
+    stack = JobsStack(
+        app,
+        "TestJobsStack",
+        vpc=network.vpc,
+        cluster=api_stack.cluster,
+        repository=ecr_stack.db_repository,
+        db_instance=database.db_instance,
+        db_secret=database.db_secret,
+        parquet_bucket=storage.parquet_bucket,
+    )
     return Template.from_stack(stack)
 
 
-def test_api_stack_does_not_declare_ecr_repository() -> None:
+def test_jobs_stack_creates_a_task_definition_but_no_service() -> None:
     template = _synth()
-    template.resource_count_is("AWS::ECR::Repository", 0)
+    template.resource_count_is("AWS::ECS::TaskDefinition", 1)
+    template.resource_count_is("AWS::ECS::Service", 0)
 
 
-def test_ecs_cluster_and_service_exist() -> None:
-    template = _synth()
-    template.resource_count_is("AWS::ECS::Cluster", 1)
-    template.resource_count_is("AWS::ECS::Service", 1)
-
-
-def test_task_definition_has_correct_cpu_and_memory() -> None:
+def test_task_definition_sized_for_etl_workload() -> None:
     template = _synth()
     template.has_resource_properties(
         "AWS::ECS::TaskDefinition",
         Match.object_like(
             {
-                "Cpu": "256",
-                "Memory": "512",
+                "Cpu": "1024",
+                "Memory": "4096",
                 "NetworkMode": "awsvpc",
                 "RequiresCompatibilities": ["FARGATE"],
             },
@@ -60,23 +66,14 @@ def test_task_definition_has_correct_cpu_and_memory() -> None:
     )
 
 
-def test_alb_is_internet_facing() -> None:
+def test_task_security_group_allows_egress() -> None:
     template = _synth()
     template.has_resource_properties(
-        "AWS::ElasticLoadBalancingV2::LoadBalancer",
-        Match.object_like({"Scheme": "internet-facing", "Type": "application"}),
-    )
-
-
-def test_target_group_health_check_path_is_health() -> None:
-    template = _synth()
-    template.has_resource_properties(
-        "AWS::ElasticLoadBalancingV2::TargetGroup",
+        "AWS::EC2::SecurityGroup",
         Match.object_like(
             {
-                "HealthCheckPath": "/health",
-                "Protocol": "HTTP",
-                "Port": 80,
+                "GroupDescription": "FoodAtlas one-off jobs Fargate task egress",
+                "SecurityGroupEgress": Match.any_value(),
             },
         ),
     )
@@ -88,3 +85,12 @@ def test_log_group_retention_one_month() -> None:
         "AWS::Logs::LogGroup",
         Match.object_like({"RetentionInDays": 30}),
     )
+
+
+def test_outputs_present_for_run_task_invocation() -> None:
+    template = _synth()
+    template.has_output("JobsClusterName", {})
+    template.has_output("JobsTaskDefinitionArn", {})
+    template.has_output("JobsTaskSubnetIds", {})
+    template.has_output("JobsTaskSecurityGroupId", {})
+    template.has_output("JobsLogGroupName", {})
