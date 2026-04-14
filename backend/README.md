@@ -4,12 +4,14 @@ The backend is organized into four independent Python sub-projects, each with it
 
 ## Sub-projects
 
-| Directory | Description | Status |
-|-----------|-------------|--------|
-| [`api/`](api/) | FastAPI REST service (port 8000) | Active |
-| [`db/`](db/) | PostgreSQL schema, migrations, and ETL | Active |
-| [`ie/`](ie/) | Information extraction | Stub |
-| [`kgc/`](kgc/) | Knowledge graph construction pipeline | Active |
+| Directory | Description | Production deploy | Status |
+|-----------|-------------|-------------------|--------|
+| [`api/`](api/) | FastAPI REST service (port 8000) | Docker image → ECS Fargate service (FoodAtlasApiStack) | Active |
+| [`db/`](db/) | PostgreSQL schema, migrations, and ETL | Docker image → ECS Fargate one-off task (FoodAtlasJobsStack) | Active |
+| [`ie/`](ie/) | Information extraction (LLM + BioBERT) | Local only | Active |
+| [`kgc/`](kgc/) | Knowledge graph construction pipeline | Local; outputs synced to S3 (FoodAtlasStorageStack) | Active |
+
+For the production deploy targets (CDK stacks, Dockerfiles, push scripts), see [`infra/README.md`](../infra/README.md).
 
 ## Getting Started
 

@@ -44,7 +44,7 @@ class JobsStack(cdk.Stack):
         repository: ecr.IRepository,
         db_instance: rds.IDatabaseInstance,
         db_secret: secretsmanager.ISecret,
-        parquet_bucket: s3.IBucket,
+        kgc_bucket: s3.IBucket,
         **kwargs: object,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -58,13 +58,17 @@ class JobsStack(cdk.Stack):
             removal_policy=RemovalPolicy.DESTROY,
         )
 
-        # Sized for the ETL load (pandas + pyarrow + bulk SQL inserts).
-        # Migrations would fit in 256/512 but the same task def runs both.
+        # Sized for the ETL load. The materializer holds the full KG in
+        # pandas DataFrames and joins them in memory, and earlier 4 GB runs
+        # OOM'd. Generous headroom: 4 vCPU + 16 GB keeps the per-month
+        # one-off run cheap (per-second billing) while making OOMs unlikely
+        # at current data scale. Migrations only need a fraction of this
+        # but reuse the same task definition.
         self.task_definition = ecs.FargateTaskDefinition(
             self,
             "JobsTaskDefinition",
-            cpu=1024,
-            memory_limit_mib=4096,
+            cpu=4096,
+            memory_limit_mib=16384,
             runtime_platform=ecs.RuntimePlatform(
                 cpu_architecture=ecs.CpuArchitecture.X86_64,
                 operating_system_family=ecs.OperatingSystemFamily.LINUX,
@@ -85,7 +89,7 @@ class JobsStack(cdk.Stack):
                 "DB_HOST": db_instance.db_instance_endpoint_address,
                 "DB_PORT": db_instance.db_instance_endpoint_port,
                 "DB_NAME": "foodatlas",
-                "PARQUET_BUCKET": parquet_bucket.bucket_name,
+                "KGC_BUCKET": kgc_bucket.bucket_name,
                 "AWS_DEFAULT_REGION": cdk.Stack.of(self).region,
             },
             secrets={
@@ -96,7 +100,7 @@ class JobsStack(cdk.Stack):
 
         # ETL reads parquet from S3; migrations don't need it but the same
         # task role is reused for both invocation paths.
-        parquet_bucket.grant_read(self.task_definition.task_role)
+        kgc_bucket.grant_read(self.task_definition.task_role)
 
         # Tasks need outbound HTTPS to reach ECR (image pull), Secrets
         # Manager (credential fetch), S3 (parquet download), and RDS

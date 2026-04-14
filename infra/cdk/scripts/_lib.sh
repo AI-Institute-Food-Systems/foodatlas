@@ -4,7 +4,12 @@
 
 set -euo pipefail
 
-REGION="${AWS_REGION:-us-west-1}"
+REGION="${AWS_REGION:-$(aws configure get region 2>/dev/null || true)}"
+if [[ -z "$REGION" ]]; then
+    echo "Error: no AWS region set. Set AWS_REGION env var or run 'aws configure'." >&2
+    exit 1
+fi
+
 STACK="FoodAtlasJobsStack"
 CONTAINER_NAME="JobsContainer"
 
@@ -48,8 +53,24 @@ run_jobs_task() {
 
     local task_id="${task_arn##*/}"
     echo "Task started: $task_id"
-    echo "Waiting for task to finish (this can take several minutes)..."
-    aws ecs wait tasks-stopped --cluster "$CLUSTER" --tasks "$task_arn" --region "$REGION"
+    echo "Waiting for task to finish (polling every 30s; no timeout)..."
+
+    # `aws ecs wait tasks-stopped` is hardcoded to give up after 100 attempts
+    # (≈10 min), which is too short for the ETL load. Poll describe-tasks
+    # directly and exit only when the task reaches STOPPED.
+    local last_status=""
+    while true; do
+        last_status=$(aws ecs describe-tasks \
+            --cluster "$CLUSTER" \
+            --tasks "$task_arn" \
+            --region "$REGION" \
+            --query 'tasks[0].lastStatus' \
+            --output text)
+        if [[ "$last_status" == "STOPPED" ]]; then
+            break
+        fi
+        sleep 30
+    done
 
     local exit_code
     exit_code=$(aws ecs describe-tasks \

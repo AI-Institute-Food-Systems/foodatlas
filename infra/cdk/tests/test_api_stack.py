@@ -29,7 +29,7 @@ def _synth() -> Template:
         repository=ecr_stack.api_repository,
         db_instance=database.db_instance,
         db_secret=database.db_secret,
-        parquet_bucket=storage.parquet_bucket,
+        kgc_bucket=storage.kgc_bucket,
     )
     return Template.from_stack(stack)
 

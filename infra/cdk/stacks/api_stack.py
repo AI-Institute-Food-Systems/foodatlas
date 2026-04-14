@@ -51,7 +51,7 @@ class ApiStack(cdk.Stack):
         repository: ecr.IRepository,
         db_instance: rds.IDatabaseInstance,
         db_secret: secretsmanager.ISecret,
-        parquet_bucket: s3.IBucket,
+        kgc_bucket: s3.IBucket,
         **kwargs: object,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -99,7 +99,7 @@ class ApiStack(cdk.Stack):
                 "DB_HOST": db_instance.db_instance_endpoint_address,
                 "DB_PORT": db_instance.db_instance_endpoint_port,
                 "DB_NAME": "foodatlas",
-                "PARQUET_BUCKET": parquet_bucket.bucket_name,
+                "KGC_BUCKET": kgc_bucket.bucket_name,
             },
             secrets={
                 "DB_USER": ecs.Secret.from_secrets_manager(db_secret, "username"),
@@ -110,8 +110,8 @@ class ApiStack(cdk.Stack):
             ],
         )
 
-        # Task role needs read access to parquet bucket for the DB load step
-        parquet_bucket.grant_read(task_definition.task_role)
+        # Task role needs read access to KGC bucket for ad-hoc fetches
+        kgc_bucket.grant_read(task_definition.task_role)
 
         self.service = ecs_patterns.ApplicationLoadBalancedFargateService(
             self,

@@ -3,7 +3,7 @@
 Instantiates the six stacks that make up the FoodAtlas AWS infrastructure:
 
 - NetworkStack: VPC, subnets, security groups
-- StorageStack: S3 bucket for KGC parquet outputs
+- StorageStack: S3 bucket for KGC source data and pipeline artifacts
 - EcrStack: ECR repositories for the API and db jobs images
 - DatabaseStack: RDS PostgreSQL + Secrets Manager
 - ApiStack: ECS Fargate + ALB hosting the FastAPI backend
@@ -69,7 +69,7 @@ api_stack = ApiStack(
     repository=ecr_stack.api_repository,
     db_instance=database.db_instance,
     db_secret=database.db_secret,
-    parquet_bucket=storage.parquet_bucket,
+    kgc_bucket=storage.kgc_bucket,
     env=env,
 )
 
@@ -81,7 +81,7 @@ JobsStack(
     repository=ecr_stack.db_repository,
     db_instance=database.db_instance,
     db_secret=database.db_secret,
-    parquet_bucket=storage.parquet_bucket,
+    kgc_bucket=storage.kgc_bucket,
     env=env,
 )
 

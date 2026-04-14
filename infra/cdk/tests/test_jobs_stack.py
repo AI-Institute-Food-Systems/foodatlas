@@ -30,7 +30,7 @@ def _synth() -> Template:
         repository=ecr_stack.api_repository,
         db_instance=database.db_instance,
         db_secret=database.db_secret,
-        parquet_bucket=storage.parquet_bucket,
+        kgc_bucket=storage.kgc_bucket,
     )
     stack = JobsStack(
         app,
@@ -40,7 +40,7 @@ def _synth() -> Template:
         repository=ecr_stack.db_repository,
         db_instance=database.db_instance,
         db_secret=database.db_secret,
-        parquet_bucket=storage.parquet_bucket,
+        kgc_bucket=storage.kgc_bucket,
     )
     return Template.from_stack(stack)
 
@@ -57,8 +57,8 @@ def test_task_definition_sized_for_etl_workload() -> None:
         "AWS::ECS::TaskDefinition",
         Match.object_like(
             {
-                "Cpu": "1024",
-                "Memory": "4096",
+                "Cpu": "4096",
+                "Memory": "16384",
                 "NetworkMode": "awsvpc",
                 "RequiresCompatibilities": ["FARGATE"],
             },
