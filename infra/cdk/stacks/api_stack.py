@@ -119,6 +119,7 @@ class ApiStack(cdk.Stack):
             cluster=self.cluster,
             task_definition=task_definition,
             desired_count=1,
+            min_healthy_percent=100,
             public_load_balancer=True,
             assign_public_ip=True,
             task_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PUBLIC),

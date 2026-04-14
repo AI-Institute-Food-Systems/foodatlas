@@ -32,9 +32,14 @@ from stacks.storage_stack import StorageStack
 
 app = cdk.App()
 
-env = cdk.Environment(
-    account=os.environ.get("CDK_DEFAULT_ACCOUNT"),
-    region=os.environ.get("CDK_DEFAULT_REGION", "us-west-1"),
+_account = os.environ.get("CDK_DEFAULT_ACCOUNT")
+env = (
+    cdk.Environment(
+        account=_account,
+        region=os.environ.get("CDK_DEFAULT_REGION", "us-west-1"),
+    )
+    if _account and _account != "000000000000"
+    else None
 )
 
 network = NetworkStack(
