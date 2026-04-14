@@ -113,34 +113,34 @@ cd frontend
 npm run dev
 ```
 
-The frontend runs at `http://localhost:3001`. It reads `NEXT_PUBLIC_API_URL` from `frontend/.env.local`; default is `http://localhost:8000`.
+The frontend runs at `http://localhost:3000`. It reads `NEXT_PUBLIC_API_URL` from `frontend/.env.local`; default is `http://localhost:8000`.
 
 ### Remote access (SSH tunnel)
 
 If running on a remote dev server, forward both ports from your local machine:
 
 ```bash
-ssh -L 3001:localhost:3001 -L 8000:localhost:8000 user@your-server
+ssh -L 3001:localhost:3000 -L 8000:localhost:8000 user@your-server
 ```
 
-Then open `http://localhost:3001` in your local browser.
+Then open `http://localhost:3000` in your local browser.
 
 ### Local environment variables
 
 Each sub-project reads its own `.env` file. Defaults work out of the box for local dev.
 
-| Variable | Default (local) | Description |
-|---|---|---|
-| `DB_HOST` | `localhost` | PostgreSQL host |
-| `DB_PORT` | `5432` | PostgreSQL port |
-| `DB_NAME` | `foodatlas` | Database name |
-| `DB_USER` | `foodatlas` | Database user |
-| `DB_PASSWORD` | `foodatlas` | Database password |
-| `API_KEY` | (empty) | Bearer token (skipped in debug mode) |
-| `API_CORS_ORIGINS` | `http://localhost:3000` | Comma-separated allowed origins |
-| `API_DEBUG` | `true` | Skip API key verification when true |
-| `NEXT_PUBLIC_API_URL` | — | Backend API URL (set to `http://localhost:8000`) |
-| `NEXT_PUBLIC_API_KEY` | — | Backend API key (not needed in debug mode) |
+| Variable              | Default (local)         | Description                                      |
+| --------------------- | ----------------------- | ------------------------------------------------ |
+| `DB_HOST`             | `localhost`             | PostgreSQL host                                  |
+| `DB_PORT`             | `5432`                  | PostgreSQL port                                  |
+| `DB_NAME`             | `foodatlas`             | Database name                                    |
+| `DB_USER`             | `foodatlas`             | Database user                                    |
+| `DB_PASSWORD`         | `foodatlas`             | Database password                                |
+| `API_KEY`             | (empty)                 | Bearer token (skipped in debug mode)             |
+| `API_CORS_ORIGINS`    | `http://localhost:3000` | Comma-separated allowed origins                  |
+| `API_DEBUG`           | `true`                  | Skip API key verification when true              |
+| `NEXT_PUBLIC_API_URL` | —                       | Backend API URL (set to `http://localhost:8000`) |
+| `NEXT_PUBLIC_API_KEY` | —                       | Backend API key (not needed in debug mode)       |
 
 In **production**, `DB_USER` and `DB_PASSWORD` are injected from AWS Secrets Manager; `API_DEBUG` is `False`; `NEXT_PUBLIC_API_URL` points at the ALB DNS (or eventually a custom domain). See [`infra/README.md`](infra/README.md).
 
