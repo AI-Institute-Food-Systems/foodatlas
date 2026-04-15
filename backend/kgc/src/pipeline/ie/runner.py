@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ...stores.schema import DIR_DIAGNOSTICS
+from ...utils.orphans import write_orphans_jsonl
 from ...utils.timing import log_duration
 from ..checkpoint import load_checkpoint, save_checkpoint
 from ..knowledge_graph import KnowledgeGraph
@@ -48,6 +49,12 @@ class IERunner:
             kg.save()
         with log_duration("Write ambiguous attestations", logger):
             write_ambiguous_attestations(kg.attestations, kg_dir)
+        with log_duration("Write orphan entities", logger):
+            out = kg_dir / DIR_DIAGNOSTICS / "kgc_orphans.jsonl"
+            count = write_orphans_jsonl(
+                kg.entities._entities, kg.triplets._triplets, out
+            )
+            logger.info("Wrote %d orphan entities to %s", count, out)
         with log_duration("Save checkpoint (ie)", logger):
             save_checkpoint(kg_dir, "ie")
         logger.info("IE stage complete.")

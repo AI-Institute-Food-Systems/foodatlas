@@ -10,6 +10,8 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
+from ...utils.orphans import orphan_counts_by_type
+
 if TYPE_CHECKING:
     from .load_old import OldKG
 
@@ -25,6 +27,8 @@ class EntitySummary:
     new_ids: list[str] = field(default_factory=list)
     retired_ids: list[str] = field(default_factory=list)
     stable_count: int = 0
+    old_orphans_by_type: dict[str, int] = field(default_factory=dict)
+    new_orphans_by_type: dict[str, int] = field(default_factory=dict)
 
 
 @dataclass
@@ -73,6 +77,8 @@ def _make_triplet_keys(df: pd.DataFrame) -> pd.Series:
 def compare_entities(
     old_ents: pd.DataFrame,
     new_ents: pd.DataFrame,
+    old_trips: pd.DataFrame,
+    new_trips: pd.DataFrame,
 ) -> EntitySummary:
     """Compare entity counts and ID overlap."""
     old_counts = old_ents["entity_type"].value_counts().to_dict()
@@ -87,6 +93,8 @@ def compare_entities(
         new_ids=sorted(new_ids - old_ids),
         retired_ids=sorted(old_ids - new_ids),
         stable_count=len(old_ids & new_ids),
+        old_orphans_by_type=orphan_counts_by_type(old_ents, old_trips),
+        new_orphans_by_type=orphan_counts_by_type(new_ents, new_trips),
     )
 
 
@@ -173,7 +181,9 @@ def run_diff(old_kg: OldKG, kg_dir: str) -> KGDiffResult:
     new_att = pd.read_parquet(kg_path / "attestations.parquet", columns=["source"])
     new_ev = pd.read_parquet(kg_path / "evidence.parquet", columns=["source_type"])
 
-    ent_summary = compare_entities(old_kg.entities, new_ents)
+    ent_summary = compare_entities(
+        old_kg.entities, new_ents, old_kg.triplets, new_trips
+    )
     trip_summary = compare_triplets(old_kg.triplets, new_trips)
     ent_details = compare_entity_details(old_kg.entities, new_ents)
     src_coverage = compare_sources(
@@ -182,4 +192,5 @@ def run_diff(old_kg: OldKG, kg_dir: str) -> KGDiffResult:
         new_att,
         new_ev,
     )
+
     return KGDiffResult(ent_summary, trip_summary, ent_details, src_coverage)

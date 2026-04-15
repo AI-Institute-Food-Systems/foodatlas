@@ -1,4 +1,4 @@
-"""Tests for kg_diff.compare — diff computation logic."""
+"""Tests for report.runner — diff computation logic."""
 
 from __future__ import annotations
 
@@ -9,7 +9,8 @@ import pandas as pd
 
 if TYPE_CHECKING:
     from pathlib import Path
-from src.pipeline.kg_diff.compare import (
+from src.pipeline.report.load_old import OldKG
+from src.pipeline.report.runner import (
     KGDiffResult,
     compare_entities,
     compare_entity_details,
@@ -17,7 +18,6 @@ from src.pipeline.kg_diff.compare import (
     compare_triplets,
     run_diff,
 )
-from src.pipeline.kg_diff.load_old import OldKG
 
 
 def _make_entities(rows: list[tuple[str, str, str]]) -> pd.DataFrame:
@@ -34,7 +34,9 @@ class TestCompareEntities:
     def test_basic_diff(self) -> None:
         old = _make_entities([("e1", "food", "a"), ("e2", "chemical", "b")])
         new = _make_entities([("e1", "food", "a"), ("e3", "disease", "c")])
-        s = compare_entities(old, new)
+        old_t = _make_triplets([("e1", "r1", "e2")])
+        new_t = _make_triplets([("e1", "r1", "e3")])
+        s = compare_entities(old, new, old_t, new_t)
         assert s.old_counts == {"food": 1, "chemical": 1}
         assert s.new_counts == {"food": 1, "disease": 1}
         assert s.new_ids == ["e3"]
@@ -44,7 +46,8 @@ class TestCompareEntities:
     def test_identical(self) -> None:
         old = _make_entities([("e1", "food", "a")])
         new = _make_entities([("e1", "food", "a")])
-        s = compare_entities(old, new)
+        empty = _make_triplets([])
+        s = compare_entities(old, new, empty, empty)
         assert s.new_ids == []
         assert s.retired_ids == []
         assert s.stable_count == 1
@@ -52,9 +55,24 @@ class TestCompareEntities:
     def test_empty_old(self) -> None:
         old = _make_entities([])
         new = _make_entities([("e1", "food", "a")])
-        s = compare_entities(old, new)
+        empty = _make_triplets([])
+        s = compare_entities(old, new, empty, empty)
         assert s.new_ids == ["e1"]
         assert s.stable_count == 0
+
+    def test_orphans(self) -> None:
+        old = _make_entities(
+            [("e1", "food", "a"), ("e2", "chemical", "b"), ("e3", "chemical", "c")]
+        )
+        new = _make_entities(
+            [("e1", "food", "a"), ("e2", "chemical", "b"), ("e4", "disease", "d")]
+        )
+        old_t = _make_triplets([("e1", "r1", "e2")])
+        new_t = _make_triplets([("e1", "r1", "e2")])
+        s = compare_entities(old, new, old_t, new_t)
+        # e3 is orphan in old; e4 is orphan in new
+        assert s.old_orphans_by_type == {"chemical": 1}
+        assert s.new_orphans_by_type == {"disease": 1}
 
 
 class TestCompareTriplets:
