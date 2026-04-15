@@ -90,12 +90,17 @@ def _materialize_entity_views(conn: Connection) -> None:
 def _collect_ancestors(
     r2: pd.DataFrame, seed_ids: set[str], entities: pd.DataFrame
 ) -> set[str]:
-    """Return all chemical ancestors of seed_ids via IS_A (r2) triplets."""
+    """Return all chemical ancestors of seed_ids via IS_A (r2) triplets.
+
+    Chemical-chemical r2 uses head=parent, tail=child (see
+    backend/api/src/repositories/taxonomy.py), so a child's parents are the
+    head_ids of rows where it appears as tail.
+    """
     chem_ids_all = set(entities[entities["entity_type"] == "chemical"]["foodatlas_id"])
     chem_r2 = r2[r2["head_id"].isin(chem_ids_all) & r2["tail_id"].isin(chem_ids_all)]
     parents_of: dict[str, set[str]] = {}
     for _, row in chem_r2.iterrows():
-        parents_of.setdefault(row["head_id"], set()).add(row["tail_id"])
+        parents_of.setdefault(row["tail_id"], set()).add(row["head_id"])
 
     ancestors: set[str] = set()
     for node in seed_ids:

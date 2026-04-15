@@ -6,16 +6,17 @@ import pandas as pd
 from src.etl.materializer_search import _materialize_statistics
 
 # Minimal triplets: food→chem (r1), chem IS_A chem (r2), chem→disease (r3)
+# Chemical r2 direction: head=parent, tail=child.
+# Food/disease r2 direction: head=child, tail=parent.
 _TRIPLETS = pd.DataFrame(
     {
-        "head_id": ["f1", "f1", "c1", "c1", "c2", "d1"],
-        "tail_id": ["c1", "c2", "c3", "d1", "d2", "d3"],
+        "head_id": ["f1", "f1", "c3", "c1", "c2", "d1"],
+        "tail_id": ["c1", "c2", "c1", "d1", "d2", "d3"],
         "relationship_id": ["r1", "r1", "r2", "r3", "r3", "r2"],
     }
 )
-# c1 is in r1 tail (food-connected), c2 is in r1 tail, c2→d2 is scoped
-# c1→c3 is r2 (IS_A), d1→d3 is r2 (IS_A)
-# Scoped r3/r4: c1→d1 and c2→d2 (both heads are r1 tails)
+# c1/c2 are r1 tails (food-connected). c1's chemical parent is c3 (r2 head=c3).
+# d1's disease parent is d3 (r2 head=d1). Scoped r3/r4: c1→d1 and c2→d2.
 
 _ENTITIES = pd.DataFrame(
     {

@@ -7,7 +7,7 @@ from pathlib import Path
 import click
 from src.config import DBSettings
 from src.engine import create_sync_engine
-from src.etl.loader import load_kg
+from src.etl.loader import load_kg, refresh_materialized_views
 from src.etl.s3_sync import download_s3_prefix, is_s3_uri
 
 logging.basicConfig(
@@ -54,6 +54,20 @@ def load(parquet_dir: str) -> None:
         with engine.connect() as conn:
             load_kg(conn, local_path)
 
+    click.echo("Done.")
+
+
+@cli.command("refresh")
+def refresh() -> None:
+    """Rebuild materialized views from existing base tables.
+
+    Skips parquet read and base table inserts. Use this when iterating on
+    materializer logic without touching the underlying KG data.
+    """
+    settings = DBSettings()
+    engine = create_sync_engine(settings)
+    with engine.connect() as conn:
+        refresh_materialized_views(conn)
     click.echo("Done.")
 
 

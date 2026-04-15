@@ -121,10 +121,13 @@ def load_kg(conn: Connection, parquet_dir: Path) -> None:
     conn.commit()
 
     # 4. Materialize API tables
+    refresh_materialized_views(conn)
+    logger.info("ETL complete.")
+
+
+def refresh_materialized_views(conn: Connection) -> None:
+    """Rebuild all materialized views from existing base tables."""
     logger.info("Materializing entity views + composition tables...")
     refresh_all(conn)
-
     logger.info("Materializing search + statistics...")
     refresh_search(conn)
-
-    logger.info("ETL complete.")

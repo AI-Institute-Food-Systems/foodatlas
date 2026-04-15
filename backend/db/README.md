@@ -14,6 +14,10 @@ uv run alembic upgrade head
 
 # Load KGC parquet output into the database
 uv run python main.py load
+
+# Rebuild materialized views from existing base tables (skip parquet
+# read + base inserts). Use when iterating on materializer logic.
+uv run python main.py refresh
 ```
 
 ## Production
@@ -87,11 +91,14 @@ The `load` CLI command reads KGC parquet output and populates the database:
 2. **Materialize** API tables by joining and denormalizing base data
 3. **Build** search indexes (trigram-based autocomplete)
 
+The `refresh` CLI command re-runs steps 2–3 against the existing base tables
+without touching parquet. Use this when iterating on materializer logic.
+
 ## Project Structure
 
 ```
 db/
-├── main.py                 # Click CLI entry point (load command)
+├── main.py                 # Click CLI entry point (load, refresh)
 ├── Dockerfile              # Multi-stage build for the foodatlas-db image
 ├── .dockerignore
 ├── pyproject.toml
