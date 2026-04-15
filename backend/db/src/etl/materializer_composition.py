@@ -2,12 +2,12 @@
 
 import json
 import logging
+from collections import defaultdict
 
 import numpy as np
 import pandas as pd
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
-from tqdm import tqdm
 
 from .bulk_insert import bulk_copy
 
@@ -78,15 +78,22 @@ def materialize_food_chemical_composition(conn: Connection) -> None:
         lambda x: x if isinstance(x, dict) else {}
     )
 
-    # Group by triplet and build evidence JSON.
-    grouped = merged.groupby(["head_id", "tail_id"])
-    result_rows = []
+    # Group by triplet in pure Python (faster than pandas get_group per key
+    # when there are many small groups).
+    groups: dict[tuple[str, str], list[tuple]] = defaultdict(list)
+    for head_id, tail_id, source, ref, extraction in zip(
+        merged["head_id"],
+        merged["tail_id"],
+        merged["source"],
+        merged["_ref"],
+        merged["_extraction"],
+        strict=False,
+    ):
+        groups[(head_id, tail_id)].append((source, ref, extraction))
 
-    # Convert groups to tuples for faster iteration.
-    group_keys = list(grouped.groups.keys())
-    for head_id, tail_id in tqdm(group_keys, desc="composition", leave=True):
-        group = grouped.get_group((head_id, tail_id))
-        ev = _build_evidence_from_precomputed(group)
+    result_rows = []
+    for (head_id, tail_id), rows in groups.items():
+        ev = _build_evidence_from_rows(rows)
         if not any(ev.values()):
             continue
         all_ev = (ev["fdc"] or []) + (ev["foodatlas"] or []) + (ev["dmd"] or [])
@@ -176,17 +183,27 @@ def _build_evidence_json(group: pd.DataFrame) -> dict[str, list | None]:
 def _build_evidence_from_precomputed(
     group: pd.DataFrame,
 ) -> dict[str, list | None]:
-    """Build evidence JSON from pre-computed extraction dicts."""
+    """Build evidence JSON from a DataFrame group with pre-computed columns."""
+    rows = list(
+        zip(
+            group["source"],
+            group["_ref"],
+            group["_extraction"],
+            strict=False,
+        )
+    )
+    return _build_evidence_from_rows(rows)
+
+
+def _build_evidence_from_rows(
+    rows: list[tuple],
+) -> dict[str, list | None]:
+    """Build evidence JSON from a list of (source, ref, extraction) tuples."""
     fdc: list[dict] = []
     foodatlas: list[dict] = []
     dmd: list[dict] = []
 
-    for source, ref, extraction in zip(
-        group["source"],
-        group["_ref"],
-        group["_extraction"],
-        strict=False,
-    ):
+    for source, ref, extraction in rows:
         if source in ("fdc", "dmd"):
             bucket = fdc if source == "fdc" else dmd
             upper = source.upper()

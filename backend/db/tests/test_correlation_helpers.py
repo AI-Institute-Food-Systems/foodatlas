@@ -6,7 +6,6 @@ import pandas as pd
 from src.etl.materializer_correlation import (
     _deduplicate_evidences,
     _get_correlation_evidence,
-    _merge_into,
 )
 
 
@@ -125,34 +124,6 @@ class TestGetCorrelationEvidence:
         _sources, evidences = _get_correlation_evidence(["at1"], att_map, ev_map)
         assert len(evidences) == 1
         assert evidences[0]["pmid"]["id"] == "12345"
-
-
-class TestMergeInto:
-    def test_creates_new_entry(self):
-        agg: dict = {}
-        _merge_into(agg, "c1", "c1", "d1", "r3", ["ctd"], [{"pmid": {"id": "1"}}])
-        assert ("c1", "c1", "d1", "r3") in agg
-        assert "ctd" in agg[("c1", "c1", "d1", "r3")]["sources"]
-        assert len(agg[("c1", "c1", "d1", "r3")]["evidences"]) == 1
-
-    def test_merges_into_existing(self):
-        agg: dict = {}
-        _merge_into(agg, "c1", "c1", "d1", "r3", ["ctd"], [{"pmid": {"id": "1"}}])
-        _merge_into(agg, "c1", "c1", "d1", "r3", ["mesh"], [{"pmid": {"id": "2"}}])
-        assert agg[("c1", "c1", "d1", "r3")]["sources"] == {"ctd", "mesh"}
-        assert len(agg[("c1", "c1", "d1", "r3")]["evidences"]) == 2
-
-    def test_different_source_chemicals_separate(self):
-        agg: dict = {}
-        _merge_into(
-            agg, "parent", "child1", "d1", "r3", ["ctd"], [{"pmid": {"id": "1"}}]
-        )
-        _merge_into(
-            agg, "parent", "child2", "d1", "r3", ["ctd"], [{"pmid": {"id": "2"}}]
-        )
-        assert len(agg) == 2
-        assert ("parent", "child1", "d1", "r3") in agg
-        assert ("parent", "child2", "d1", "r3") in agg
 
 
 class TestDeduplicateEvidences:
