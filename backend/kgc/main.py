@@ -123,7 +123,10 @@ def diagnostics_cmd(ctx: click.Context) -> None:
     ).set_index("foodatlas_id")
     trips = pd.read_parquet(
         kg_path / "triplets.parquet",
-        columns=["head_id", "relationship_id", "tail_id"],
+        columns=["head_id", "relationship_id", "tail_id", "attestation_ids"],
+    )
+    trips["attestation_ids"] = trips["attestation_ids"].apply(
+        lambda x: json.loads(x) if isinstance(x, str) else (x or [])
     )
     diag_dir = kg_path / DIR_DIAGNOSTICS
 

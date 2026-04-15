@@ -18,7 +18,18 @@ def _ents(rows: list[tuple[str, str, str]]) -> pd.DataFrame:
 
 
 def _trips(rows: list[tuple[str, str, str]]) -> pd.DataFrame:
-    return pd.DataFrame(rows, columns=["head_id", "relationship_id", "tail_id"])
+    df = pd.DataFrame(rows, columns=["head_id", "relationship_id", "tail_id"])
+    df["attestation_ids"] = [[] for _ in range(len(df))]
+    return df
+
+
+def _trips_with_atts(
+    rows: list[tuple[str, str, str, list[str]]],
+) -> pd.DataFrame:
+    return pd.DataFrame(
+        rows,
+        columns=["head_id", "relationship_id", "tail_id", "attestation_ids"],
+    )
 
 
 class TestFindUnclassified:
@@ -78,3 +89,36 @@ class TestWriteUnclassifiedJsonl:
         records = [json.loads(line) for line in out.read_text().splitlines()]
         ids = {r["foodatlas_id"] for r in records}
         assert ids == {"c2", "f2"}
+        # With no attestations, count is 0 for all.
+        assert all(r["attestation_count"] == 0 for r in records)
+
+    def test_sorted_by_attestation_count(self, tmp_path: Path) -> None:
+        # c1 unclassified chemical with 3 attestations (via one CONTAINS edge);
+        # c2 unclassified chemical with 1 attestation;
+        # c3 unclassified chemical with 0 attestations.
+        ents = _ents(
+            [
+                ("food1", "food", "apple"),
+                ("food2", "food", "pear"),
+                ("c1", "chemical", "x"),
+                ("c2", "chemical", "y"),
+                ("c3", "chemical", "z"),
+            ]
+        )
+        trips = _trips_with_atts(
+            [
+                ("food1", "r1", "c1", ["a1", "a2", "a3"]),
+                ("food2", "r1", "c2", ["a4"]),
+                # food classification edges so food1/food2 aren't unclassified
+                ("food1", "r2", "food_root", []),
+                ("food2", "r2", "food_root", []),
+            ]
+        )
+        out = tmp_path / "kgc_unclassified.jsonl"
+        count = write_unclassified_jsonl(ents, trips, out)
+        assert count == 3  # c1, c2, c3
+
+        records = [json.loads(line) for line in out.read_text().splitlines()]
+        # Sorted descending by attestation_count
+        assert [r["foodatlas_id"] for r in records] == ["c1", "c2", "c3"]
+        assert [r["attestation_count"] for r in records] == [3, 1, 0]
