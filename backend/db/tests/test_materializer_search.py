@@ -99,7 +99,7 @@ class TestBuildExactTokens:
 class TestCountScopedR2:
     """Test _count_scoped_r2 — IS_A edge counting from seeds to root.
 
-    Edges below use the food/disease convention (head=child, tail=parent).
+    All r2 triplets use natural direction: head=child, tail=parent.
     """
 
     @staticmethod
@@ -108,7 +108,7 @@ class TestCountScopedR2:
 
     @staticmethod
     def _count(r2, seeds, type_ids):
-        return _count_scoped_r2(r2, seeds, type_ids, "head_id", "tail_id")
+        return _count_scoped_r2(r2, seeds, type_ids)
 
     def test_basic_chain(self):
         # A -> B -> C, seed={A}
@@ -143,13 +143,6 @@ class TestCountScopedR2:
         # A -> C, B -> C (seeds={A, B})
         r2 = self._make_r2([("A", "C"), ("B", "C")])
         assert self._count(r2, {"A", "B"}, {"A", "B", "C"}) == 2
-
-    def test_chemical_direction(self):
-        # Chemical convention: head=parent, tail=child.
-        # parent -> child edges; seed is a leaf child.
-        r2 = pd.DataFrame([("gp", "p"), ("p", "c")], columns=["head_id", "tail_id"])
-        result = _count_scoped_r2(r2, {"c"}, {"gp", "p", "c"}, "tail_id", "head_id")
-        assert result == 2
 
 
 class TestLoadAssocCounts:

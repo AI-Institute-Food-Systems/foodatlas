@@ -91,14 +91,14 @@ def _build_parent_child_map(
 ) -> dict[str, set[str]]:
     """Build parent -> children mapping from IS_A triplets.
 
-    In the KG, IS_A triplets are stored as ``head=parent, tail=child``.
+    IS_A triplets use natural direction: ``head=child, tail=parent``.
     """
     is_a = triplets[triplets["relationship_id"] == _IS_A_RELATIONSHIP]
     is_a_cc = is_a[is_a["head_id"].isin(chem_ids) & is_a["tail_id"].isin(chem_ids)]
 
     parent_to_children: dict[str, set[str]] = {}
     for _, row in is_a_cc.iterrows():
-        parent_to_children.setdefault(row["head_id"], set()).add(row["tail_id"])
+        parent_to_children.setdefault(row["tail_id"], set()).add(row["head_id"])
     return parent_to_children
 
 

@@ -170,7 +170,7 @@ class TestInsertMvEntities:
 class TestCollectAncestors:
     """Test _collect_ancestors IS_A hierarchy traversal.
 
-    Chemical r2 convention: head=parent, tail=child.
+    All r2 triplets use natural direction: head=child, tail=parent.
     """
 
     def _make_entities(self, ids_and_types):
@@ -182,7 +182,7 @@ class TestCollectAncestors:
         )
 
     def test_direct_parent(self):
-        r2 = pd.DataFrame([{"head_id": "p1", "tail_id": "c1"}])
+        r2 = pd.DataFrame([{"head_id": "c1", "tail_id": "p1"}])
         entities = self._make_entities([("c1", "chemical"), ("p1", "chemical")])
         result = _collect_ancestors(r2, {"c1"}, entities)
         assert result == {"p1"}
@@ -190,8 +190,8 @@ class TestCollectAncestors:
     def test_transitive_ancestors(self):
         r2 = pd.DataFrame(
             [
-                {"head_id": "p1", "tail_id": "c1"},
-                {"head_id": "gp1", "tail_id": "p1"},
+                {"head_id": "c1", "tail_id": "p1"},
+                {"head_id": "p1", "tail_id": "gp1"},
             ]
         )
         entities = self._make_entities(
@@ -205,7 +205,7 @@ class TestCollectAncestors:
         assert result == {"p1", "gp1"}
 
     def test_ignores_non_chemical(self):
-        r2 = pd.DataFrame([{"head_id": "d1", "tail_id": "c1"}])
+        r2 = pd.DataFrame([{"head_id": "c1", "tail_id": "d1"}])
         entities = self._make_entities([("c1", "chemical"), ("d1", "disease")])
         result = _collect_ancestors(r2, {"c1"}, entities)
         assert result == set()
@@ -217,7 +217,7 @@ class TestCollectAncestors:
         assert result == set()
 
     def test_seed_not_in_hierarchy(self):
-        r2 = pd.DataFrame([{"head_id": "p1", "tail_id": "c2"}])
+        r2 = pd.DataFrame([{"head_id": "c2", "tail_id": "p1"}])
         entities = self._make_entities(
             [
                 ("c1", "chemical"),

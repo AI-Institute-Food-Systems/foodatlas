@@ -16,22 +16,17 @@ _IS_A_RELATIONSHIP = "r2"
 def find_unclassified(ents: pd.DataFrame, trips: pd.DataFrame) -> pd.DataFrame:
     """Return food/chemical entities with no IS_A parent.
 
-    The two ontologies use opposite IS_A direction conventions:
-
-    - ChEBI (chemicals): ``head=parent, tail=child`` — a chemical has a
-      parent iff it appears as a *tail*.
-    - FoodOn (foods): ``head=child, tail=parent`` — a food has a parent
-      iff it appears as a *head*.
+    All is_a triplets use natural direction: ``head=child, tail=parent``.
+    An entity has a parent iff it appears as a ``head_id``.
     """
     is_a = trips[trips["relationship_id"] == _IS_A_RELATIONSHIP]
-    chem_classified = set(is_a["tail_id"])
-    food_classified = set(is_a["head_id"])
+    classified = set(is_a["head_id"])
 
     chems = ents[ents["entity_type"] == "chemical"]
     foods = ents[ents["entity_type"] == "food"]
 
-    unclassified_chems = chems[~chems.index.isin(chem_classified)]
-    unclassified_foods = foods[~foods.index.isin(food_classified)]
+    unclassified_chems = chems[~chems.index.isin(classified)]
+    unclassified_foods = foods[~foods.index.isin(classified)]
     return pd.concat([unclassified_chems, unclassified_foods])
 
 

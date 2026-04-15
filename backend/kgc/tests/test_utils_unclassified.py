@@ -34,15 +34,15 @@ def _trips_with_atts(
 
 class TestFindUnclassified:
     def test_chemical_with_parent_is_classified(self) -> None:
-        # ChEBI convention: head=parent, tail=child.
+        # Natural is_a: head=child, tail=parent.
         # c1 (child) has parent c2 -> c1 is classified, c2 is not.
         ents = _ents([("c1", "chemical", "water"), ("c2", "chemical", "compound")])
-        trips = _trips([("c2", "r2", "c1")])
+        trips = _trips([("c1", "r2", "c2")])
         result = find_unclassified(ents, trips)
         assert list(result.index) == ["c2"]
 
     def test_food_with_parent_is_classified(self) -> None:
-        # FoodOn convention: head=child, tail=parent.
+        # Natural is_a: head=child, tail=parent.
         # f1 (child) has parent f2 -> f1 is classified, f2 is not.
         ents = _ents([("f1", "food", "apple"), ("f2", "food", "fruit")])
         trips = _trips([("f1", "r2", "f2")])
@@ -70,8 +70,8 @@ class TestFindUnclassified:
 
 class TestWriteUnclassifiedJsonl:
     def test_writes_jsonl(self, tmp_path: Path) -> None:
-        # c1 is a chemical under parent c2 (ChEBI: head=parent);
-        # f1 is a food under parent f2 (FoodOn: head=child).
+        # Natural is_a (head=child, tail=parent) for both chemicals and foods.
+        # c1 is a chemical under parent c2; f1 is a food under parent f2.
         # Unclassified: c2 (no parent) and f2 (no parent).
         ents = _ents(
             [
@@ -81,7 +81,7 @@ class TestWriteUnclassifiedJsonl:
                 ("f2", "food", "fruit"),
             ]
         )
-        trips = _trips([("c2", "r2", "c1"), ("f1", "r2", "f2")])
+        trips = _trips([("c1", "r2", "c2"), ("f1", "r2", "f2")])
         out = tmp_path / "diagnostics" / "kgc_unclassified.jsonl"
         count = write_unclassified_jsonl(ents, trips, out)
         assert count == 2

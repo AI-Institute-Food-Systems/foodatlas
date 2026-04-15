@@ -152,14 +152,14 @@ class TestGetCorrelationEvidence:
 
 
 class TestBuildAncestors:
-    """Verify chemical r2 direction: head=parent, tail=child."""
+    """Verify r2 direction: head=child, tail=parent (natural)."""
 
     def test_leaf_walks_up_to_ancestors(self, monkeypatch):
-        # Chemical hierarchy: gp -> p -> c (KG direction: head=parent, tail=child)
+        # Chain: c is_a p is_a gp. Natural direction: head=child, tail=parent.
         monkeypatch.setattr(
             "src.etl.materializer_correlation.pd.read_sql",
             lambda _q, _c: pd.DataFrame(
-                [("gp", "p"), ("p", "c")], columns=["head_id", "tail_id"]
+                [("c", "p"), ("p", "gp")], columns=["head_id", "tail_id"]
             ),
         )
         etype = {"gp": "chemical", "p": "chemical", "c": "chemical"}
@@ -168,10 +168,11 @@ class TestBuildAncestors:
         assert ancestors_of["p"] == {"gp"}
 
     def test_non_chemical_edges_ignored(self, monkeypatch):
+        # Natural direction: head=child, tail=parent.
         monkeypatch.setattr(
             "src.etl.materializer_correlation.pd.read_sql",
             lambda _q, _c: pd.DataFrame(
-                [("p", "c"), ("dparent", "dchild")],
+                [("c", "p"), ("dchild", "dparent")],
                 columns=["head_id", "tail_id"],
             ),
         )
@@ -239,9 +240,9 @@ class TestFoodScopedInheritance:
             ),
             # No r1 rows → food_chem_ids is empty
             "WHERE relationship_id = 'r1'": pd.DataFrame(columns=["tail_id"]),
-            # chem r2: a_chem is parent of c_chem (chemical convention)
+            # Natural r2: c_chem is_a a_chem (head=child, tail=parent).
             "WHERE relationship_id = 'r2'": pd.DataFrame(
-                [{"head_id": "a_chem", "tail_id": "c_chem"}]
+                [{"head_id": "c_chem", "tail_id": "a_chem"}]
             ),
         }
         monkeypatch.setattr(
@@ -301,8 +302,9 @@ class TestFoodScopedInheritance:
             ),
             # C is in r1 tail → food-connected
             "WHERE relationship_id = 'r1'": pd.DataFrame([{"tail_id": "c_chem"}]),
+            # Natural r2: c_chem is_a a_chem (head=child, tail=parent).
             "WHERE relationship_id = 'r2'": pd.DataFrame(
-                [{"head_id": "a_chem", "tail_id": "c_chem"}]
+                [{"head_id": "c_chem", "tail_id": "a_chem"}]
             ),
         }
         monkeypatch.setattr(

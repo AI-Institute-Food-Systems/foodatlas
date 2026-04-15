@@ -193,18 +193,11 @@ def _materialize_statistics(conn: Connection) -> None:
     scoped_r3r4 = r3r4[r3r4["head_id"].isin(chem_ids)]
     disease_ids = set(scoped_r3r4["tail_id"])
 
-    # Chemical r2 stores head=parent, tail=child; food/disease r2 stores
-    # head=child, tail=parent (see backend/api/src/repositories/taxonomy.py).
+    # All r2 triplets use natural direction: head=child, tail=parent.
     assoc_r2 = (
-        _count_scoped_r2(
-            r2, food_ids, type_map.get("food", set()), "head_id", "tail_id"
-        )
-        + _count_scoped_r2(
-            r2, chem_ids, type_map.get("chemical", set()), "tail_id", "head_id"
-        )
-        + _count_scoped_r2(
-            r2, disease_ids, type_map.get("disease", set()), "head_id", "tail_id"
-        )
+        _count_scoped_r2(r2, food_ids, type_map.get("food", set()))
+        + _count_scoped_r2(r2, chem_ids, type_map.get("chemical", set()))
+        + _count_scoped_r2(r2, disease_ids, type_map.get("disease", set()))
     )
     associations = len(r1) + len(scoped_r3r4) + assoc_r2
 
@@ -252,18 +245,15 @@ def _count_scoped_r2(
     r2: pd.DataFrame,
     seed_ids: set[str],
     type_ids: set[str],
-    child_col: str,
-    parent_col: str,
 ) -> int:
     """Count IS_A edges reachable from seed entities to root.
 
-    child_col/parent_col select the r2 direction for the entity type
-    (see backend/api/src/repositories/taxonomy.py).
+    All r2 triplets use natural direction: head=child, tail=parent.
     """
     typed_r2 = r2[r2["head_id"].isin(type_ids) & r2["tail_id"].isin(type_ids)]
     parents_of: dict[str, set[str]] = {}
     for _, row in typed_r2.iterrows():
-        parents_of.setdefault(row[child_col], set()).add(row[parent_col])
+        parents_of.setdefault(row["head_id"], set()).add(row["tail_id"])
 
     reachable = set(seed_ids)
     stack = list(seed_ids)
