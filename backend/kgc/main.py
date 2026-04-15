@@ -17,6 +17,7 @@ from src.pipeline.runner import PipelineRunner
 from src.pipeline.stages import PipelineStage
 from src.stores.schema import DIR_DIAGNOSTICS
 from src.utils.orphans import write_orphans_jsonl
+from src.utils.unclassified import write_unclassified_jsonl
 
 _STAGE_NAMES = [s.name.lower() for s in PipelineStage]
 _VALID_STAGES = _STAGE_NAMES + [str(s.value) for s in PipelineStage]
@@ -110,10 +111,10 @@ def init(ctx: click.Context) -> None:
     runner.run([PipelineStage.INGEST, PipelineStage.ENTITIES])
 
 
-@cli.command("orphans")
+@cli.command("diagnostics")
 @click.pass_context
-def orphans_cmd(ctx: click.Context) -> None:
-    """Write orphan entities from the current KG parquet to diagnostics."""
+def diagnostics_cmd(ctx: click.Context) -> None:
+    """Regenerate KGC diagnostics (orphans, unclassified) from current KG."""
     settings: KGCSettings = ctx.obj["settings"]
     kg_path = Path(settings.kg_dir)
     ents = pd.read_parquet(
@@ -121,11 +122,18 @@ def orphans_cmd(ctx: click.Context) -> None:
         columns=["foodatlas_id", "entity_type", "common_name"],
     ).set_index("foodatlas_id")
     trips = pd.read_parquet(
-        kg_path / "triplets.parquet", columns=["head_id", "tail_id"]
+        kg_path / "triplets.parquet",
+        columns=["head_id", "relationship_id", "tail_id"],
     )
-    out = kg_path / DIR_DIAGNOSTICS / "kgc_orphans.jsonl"
-    count = write_orphans_jsonl(ents, trips, out)
-    click.echo(f"Wrote {count} orphan entities to {out}")
+    diag_dir = kg_path / DIR_DIAGNOSTICS
+
+    orphans_out = diag_dir / "kgc_orphans.jsonl"
+    n_orphans = write_orphans_jsonl(ents, trips, orphans_out)
+    click.echo(f"Wrote {n_orphans} orphan entities to {orphans_out}")
+
+    unclass_out = diag_dir / "kgc_unclassified.jsonl"
+    n_unclass = write_unclassified_jsonl(ents, trips, unclass_out)
+    click.echo(f"Wrote {n_unclass} unclassified entities to {unclass_out}")
 
 
 @cli.command("diff")

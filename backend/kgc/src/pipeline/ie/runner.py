@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 from ...stores.schema import DIR_DIAGNOSTICS
 from ...utils.orphans import write_orphans_jsonl
 from ...utils.timing import log_duration
+from ...utils.unclassified import write_unclassified_jsonl
 from ..checkpoint import load_checkpoint, save_checkpoint
 from ..knowledge_graph import KnowledgeGraph
 from ..triplets.ambiguity import write_ambiguous_attestations
@@ -55,6 +56,12 @@ class IERunner:
                 kg.entities._entities, kg.triplets._triplets, out
             )
             logger.info("Wrote %d orphan entities to %s", count, out)
+        with log_duration("Write unclassified entities", logger):
+            out = kg_dir / DIR_DIAGNOSTICS / "kgc_unclassified.jsonl"
+            count = write_unclassified_jsonl(
+                kg.entities._entities, kg.triplets._triplets, out
+            )
+            logger.info("Wrote %d unclassified entities to %s", count, out)
         with log_duration("Save checkpoint (ie)", logger):
             save_checkpoint(kg_dir, "ie")
         logger.info("IE stage complete.")
