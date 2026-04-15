@@ -157,6 +157,8 @@ def _build_exact_tokens(
 ) -> list[str]:
     """Build exact-match search tokens for an entity.
 
+    Tokens are lowercased because the search repository lowercases the
+    query term before matching against ``substr_auto``/``exact_auto``.
     Synonyms longer than ``_MAX_TOKEN_LEN`` (e.g. amino acid sequences)
     are excluded to stay within the GIN index page-size limit.
     """
@@ -165,7 +167,7 @@ def _build_exact_tokens(
         tokens.append(scientific_name)
     tokens.extend(s for s in synonyms if len(s) <= _MAX_TOKEN_LEN)
     tokens.extend(ext_id_values)
-    return [str(t) for t in tokens]
+    return [str(t).lower() for t in tokens]
 
 
 def _materialize_statistics(conn: Connection) -> None:

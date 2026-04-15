@@ -49,7 +49,9 @@ class TestExtractExternalIdValues:
 
 
 class TestBuildExactTokens:
-    """Test _build_exact_tokens."""
+    """Test _build_exact_tokens. All tokens are lowercased so the search
+    repository's lowercased query term matches regardless of original case.
+    """
 
     def test_basic_tokens(self):
         result = _build_exact_tokens(
@@ -61,26 +63,40 @@ class TestBuildExactTokens:
         )
         assert result == [
             "food",
-            "Apple",
-            "Malus domestica",
+            "apple",
+            "malus domestica",
             "apple fruit",
-            "FOODON:123",
+            "foodon:123",
         ]
 
     def test_no_scientific_name(self):
         result = _build_exact_tokens("chemical", "Vitamin C", "", ["ascorbic acid"], [])
-        assert "Vitamin C" in result
+        assert "vitamin c" in result
         assert "" not in result
         assert "ascorbic acid" in result
 
     def test_entity_type_always_first(self):
         result = _build_exact_tokens("disease", "Scurvy", "", [], [])
         assert result[0] == "disease"
-        assert result[1] == "Scurvy"
+        assert result[1] == "scurvy"
 
     def test_empty_synonyms_and_ext_ids(self):
         result = _build_exact_tokens("food", "X", "", [], [])
-        assert result == ["food", "X"]
+        assert result == ["food", "x"]
+
+    def test_uppercase_dmd_peptide_searchable(self):
+        # DMD peptides have uppercase common names like "CBL_0001". The token
+        # must be lowercased so a search for "cbl" matches.
+        result = _build_exact_tokens(
+            "chemical",
+            "CBL_0001",
+            "",
+            ["CBL_0001", "APFP"],
+            ["DMD300001"],
+        )
+        assert "cbl_0001" in result
+        assert "apfp" in result
+        assert "dmd300001" in result
 
     def test_all_values_are_strings(self):
         nums_as_synonyms: list[str] = ["123"]

@@ -38,6 +38,8 @@ CHEMICAL_CATEGORIES: dict[str, str] = {
     "amino acid": "e64236",
     "fatty acid": "e64324",
     "nucleotide": "e64474",
+    "peptide": "e60858",
+    "vitamin": "e227338",
 }
 
 _IS_A_RELATIONSHIP = "r2"

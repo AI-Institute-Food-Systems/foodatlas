@@ -258,5 +258,5 @@ class TestCategoryConstants:
         eids = list(CHEMICAL_CATEGORIES.values())
         assert len(eids) == len(set(eids))
 
-    def test_twelve_categories(self) -> None:
-        assert len(CHEMICAL_CATEGORIES) == 12
+    def test_category_count(self) -> None:
+        assert len(CHEMICAL_CATEGORIES) == 14

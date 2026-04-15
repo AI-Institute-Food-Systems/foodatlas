@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from typing import TYPE_CHECKING, Any
 
 import pandas as pd
@@ -22,6 +23,18 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 SOURCE_ID = "cdno"
+
+_CONC_PREFIX = re.compile(r"^concentration of\s+", re.IGNORECASE)
+_MATERIAL_SUFFIX = re.compile(r"\s+in material entity$", re.IGNORECASE)
+_MOL_ENT_PAREN = re.compile(r"\s*\(molecular entity\)", re.IGNORECASE)
+
+
+def _clean_label(raw: str) -> str:
+    """Strip CDNO's "concentration of X ... in material entity" wrapper."""
+    s = _CONC_PREFIX.sub("", raw)
+    s = _MATERIAL_SUFFIX.sub("", s)
+    s = _MOL_ENT_PAREN.sub("", s)
+    return s.strip()
 
 
 class CDNOAdapter:
@@ -91,15 +104,16 @@ def _parse_cdno(
             continue
 
         label_el = class_.find("rdfs:label")
-        label = label_el.text if label_el else ""
+        raw_label = label_el.text if label_el else ""
+        name = _clean_label(raw_label).lower() if raw_label else ""
 
         node_rows.append(
             {
                 "source_id": SOURCE_ID,
                 "native_id": cdno_id,
-                "name": label.lower().strip(),
-                "synonyms": [label.lower().strip()] if label else [],
-                "synonym_types": ["label"] if label else [],
+                "name": name,
+                "synonyms": [name] if name else [],
+                "synonym_types": ["label"] if name else [],
                 "node_type": "class",
                 "raw_attrs": {},
             }
