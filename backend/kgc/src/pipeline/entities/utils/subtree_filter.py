@@ -29,7 +29,7 @@ def filter_sources(
     _filter_foodon(sources, roots)
     _filter_chebi(sources, roots)
     _filter_ctd(sources)
-    _filter_cdno(sources)
+    _filter_cdno(sources, roots)
     return sources
 
 
@@ -129,20 +129,39 @@ def _filter_ctd(sources: dict[str, dict[str, pd.DataFrame]]) -> None:
     logger.info("CTD: %d → %d edges (direct evidence).", before, after)
 
 
-def _filter_cdno(sources: dict[str, dict[str, pd.DataFrame]]) -> None:
+def _filter_cdno(
+    sources: dict[str, dict[str, pd.DataFrame]],
+    roots: OntologyRoots,
+) -> None:
     cdno = sources.get("cdno")
     if cdno is None:
         return
     nodes: pd.DataFrame = cdno["nodes"]
+    edges: pd.DataFrame = cdno["edges"]
     xrefs = cdno.get("xrefs", pd.DataFrame())
     before = len(nodes)
 
     if xrefs.empty:
-        cdno["nodes"] = nodes.iloc[0:0].copy()
+        ids_with_fdc: set[str] = set()
     else:
         fdc_xrefs = xrefs[xrefs["target_source"] == "fdc_nutrient"]
         ids_with_fdc = set(fdc_xrefs["native_id"])
-        cdno["nodes"] = nodes[nodes["native_id"].isin(ids_with_fdc)].copy()
+
+    # Preserve whitelisted classification subtrees even without FDC xrefs.
+    subtree_ids: set[str] = set()
+    for root_id in roots.cdno_keep_subtrees:
+        subtree_ids |= _compute_descendants(edges, root_id)
+
+    keep = ids_with_fdc | subtree_ids
+    cdno["nodes"] = nodes[nodes["native_id"].isin(keep)].copy()
+    cdno["edges"] = edges[
+        edges["head_native_id"].isin(keep) & edges["tail_native_id"].isin(keep)
+    ].copy()
 
     after = len(cdno["nodes"])
-    logger.info("CDNO: %d → %d nodes (FDC nutrient).", before, after)
+    logger.info(
+        "CDNO: %d → %d nodes (FDC nutrient + %d whitelisted subtrees).",
+        before,
+        after,
+        len(roots.cdno_keep_subtrees),
+    )

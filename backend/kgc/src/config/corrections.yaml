@@ -59,3 +59,7 @@ ontology_roots:
   foodon_is_food: "http://purl.obolibrary.org/obo/FOODON_00002381"
   foodon_is_organism: "http://purl.obolibrary.org/obo/OBI_0100026"
   chebi_molecular_entity: 23367
+  # CDNO category subtrees preserved through the FDC-xref filter.
+  # Used to keep classification roots like "vitamin" that have no FDC ID.
+  cdno_keep_subtrees:
+    - "http://purl.obolibrary.org/obo/CDNO_0200179"  # vitamin

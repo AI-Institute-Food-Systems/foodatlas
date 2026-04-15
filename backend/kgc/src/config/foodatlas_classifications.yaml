@@ -1,0 +1,25 @@
+# FoodAtlas-curated chemical ontology bridges.
+# These are manual is_a edges we assert to connect classification roots from
+# one source into another source's ontology spine. Each entry becomes a single
+# triplet with source=foodatlas.
+#
+# Semantics: "child is_a parent".
+# Format:
+#   is_a:
+#     - child:  {source, native_id}
+#       parent: {source, native_id}
+#       note:   "why this bridge exists"
+
+is_a:
+  # Attach the CDNO "vitamin" root to the ChEBI molecular-entity root.
+  # ChEBI only has "vitamin (role)" which is filtered out by the molecular
+  # entity subtree filter, so there is no ChEBI-native path from vitamin to
+  # molecular entity. We create one here so graph traversal from the chemical
+  # root reaches the vitamin classification.
+  - child:
+      source: cdno
+      native_id: "http://purl.obolibrary.org/obo/CDNO_0200179"
+    parent:
+      source: chebi
+      native_id: "23367"
+    note: "Attach CDNO vitamin class to ChEBI molecular entity spine"

@@ -27,6 +27,8 @@ class TestExtractExternalIdValues:
 
 class TestBuildExactTokens:
     def test_includes_all_fields(self):
+        # Tokens are lowercased to match the search repository's lowercased
+        # query term.
         tokens = _build_exact_tokens(
             "food",
             "tomato",
@@ -36,9 +38,9 @@ class TestBuildExactTokens:
         )
         assert "food" in tokens
         assert "tomato" in tokens
-        assert "Solanum lycopersicum" in tokens
+        assert "solanum lycopersicum" in tokens
         assert "tomate" in tokens
-        assert "FDC:123" in tokens
+        assert "fdc:123" in tokens
 
     def test_skips_empty_scientific_name(self):
         tokens = _build_exact_tokens("chemical", "caffeine", "", [], [])

@@ -61,10 +61,12 @@ const CLASSIFICATION_OPTIONS = [
   "glucosinolate",
   "lignan",
   "nucleotide",
+  "peptide",
   "polyphenol",
   "stilbenoid",
   "tannin",
   "terpenoid",
+  "vitamin",
   "n/a",
 ];
 

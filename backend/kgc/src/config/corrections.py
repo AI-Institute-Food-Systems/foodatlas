@@ -63,6 +63,9 @@ class OntologyRoots:
     foodon_is_food: str = "http://purl.obolibrary.org/obo/FOODON_00002381"
     foodon_is_organism: str = "http://purl.obolibrary.org/obo/OBI_0100026"
     chebi_molecular_entity: int = 23367
+    cdno_keep_subtrees: tuple[str, ...] = (
+        "http://purl.obolibrary.org/obo/CDNO_0200179",
+    )
 
 
 @dataclass(frozen=True)
@@ -130,5 +133,11 @@ def load_corrections(path: Path | None = None) -> Corrections:
                 "http://purl.obolibrary.org/obo/OBI_0100026",
             ),
             chebi_molecular_entity=roots_raw.get("chebi_molecular_entity", 23367),
+            cdno_keep_subtrees=tuple(
+                roots_raw.get(
+                    "cdno_keep_subtrees",
+                    ["http://purl.obolibrary.org/obo/CDNO_0200179"],
+                )
+            ),
         ),
     )
