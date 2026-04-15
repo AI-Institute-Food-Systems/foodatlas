@@ -166,9 +166,7 @@ def _build_ancestors(
 ) -> dict[str, set[str]]:
     """Build child -> all ancestors map from chemical IS_A triplets.
 
-    Chemical-chemical r2 uses head=parent, tail=child (see
-    backend/api/src/repositories/taxonomy.py), so a child's parents are the
-    head_ids of rows where it appears as tail.
+    All r2 triplets use natural direction: head=child, tail=parent.
     """
     r2 = pd.read_sql(
         text("SELECT head_id, tail_id FROM base_triplets WHERE relationship_id = 'r2'"),
@@ -182,7 +180,7 @@ def _build_ancestors(
 
     parents_of: dict[str, set[str]] = defaultdict(set)
     for _, row in r2.iterrows():
-        parents_of[row["tail_id"]].add(row["head_id"])
+        parents_of[row["head_id"]].add(row["tail_id"])
 
     cache: dict[str, set[str]] = {}
 

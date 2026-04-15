@@ -38,16 +38,18 @@ def merge_chemical_ontology(
     if lookup.empty:
         return
 
-    # ChEBI is_a semantics: head is_a tail → reversed in KG (head=parent).
+    # Natural is_a direction (matches FoodOn): head=child, tail=parent.
+    # Phase-1 ChEBI edges already use this direction after the adapter
+    # translates ChEBI's raw INIT=parent/FINAL=child convention.
     df = is_a.merge(
-        lookup, left_on="tail_native_id", right_on="native_id", how="inner"
+        lookup, left_on="head_native_id", right_on="native_id", how="inner"
     ).drop(columns=["native_id"])
     df = df.rename(
         columns={"foodatlas_id": "_head_id", "candidates": "head_candidates"}
     )
 
     df = df.merge(
-        lookup, left_on="head_native_id", right_on="native_id", how="inner"
+        lookup, left_on="tail_native_id", right_on="native_id", how="inner"
     ).drop(columns=["native_id"])
     df = df.rename(
         columns={"foodatlas_id": "_tail_id", "candidates": "tail_candidates"}
@@ -61,8 +63,8 @@ def merge_chemical_ontology(
     df["source_type"] = _SOURCE
     df["reference"] = ref
     df["source"] = _SOURCE
-    df["head_name_raw"] = df["tail_native_id"].astype(str)
-    df["tail_name_raw"] = df["head_native_id"].astype(str)
+    df["head_name_raw"] = df["head_native_id"].astype(str)
+    df["tail_name_raw"] = df["tail_native_id"].astype(str)
 
     ev_result = kg.evidence.create(df[["source_type", "reference"]])
     df["evidence_id"] = ev_result.index
