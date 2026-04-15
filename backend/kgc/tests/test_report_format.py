@@ -1,15 +1,15 @@
-"""Tests for kg_diff.report — report formatting."""
+"""Tests for report.format — report formatting."""
 
 from __future__ import annotations
 
-from src.pipeline.kg_diff.compare import (
+from src.pipeline.report.format import format_report
+from src.pipeline.report.runner import (
     EntityDetailChanges,
     EntitySummary,
     KGDiffResult,
     SourceCoverage,
     TripletSummary,
 )
-from src.pipeline.kg_diff.report import format_report
 
 
 def _make_result() -> KGDiffResult:
@@ -20,6 +20,8 @@ def _make_result() -> KGDiffResult:
             new_ids=["e100", "e101"],
             retired_ids=["e50"],
             stable_count=28,
+            old_orphans_by_type={"chemical": 3},
+            new_orphans_by_type={"chemical": 2, "disease": 1},
         ),
         triplet_summary=TripletSummary(
             old_counts={"r1": 100, "r2": 50},
@@ -75,3 +77,10 @@ class TestFormatReport:
         assert "fdc" in report
         assert "ctd" in report
         assert "chebi" in report
+
+    def test_orphan_section(self) -> None:
+        report = format_report(_make_result())
+        assert "Orphan entities" in report
+        # Old total 3, new total 3 (2 + 1)
+        lines = [line for line in report.splitlines() if "TOTAL" in line]
+        assert any("3" in line for line in lines)

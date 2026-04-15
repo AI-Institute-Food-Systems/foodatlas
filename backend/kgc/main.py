@@ -7,13 +7,16 @@ import logging
 from pathlib import Path
 
 import click
+import pandas as pd
 from src.models.settings import KGCSettings
 from src.pipeline.ingest.runner import ALL_ADAPTERS
-from src.pipeline.kg_diff.compare import run_diff
-from src.pipeline.kg_diff.load_old import load_old_kg
-from src.pipeline.kg_diff.report import format_report
+from src.pipeline.report.format import format_report
+from src.pipeline.report.load_old import load_old_kg
+from src.pipeline.report.runner import run_diff
 from src.pipeline.runner import PipelineRunner
 from src.pipeline.stages import PipelineStage
+from src.stores.schema import DIR_DIAGNOSTICS
+from src.utils.orphans import write_orphans_jsonl
 
 _STAGE_NAMES = [s.name.lower() for s in PipelineStage]
 _VALID_STAGES = _STAGE_NAMES + [str(s.value) for s in PipelineStage]
@@ -105,6 +108,24 @@ def init(ctx: click.Context) -> None:
     settings: KGCSettings = ctx.obj["settings"]
     runner = PipelineRunner(settings)
     runner.run([PipelineStage.INGEST, PipelineStage.ENTITIES])
+
+
+@cli.command("orphans")
+@click.pass_context
+def orphans_cmd(ctx: click.Context) -> None:
+    """Write orphan entities from the current KG parquet to diagnostics."""
+    settings: KGCSettings = ctx.obj["settings"]
+    kg_path = Path(settings.kg_dir)
+    ents = pd.read_parquet(
+        kg_path / "entities.parquet",
+        columns=["foodatlas_id", "entity_type", "common_name"],
+    ).set_index("foodatlas_id")
+    trips = pd.read_parquet(
+        kg_path / "triplets.parquet", columns=["head_id", "tail_id"]
+    )
+    out = kg_path / DIR_DIAGNOSTICS / "kgc_orphans.jsonl"
+    count = write_orphans_jsonl(ents, trips, out)
+    click.echo(f"Wrote {count} orphan entities to {out}")
 
 
 @cli.command("diff")
