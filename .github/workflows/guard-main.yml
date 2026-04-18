@@ -1,0 +1,23 @@
+name: guard-main-head-ref
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  check:
+    name: guard-main-head-ref
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Validate source branch
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          if [[ "$HEAD_REF" != "dev" && "$HEAD_REF" != hotfix/* ]]; then
+            echo "::error::PRs to main must come from 'dev' or 'hotfix/*'. Got: '$HEAD_REF'."
+            exit 1
+          fi
+          echo "Head branch '$HEAD_REF' is allowed."
