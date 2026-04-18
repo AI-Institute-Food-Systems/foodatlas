@@ -1,0 +1,128 @@
+name: CD
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/api/**"
+      - "backend/db/**"
+      - "infra/cdk/**"
+      - "!**/*.md"
+  workflow_dispatch:
+
+concurrency:
+  group: cd-main
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-west-1
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Compute image tag
+        id: tag
+        run: echo "image_tag=${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push API image
+        run: ./backend/api/scripts/push-to-ecr.sh "${{ steps.tag.outputs.image_tag }}"
+
+      - name: Build and push DB image
+        run: ./backend/db/scripts/push-to-ecr.sh "${{ steps.tag.outputs.image_tag }}"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install CDK CLI
+        run: npm install -g aws-cdk@2
+
+      - name: Resolve AWS account
+        id: account
+        run: echo "id=$(aws sts get-caller-identity --query Account --output text)" >> "$GITHUB_OUTPUT"
+
+      - name: Sync CDK dependencies
+        run: cd infra/cdk && uv sync
+
+      - name: Deploy non-API stacks (updates JobsStack with new DB image)
+        env:
+          CDK_DEFAULT_ACCOUNT: ${{ steps.account.outputs.id }}
+          CDK_DEFAULT_REGION: ${{ env.AWS_REGION }}
+          TAG: ${{ steps.tag.outputs.image_tag }}
+          API_CERT_ARN: ${{ secrets.API_CERT_ARN }}
+        run: |
+          cd infra/cdk
+          args=(
+            --context "api_image_tag=$TAG"
+            --context "db_image_tag=$TAG"
+            --require-approval never
+          )
+          if [ -n "$API_CERT_ARN" ]; then
+            args+=(--context "api_cert_arn=$API_CERT_ARN")
+          fi
+          uv run cdk deploy \
+            FoodAtlasNetworkStack \
+            FoodAtlasStorageStack \
+            FoodAtlasEcrStack \
+            FoodAtlasDatabaseStack \
+            FoodAtlasJobsStack \
+            "${args[@]}"
+
+      - name: Run Alembic migrations
+        run: ./infra/cdk/scripts/run-migration.sh
+
+      - name: Deploy API stack (rolls out new API image)
+        env:
+          CDK_DEFAULT_ACCOUNT: ${{ steps.account.outputs.id }}
+          CDK_DEFAULT_REGION: ${{ env.AWS_REGION }}
+          TAG: ${{ steps.tag.outputs.image_tag }}
+          API_CERT_ARN: ${{ secrets.API_CERT_ARN }}
+        run: |
+          cd infra/cdk
+          args=(
+            --context "api_image_tag=$TAG"
+            --context "db_image_tag=$TAG"
+            --require-approval never
+          )
+          if [ -n "$API_CERT_ARN" ]; then
+            args+=(--context "api_cert_arn=$API_CERT_ARN")
+          fi
+          uv run cdk deploy FoodAtlasApiStack "${args[@]}"
+
+      - name: Fetch API URL
+        id: api
+        run: |
+          url=$(aws cloudformation describe-stacks \
+            --stack-name FoodAtlasApiStack \
+            --query "Stacks[0].Outputs[?OutputKey=='ApiUrl'].OutputValue" \
+            --output text)
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "API URL: $url"
+
+      - name: Smoke test /health
+        run: curl --fail --show-error --retry 10 --retry-delay 10 --retry-all-errors --max-time 30 "${{ steps.api.outputs.url }}/health"
