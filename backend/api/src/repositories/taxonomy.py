@@ -3,14 +3,9 @@
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-# IS_A direction per entity type: (child_column, parent_column).
-# Food & Disease: head=child, tail=parent.
-# Chemical: head=parent, tail=child.
-_DIRECTION: dict[str, tuple[str, str]] = {
-    "food": ("head_id", "tail_id"),
-    "chemical": ("tail_id", "head_id"),
-    "disease": ("head_id", "tail_id"),
-}
+# All r2 triplets use natural is_a direction: head=child, tail=parent.
+_CHILD_COL = "head_id"
+_PARENT_COL = "tail_id"
 
 _MV_TABLE: dict[str, str] = {
     "food": "mv_food_entities",
@@ -35,8 +30,7 @@ async def get_taxonomy(
     if entity_id is None:
         return {"data": {"entity_id": None, "nodes": [], "edges": []}}
 
-    child_col, parent_col = _DIRECTION[entity_type]
-    sql = _build_ancestry_sql(child_col, parent_col)
+    sql = _build_ancestry_sql(_CHILD_COL, _PARENT_COL)
 
     result = await session.execute(text(sql), {"entity_id": entity_id})
     rows = [dict(r._mapping) for r in result]

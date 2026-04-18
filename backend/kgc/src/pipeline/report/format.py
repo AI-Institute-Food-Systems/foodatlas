@@ -6,7 +6,7 @@ from io import StringIO
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .compare import (
+    from .runner import (
         EntityDetailChanges,
         EntitySummary,
         KGDiffResult,
@@ -64,6 +64,23 @@ def _entity_summary(buf: StringIO, s: EntitySummary) -> None:
     buf.write(f"  New entity IDs:     {len(s.new_ids):,}\n")
     buf.write(f"  Retired entity IDs: {len(s.retired_ids):,}\n")
     buf.write(f"  Stable entity IDs:  {s.stable_count:,}\n\n")
+
+    _orphans(buf, s)
+
+
+def _orphans(buf: StringIO, s: EntitySummary) -> None:
+    buf.write("  Orphan entities (not referenced by any triplet):\n")
+    all_types = sorted(set(s.old_orphans_by_type) | set(s.new_orphans_by_type))
+    buf.write(f"  {'Type':<12} {'Old':>10} {'New':>10} {'Delta':>10}\n")
+    old_total, new_total = 0, 0
+    for t in all_types:
+        o = s.old_orphans_by_type.get(t, 0)
+        n = s.new_orphans_by_type.get(t, 0)
+        old_total += o
+        new_total += n
+        buf.write(f"  {t:<12} {o:>10,} {n:>10,} {n - o:>+10,}\n")
+    delta = new_total - old_total
+    buf.write(f"  {'TOTAL':<12} {old_total:>10,} {new_total:>10,} {delta:>+10,}\n\n")
 
 
 def _triplet_summary(buf: StringIO, s: TripletSummary) -> None:

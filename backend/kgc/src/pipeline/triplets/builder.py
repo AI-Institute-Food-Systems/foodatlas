@@ -6,7 +6,12 @@ import logging
 from typing import TYPE_CHECKING
 
 from ...utils.timing import log_duration
-from .chemical_chemical import merge_chemical_ontology
+from .chemical_chemical import (
+    merge_chemical_ontology,
+    merge_chemical_ontology_cdno,
+    merge_chemical_ontology_dmd,
+    merge_chemical_ontology_foodatlas,
+)
 from .chemical_disease import merge_ctd_triplets
 from .disease_disease import merge_disease_ontology
 from .food_chemical import merge_dmd_triplets, merge_fdc_triplets
@@ -31,8 +36,14 @@ def build_triplets(
     """
     with log_duration("Food ontology triplets", logger):
         merge_food_ontology(kg, sources)
-    with log_duration("Chemical ontology triplets", logger):
+    with log_duration("Chemical ontology triplets (ChEBI)", logger):
         merge_chemical_ontology(kg, sources)
+    with log_duration("Chemical ontology triplets (CDNO)", logger):
+        merge_chemical_ontology_cdno(kg, sources)
+    with log_duration("Chemical ontology triplets (DMD classifications)", logger):
+        merge_chemical_ontology_dmd(kg, sources)
+    with log_duration("Chemical ontology triplets (FoodAtlas bridges)", logger):
+        merge_chemical_ontology_foodatlas(kg, sources)
     with log_duration("Disease ontology triplets", logger):
         merge_disease_ontology(kg, sources)
     with log_duration("FDC food-chemical triplets", logger):

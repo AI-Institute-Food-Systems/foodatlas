@@ -168,7 +168,10 @@ class TestInsertMvEntities:
 
 
 class TestCollectAncestors:
-    """Test _collect_ancestors IS_A hierarchy traversal."""
+    """Test _collect_ancestors IS_A hierarchy traversal.
+
+    All r2 triplets use natural direction: head=child, tail=parent.
+    """
 
     def _make_entities(self, ids_and_types):
         return pd.DataFrame(

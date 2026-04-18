@@ -116,9 +116,13 @@ class TestDiscoverIEFiles:
         assert all(m == "gpt-5.2" for m, _ in entries)
 
 
+@patch("src.pipeline.ie.runner.write_unclassified_jsonl")
+@patch("src.pipeline.ie.runner.write_orphans_jsonl")
 @patch("src.pipeline.ie.runner.KnowledgeGraph")
 def test_run_skips_expansion_when_no_ie_dir(
     mock_kg_cls: MagicMock,
+    _mock_orphans: MagicMock,
+    _mock_unclassified: MagicMock,
     settings: KGCSettings,
 ) -> None:
     kg = MagicMock()
@@ -131,6 +135,8 @@ def test_run_skips_expansion_when_no_ie_dir(
     kg.save.assert_called_once()
 
 
+@patch("src.pipeline.ie.runner.write_unclassified_jsonl")
+@patch("src.pipeline.ie.runner.write_orphans_jsonl")
 @patch("src.pipeline.ie.runner.write_unresolved_report")
 @patch("src.pipeline.ie.runner.resolve_ie_metadata")
 @patch("src.pipeline.ie.runner.load_ie_raw")
@@ -140,6 +146,8 @@ def test_ie_expansion_calls_resolver(
     mock_load_ie: MagicMock,
     mock_resolve: MagicMock,
     mock_write_report: MagicMock,
+    _mock_orphans: MagicMock,
+    _mock_unclassified: MagicMock,
     tmp_path: Path,
 ) -> None:
     ie_dir = tmp_path / "extractions"

@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pandas as pd
-from src.pipeline.ingest.adapters.cdno import CDNOAdapter
+from src.pipeline.ingest.adapters.cdno import CDNOAdapter, _clean_label
 from src.pipeline.ingest.adapters.chebi import ChEBIAdapter
 from src.pipeline.ingest.adapters.ctd import CTDAdapter
 from src.pipeline.ingest.adapters.dmd import DMDAdapter, _parse_set_field
@@ -167,6 +167,20 @@ def test_foodon_remove_suffix() -> None:
     assert _remove_suffix("apple@en") == "apple"
     assert _remove_suffix("val^^xsd:string") == "val"
     assert _remove_suffix("plain") == "plain"
+
+
+def test_cdno_clean_label() -> None:
+    assert _clean_label("concentration of water in material entity") == "water"
+    assert (
+        _clean_label("concentration of vitamin (molecular entity) in material entity")
+        == "vitamin"
+    )
+    assert (
+        _clean_label("concentration of polysaccharide in material entity")
+        == "polysaccharide"
+    )
+    assert _clean_label("dietary chemical component") == "dietary chemical component"
+    assert _clean_label("") == ""
 
 
 def test_mesh_ensure_list() -> None:

@@ -5,9 +5,7 @@ whether it is a descendant of curated FoodOn anchor nodes.  Multi-label:
 a single food can belong to multiple categories (e.g. a fruit juice is
 both "botanical fruit food product" and "plant derived beverage").
 
-Note: FoodOn IS_A direction is head=child, tail=parent — the inverse of
-the chemical (ChEBI) convention.  ``_build_parent_child_map`` accounts
-for this by mapping tail -> head.
+All r2 triplets use natural direction: ``head=child, tail=parent``.
 """
 
 from __future__ import annotations

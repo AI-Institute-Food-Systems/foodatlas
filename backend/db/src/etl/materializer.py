@@ -90,7 +90,10 @@ def _materialize_entity_views(conn: Connection) -> None:
 def _collect_ancestors(
     r2: pd.DataFrame, seed_ids: set[str], entities: pd.DataFrame
 ) -> set[str]:
-    """Return all chemical ancestors of seed_ids via IS_A (r2) triplets."""
+    """Return all chemical ancestors of seed_ids via IS_A (r2) triplets.
+
+    All r2 triplets use natural direction: head=child, tail=parent.
+    """
     chem_ids_all = set(entities[entities["entity_type"] == "chemical"]["foodatlas_id"])
     chem_r2 = r2[r2["head_id"].isin(chem_ids_all) & r2["tail_id"].isin(chem_ids_all)]
     parents_of: dict[str, set[str]] = {}

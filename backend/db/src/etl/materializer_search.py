@@ -32,10 +32,11 @@ def _materialize_search_auto_complete(conn: Connection) -> None:
     r1 = triplets[triplets["relationship_id"] == "r1"]
     r3r4 = triplets[triplets["relationship_id"].isin(["r3", "r4"])]
 
-    # Vectorized association counts
-    assoc_counts = (
-        pd.concat([triplets["head_id"], triplets["tail_id"]]).value_counts().to_dict()
-    )
+    # Per-entity association counts mirror what the entity page actually
+    # renders: row counts from the already-populated composition and
+    # correlation MVs. refresh_search runs after refresh_all (see loader.py),
+    # so both tables exist at this point.
+    assoc_counts = _load_assoc_counts(conn)
 
     # Pre-compute relevant entity ID sets
     food_ids = set(r1["head_id"])
@@ -107,6 +108,29 @@ def _materialize_search_auto_complete(conn: Connection) -> None:
     logger.info("Search autocomplete: %d rows", len(result))
 
 
+def _load_assoc_counts(conn: Connection) -> dict[str, int]:
+    """Sum entity row counts across composition and correlation MVs.
+
+    Each MV uses type-specific ID columns (food_/chemical_/disease_foodatlas_id)
+    so adding all four groupings never cross-contaminates entity types.
+    """
+    queries = (
+        "SELECT food_foodatlas_id AS fid, COUNT(*) AS n"
+        " FROM mv_food_chemical_composition GROUP BY food_foodatlas_id",
+        "SELECT chemical_foodatlas_id AS fid, COUNT(*) AS n"
+        " FROM mv_food_chemical_composition GROUP BY chemical_foodatlas_id",
+        "SELECT chemical_foodatlas_id AS fid, COUNT(*) AS n"
+        " FROM mv_chemical_disease_correlation GROUP BY chemical_foodatlas_id",
+        "SELECT disease_foodatlas_id AS fid, COUNT(*) AS n"
+        " FROM mv_chemical_disease_correlation GROUP BY disease_foodatlas_id",
+    )
+    counts: dict[str, int] = {}
+    for sql in queries:
+        for fid, n in conn.execute(text(sql)).all():
+            counts[fid] = counts.get(fid, 0) + n
+    return counts
+
+
 def _extract_external_id_values(ext_ids: dict, entity_type: str) -> list[str]:
     """Extract flat list of external ID values for search tokens."""
     values = []
@@ -133,6 +157,8 @@ def _build_exact_tokens(
 ) -> list[str]:
     """Build exact-match search tokens for an entity.
 
+    Tokens are lowercased because the search repository lowercases the
+    query term before matching against ``substr_auto``/``exact_auto``.
     Synonyms longer than ``_MAX_TOKEN_LEN`` (e.g. amino acid sequences)
     are excluded to stay within the GIN index page-size limit.
     """
@@ -141,7 +167,7 @@ def _build_exact_tokens(
         tokens.append(scientific_name)
     tokens.extend(s for s in synonyms if len(s) <= _MAX_TOKEN_LEN)
     tokens.extend(ext_id_values)
-    return [str(t) for t in tokens]
+    return [str(t).lower() for t in tokens]
 
 
 def _materialize_statistics(conn: Connection) -> None:
@@ -169,6 +195,7 @@ def _materialize_statistics(conn: Connection) -> None:
     scoped_r3r4 = r3r4[r3r4["head_id"].isin(chem_ids)]
     disease_ids = set(scoped_r3r4["tail_id"])
 
+    # All r2 triplets use natural direction: head=child, tail=parent.
     assoc_r2 = (
         _count_scoped_r2(r2, food_ids, type_map.get("food", set()))
         + _count_scoped_r2(r2, chem_ids, type_map.get("chemical", set()))
@@ -216,8 +243,15 @@ def _materialize_statistics(conn: Connection) -> None:
     logger.info("Statistics: %d entries", len(rows))
 
 
-def _count_scoped_r2(r2: pd.DataFrame, seed_ids: set[str], type_ids: set[str]) -> int:
-    """Count IS_A edges reachable from seed entities to root."""
+def _count_scoped_r2(
+    r2: pd.DataFrame,
+    seed_ids: set[str],
+    type_ids: set[str],
+) -> int:
+    """Count IS_A edges reachable from seed entities to root.
+
+    All r2 triplets use natural direction: head=child, tail=parent.
+    """
     typed_r2 = r2[r2["head_id"].isin(type_ids) & r2["tail_id"].isin(type_ids)]
     parents_of: dict[str, set[str]] = {}
     for _, row in typed_r2.iterrows():

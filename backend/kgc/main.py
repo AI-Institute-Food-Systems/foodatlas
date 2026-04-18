@@ -7,13 +7,17 @@ import logging
 from pathlib import Path
 
 import click
+import pandas as pd
 from src.models.settings import KGCSettings
 from src.pipeline.ingest.runner import ALL_ADAPTERS
-from src.pipeline.kg_diff.compare import run_diff
-from src.pipeline.kg_diff.load_old import load_old_kg
-from src.pipeline.kg_diff.report import format_report
+from src.pipeline.report.format import format_report
+from src.pipeline.report.load_old import load_old_kg
+from src.pipeline.report.runner import run_diff
 from src.pipeline.runner import PipelineRunner
 from src.pipeline.stages import PipelineStage
+from src.stores.schema import DIR_DIAGNOSTICS
+from src.utils.orphans import write_orphans_jsonl
+from src.utils.unclassified import write_unclassified_jsonl
 
 _STAGE_NAMES = [s.name.lower() for s in PipelineStage]
 _VALID_STAGES = _STAGE_NAMES + [str(s.value) for s in PipelineStage]
@@ -105,6 +109,34 @@ def init(ctx: click.Context) -> None:
     settings: KGCSettings = ctx.obj["settings"]
     runner = PipelineRunner(settings)
     runner.run([PipelineStage.INGEST, PipelineStage.ENTITIES])
+
+
+@cli.command("diagnostics")
+@click.pass_context
+def diagnostics_cmd(ctx: click.Context) -> None:
+    """Regenerate KGC diagnostics (orphans, unclassified) from current KG."""
+    settings: KGCSettings = ctx.obj["settings"]
+    kg_path = Path(settings.kg_dir)
+    ents = pd.read_parquet(
+        kg_path / "entities.parquet",
+        columns=["foodatlas_id", "entity_type", "common_name"],
+    ).set_index("foodatlas_id")
+    trips = pd.read_parquet(
+        kg_path / "triplets.parquet",
+        columns=["head_id", "relationship_id", "tail_id", "attestation_ids"],
+    )
+    trips["attestation_ids"] = trips["attestation_ids"].apply(
+        lambda x: json.loads(x) if isinstance(x, str) else (x or [])
+    )
+    diag_dir = kg_path / DIR_DIAGNOSTICS
+
+    orphans_out = diag_dir / "kgc_orphans.jsonl"
+    n_orphans = write_orphans_jsonl(ents, trips, orphans_out)
+    click.echo(f"Wrote {n_orphans} orphan entities to {orphans_out}")
+
+    unclass_out = diag_dir / "kgc_unclassified.jsonl"
+    n_unclass = write_unclassified_jsonl(ents, trips, unclass_out)
+    click.echo(f"Wrote {n_unclass} unclassified entities to {unclass_out}")
 
 
 @cli.command("diff")

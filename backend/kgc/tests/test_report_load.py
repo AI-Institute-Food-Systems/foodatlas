@@ -1,10 +1,10 @@
-"""Tests for kg_diff.load_old — loading old v3.3 TSV files."""
+"""Tests for report.load_old — loading old v3.3 TSV files."""
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from src.pipeline.kg_diff.load_old import (
+from src.pipeline.report.load_old import (
     OldKG,
     _safe_literal,
     load_old_entities,

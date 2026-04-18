@@ -1,4 +1,4 @@
-"""Build chemical ontology triplets (is_a) from Phase 1 ChEBI edges."""
+"""Build chemical ontology triplets (is_a) from Phase 1 CDNO edges."""
 
 from __future__ import annotations
 
@@ -15,32 +15,38 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_SOURCE = "chebi"
+_SOURCE = "cdno"
 _REL_ID = "r2"
 
 
-def merge_chemical_ontology(
+def merge_chemical_ontology_cdno(
     kg: KnowledgeGraph,
     sources: dict[str, dict[str, pd.DataFrame]],
 ) -> None:
-    """Generate is_a triplets from Phase 1 ChEBI edges."""
-    chebi = sources.get("chebi")
-    if chebi is None:
+    """Generate is_a triplets from Phase 1 CDNO edges.
+
+    CDNO classifies chemicals into nutrient categories (vitamin, amino acid,
+    lipid, etc.). Most CDNO leaves and intermediates have ChEBI equivalents and
+    therefore share a foodatlas_id with their ChEBI counterpart after xref
+    resolution — so these triplets express "is_a" relationships between the
+    merged chemical entities without introducing duplicates.
+    """
+    cdno = sources.get("cdno")
+    if cdno is None:
         return
 
-    edges = chebi["edges"]
+    edges = cdno["edges"]
     is_a = edges[edges["edge_type"] == "is_a"].copy()
-    # ChEBI native IDs are integers in edges; cast to int for lookup.
-    is_a["head_native_id"] = is_a["head_native_id"].astype(int).astype(str)
-    is_a["tail_native_id"] = is_a["tail_native_id"].astype(int).astype(str)
-
-    lookup = explode_external_ids(kg.entities._entities, "chebi")
-    if lookup.empty:
+    if is_a.empty:
+        logger.info("No CDNO is_a edges to merge.")
         return
 
-    # Natural is_a direction (matches FoodOn): head=child, tail=parent.
-    # Phase-1 ChEBI edges already use this direction after the adapter
-    # translates ChEBI's raw INIT=parent/FINAL=child convention.
+    lookup = explode_external_ids(kg.entities._entities, _SOURCE)
+    if lookup.empty:
+        logger.info("No CDNO entities resolved; skipping CDNO ontology merge.")
+        return
+
+    # Natural is_a direction: head=child, tail=parent.
     df = is_a.merge(
         lookup, left_on="head_native_id", right_on="native_id", how="inner"
     ).drop(columns=["native_id"])
@@ -55,8 +61,12 @@ def merge_chemical_ontology(
         columns={"foodatlas_id": "_tail_id", "candidates": "tail_candidates"}
     )
 
+    # Drop self-loops that appear after xref-based entity merging (when a CDNO
+    # child and its CDNO parent both map to the same ChEBI entity).
+    df = df[df["_head_id"] != df["_tail_id"]]
+
     if df.empty:
-        logger.info("No ChEBI is_a edges to merge.")
+        logger.info("No CDNO is_a edges to merge after resolution.")
         return
 
     ref = json.dumps({"source": _SOURCE, "edge_type": "is_a"})
@@ -76,4 +86,4 @@ def merge_chemical_ontology(
     triplet_input["relationship_id"] = _REL_ID
     triplets = kg.triplets.create(triplet_input)
 
-    logger.info("Created %d chemical ontology attestations/triplets.", len(triplets))
+    logger.info("Created %d CDNO chemical ontology triplets.", len(triplets))

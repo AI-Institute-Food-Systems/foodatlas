@@ -26,10 +26,11 @@ def _get_groups(entities: pd.DataFrame, eid: str) -> list[str]:
 
 class TestBuildParentChildMap:
     def test_builds_map(self) -> None:
+        # Natural is_a: head=child, tail=parent. e2 and e3 are children of e1.
         triplets = pd.DataFrame(
             [
-                {IC: "t0", "head_id": "e1", "tail_id": "e2", "relationship_id": "r2"},
-                {IC: "t1", "head_id": "e1", "tail_id": "e3", "relationship_id": "r2"},
+                {IC: "t0", "head_id": "e2", "tail_id": "e1", "relationship_id": "r2"},
+                {IC: "t1", "head_id": "e3", "tail_id": "e1", "relationship_id": "r2"},
                 {IC: "t2", "head_id": "e4", "tail_id": "e5", "relationship_id": "r1"},
             ]
         ).set_index(IC)
@@ -37,6 +38,7 @@ class TestBuildParentChildMap:
         assert result == {"e1": {"e2", "e3"}}
 
     def test_filters_to_chem_ids(self) -> None:
+        # Natural is_a: head=child, tail=parent. e1 is a child of e2.
         triplets = pd.DataFrame(
             [
                 {IC: "t0", "head_id": "e1", "tail_id": "e2", "relationship_id": "r2"},
@@ -129,18 +131,19 @@ class TestClassifyChemicals:
             ]
         ).set_index(IC)
 
+        # Natural is_a: head=child, tail=parent.
         triplets = pd.DataFrame(
             [
                 {
                     IC: "t0",
-                    "head_id": "e65128",
-                    "tail_id": "child1",
+                    "head_id": "child1",
+                    "tail_id": "e65128",
                     "relationship_id": "r2",
                 },
                 {
                     IC: "t1",
-                    "head_id": "e12451",
-                    "tail_id": "child2",
+                    "head_id": "child2",
+                    "tail_id": "e12451",
                     "relationship_id": "r2",
                 },
             ]
@@ -198,18 +201,20 @@ class TestClassifyChemicals:
             ]
         ).set_index(IC)
 
+        # Natural is_a: head=child, tail=parent.
+        # leaf is_a tannin (e13486); tannin is_a polyphenol (e12163).
         triplets = pd.DataFrame(
             [
                 {
                     IC: "t0",
-                    "head_id": "e12163",
-                    "tail_id": "e13486",
+                    "head_id": "e13486",
+                    "tail_id": "e12163",
                     "relationship_id": "r2",
                 },
                 {
                     IC: "t1",
-                    "head_id": "e13486",
-                    "tail_id": "leaf",
+                    "head_id": "leaf",
+                    "tail_id": "e13486",
                     "relationship_id": "r2",
                 },
             ]
@@ -253,5 +258,5 @@ class TestCategoryConstants:
         eids = list(CHEMICAL_CATEGORIES.values())
         assert len(eids) == len(set(eids))
 
-    def test_twelve_categories(self) -> None:
-        assert len(CHEMICAL_CATEGORIES) == 12
+    def test_category_count(self) -> None:
+        assert len(CHEMICAL_CATEGORIES) == 14
