@@ -4,11 +4,6 @@ on:
   pull_request:
     branches:
       - dev
-    paths:
-      - "backend/**"
-      - "frontend/**"
-      - "infra/cdk/**"
-      - "!**/*.md"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -27,6 +22,7 @@ jobs:
       kgc: ${{ steps.diff.outputs.kgc }}
       frontend: ${{ steps.diff.outputs.frontend }}
       infra_cdk: ${{ steps.diff.outputs.infra_cdk }}
+      backend_projects: ${{ steps.diff.outputs.backend_projects }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -43,8 +39,15 @@ jobs:
           echo "kgc=$( echo "$CHANGED" | grep -q '^backend/kgc/' && echo true || echo false )" >> "$GITHUB_OUTPUT"
           echo "frontend=$( echo "$CHANGED" | grep -q '^frontend/' && echo true || echo false )" >> "$GITHUB_OUTPUT"
           echo "infra_cdk=$( echo "$CHANGED" | grep -q '^infra/cdk/' && echo true || echo false )" >> "$GITHUB_OUTPUT"
+          projects='[]'
+          for p in api db ie kgc; do
+            if echo "$CHANGED" | grep -q "^backend/$p/"; then
+              projects=$(jq -cn --argjson a "$projects" --arg p "$p" '$a + [$p]')
+            fi
+          done
+          echo "backend_projects=$projects" >> "$GITHUB_OUTPUT"
 
-  backend-lint:
+  python-lint:
     needs: changes
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.db == 'true' || needs.changes.outputs.ie == 'true' || needs.changes.outputs.kgc == 'true' || needs.changes.outputs.infra_cdk == 'true'
     runs-on: ubuntu-latest
@@ -65,7 +68,7 @@ jobs:
           src: backend/ infra/cdk/
           args: format --check
 
-  backend-security:
+  python-security:
     needs: changes
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.db == 'true' || needs.changes.outputs.ie == 'true' || needs.changes.outputs.kgc == 'true' || needs.changes.outputs.infra_cdk == 'true'
     runs-on: ubuntu-latest
@@ -83,7 +86,7 @@ jobs:
       - name: Bandit security scan
         run: bandit -c pyproject.toml -r backend/ infra/cdk/ --exclude "backend/api/tests,backend/db/tests,backend/ie/tests,backend/kgc/tests,backend/api/.venv,backend/db/.venv,backend/ie/.venv,backend/kgc/.venv,infra/cdk/tests,infra/cdk/.venv"
 
-  backend-typecheck:
+  python-typecheck:
     needs: changes
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.db == 'true' || needs.changes.outputs.ie == 'true' || needs.changes.outputs.kgc == 'true' || needs.changes.outputs.infra_cdk == 'true'
     runs-on: ubuntu-latest
@@ -103,32 +106,23 @@ jobs:
 
   backend-test:
     needs: changes
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.db == 'true' || needs.changes.outputs.ie == 'true' || needs.changes.outputs.kgc == 'true'
+    if: needs.changes.outputs.backend_projects != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        project: ${{ fromJSON(needs.changes.outputs.backend_projects) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v5
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      - name: Run tests for changed projects
-        run: |
-          projects=""
-          [[ "${{ needs.changes.outputs.api }}" == "true" ]] && projects="$projects api"
-          [[ "${{ needs.changes.outputs.db }}" == "true" ]] && projects="$projects db"
-          [[ "${{ needs.changes.outputs.ie }}" == "true" ]] && projects="$projects ie"
-          [[ "${{ needs.changes.outputs.kgc }}" == "true" ]] && projects="$projects kgc"
-          for project in $projects; do
-            echo "::group::test backend/$project"
-            cd backend/$project && uv sync && uv run pytest
-            cd ../..
-            echo "::endgroup::"
-          done
+      - name: Test backend/${{ matrix.project }}
+        run: cd backend/${{ matrix.project }} && uv sync && uv run pytest
 
   infra-cdk-test:
     needs: changes
@@ -221,3 +215,33 @@ jobs:
 
       - name: Test
         run: cd frontend && npm test
+
+  # Aggregate all CI jobs into a single pass/fail signal. This is the
+  # only check required in the protect-dev ruleset: it always runs on
+  # PRs to dev (no workflow-level paths filter), so required checks
+  # never deadlock.
+  ci-success:
+    needs:
+      - changes
+      - python-lint
+      - python-security
+      - python-typecheck
+      - backend-test
+      - infra-cdk-test
+      - frontend-lint
+      - frontend-build
+      - frontend-test
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify all needed jobs passed or skipped cleanly
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          failed=$(echo "$NEEDS" | jq -r 'to_entries[] | select(.value.result == "failure" or .value.result == "cancelled") | .key')
+          if [ -n "$failed" ]; then
+            echo "::error::Failed or cancelled jobs:"
+            echo "$failed"
+            exit 1
+          fi
+          echo "All jobs passed or skipped cleanly."
