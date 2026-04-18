@@ -4,11 +4,6 @@ on:
   pull_request:
     branches:
       - dev
-    paths:
-      - "backend/**"
-      - "frontend/**"
-      - "infra/cdk/**"
-      - "!**/*.md"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -220,3 +215,32 @@ jobs:
 
       - name: Test
         run: cd frontend && npm test
+
+  # Aggregate all CI jobs into a single pass/fail signal. Require only this
+  # check in the protect-dev ruleset: it always runs on PRs to dev (the
+  # workflow has no paths filter), so required checks never deadlock.
+  ci-success:
+    needs:
+      - changes
+      - python-lint
+      - python-security
+      - python-typecheck
+      - backend-test
+      - infra-cdk-test
+      - frontend-lint
+      - frontend-build
+      - frontend-test
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify all needed jobs passed or skipped cleanly
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          failed=$(echo "$NEEDS" | jq -r 'to_entries[] | select(.value.result == "failure" or .value.result == "cancelled") | .key')
+          if [ -n "$failed" ]; then
+            echo "::error::Failed or cancelled jobs:"
+            echo "$failed"
+            exit 1
+          fi
+          echo "All jobs passed or skipped cleanly."
