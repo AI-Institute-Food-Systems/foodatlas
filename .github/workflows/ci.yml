@@ -216,9 +216,10 @@ jobs:
       - name: Test
         run: cd frontend && npm test
 
-  # Aggregate all CI jobs into a single pass/fail signal. Require only
-  # this check in the protect-dev ruleset — it always runs on PRs to dev
-  # (the workflow has no paths filter), so required checks never deadlock.
+  # Aggregate all CI jobs into a single pass/fail signal. This is the
+  # only check required in the protect-dev ruleset: it always runs on
+  # PRs to dev (no workflow-level paths filter), so required checks
+  # never deadlock.
   ci-success:
     needs:
       - changes
