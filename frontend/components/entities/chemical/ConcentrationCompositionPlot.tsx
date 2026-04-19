@@ -6,6 +6,7 @@ import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
 import {
   MdArrowDownward,
   MdArrowUpward,
+  MdCallSplit,
   MdInfo,
   MdInfoOutline,
   MdKeyboardArrowDown,
@@ -27,6 +28,8 @@ import {
   NameType,
 } from "recharts/types/component/DefaultTooltipContent";
 import Card from "@/components/basic/Card";
+import EntitySiblingIcon from "@/components/basic/EntitySiblingIcon";
+import { AmbiguitySibling } from "@/types/Metadata";
 import { encodeSpace, formatConcentrationValueAlt } from "@/utils/utils";
 
 const BAR_HEIGHT = 28;
@@ -37,13 +40,19 @@ interface DotPlotProps {
         id: string;
         name: string;
         median_concentration: { value: number; unit: string };
+        ambiguity_siblings?: AmbiguitySibling[];
       }[]
     | undefined
     | null;
   chemicalName?: string;
 }
 
-type SortedData = { food: string; value: any; id: string };
+type SortedData = {
+  food: string;
+  value: any;
+  id: string;
+  ambiguity_siblings?: AmbiguitySibling[];
+};
 
 const ConcentrationCompositionPlot = ({ data, chemicalName }: DotPlotProps) => {
   const router = useRouter();
@@ -61,6 +70,7 @@ const ConcentrationCompositionPlot = ({ data, chemicalName }: DotPlotProps) => {
         food: row.name,
         value: row.median_concentration?.value ?? 0,
         id: row.id,
+        ambiguity_siblings: row.ambiguity_siblings,
       }));
 
     const sortedData = [...d].sort((a, b) => {
@@ -89,13 +99,26 @@ const ConcentrationCompositionPlot = ({ data, chemicalName }: DotPlotProps) => {
     label,
   }: TooltipProps<ValueType, NameType>) => {
     if (active) {
+      const siblings = (payload?.[0]?.payload?.ambiguity_siblings ??
+        []) as AmbiguitySibling[];
       return (
-        <div className="border border-light-50/5 bg-light-800 p-3 rounded-lg text-xs flex flex-col text-light-50">
+        <div className="border border-light-50/5 bg-light-800 p-3 rounded-lg text-xs flex flex-col gap-1 text-light-50 max-w-xs">
           <span className="capitalize font-bold">{label}</span>
           <span>
             {formatConcentrationValueAlt(payload?.[0]?.value as number)}{" "}
             {payload?.[0]?.unit}
           </span>
+          {siblings.length > 0 && (
+            <span className="text-amber-400 leading-snug whitespace-normal">
+              <span className="font-semibold">Ambiguous food</span>
+              <span className="text-light-300">
+                {" "}— also refers to:{" "}
+              </span>
+              <span className="capitalize">
+                {siblings.map((s) => s.common_name).join(", ")}
+              </span>
+            </span>
+          )}
         </div>
       );
     }
@@ -103,10 +126,14 @@ const ConcentrationCompositionPlot = ({ data, chemicalName }: DotPlotProps) => {
 
   // custom label on bars
   const CustomLabel = (props: any) => {
-    const { x, y, width, height, value } = props;
+    const { x, y, width, height, value, index } = props;
+    const isAmbiguous =
+      (sortedData[index]?.ambiguity_siblings?.length ?? 0) > 0;
 
     const fontSize = 16;
     const offset = 4;
+    const iconSize = 16;
+    const textOffset = isAmbiguous ? offset + iconSize + 2 : offset;
     // empirical correction so the thing looks like it's in the middle (not caring about the baseline)
     const baselineCorrection = 2.1;
 
@@ -124,8 +151,18 @@ const ConcentrationCompositionPlot = ({ data, chemicalName }: DotPlotProps) => {
           </filter>
         </defs>
         <g>
+          {isAmbiguous && (
+            <MdCallSplit
+              x={x + offset}
+              y={y + (height - iconSize) / 2}
+              width={iconSize}
+              height={iconSize}
+              color="#f59e0b"
+              style={{ transform: "rotate(90deg)", transformOrigin: `${x + offset + iconSize / 2}px ${y + height / 2}px` }}
+            />
+          )}
           <text
-            x={x + offset}
+            x={x + textOffset}
             y={y + height / 2 + fontSize / 2 - baselineCorrection}
             width={width}
             height={height}

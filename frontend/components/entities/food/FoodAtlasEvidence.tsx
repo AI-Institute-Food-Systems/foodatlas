@@ -1,6 +1,7 @@
 import Link from "@/components/basic/Link";
 import Badge from "@/components/basic/Badge";
 import Card from "@/components/basic/Card";
+import { AmbiguityIcon } from "@/components/basic/Ambiguity";
 import { FoodEvidence } from "@/types/Evidence";
 import { formatConcentrationValueAlt } from "@/utils/utils";
 import { greekVariants, matchesWithGreek } from "@/utils/greekLetters";
@@ -110,7 +111,12 @@ const FoodAtlasEvidence = ({ evidence }: FoodAtlasEvidenceProps) => {
                   {extraction.extracted_food_name}
                 </td>
                 <td className="py-2 px-2 break-all">
-                  {extraction.extracted_chemical_name}
+                  <span className="inline-flex items-center gap-1 align-middle">
+                    {extraction.extracted_chemical_name}
+                    <AmbiguityIcon
+                      chemicalCandidates={extraction.chemical_candidates}
+                    />
+                  </span>
                 </td>
                 <td className="py-2 px-2 text-right whitespace-nowrap">
                   {extraction.extracted_concentration ?? "-"}

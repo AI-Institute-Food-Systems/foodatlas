@@ -73,7 +73,7 @@ def materialize_food_chemical_composition(conn: Connection) -> None:
     )
 
     # Pre-build extraction dicts for all rows at once.
-    merged["_extraction"] = _build_extractions_vectorized(merged)
+    merged["_extraction"] = _build_extractions_vectorized(merged, name_map)
     merged["_ref"] = merged["reference"].apply(
         lambda x: x if isinstance(x, dict) else {}
     )
@@ -134,8 +134,16 @@ def materialize_food_chemical_composition(conn: Connection) -> None:
     logger.info("Food-chemical composition: %d rows", len(result))
 
 
-def _build_extractions_vectorized(df: pd.DataFrame) -> pd.Series:
-    """Pre-build extraction dicts for all rows."""
+def _build_extractions_vectorized(
+    df: pd.DataFrame, name_map: dict[str, str] | None = None
+) -> pd.Series:
+    """Pre-build extraction dicts for all rows.
+
+    ``name_map`` maps foodatlas_id → common_name; when provided and an
+    attestation's ``head_candidates`` / ``tail_candidates`` lists have
+    length > 1, the extraction dict exposes them as readable names under
+    ``food_candidates`` / ``chemical_candidates``.
+    """
     conc_raw = (
         df["conc_value_raw"].fillna("").astype(str)
         + " "
@@ -146,22 +154,21 @@ def _build_extractions_vectorized(df: pd.DataFrame) -> pd.Series:
     conc_vals = [v if pd.notna(v) else None for v in df["conc_value"]]
     conc_units = df["conc_unit"].fillna("")
 
+    head_cands = _candidate_names(df.get("head_candidates"), name_map, len(df))
+    tail_cands = _candidate_names(df.get("tail_candidates"), name_map, len(df))
+
     return pd.Series(
         [
-            {
-                "extracted_food_name": sf,
-                "extracted_chemical_name": sc,
-                "extracted_concentration": cr,
-                "converted_concentration": {"value": cv, "unit": cu},
-                "method": src,
-            }
-            for sf, sc, cr, cv, cu, src in zip(
+            _make_extraction(sf, sc, cr, cv, cu, src, hc, tc)
+            for sf, sc, cr, cv, cu, src, hc, tc in zip(
                 df["show_food"],
                 df["show_chem"],
                 conc_raw,
                 conc_vals,
                 conc_units,
                 df["source"],
+                head_cands,
+                tail_cands,
                 strict=False,
             )
         ],
@@ -169,13 +176,64 @@ def _build_extractions_vectorized(df: pd.DataFrame) -> pd.Series:
     )
 
 
-def _build_evidence_json(group: pd.DataFrame) -> dict[str, list | None]:
+def _make_extraction(
+    sf: str,
+    sc: str,
+    cr: str | None,
+    cv: float | None,
+    cu: str,
+    src: str,
+    head_candidates: list[str] | None,
+    tail_candidates: list[str] | None,
+) -> dict:
+    extraction: dict = {
+        "extracted_food_name": sf,
+        "extracted_chemical_name": sc,
+        "extracted_concentration": cr,
+        "converted_concentration": {"value": cv, "unit": cu},
+        "method": src,
+    }
+    if head_candidates is not None:
+        extraction["food_candidates"] = head_candidates
+    if tail_candidates is not None:
+        extraction["chemical_candidates"] = tail_candidates
+    return extraction
+
+
+def _candidate_names(
+    col: pd.Series | None, name_map: dict[str, str] | None, n_rows: int
+) -> list[list[str] | None]:
+    """Map each row's candidate id list to names; None when not ambiguous.
+
+    A row is ambiguous when its candidate list has more than one entry.
+    Unknown ids (missing from ``name_map``) are kept verbatim so we never
+    silently drop them.
+    """
+    if col is None or name_map is None:
+        return [None] * n_rows
+    out: list[list[str] | None] = []
+    for ids in col:
+        if (
+            ids is None
+            or (isinstance(ids, float) and pd.isna(ids))
+            or not hasattr(ids, "__len__")
+            or len(ids) <= 1
+        ):
+            out.append(None)
+            continue
+        out.append([name_map.get(i, i) for i in ids])
+    return out
+
+
+def _build_evidence_json(
+    group: pd.DataFrame, name_map: dict[str, str] | None = None
+) -> dict[str, list | None]:
     """Build evidence JSON from a raw grouped DataFrame.
 
     Pre-computes extraction dicts and delegates to the optimized path.
     """
     group = group.copy()
-    group["_extraction"] = _build_extractions_vectorized(group)
+    group["_extraction"] = _build_extractions_vectorized(group, name_map)
     group["_ref"] = group["reference"].apply(lambda x: x if isinstance(x, dict) else {})
     return _build_evidence_from_precomputed(group)
 

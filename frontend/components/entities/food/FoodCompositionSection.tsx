@@ -30,6 +30,7 @@ import Link from "@/components/basic/Link";
 import Pagination from "@/components/basic/Pagination";
 import LoadingCard from "@/components/basic/LoadingCard";
 import Heading from "@/components/basic/Heading";
+import { AmbiguityBadge } from "@/components/basic/Ambiguity";
 import FoodCompositionEvidenceModal from "@/components/entities/food/FoodCompositionEvidenceModal";
 import { usePaginations } from "@/context/paginationsContext";
 import { encodeSpace, formatConcentrationValueAlt } from "@/utils/utils";
@@ -106,6 +107,9 @@ const FoodCompositionSection = ({
   });
   const [showAllConcentrations, setShowAllConcentrations] = useState(true);
   const [selectedEvidenceName, setSelectedEvidenceName] = useState("");
+  const [ambiguousFilter, setAmbiguousFilter] = useState<
+    "all" | "ambiguous" | "not-ambiguous"
+  >("all");
   const [sourceCounts, setSourceCounts] = useState<Record<string, number>>({});
   const [classificationFilter, setClassificationFilter] = useState<
     string[]
@@ -214,7 +218,33 @@ const FoodCompositionSection = ({
   ) => {
     event.preventDefault();
     event.stopPropagation();
+    setAmbiguousFilter("all");
     setSelectedEvidenceName(name);
+  };
+
+  // handle ambiguity badge click (opens modal pre-filtered to ambiguous)
+  const handleAmbiguityBadgeClick = (
+    event: React.MouseEvent<HTMLButtonElement>,
+    name: string
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setAmbiguousFilter("ambiguous");
+    setSelectedEvidenceName(name);
+  };
+
+  // count evidences (= "data points") that contain ≥1 chemical-ambiguous
+  // extraction. Food-side ambiguity is surfaced by the page banner instead,
+  // so we intentionally exclude it from the row-level count.
+  const getRowAmbiguousCount = (row: FoodCompositionData) => {
+    const all = [
+      ...(row.foodatlas_evidences ?? []),
+      ...(row.fdc_evidences ?? []),
+      ...(row.dmd_evidences ?? []),
+    ];
+    return all.filter((ev) =>
+      ev.extraction.some((ex) => (ex.chemical_candidates?.length ?? 0) > 1)
+    ).length;
   };
 
   // handle search
@@ -552,7 +582,7 @@ const FoodCompositionSection = ({
                     <tr key={row.id}>
                       {/* name */}
                       <td className="py-3 pr-4">
-                        <div className="flex min-h-12 capitalize items-center">
+                        <div className="flex min-h-12 capitalize items-center gap-2">
                           <Link
                             href={`/chemical/${encodeURIComponent(
                               encodeSpace(row.name)
@@ -561,6 +591,13 @@ const FoodCompositionSection = ({
                           >
                             {row.name}
                           </Link>
+                          <AmbiguityBadge
+                            ambiguousCount={getRowAmbiguousCount(row)}
+                            totalCount={getRowEvidenceCount(row)}
+                            onClick={(e) =>
+                              handleAmbiguityBadgeClick(e, row.name)
+                            }
+                          />
                         </div>
                       </td>
                       {/* classification */}
@@ -667,6 +704,7 @@ const FoodCompositionSection = ({
           })()}
           isOpen={selectedEvidenceName !== ""}
           onClose={() => setSelectedEvidenceName("")}
+          initialFilter={ambiguousFilter}
         />
       </Portal>
     </>
