@@ -7,7 +7,7 @@ on:
     paths:
       - "backend/api/**"
       - "backend/db/**"
-      - "infra/cdk/**"
+      - "infra/aws/**"
       - "!**/*.md"
   workflow_dispatch:
 
@@ -67,7 +67,7 @@ jobs:
         run: echo "id=$(aws sts get-caller-identity --query Account --output text)" >> "$GITHUB_OUTPUT"
 
       - name: Sync CDK dependencies
-        run: cd infra/cdk && uv sync
+        run: cd infra/aws && uv sync
 
       - name: Deploy non-API stacks (updates JobsStack with new DB image)
         env:
@@ -76,7 +76,7 @@ jobs:
           TAG: ${{ steps.tag.outputs.image_tag }}
           API_CERT_ARN: ${{ secrets.API_CERT_ARN }}
         run: |
-          cd infra/cdk
+          cd infra/aws
           args=(
             --context "api_image_tag=$TAG"
             --context "db_image_tag=$TAG"
@@ -93,9 +93,6 @@ jobs:
             FoodAtlasJobsStack \
             "${args[@]}"
 
-      - name: Run Alembic migrations
-        run: ./infra/cdk/scripts/run-migration.sh
-
       - name: Deploy API stack (rolls out new API image)
         env:
           CDK_DEFAULT_ACCOUNT: ${{ steps.account.outputs.id }}
@@ -103,7 +100,7 @@ jobs:
           TAG: ${{ steps.tag.outputs.image_tag }}
           API_CERT_ARN: ${{ secrets.API_CERT_ARN }}
         run: |
-          cd infra/cdk
+          cd infra/aws
           args=(
             --context "api_image_tag=$TAG"
             --context "db_image_tag=$TAG"

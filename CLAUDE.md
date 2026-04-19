@@ -12,7 +12,7 @@ This is a polyglot monorepo with independent sub-projects:
 
 - **`backend/`** — Four independent Python sub-projects, each with its own `pyproject.toml`, `uv.lock`, and `.venv`:
   - `api/` — FastAPI REST service (uvicorn, port 8000). Routes, repositories, config, auth.
-  - `db/` — PostgreSQL schema (Alembic migrations), ETL pipeline (parquet → Postgres), SQLAlchemy models.
+  - `db/` — PostgreSQL schema (SQLAlchemy models, drop-and-recreate on each load), ETL pipeline (parquet → Postgres).
   - `ie/` — Information extraction (stub, not yet implemented)
   - `kgc/` — Knowledge graph construction pipeline (Click CLI, multi-stage: ingest → entities → triplets → postprocessing)
 - **`frontend/`** — Next.js 14 app (React 18, TypeScript, Tailwind, App Router)
@@ -23,7 +23,7 @@ Each backend sub-project follows the same layout: `src/` is the module, `tests/`
 
 ### Local stack
 
-PostgreSQL 16 (Docker) → DB migrations (Alembic) → Data load (ETL) → FastAPI (port 8000) → Next.js (port 3001)
+PostgreSQL 16 (Docker) → Data load (ETL, drops and recreates schema) → FastAPI (port 8000) → Next.js (port 3001)
 
 ### Configuration split
 
@@ -39,10 +39,7 @@ PostgreSQL 16 (Docker) → DB migrations (Alembic) → Data load (ETL) → FastA
 # Start PostgreSQL
 docker compose -f infra/local/docker-compose.yml up -d
 
-# Run DB migrations
-cd backend/db && uv run alembic upgrade head
-
-# Load KGC data into PostgreSQL
+# Load KGC data into PostgreSQL (drops and recreates schema)
 cd backend/db && uv run python main.py load
 
 # Start API server (port 8000)

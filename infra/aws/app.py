@@ -7,7 +7,7 @@ Instantiates the six stacks that make up the FoodAtlas AWS infrastructure:
 - EcrStack: ECR repositories for the API and db jobs images
 - DatabaseStack: RDS PostgreSQL + Secrets Manager
 - ApiStack: ECS Fargate + ALB hosting the FastAPI backend
-- JobsStack: one-off Fargate task definition for migrations and ETL loads
+- JobsStack: one-off Fargate task definition for ETL data loads
 
 EcrStack is separate from the consuming stacks so the repos can be populated
 with Docker images before ECS tries to pull them on first deploy. JobsStack

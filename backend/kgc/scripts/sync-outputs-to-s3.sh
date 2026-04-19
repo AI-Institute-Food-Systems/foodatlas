@@ -70,6 +70,6 @@ echo -n "$VERSION" | aws s3 cp - "s3://$BUCKET/outputs/LATEST" --region "$REGION
 echo
 echo "Done. KGC outputs version: $VERSION"
 echo "Load this version into RDS with:"
-echo "  cd infra/cdk && ./scripts/run-data-load.sh"
+echo "  cd infra/aws && ./scripts/run-data-load.sh"
 echo "or pin a specific version with:"
-echo "  cd infra/cdk && ./scripts/run-data-load.sh $VERSION"
+echo "  cd infra/aws && ./scripts/run-data-load.sh $VERSION"
