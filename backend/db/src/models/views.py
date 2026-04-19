@@ -25,6 +25,7 @@ class MVFoodEntity(Base):
     food_classification: Mapped[list[str]] = mapped_column(
         ARRAY(Text), server_default="{}"
     )
+    ambiguity_siblings: Mapped[list] = mapped_column(JSONB, server_default="[]")
 
     __table_args__ = (Index("ix_mv_food_common_name", "common_name"),)
 
@@ -46,6 +47,7 @@ class MVChemicalEntity(Base):
     flavor_descriptors: Mapped[list[str]] = mapped_column(
         ARRAY(Text), server_default="{}"
     )
+    ambiguity_siblings: Mapped[list] = mapped_column(JSONB, server_default="[]")
 
     __table_args__ = (Index("ix_mv_chem_common_name", "common_name"),)
 
@@ -61,6 +63,7 @@ class MVDiseaseEntity(Base):
     scientific_name: Mapped[str] = mapped_column(Text, server_default="")
     synonyms: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default="{}")
     external_ids: Mapped[dict] = mapped_column(JSONB, server_default="{}")
+    ambiguity_siblings: Mapped[list] = mapped_column(JSONB, server_default="[]")
 
     __table_args__ = (Index("ix_mv_disease_common_name", "common_name"),)
 

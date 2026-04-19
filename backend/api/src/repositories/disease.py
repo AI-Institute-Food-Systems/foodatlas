@@ -13,7 +13,8 @@ async def get_metadata(session: AsyncSession, common_name: str) -> dict[str, obj
     result = await session.execute(
         text("""
             SELECT common_name, foodatlas_id AS id, entity_type,
-                   scientific_name, synonyms, external_ids
+                   scientific_name, synonyms, external_ids,
+                   ambiguity_siblings
             FROM mv_disease_entities WHERE common_name = :name
         """),
         {"name": common_name},
@@ -41,11 +42,23 @@ async def get_correlation(
 
     result = await session.execute(
         text("""
-            SELECT chemical_foodatlas_id AS id, chemical_name AS name,
-                   sources, evidences, evidence_count
-            FROM mv_chemical_disease_correlation
-            WHERE disease_name = :name AND relationship_id = :rel
-            ORDER BY evidence_count DESC
+            WITH disease_chems AS (
+                SELECT chemical_foodatlas_id AS id
+                FROM mv_chemical_disease_correlation
+                WHERE disease_name = :name AND relationship_id = :rel
+            )
+            SELECT c.chemical_foodatlas_id AS id, c.chemical_name AS name,
+                   c.sources, c.evidences, c.evidence_count,
+                   COALESCE((
+                       SELECT jsonb_agg(s ORDER BY s->>'common_name')
+                       FROM jsonb_array_elements(ce.ambiguity_siblings) s
+                       WHERE s->>'foodatlas_id' IN (SELECT id FROM disease_chems)
+                   ), '[]'::jsonb) AS ambiguity_siblings
+            FROM mv_chemical_disease_correlation c
+            LEFT JOIN mv_chemical_entities ce
+                ON ce.foodatlas_id = c.chemical_foodatlas_id
+            WHERE c.disease_name = :name AND c.relationship_id = :rel
+            ORDER BY c.evidence_count DESC
             OFFSET :offset ROWS FETCH FIRST :limit ROWS ONLY
         """),
         {

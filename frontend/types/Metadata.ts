@@ -1,5 +1,10 @@
 import { ExternalIds } from "@/types/ExternalIds";
 
+export type AmbiguitySibling = {
+  foodatlas_id: string;
+  common_name: string;
+};
+
 export type Metadata = {
   id: string;
   entity_type: "food" | "chemical" | "disease";
@@ -10,4 +15,5 @@ export type Metadata = {
   chemical_classification?: string[];
   flavor_descriptors?: string[];
   external_ids: ExternalIds;
+  ambiguity_siblings?: AmbiguitySibling[];
 };

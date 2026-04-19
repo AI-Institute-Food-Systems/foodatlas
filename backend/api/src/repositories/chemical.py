@@ -14,7 +14,8 @@ async def get_metadata(session: AsyncSession, common_name: str) -> dict[str, obj
         text("""
             SELECT common_name, foodatlas_id AS id, entity_type,
                    scientific_name, synonyms, external_ids,
-                   chemical_classification, flavor_descriptors
+                   chemical_classification, flavor_descriptors,
+                   ambiguity_siblings
             FROM mv_chemical_entities WHERE common_name = :name
         """),
         {"name": common_name},
@@ -26,28 +27,58 @@ async def get_metadata(session: AsyncSession, common_name: str) -> dict[str, obj
 
 
 async def get_composition(session: AsyncSession, common_name: str) -> dict[str, object]:
-    """Get foods containing this chemical, split by concentration."""
+    """Get foods containing this chemical, split by concentration.
+
+    Each row's ``ambiguity_siblings`` is scoped to foods that also appear in
+    this chemical's composition. Foods that share a name-cluster globally
+    but have no attestation for this chemical are filtered out so the banner
+    stays consistent with what the page actually shows.
+    """
     with_conc = await session.execute(
         text("""
-            SELECT food_foodatlas_id AS id, food_name AS name,
-                   median_concentration
-            FROM mv_food_chemical_composition
-            WHERE chemical_name = :name AND median_concentration IS NOT NULL
+            WITH chem_foods AS (
+                SELECT food_foodatlas_id AS id
+                FROM mv_food_chemical_composition
+                WHERE chemical_name = :name
+            )
+            SELECT c.food_foodatlas_id AS id, c.food_name AS name,
+                   c.median_concentration,
+                   COALESCE((
+                       SELECT jsonb_agg(s ORDER BY s->>'common_name')
+                       FROM jsonb_array_elements(fe.ambiguity_siblings) s
+                       WHERE s->>'foodatlas_id' IN (SELECT id FROM chem_foods)
+                   ), '[]'::jsonb) AS ambiguity_siblings
+            FROM mv_food_chemical_composition c
+            LEFT JOIN mv_food_entities fe
+                ON fe.foodatlas_id = c.food_foodatlas_id
+            WHERE c.chemical_name = :name AND c.median_concentration IS NOT NULL
         """),
         {"name": common_name},
     )
     without_conc = await session.execute(
         text("""
-            SELECT food_foodatlas_id AS id, food_name AS name,
-                   COALESCE(jsonb_array_length(fdc_evidences), 0)
-                   + COALESCE(jsonb_array_length(foodatlas_evidences), 0)
-                   + COALESCE(jsonb_array_length(dmd_evidences), 0)
-                   AS evidence_count
-            FROM mv_food_chemical_composition
-            WHERE chemical_name = :name AND median_concentration IS NULL
-            ORDER BY COALESCE(jsonb_array_length(fdc_evidences), 0)
-                   + COALESCE(jsonb_array_length(foodatlas_evidences), 0)
-                   + COALESCE(jsonb_array_length(dmd_evidences), 0) DESC
+            WITH chem_foods AS (
+                SELECT food_foodatlas_id AS id
+                FROM mv_food_chemical_composition
+                WHERE chemical_name = :name
+            )
+            SELECT c.food_foodatlas_id AS id, c.food_name AS name,
+                   COALESCE(jsonb_array_length(c.fdc_evidences), 0)
+                   + COALESCE(jsonb_array_length(c.foodatlas_evidences), 0)
+                   + COALESCE(jsonb_array_length(c.dmd_evidences), 0)
+                   AS evidence_count,
+                   COALESCE((
+                       SELECT jsonb_agg(s ORDER BY s->>'common_name')
+                       FROM jsonb_array_elements(fe.ambiguity_siblings) s
+                       WHERE s->>'foodatlas_id' IN (SELECT id FROM chem_foods)
+                   ), '[]'::jsonb) AS ambiguity_siblings
+            FROM mv_food_chemical_composition c
+            LEFT JOIN mv_food_entities fe
+                ON fe.foodatlas_id = c.food_foodatlas_id
+            WHERE c.chemical_name = :name AND c.median_concentration IS NULL
+            ORDER BY COALESCE(jsonb_array_length(c.fdc_evidences), 0)
+                   + COALESCE(jsonb_array_length(c.foodatlas_evidences), 0)
+                   + COALESCE(jsonb_array_length(c.dmd_evidences), 0) DESC
         """),
         {"name": common_name},
     )

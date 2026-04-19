@@ -5,12 +5,15 @@ import { MdInfoOutline, MdKeyboardArrowDown } from "react-icons/md";
 
 import Link from "@/components/basic/Link";
 import Card from "@/components/basic/Card";
+import EntitySiblingIcon from "@/components/basic/EntitySiblingIcon";
+import { AmbiguitySibling } from "@/types/Metadata";
 import { encodeSpace } from "@/utils/utils";
 
 interface NoConcentrationRow {
   id: string;
   name: string;
   evidence_count: number;
+  ambiguity_siblings?: AmbiguitySibling[];
 }
 
 interface NoConcentrationCompositionProps {
@@ -60,6 +63,10 @@ const NoConcentrationComposition = ({
                   >
                     {row.name}
                   </Link>
+                  <EntitySiblingIcon
+                    siblings={row.ambiguity_siblings}
+                    entityKind="food"
+                  />
                   {row.evidence_count > 0 && (
                     <span className="text-xs text-light-500">
                       ({row.evidence_count})

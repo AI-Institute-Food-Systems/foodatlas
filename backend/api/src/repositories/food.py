@@ -33,7 +33,8 @@ async def get_metadata(session: AsyncSession, common_name: str) -> dict[str, obj
     result = await session.execute(
         text("""
             SELECT common_name, foodatlas_id AS id, entity_type,
-                   scientific_name, synonyms, external_ids, food_classification
+                   scientific_name, synonyms, external_ids, food_classification,
+                   ambiguity_siblings
             FROM mv_food_entities WHERE common_name = :name
         """),
         {"name": common_name},

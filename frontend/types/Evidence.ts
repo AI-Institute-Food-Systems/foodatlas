@@ -25,15 +25,19 @@ export type Evidence = {
 //   extracted_chemical: string;
 // };
 
+export type FoodEvidenceExtraction = {
+  extracted_food_name: string | null;
+  extracted_chemical_name: string | null;
+  extracted_concentration: string | null;
+  converted_concentration: Concentration;
+  method: string;
+  food_candidates?: string[] | null;
+  chemical_candidates?: string[] | null;
+};
+
 export type FoodEvidence = {
   premise: string;
-  extraction: {
-    extracted_food_name: string | null;
-    extracted_chemical_name: string | null;
-    extracted_concentration: string | null;
-    converted_concentration: Concentration;
-    method: string;
-  }[];
+  extraction: FoodEvidenceExtraction[];
   reference: {
     id: string;
     source_name: "FoodAtlas" | "FDC" | "DMD";

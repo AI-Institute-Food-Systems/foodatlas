@@ -282,6 +282,77 @@ class TestBuildEvidenceJson:
         assert result["foodatlas"][0]["reference"]["url"] == ""
 
 
+class TestAmbiguousCandidates:
+    """Verify that multi-valued head/tail_candidates surface as names."""
+
+    def _make_group(self, head_cands, tail_cands):
+        return pd.DataFrame(
+            [
+                {
+                    "source": "lit2kg",
+                    "reference": {"pmcid": "PMC1", "text": "t"},
+                    "conc_value": 10.0,
+                    "conc_unit": "mg/100g",
+                    "conc_value_raw": "10",
+                    "conc_unit_raw": "mg/100g",
+                    "show_food": "apple",
+                    "show_chem": "quercetin",
+                    "head_candidates": head_cands,
+                    "tail_candidates": tail_cands,
+                }
+            ]
+        )
+
+    def test_ambiguous_head_emits_food_candidates(self):
+        group = self._make_group(["e_apple", "e_apricot"], ["e_quercetin"])
+        name_map = {
+            "e_apple": "apple",
+            "e_apricot": "apricot",
+            "e_quercetin": "quercetin",
+        }
+        result = _build_evidence_json(group, name_map)
+        ext = result["foodatlas"][0]["extraction"][0]
+        assert ext["food_candidates"] == ["apple", "apricot"]
+        assert "chemical_candidates" not in ext
+
+    def test_ambiguous_tail_emits_chemical_candidates(self):
+        group = self._make_group(["e_apple"], ["e_quercetin", "e_quercetin_glucoside"])
+        name_map = {
+            "e_apple": "apple",
+            "e_quercetin": "quercetin",
+            "e_quercetin_glucoside": "quercetin-3-glucoside",
+        }
+        result = _build_evidence_json(group, name_map)
+        ext = result["foodatlas"][0]["extraction"][0]
+        assert ext["chemical_candidates"] == [
+            "quercetin",
+            "quercetin-3-glucoside",
+        ]
+        assert "food_candidates" not in ext
+
+    def test_unambiguous_emits_neither(self):
+        group = self._make_group(["e_apple"], ["e_quercetin"])
+        name_map = {"e_apple": "apple", "e_quercetin": "quercetin"}
+        result = _build_evidence_json(group, name_map)
+        ext = result["foodatlas"][0]["extraction"][0]
+        assert "food_candidates" not in ext
+        assert "chemical_candidates" not in ext
+
+    def test_unknown_id_kept_verbatim(self):
+        group = self._make_group(["e_apple", "e_missing"], ["e_quercetin"])
+        name_map = {"e_apple": "apple", "e_quercetin": "quercetin"}
+        result = _build_evidence_json(group, name_map)
+        ext = result["foodatlas"][0]["extraction"][0]
+        assert ext["food_candidates"] == ["apple", "e_missing"]
+
+    def test_no_name_map_skips_candidates(self):
+        group = self._make_group(["e_apple", "e_apricot"], ["e_quercetin"])
+        result = _build_evidence_json(group)
+        ext = result["foodatlas"][0]["extraction"][0]
+        assert "food_candidates" not in ext
+        assert "chemical_candidates" not in ext
+
+
 class TestMaterializeCompositionEmpty:
     """Test materialize_food_chemical_composition with empty data."""
 
