@@ -24,6 +24,7 @@ jobs:
     environment: production
     permissions:
       contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -32,8 +33,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Compute image tag
@@ -114,15 +114,5 @@ jobs:
           fi
           uv run cdk deploy FoodAtlasApiStack "${args[@]}"
 
-      - name: Fetch API URL
-        id: api
-        run: |
-          url=$(aws cloudformation describe-stacks \
-            --stack-name FoodAtlasApiStack \
-            --query "Stacks[0].Outputs[?OutputKey=='ApiUrl'].OutputValue" \
-            --output text)
-          echo "url=$url" >> "$GITHUB_OUTPUT"
-          echo "API URL: $url"
-
       - name: Smoke test /health
-        run: curl --fail --show-error --retry 10 --retry-delay 10 --retry-all-errors --max-time 30 "${{ steps.api.outputs.url }}/health"
+        run: curl --fail --show-error --retry 10 --retry-delay 10 --retry-all-errors --max-time 30 "https://api.foodatlas.ai/health"
