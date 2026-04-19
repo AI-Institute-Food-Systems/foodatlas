@@ -38,7 +38,7 @@ flowchart LR
 ├── frontend/                  # Next.js 14 web app (React 18, TypeScript, Tailwind)
 ├── backend/
 │   ├── api/                   # FastAPI REST service (port 8000)
-│   ├── db/                    # PostgreSQL schema, migrations, ETL loader
+│   ├── db/                    # PostgreSQL schema, ETL loader
 │   ├── ie/                    # Information extraction pipeline (LLM-based)
 │   └── kgc/                   # Knowledge graph construction pipeline
 ├── infra/
@@ -54,7 +54,7 @@ flowchart LR
 
 ## Running Locally
 
-The local stack is **PostgreSQL → DB migrations & data load → FastAPI → Next.js**, all on one machine.
+The local stack is **PostgreSQL → DB data load → FastAPI → Next.js**, all on one machine.
 
 ### Prerequisites
 
@@ -81,23 +81,16 @@ docker compose -f infra/local/docker-compose.yml up -d
 
 This starts a PostgreSQL 16 container on port 5432 with database `foodatlas` (user: `foodatlas`, password: `foodatlas`). Credentials are committed in `docker-compose.yml` deliberately — they only work against your local container.
 
-### 3. Run database migrations
-
-```bash
-cd backend/db
-uv run alembic upgrade head
-```
-
-### 4. Load knowledge graph data
+### 3. Load knowledge graph data
 
 ```bash
 cd backend/db
 uv run python main.py load
 ```
 
-This loads KGC parquet output into PostgreSQL. See [`backend/kgc/README.md`](backend/kgc/README.md) for how to generate the parquet files locally, or [`infra/README.md`](infra/README.md) for how to pull them from the production S3 bucket.
+This drops and recreates the schema from the SQLAlchemy models, then loads KGC parquet output into PostgreSQL. See [`backend/kgc/README.md`](backend/kgc/README.md) for how to generate the parquet files locally, or [`infra/README.md`](infra/README.md) for how to pull them from the production S3 bucket.
 
-### 5. Start the API server
+### 4. Start the API server
 
 ```bash
 cd backend/api
@@ -106,7 +99,7 @@ uv run python main.py
 
 The FastAPI server runs at `http://localhost:8000`. In debug mode (default), API key authentication is skipped.
 
-### 6. Start the frontend
+### 5. Start the frontend
 
 ```bash
 cd frontend

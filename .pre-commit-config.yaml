@@ -27,10 +27,10 @@ repos:
     hooks:
       - id: ruff
         args: [--fix, --exit-non-zero-on-fix]
-        files: ^(backend|infra/cdk)/
+        files: ^(backend|infra/aws)/
         stages: [pre-commit]
       - id: ruff-format
-        files: ^(backend|infra/cdk)/
+        files: ^(backend|infra/aws)/
         stages: [pre-commit]
 
   # Bandit — security scanning
@@ -39,7 +39,7 @@ repos:
     hooks:
       - id: bandit
         args: [-c, pyproject.toml]
-        files: ^(backend|infra/cdk)/
+        files: ^(backend|infra/aws)/
         exclude: /tests/
         stages: [pre-commit]
         additional_dependencies: ["bandit[toml]"]
@@ -50,7 +50,7 @@ repos:
     hooks:
       - id: mypy
         args: [--explicit-package-bases]
-        files: ^(backend|infra/cdk)/
+        files: ^(backend|infra/aws)/
         stages: [pre-commit]
         additional_dependencies:
           - types-requests>=2.31.0
@@ -92,12 +92,12 @@ repos:
         files: ^backend/kgc/
         stages: [pre-push]
 
-      - id: pytest-infra-cdk
-        name: pytest (infra/cdk)
-        entry: bash -c 'cd infra/cdk && uv run pytest'
+      - id: pytest-infra-aws
+        name: pytest (infra/aws)
+        entry: bash -c 'cd infra/aws && uv run pytest'
         language: system
         pass_filenames: false
-        files: ^infra/cdk/
+        files: ^infra/aws/
         stages: [pre-push]
 
   # Frontend hooks

@@ -168,7 +168,7 @@ Local KGC runs produce parquet under `outputs/kg/`. To publish to AWS and load i
 ./scripts/sync-outputs-to-s3.sh
 
 # Load the published outputs into RDS via a one-off ECS task
-cd ../../infra/cdk && ./scripts/run-data-load.sh
+cd ../../infra/aws && ./scripts/run-data-load.sh
 ```
 
 Each sync creates an immutable timestamped directory under `s3://<bucket>/data/<UTC-ts>/` or `s3://<bucket>/outputs/<UTC-ts>/` and updates a `LATEST` pointer file. Old versions stay forever for traceability and rollback. See [`infra/README.md#s3-layout`](../../infra/README.md#s3-layout) for the full layout and [`infra/README.md#helper-scripts`](../../infra/README.md#helper-scripts) for the script catalog.
