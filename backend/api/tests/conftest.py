@@ -22,10 +22,7 @@ def mock_db() -> AsyncMock:
     return AsyncMock()
 
 
-@pytest.fixture()
-def client(mock_db: AsyncMock) -> Generator[TestClient]:
-    """FastAPI TestClient with mocked dependencies."""
-    settings = _make_debug_settings()
+def _build_client(settings: APISettings, mock_db: AsyncMock) -> TestClient:
     app = create_app(settings)
 
     async def _override_db() -> AsyncGenerator[AsyncMock]:
@@ -38,5 +35,21 @@ def client(mock_db: AsyncMock) -> Generator[TestClient]:
     app.dependency_overrides[verify_api_key] = _override_verify
     app.dependency_overrides[get_settings] = lambda: settings
 
-    with TestClient(app, raise_server_exceptions=False) as tc:
+    return TestClient(app, raise_server_exceptions=False)
+
+
+@pytest.fixture()
+def client(mock_db: AsyncMock) -> Generator[TestClient]:
+    """FastAPI TestClient with mocked dependencies."""
+    with _build_client(_make_debug_settings(), mock_db) as tc:
+        yield tc
+
+
+@pytest.fixture()
+def client_with_downloads_bucket(mock_db: AsyncMock) -> Generator[TestClient]:
+    """TestClient with a configured downloads bucket for /download tests."""
+    settings = _make_debug_settings()
+    settings.downloads_bucket = "test-downloads-bucket"
+    settings.downloads_region = "us-west-1"
+    with _build_client(settings, mock_db) as tc:
         yield tc

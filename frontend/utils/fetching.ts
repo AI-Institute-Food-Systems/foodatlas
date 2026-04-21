@@ -215,7 +215,7 @@ export async function getDownloadEntries() {
     throw new Error("Failed to fetch food composition downloads");
   }
 
-  const data = await response.json();
+  const { data } = await response.json();
 
   return data;
 }

@@ -29,6 +29,18 @@ if [[ -z "$(ls -A "$LOCAL_DIR" 2>/dev/null || true)" ]]; then
     exit 1
 fi
 
+if [[ ! -f "$LOCAL_DIR/kg/CHANGELOG.md" ]]; then
+    cat >&2 <<MISSING
+Error: $LOCAL_DIR/kg/CHANGELOG.md not found.
+
+Generate it before syncing so every KGC run on S3 carries a release
+report that downstream publishes can reference:
+
+    uv run python main.py report
+MISSING
+    exit 1
+fi
+
 resolve_kgc_bucket
 VERSION=$(utc_timestamp)
 DEST="s3://$BUCKET/outputs/$VERSION/"

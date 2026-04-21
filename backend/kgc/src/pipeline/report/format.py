@@ -36,6 +36,103 @@ def format_report(result: KGDiffResult) -> str:
     return buf.getvalue()
 
 
+def format_changelog(result: KGDiffResult) -> str:
+    """Render the diff as a release-notes markdown document.
+
+    Designed for inclusion in the release bundle — structured,
+    user-facing, and focused on what changed at the KG level (counts,
+    new IDs, source coverage). Omits debug-oriented sections
+    (name/type changes) that belong in the plaintext report.
+    """
+    buf = StringIO()
+    _md_entity_summary(buf, result.entity_summary)
+    _md_triplet_summary(buf, result.triplet_summary)
+    _md_source_coverage(buf, result.source_coverage)
+    _md_detail_summary(buf, result.entity_details)
+    return buf.getvalue()
+
+
+def _md_counts_table(
+    buf: StringIO,
+    header: tuple[str, str, str],
+    rows: list[tuple[str, int, int]],
+) -> None:
+    """Render a three-column counts table as markdown."""
+    buf.write(f"| {header[0]} | {header[1]} | {header[2]} | Delta |\n")
+    buf.write("| --- | ---: | ---: | ---: |\n")
+    old_total = new_total = 0
+    for label, old, new in rows:
+        old_total += old
+        new_total += new
+        buf.write(f"| {label} | {old:,} | {new:,} | {new - old:+,} |\n")
+    buf.write(
+        f"| **TOTAL** | **{old_total:,}** | **{new_total:,}** | "
+        f"**{new_total - old_total:+,}** |\n\n"
+    )
+
+
+def _md_entity_summary(buf: StringIO, s: EntitySummary) -> None:
+    buf.write("## Entities\n\n")
+    types = sorted(set(s.old_counts) | set(s.new_counts))
+    rows = [(t, s.old_counts.get(t, 0), s.new_counts.get(t, 0)) for t in types]
+    _md_counts_table(buf, ("Type", "Previous", "This release"), rows)
+
+    buf.write(f"- **New** entity IDs: {len(s.new_ids):,}\n")
+    buf.write(f"- **Removed** entity IDs: {len(s.removed_ids):,}\n")
+    buf.write(f"- **Stable** entity IDs: {s.stable_count:,}\n\n")
+    buf.write(
+        "_Per-type deltas in the table can exceed the New/Removed totals "
+        "because an existing entity can change its type between releases._\n\n"
+    )
+
+
+def _md_triplet_summary(buf: StringIO, s: TripletSummary) -> None:
+    buf.write("## Triplets\n\n")
+    rels = sorted(set(s.old_counts) | set(s.new_counts))
+    rows = [
+        (
+            f"{r} ({_REL_LABELS.get(r, r)})",
+            s.old_counts.get(r, 0),
+            s.new_counts.get(r, 0),
+        )
+        for r in rels
+    ]
+    _md_counts_table(buf, ("Relationship", "Previous", "This release"), rows)
+
+    buf.write(f"- **New** triplets: {s.new_count:,}\n")
+    buf.write(f"- **Removed** triplets: {s.removed_count:,}\n")
+    buf.write(f"- **Stable** triplets: {s.stable_count:,}\n\n")
+
+
+def _md_source_coverage(buf: StringIO, c: SourceCoverage) -> None:
+    if not c.new_attestations_by_source and not c.new_evidence_by_type:
+        return
+    buf.write("## Source coverage\n\n")
+    if c.new_attestations_by_source:
+        buf.write("Attestations by source:\n\n")
+        for src, cnt in sorted(
+            c.new_attestations_by_source.items(), key=lambda x: -x[1]
+        ):
+            buf.write(f"- `{src}`: {cnt:,}\n")
+        buf.write("\n")
+    if c.new_evidence_by_type:
+        buf.write("Evidence by source type:\n\n")
+        for src, cnt in sorted(c.new_evidence_by_type.items(), key=lambda x: -x[1]):
+            buf.write(f"- `{src}`: {cnt:,}\n")
+        buf.write("\n")
+
+
+def _md_detail_summary(buf: StringIO, d: EntityDetailChanges) -> None:
+    if not d.name_changes and not d.type_changes:
+        return
+    buf.write("## Notable entity updates\n\n")
+    if d.name_changes:
+        buf.write(f"- Renamed: {len(d.name_changes):,} entities\n")
+    if d.type_changes:
+        buf.write(f"- Reclassified: {len(d.type_changes):,} entities\n")
+    buf.write("\n")
+
+
 def _header(buf: StringIO, title: str) -> None:
     buf.write("=" * _W + "\n")
     buf.write(f"  {title}\n")
@@ -62,7 +159,7 @@ def _entity_summary(buf: StringIO, s: EntitySummary) -> None:
     buf.write("\n")
 
     buf.write(f"  New entity IDs:     {len(s.new_ids):,}\n")
-    buf.write(f"  Retired entity IDs: {len(s.retired_ids):,}\n")
+    buf.write(f"  Removed entity IDs: {len(s.removed_ids):,}\n")
     buf.write(f"  Stable entity IDs:  {s.stable_count:,}\n\n")
 
     _orphans(buf, s)

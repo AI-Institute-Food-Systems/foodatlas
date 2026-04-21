@@ -106,7 +106,6 @@ The pipeline writes parquet files to `outputs/kg/` (the loadable knowledge graph
 | `evidence.parquet` | Per-triplet evidence rows |
 | `attestations.parquet` | Per-triplet attestation/provenance |
 | `attestations_ambiguous.parquet` | Attestations whose entity resolution was ambiguous |
-| `retired.parquet` | Entities retired in the latest run (for downstream reconciliation) |
 
 ## Project Structure
 

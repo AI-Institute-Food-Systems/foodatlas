@@ -1,12 +1,14 @@
-"""Compute and report diffs between registry snapshots across builds."""
+"""Compute diffs between registry snapshots across builds.
+
+Used for structural logging only — we report how many IDs were stable,
+added, retired, or merged between registry snapshots, but we do not
+currently persist the retired set. If/when a forwarding table becomes
+a product requirement, re-introduce a writer here.
+"""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-
-import pandas as pd
-
-from .schema import RETIRED_COLUMNS
 
 
 @dataclass
@@ -38,13 +40,3 @@ def compute_diff(
         merged=sorted(merges.items()),
         stable_ids=sorted(old_ids & new_ids),
     )
-
-
-def build_retired_df(diff: RegistryDiff) -> pd.DataFrame:
-    """Build a DataFrame for ``retired.parquet`` from the diff."""
-    rows: list[dict[str, str]] = []
-    for fid in diff.retired_ids:
-        rows.append({"foodatlas_id": fid, "action": "retired", "destination": ""})
-    for old_id, new_id in diff.merged:
-        rows.append({"foodatlas_id": old_id, "action": "merged", "destination": new_id})
-    return pd.DataFrame(rows, columns=RETIRED_COLUMNS)

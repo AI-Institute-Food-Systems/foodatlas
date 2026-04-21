@@ -21,7 +21,6 @@ from src.stores.schema import (
     FILE_LUT_FOOD,
     FILE_REGISTRY,
     FILE_RELATIONSHIPS,
-    FILE_RETIRED,
     FILE_TRIPLETS,
 )
 
@@ -75,7 +74,6 @@ class TestCreateEmptyEntityFiles:
             FILE_EVIDENCE,
             FILE_ATTESTATIONS,
             FILE_RELATIONSHIPS,
-            FILE_RETIRED,
         ):
             assert not (kg_dir / f).exists(), f"Should not exist: {f}"
 
@@ -102,7 +100,6 @@ class TestCreateEmptyTripletFiles:
             FILE_TRIPLETS,
             FILE_EVIDENCE,
             FILE_ATTESTATIONS,
-            FILE_RETIRED,
         ):
             assert (kg_dir / f).exists(), f"Missing: {f}"
 
@@ -126,13 +123,6 @@ class TestCreateEmptyTripletFiles:
     ) -> None:
         create_empty_triplet_files(settings)
         df = pd.read_parquet(kg_dir / FILE_EVIDENCE)
-        assert len(df) == 0
-
-    def test_retired_is_empty_parquet(
-        self, settings: KGCSettings, kg_dir: Path
-    ) -> None:
-        create_empty_triplet_files(settings)
-        df = pd.read_parquet(kg_dir / FILE_RETIRED)
         assert len(df) == 0
 
     def test_does_not_create_entity_files(

@@ -140,10 +140,36 @@ class TestFoodComposition:
 # -- /download -------------------------------------------------------------
 
 
+BUNDLE_SAMPLE = [
+    {
+        "version": "v1.0",
+        "release_date": "2026-04-20",
+        "file_size": "1.2 GB",
+        "kgc_run": "20260420T173000Z",
+        "download_link": "https://example.s3.us-west-1.amazonaws.com/bundles/foodatlas-v1.0/foodatlas-v1.0.zip",
+        "summary_link": "https://example.s3.us-west-1.amazonaws.com/bundles/foodatlas-v1.0/SUMMARY.md",
+    },
+]
+
+
 class TestDownload:
-    def test_returns_empty_placeholder(self, client: TestClient) -> None:
+    def test_returns_empty_when_no_bucket_configured(self, client: TestClient) -> None:
         resp = client.get("/download")
         assert resp.status_code == 200
         body = resp.json()
         assert body["data"] == []
         assert body["metadata"]["row_count"] == 0
+
+    def test_returns_manifest_entries_when_bucket_configured(
+        self, client_with_downloads_bucket: TestClient
+    ) -> None:
+        with patch(
+            "src.repositories.downloads.fetch_manifest",
+            return_value=BUNDLE_SAMPLE,
+            new_callable=AsyncMock,
+        ):
+            resp = client_with_downloads_bucket.get("/download")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["data"] == BUNDLE_SAMPLE
+        assert body["metadata"]["row_count"] == 1

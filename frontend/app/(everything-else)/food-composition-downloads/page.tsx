@@ -1,34 +1,17 @@
 export const dynamic = "force-dynamic";
 
 import { Metadata } from "next";
-import { MdDownload } from "react-icons/md";
 
-import Button from "@/components/basic/Button";
 import Link from "@/components/basic/Link";
 import Card from "@/components/basic/Card";
 import Divider from "@/components/basic/Divider";
 import Heading from "@/components/basic/Heading";
 import SubHeading from "@/components/basic/SubHeading";
+import DownloadsTable, {
+  DownloadRow,
+} from "@/components/misc/DownloadsTable";
 import { DownloadEntry } from "@/types";
 import { getDownloadEntries } from "@/utils/fetching";
-
-const HEADERS = [
-  {
-    label: "version",
-  },
-  {
-    label: "release date",
-  },
-  {
-    label: "changelog",
-  },
-  {
-    label: "size",
-  },
-  {
-    label: "",
-  },
-];
 
 export const metadata: Metadata = {
   title: "FoodAtlas | Download Food Composition Data",
@@ -36,12 +19,28 @@ export const metadata: Metadata = {
     "FoodAtlas is provided as a free resource for public use. Download version-controlled database bundles to work with evidence-based food composition data on your machine.",
 };
 
+async function fetchSummary(url: string): Promise<string> {
+  try {
+    const res = await fetch(url, { next: { revalidate: 3600 } });
+    if (!res.ok) return "";
+    return (await res.text()).trim();
+  } catch {
+    return "";
+  }
+}
+
 const Downloads = async () => {
-  const data: DownloadEntry[] = await getDownloadEntries();
+  const entries: DownloadEntry[] = await getDownloadEntries();
+  const summaries = await Promise.all(
+    entries.map((e) => fetchSummary(e.summary_link)),
+  );
+  const data: DownloadRow[] = entries.map((entry, i) => ({
+    ...entry,
+    summary: summaries[i],
+  }));
 
   return (
     <div>
-      {/* heading & caption */}
       <div>
         <Heading type="h1">Download Database Bundles</Heading>
         <SubHeading>
@@ -60,76 +59,14 @@ const Downloads = async () => {
         </p>
       </div>
       <Divider />
-      {/* table */}
       <div className="mt-14">
         <Card>
-          <div className="overflow-x-auto">
-            <table className="w-full md:table-fixed">
-              <thead className="text-light-400 text-left">
-                <tr>
-                  {HEADERS.map((header, index) => (
-                    <th
-                      key={index}
-                      className={`h-12 border-b border-light-700 leading-none  py-2 ${
-                        index === 0
-                          ? "pr-3"
-                          : index === HEADERS.length
-                          ? "pl-3"
-                          : "px-3"
-                      }`}
-                    >
-                      <div className="flex flex-nowrap">
-                        <span className="select-none uppercase text-xs font-medium w-full">
-                          {header.label}
-                        </span>
-                      </div>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="font-light">
-                {data.map((row, index) => {
-                  return (
-                    <tr key={row.release_date + "_" + row.version}>
-                      <td className="py-2 pr-3">
-                        <div className="flex min-h-12 capitalize items-center">
-                          {row.version}
-                        </div>
-                      </td>
-                      <td className="py-2 px-3">
-                        <div className="flex min-h-12 capitalize items-center">
-                          {row.release_date}
-                        </div>
-                      </td>
-                      <td className="py-2 px-3">
-                        <div className="flex min-h-12 capitalize items-center">
-                          {row.change_log}
-                        </div>
-                      </td>
-                      <td className="py-2 px-3">
-                        <div className="flex min-h-12 justify-end capitalize items-center">
-                          {row.file_size}
-                        </div>
-                      </td>
-                      <td className="py-2 pl-3">
-                        <div className="flex min-h-12 justify-end capitalize items-center">
-                          <Button
-                            variant="outlined"
-                            size="xs"
-                            href={row.download_link}
-                          >
-                            <MdDownload />
-                            Download
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <DownloadsTable data={data} />
         </Card>
+        <p className="mt-4 text-sm text-light-400">
+          Versions prior to v4.0 are retired and no longer available for
+          download.
+        </p>
       </div>
     </div>
   );

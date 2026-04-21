@@ -2,19 +2,25 @@
 
 from fastapi import APIRouter, Depends
 
-from src.dependencies import verify_api_key
+from src.config import APISettings
+from src.dependencies import get_settings, verify_api_key
+from src.repositories import downloads
 
 router = APIRouter(dependencies=[Depends(verify_api_key)])
 
 
 @router.get("/download")
-async def get_downloads():
-    """Return available download entries.
+async def get_downloads(settings: APISettings = Depends(get_settings)) -> dict:
+    """Return released bundles from the public downloads bucket manifest.
 
-    For MVP, return a static placeholder.
-    Production will read from config or DB.
+    Returns an empty list when no bucket is configured or when the
+    manifest is missing/unreadable — the downloads page renders an
+    empty table in that case rather than failing.
     """
-    return {
-        "data": [],
-        "metadata": {"row_count": 0},
-    }
+    entries: list[dict] = []
+    if settings.downloads_bucket:
+        entries = await downloads.fetch_manifest(
+            settings.downloads_bucket,
+            settings.downloads_region,
+        )
+    return {"data": entries, "metadata": {"row_count": len(entries)}}
