@@ -208,7 +208,7 @@ export async function getDownloadEntries() {
     headers: {
       Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
     },
-    next: { revalidate: 86400 },
+    next: { revalidate: 300 },
   });
 
   if (!response.ok) {
