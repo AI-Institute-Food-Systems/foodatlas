@@ -12,8 +12,16 @@ def _parse_json_col(series: pd.Series) -> pd.Series:
 
 
 def _ensure_list_col(series: pd.Series) -> pd.Series:
-    """Ensure column values are lists (not NaN or strings)."""
-    return series.apply(lambda x: x if isinstance(x, list) else [])
+    """Ensure column values are lists (not NaN, strings, or numpy arrays)."""
+
+    def _to_list(x: object) -> list:
+        if isinstance(x, list):
+            return x
+        if hasattr(x, "tolist"):  # numpy array or pandas-compatible sequence
+            return list(x.tolist())
+        return []
+
+    return series.apply(_to_list)
 
 
 def read_entities(kg_dir: Path) -> pd.DataFrame:

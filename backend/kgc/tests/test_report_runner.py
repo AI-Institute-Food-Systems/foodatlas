@@ -40,7 +40,7 @@ class TestCompareEntities:
         assert s.old_counts == {"food": 1, "chemical": 1}
         assert s.new_counts == {"food": 1, "disease": 1}
         assert s.new_ids == ["e3"]
-        assert s.retired_ids == ["e2"]
+        assert s.removed_ids == ["e2"]
         assert s.stable_count == 1
 
     def test_identical(self) -> None:
@@ -49,7 +49,7 @@ class TestCompareEntities:
         empty = _make_triplets([])
         s = compare_entities(old, new, empty, empty)
         assert s.new_ids == []
-        assert s.retired_ids == []
+        assert s.removed_ids == []
         assert s.stable_count == 1
 
     def test_empty_old(self) -> None:

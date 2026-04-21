@@ -1,6 +1,6 @@
 #!/bin/bash
 # Shared helpers for invoking one-off ECS tasks against FoodAtlasJobsStack.
-# Sourced by run-migration.sh and run-data-load.sh.
+# Sourced by run-data-load.sh.
 
 set -euo pipefail
 

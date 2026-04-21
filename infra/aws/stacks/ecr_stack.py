@@ -3,8 +3,8 @@
 Holds two repositories:
 
 - ``foodatlas-api``  — the long-running FastAPI service image (ApiStack)
-- ``foodatlas-db``   — the ad-hoc one-off jobs image used for Alembic
-  migrations and ETL data loads (JobsStack)
+- ``foodatlas-db``   — the ad-hoc one-off jobs image used for ETL data
+  loads (JobsStack)
 
 Split from the consuming stacks to break the chicken-and-egg at first
 deploy: ECS cannot start a task until an image already exists in the

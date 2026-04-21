@@ -5,7 +5,7 @@ This directory holds everything needed to run FoodAtlas in the two operating mod
 - **Local development** — A single-machine Docker Compose stack with PostgreSQL, used while writing code and running tests on a developer laptop.
 - **AWS production** — A multi-stack AWS CDK deployment (RDS, ECS Fargate, ALB, S3, ECR, Secrets Manager) that hosts the live API for the Vercel frontend.
 
-The two modes share **zero physical infrastructure**. Local Postgres lives in a Docker container on your laptop; production Postgres is RDS in `us-west-1`. The only thing in common is the Python code in `backend/` and the Alembic schema in `backend/db/migrations/`. Everything else — credentials, networking, deploy steps — diverges by mode.
+The two modes share **zero physical infrastructure**. Local Postgres lives in a Docker container on your laptop; production Postgres is RDS in `us-west-1`. The only thing in common is the Python code in `backend/` and the SQLAlchemy schema in `backend/db/src/models/`. Everything else — credentials, networking, deploy steps — diverges by mode.
 
 ---
 
@@ -20,12 +20,12 @@ infra/
 │   ├── init-db.sql        # Postgres init script (enables pg_trgm)
 │   └── scripts/
 │       └── run_monthly.sh # Local IE → KGC → DB → S3 orchestrator
-└── cdk/                   # Mode: AWS production
+└── aws/                   # Mode: AWS production
     ├── README.md          # CDK CLI quick reference
     ├── app.py             # CDK app entry point
     ├── stacks/            # Six stack definitions
     ├── tests/             # Snapshot tests using aws_cdk.assertions
-    └── scripts/           # ECS one-off task runners (migrations, ETL)
+    └── scripts/           # ECS one-off task runners (ETL data load)
 ```
 
 ---
@@ -54,7 +54,6 @@ flowchart LR
 
 ```
 docker compose -f infra/local/docker-compose.yml up -d
-cd backend/db && uv run alembic upgrade head
 cd backend/db && uv run python main.py load
 cd backend/api && uv run python main.py
 cd frontend && npm run dev
@@ -76,7 +75,7 @@ bash infra/local/scripts/run_monthly.sh --ie-only           # IE only, stop befo
 
 ## Mode 2: AWS production
 
-Production runs on AWS and is defined entirely in CDK Python under `infra/cdk/`. The infrastructure is split into six stacks; each is independently deployable but they have constructor dependencies that CDK uses to enforce deploy order.
+Production runs on AWS and is defined entirely in CDK Python under `infra/aws/`. The infrastructure is split into six stacks; each is independently deployable but they have constructor dependencies that CDK uses to enforce deploy order.
 
 ### Architecture
 
@@ -88,7 +87,7 @@ flowchart TB
     rds[("RDS PostgreSQL 16<br/>db.t4g.small<br/>Single-AZ<br/>(isolated subnet)")]
     secrets[("Secrets Manager<br/>(DB credentials)")]
     s3[("S3 bucket<br/>data/&lt;ts&gt;/<br/>outputs/&lt;ts&gt;/")]
-    jobs["ECS Fargate<br/>one-off task<br/>(migrations + ETL)"]
+    jobs["ECS Fargate<br/>one-off task<br/>(ETL data load)"]
     ecr_api[("ECR<br/>foodatlas-api")]
     ecr_db[("ECR<br/>foodatlas-db")]
 
@@ -154,7 +153,7 @@ This is what a fresh AWS account looks like. Skip steps you've already done.
 - Docker daemon running locally (used by image build steps)
 - `npm install -g aws-cdk`
 - `uv` installed
-- `cd infra/cdk && uv sync`
+- `cd infra/aws && uv sync`
 
 ### CDK bootstrap (once per account+region)
 
@@ -167,7 +166,7 @@ This creates the `CDKToolkit` stack which provisions an S3 bucket and an ECR rep
 ### Deploy the foundation stacks
 
 ```
-cd infra/cdk
+cd infra/aws
 uv run cdk deploy FoodAtlasNetworkStack FoodAtlasStorageStack FoodAtlasEcrStack
 ```
 
@@ -190,7 +189,7 @@ Both scripts pass `--platform linux/amd64` because the Fargate task definitions 
 uv run cdk deploy FoodAtlasDatabaseStack
 ```
 
-This provisions RDS, which takes 10–15 minutes. **Billing starts here** — RDS is the largest line item in the stack. The auto-generated master password is stored in AWS Secrets Manager (path defined by `_DB_SECRET_NAME` in `cdk/stacks/database_stack.py`); nothing on your laptop ever sees the plaintext.
+This provisions RDS, which takes 10–15 minutes. **Billing starts here** — RDS is the largest line item in the stack. The auto-generated master password is stored in AWS Secrets Manager (path defined by `_DB_SECRET_NAME` in `aws/stacks/database_stack.py`); nothing on your laptop ever sees the plaintext.
 
 ### Deploy the API and jobs stacks
 
@@ -200,21 +199,12 @@ uv run cdk deploy FoodAtlasApiStack FoodAtlasJobsStack
 
 `ApiStack` brings up the ALB + ECS service + 1 Fargate task pulling `foodatlas-api:latest` from ECR. `JobsStack` registers the one-off task definition; no tasks run until you invoke them via the helper scripts.
 
-### Run schema migrations
-
-```
-cd infra/cdk
-./scripts/run-migration.sh
-```
-
-Invokes a one-off Fargate task that runs `alembic upgrade head` against RDS. The task uses the `foodatlas-db` image, fetches credentials from Secrets Manager, exits in ~30 seconds. The script tails CloudWatch logs while it runs.
-
 ### Publish KGC content and load it into RDS
 
 ```
 ./backend/kgc/scripts/sync-data-to-s3.sh        # One-time per data refresh
 ./backend/kgc/scripts/sync-outputs-to-s3.sh     # Once per KGC run
-cd infra/cdk && ./scripts/run-data-load.sh
+cd infra/aws && ./scripts/run-data-load.sh
 ```
 
 After this completes, the API is serving real data. Test with:
@@ -251,7 +241,6 @@ s3://<kgcbucket>/
     │   │   ├── evidence.parquet
     │   │   ├── attestations.parquet
     │   │   ├── attestations_ambiguous.parquet
-    │   │   ├── retired.parquet
     │   │   ├── checkpoints/             ← debugging sidecars
     │   │   ├── diagnostics/
     │   │   └── intermediate/
@@ -272,7 +261,7 @@ s3://<kgcbucket>/
 
 ## Helper scripts
 
-Two categories: **artifact publishing** (lives next to the artifact being published) and **cloud orchestration** (lives in `infra/cdk/scripts/`).
+Two categories: **artifact publishing** (lives next to the artifact being published) and **cloud orchestration** (lives in `infra/aws/scripts/`).
 
 ### Artifact publishing
 
@@ -289,9 +278,8 @@ Two categories: **artifact publishing** (lives next to the artifact being publis
 
 | Script | Action |
 |---|---|
-| `infra/cdk/scripts/run-migration.sh [revision]` | Invoke `alembic upgrade <revision>` on RDS via a one-off Fargate task (default `head`). Tails logs |
-| `infra/cdk/scripts/run-data-load.sh [version]` | Invoke the ETL loader against `s3://<bucket>/outputs/<latest>/kg/` (or `[version]`). Tails logs |
-| `infra/cdk/scripts/_lib.sh` | Shared bash helpers: read CFN outputs, build network config, invoke + wait + tail |
+| `infra/aws/scripts/run-data-load.sh [version]` | Invoke the ETL loader against `s3://<bucket>/outputs/<latest>/kg/` (or `[version]`). Drops and recreates the schema, then loads. Tails logs |
+| `infra/aws/scripts/_lib.sh` | Shared bash helpers: read CFN outputs, build network config, invoke + wait + tail |
 
 ---
 
@@ -307,7 +295,7 @@ cd backend/api && uv run pytest
 ./backend/api/scripts/push-to-ecr.sh $(git rev-parse --short HEAD)
 
 # Deploy the API stack pinning the new tag (immutable)
-cd infra/cdk
+cd infra/aws
 uv run cdk deploy FoodAtlasApiStack -c api_image_tag=$(git rev-parse --short HEAD)
 ```
 
@@ -319,22 +307,20 @@ ECS performs a rolling deploy. The default `min_healthy_percent=50%` with `desir
 # Update SQLAlchemy model
 vim backend/db/src/models/entities.py
 
-# Generate migration (don't edit 001_initial_schema.py)
+# Test locally — drops and recreates the schema, then reloads from parquet
 cd backend/db
-uv run alembic revision --autogenerate -m "add my_column to entities"
-# Review the generated 002_*.py file, edit if autogen missed anything
+uv run python main.py load
 
-# Test against local Postgres
-uv run alembic upgrade head
-
-# Commit, deploy through CD (or manually):
+# Commit, deploy through CD (image only; data reload is manual):
 ./backend/db/scripts/push-to-ecr.sh $(git rev-parse --short HEAD)
-cd infra/cdk && uv run cdk deploy FoodAtlasJobsStack -c db_image_tag=$(git rev-parse --short HEAD)
-./scripts/run-migration.sh
+cd infra/aws && uv run cdk deploy FoodAtlasJobsStack -c db_image_tag=$(git rev-parse --short HEAD)
+
+# Trigger a data reload against the new schema
+./scripts/run-data-load.sh
 # Then deploy the API code that depends on the new column
 ```
 
-The migration must run **before** the API code that depends on the new column. Reverse order causes 500s.
+The reload must run **before** the API code that depends on the new column. Reverse order causes 500s. Since `load` drops and recreates tables, expect ~minutes of downtime.
 
 ### Roll back the data to a previous KGC run
 
@@ -343,7 +329,7 @@ The migration must run **before** the API code that depends on the new column. R
 aws s3 ls s3://<bucket>/outputs/
 
 # Load a specific timestamp
-cd infra/cdk
+cd infra/aws
 ./scripts/run-data-load.sh 20260315T140000Z
 ```
 
@@ -352,7 +338,7 @@ The loader is destructive (rewrites tables), so this fully replaces the current 
 ### Roll back the API to a previous image
 
 ```
-cd infra/cdk
+cd infra/aws
 uv run cdk deploy FoodAtlasApiStack -c api_image_tag=<previous-sha>
 ```
 
@@ -428,4 +414,4 @@ Fix by either reverting the manual change in the AWS console, or `cdk destroy` +
 - CDK Python API docs: https://docs.aws.amazon.com/cdk/api/v2/python/
 - CDK construct library: https://constructs.dev/
 - AWS CLI command reference: https://docs.aws.amazon.com/cli/latest/reference/
-- For CDK CLI commands (synth, diff, deploy, destroy): see [`cdk/README.md`](cdk/README.md)
+- For CDK CLI commands (synth, diff, deploy, destroy): see [`aws/README.md`](aws/README.md)

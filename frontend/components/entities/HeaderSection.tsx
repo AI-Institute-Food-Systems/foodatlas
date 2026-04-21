@@ -3,6 +3,7 @@ import FoodIcon from "@/components/icons/FoodIcon";
 import ChemicalIcon from "@/components/icons/ChemicalIcon";
 import DiseaseIcon from "@/components/icons/DiseaseIcon";
 import Heading from "@/components/basic/Heading";
+import EntityAmbiguityBanner from "@/components/entities/EntityAmbiguityBanner";
 import { getMetaData } from "@/utils/fetching";
 
 const colorScheme = {
@@ -54,6 +55,11 @@ const HeaderSection = async ({
           {commonName}
         </Heading>
       </div>
+      {/* ambiguity banner */}
+      <EntityAmbiguityBanner
+        entityType={entityType}
+        siblings={data?.ambiguity_siblings}
+      />
     </div>
   );
 };

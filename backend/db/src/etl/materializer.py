@@ -1,6 +1,8 @@
 """Materialize denormalized API tables from base tables."""
 
+import json
 import logging
+from collections import defaultdict
 
 import pandas as pd
 from sqlalchemy import text
@@ -36,6 +38,12 @@ def _materialize_entity_views(conn: Connection) -> None:
     """Compute mv_food_entities, mv_chemical_entities, mv_disease_entities."""
     entities = pd.read_sql(text("SELECT * FROM base_entities"), conn)
     triplets = pd.read_sql(text("SELECT * FROM base_triplets"), conn)
+    attestations = pd.read_sql(
+        text("SELECT head_candidates, tail_candidates FROM base_attestations"), conn
+    )
+
+    sibling_map = _build_sibling_map(attestations)
+    name_map = entities.set_index("foodatlas_id")["common_name"].to_dict()
 
     r1 = triplets[triplets["relationship_id"] == "r1"]
     r3r4 = triplets[triplets["relationship_id"].isin(["r3", "r4"])]
@@ -47,7 +55,12 @@ def _materialize_entity_views(conn: Connection) -> None:
     foods["food_classification"] = foods["attributes"].apply(
         lambda a: a.get("food_groups", []) if isinstance(a, dict) else []
     )
-    _insert_mv_entities(conn, "mv_food_entities", foods, ["food_classification"])
+    foods["ambiguity_siblings"] = _render_siblings_col(
+        foods["foodatlas_id"], sibling_map, name_map
+    )
+    _insert_mv_entities(
+        conn, "mv_food_entities", foods, ["food_classification", "ambiguity_siblings"]
+    )
 
     # Include chemicals from food composition (r1), disease correlations (r3/r4),
     # and their IS_A ancestors (so ancestor pages have metadata).
@@ -65,11 +78,14 @@ def _materialize_entity_views(conn: Connection) -> None:
     chemicals["flavor_descriptors"] = chemicals["attributes"].apply(
         lambda a: a.get("flavor_descriptors", []) if isinstance(a, dict) else []
     )
+    chemicals["ambiguity_siblings"] = _render_siblings_col(
+        chemicals["foodatlas_id"], sibling_map, name_map
+    )
     _insert_mv_entities(
         conn,
         "mv_chemical_entities",
         chemicals,
-        ["chemical_classification", "flavor_descriptors"],
+        ["chemical_classification", "flavor_descriptors", "ambiguity_siblings"],
     )
 
     relevant_disease_ids = set(r3r4["tail_id"])
@@ -77,7 +93,10 @@ def _materialize_entity_views(conn: Connection) -> None:
         (entities["entity_type"] == "disease")
         & (entities["foodatlas_id"].isin(relevant_disease_ids))
     ].copy()
-    _insert_mv_entities(conn, "mv_disease_entities", diseases, [])
+    diseases["ambiguity_siblings"] = _render_siblings_col(
+        diseases["foodatlas_id"], sibling_map, name_map
+    )
+    _insert_mv_entities(conn, "mv_disease_entities", diseases, ["ambiguity_siblings"])
 
     logger.info(
         "Entity views: %d foods, %d chemicals, %d diseases",
@@ -127,3 +146,75 @@ def _insert_mv_entities(
         "external_ids",
     ]
     bulk_copy(conn, table_name, df, base_cols + extra_cols)
+
+
+def _build_sibling_map(attestations: pd.DataFrame) -> dict[str, set[str]]:
+    """Build a unified siblings map from attestation candidates.
+
+    Candidates appear on both head (r1 foods / r3r4 chemicals) and tail
+    (r1 chemicals / r3r4 diseases) positions. The co-occurrence semantics
+    are identical across positions: two entities that resolved from the
+    same raw name are ambiguous. We merge both columns into one adjacency
+    graph, then symmetrize via connected components so every entity in an
+    entangled cluster sees every other. Entity-type invariants hold
+    automatically because the LUT returns same-type candidates per raw
+    name, so clusters never cross entity types.
+    """
+    combined = pd.concat(
+        [attestations["head_candidates"], attestations["tail_candidates"]],
+        ignore_index=True,
+    )
+    return _components_from_candidates(combined)
+
+
+def _components_from_candidates(
+    candidates_col: pd.Series,
+) -> dict[str, set[str]]:
+    """Build adjacency from pairwise co-occurrence, then expand to components."""
+    adjacency: dict[str, set[str]] = defaultdict(set)
+    for cands in candidates_col:
+        if not hasattr(cands, "__len__") or len(cands) <= 1:
+            continue
+        ids = list(cands)
+        for i in ids:
+            adjacency[i].update(x for x in ids if x != i)
+
+    siblings: dict[str, set[str]] = {}
+    seen: set[str] = set()
+    for start in adjacency:
+        if start in seen:
+            continue
+        # BFS over the connected component
+        component: set[str] = set()
+        stack = [start]
+        while stack:
+            node = stack.pop()
+            if node in component:
+                continue
+            component.add(node)
+            stack.extend(adjacency.get(node, set()))
+        for node in component:
+            siblings[node] = component - {node}
+        seen |= component
+    return siblings
+
+
+def _render_siblings_col(
+    foodatlas_ids: pd.Series,
+    sibling_map: dict[str, set[str]],
+    name_map: dict[str, str],
+) -> list[str]:
+    """Render each entity's sibling list as a JSON string ready for bulk_copy.
+
+    Produces JSON strings because bulk_copy routes dicts/lists through a
+    different serializer; pre-stringifying avoids ambiguity at write time.
+    """
+    out: list[str] = []
+    for eid in foodatlas_ids:
+        siblings = sibling_map.get(eid, set())
+        payload = [
+            {"foodatlas_id": sid, "common_name": name_map.get(sid, sid)}
+            for sid in sorted(siblings)
+        ]
+        out.append(json.dumps(payload))
+    return out

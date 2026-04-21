@@ -1,11 +1,11 @@
-# FoodAtlas CDK
+# FoodAtlas AWS
 
 AWS CDK Python project that defines the FoodAtlas production infrastructure as six stacks. **For architecture, deploy phases, scripts, troubleshooting, and the local-vs-AWS overview, see [`../README.md`](../README.md).** This file is a CDK CLI cheat sheet.
 
 ## Setup
 
 ```
-cd infra/cdk
+cd infra/aws
 uv sync
 ```
 
@@ -57,16 +57,16 @@ uv run cdk deploy FoodAtlasJobsStack -c db_image_tag=abc1234
 uv run pytest                             # 31 snapshot tests, 100% coverage
 ```
 
-Tests under `tests/` use `aws_cdk.assertions.Template` to assert the synthesized CloudFormation has the expected resources and properties. They run in CI on every PR touching `infra/cdk/`.
+Tests under `tests/` use `aws_cdk.assertions.Template` to assert the synthesized CloudFormation has the expected resources and properties. They run in CI on every PR touching `infra/aws/`.
 
 ## Ad-hoc scripts
 
-The `scripts/` directory holds runners for one-off ECS tasks (Alembic migrations, ETL data load). They're documented in [`../README.md#helper-scripts`](../README.md#helper-scripts) and read CFN outputs from `FoodAtlasJobsStack` to invoke `aws ecs run-task` correctly.
+The `scripts/` directory holds runners for one-off ECS tasks (ETL data load). They're documented in [`../README.md#helper-scripts`](../README.md#helper-scripts) and read CFN outputs from `FoodAtlasJobsStack` to invoke `aws ecs run-task` correctly.
 
 ## File layout
 
 ```
-cdk/
+aws/
 ├── app.py                  # CDK app entry point
 ├── cdk.json                # CDK CLI config (app command, feature flags)
 ├── pyproject.toml          # Dependencies + pytest config
@@ -86,6 +86,5 @@ cdk/
 │   └── test_jobs_stack.py
 └── scripts/
     ├── _lib.sh             # Shared helpers
-    ├── run-migration.sh
     └── run-data-load.sh
 ```

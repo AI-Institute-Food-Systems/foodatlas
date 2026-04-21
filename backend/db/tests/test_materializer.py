@@ -1,9 +1,15 @@
 """Tests for materializer helper functions."""
 
+import json
 from unittest.mock import MagicMock
 
 import pandas as pd
-from src.etl.materializer import _collect_ancestors, _insert_mv_entities
+from src.etl.materializer import (
+    _build_sibling_map,
+    _collect_ancestors,
+    _insert_mv_entities,
+    _render_siblings_col,
+)
 from src.etl.materializer_composition import (
     _add_foodatlas_evidence,
     _compute_median,
@@ -165,6 +171,102 @@ class TestInsertMvEntities:
             cols = mock_copy.call_args[0][3]
             assert len(cols) == 6
             assert "external_ids" in cols
+
+
+class TestBuildSiblingMap:
+    """Test _build_sibling_map from ambiguous attestation candidates."""
+
+    def test_empty_returns_empty(self):
+        att = pd.DataFrame({"head_candidates": [], "tail_candidates": []})
+        assert _build_sibling_map(att) == {}
+
+    def test_unambiguous_ignored(self):
+        att = pd.DataFrame({"head_candidates": [["a"]], "tail_candidates": [["b"]]})
+        assert _build_sibling_map(att) == {}
+
+    def test_ambiguous_head_builds_pairwise(self):
+        att = pd.DataFrame(
+            {
+                "head_candidates": [["a", "b", "c"]],
+                "tail_candidates": [["t"]],
+            }
+        )
+        s = _build_sibling_map(att)
+        assert s["a"] == {"b", "c"}
+        assert s["b"] == {"a", "c"}
+        assert s["c"] == {"a", "b"}
+
+    def test_ambiguous_tail_builds_pairwise(self):
+        att = pd.DataFrame(
+            {
+                "head_candidates": [["h"]],
+                "tail_candidates": [["x", "y"]],
+            }
+        )
+        s = _build_sibling_map(att)
+        assert s["x"] == {"y"}
+        assert s["y"] == {"x"}
+
+    def test_symmetric_via_connected_components(self):
+        """b and c never co-occur directly but are linked via a -> symmetric."""
+        att = pd.DataFrame(
+            {
+                "head_candidates": [["a", "b"], ["a", "c"]],
+                "tail_candidates": [["t"], ["t"]],
+            }
+        )
+        s = _build_sibling_map(att)
+        # Every entity in the cluster sees every other
+        assert s["a"] == {"b", "c"}
+        assert s["b"] == {"a", "c"}
+        assert s["c"] == {"a", "b"}
+
+    def test_separate_components_stay_isolated(self):
+        att = pd.DataFrame(
+            {
+                "head_candidates": [["a", "b"], ["c", "d"]],
+                "tail_candidates": [["t"], ["t"]],
+            }
+        )
+        s = _build_sibling_map(att)
+        assert s["a"] == {"b"}
+        assert s["c"] == {"d"}
+
+    def test_head_and_tail_merged(self):
+        """Chemical appears as r1 tail and r3r4 head -> unified cluster."""
+        att = pd.DataFrame(
+            {
+                "head_candidates": [["food1"], ["chem1", "chem2"]],
+                "tail_candidates": [["chem1", "chem2"], ["disease1"]],
+            }
+        )
+        s = _build_sibling_map(att)
+        # chem1 and chem2 linked via both positions
+        assert s["chem1"] == {"chem2"}
+        assert s["chem2"] == {"chem1"}
+
+
+class TestRenderSiblingsCol:
+    """Test _render_siblings_col JSON serialization."""
+
+    def test_empty_siblings_yields_empty_list(self):
+        ids = pd.Series(["e1"])
+        result = _render_siblings_col(ids, {}, {"e1": "apple"})
+        assert result == ["[]"]
+
+    def test_siblings_mapped_to_names(self):
+        ids = pd.Series(["e1"])
+        sibling_map = {"e1": {"e2", "e3"}}
+        name_map = {"e1": "apple", "e2": "apricot", "e3": "pear"}
+        result = json.loads(_render_siblings_col(ids, sibling_map, name_map)[0])
+        assert {r["foodatlas_id"] for r in result} == {"e2", "e3"}
+        assert {r["common_name"] for r in result} == {"apricot", "pear"}
+
+    def test_unknown_id_falls_back_to_id(self):
+        ids = pd.Series(["e1"])
+        sibling_map = {"e1": {"e_missing"}}
+        result = json.loads(_render_siblings_col(ids, sibling_map, {})[0])
+        assert result[0]["common_name"] == "e_missing"
 
 
 class TestCollectAncestors:

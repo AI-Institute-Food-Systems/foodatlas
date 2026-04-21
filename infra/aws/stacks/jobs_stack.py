@@ -1,9 +1,8 @@
 """Jobs stack: ad-hoc one-off task definition for the foodatlas-db image.
 
-Hosts a Fargate task definition (no service) that runs Alembic migrations
-and ETL data loads on demand. Invoked via ``aws ecs run-task`` with command
-overrides — see ``infra/cdk/scripts/run-migration.sh`` and
-``infra/cdk/scripts/run-data-load.sh``.
+Hosts a Fargate task definition (no service) that runs ETL data loads on
+demand. Invoked via ``aws ecs run-task`` with command overrides — see
+``infra/aws/scripts/run-data-load.sh``.
 
 The stack reuses the ECS cluster from ApiStack so we don't pay for or
 manage a second cluster (clusters themselves are free, but consolidating
@@ -32,7 +31,7 @@ if TYPE_CHECKING:
 
 
 class JobsStack(cdk.Stack):
-    """One-off Fargate task definition for migrations and ETL loads."""
+    """One-off Fargate task definition for ETL data loads."""
 
     def __init__(
         self,
@@ -62,8 +61,7 @@ class JobsStack(cdk.Stack):
         # pandas DataFrames and joins them in memory, and earlier 4 GB runs
         # OOM'd. Generous headroom: 4 vCPU + 16 GB keeps the per-month
         # one-off run cheap (per-second billing) while making OOMs unlikely
-        # at current data scale. Migrations only need a fraction of this
-        # but reuse the same task definition.
+        # at current data scale.
         self.task_definition = ecs.FargateTaskDefinition(
             self,
             "JobsTaskDefinition",
@@ -98,8 +96,7 @@ class JobsStack(cdk.Stack):
             },
         )
 
-        # ETL reads parquet from S3; migrations don't need it but the same
-        # task role is reused for both invocation paths.
+        # ETL reads parquet from S3.
         kgc_bucket.grant_read(self.task_definition.task_role)
 
         # Tasks need outbound HTTPS to reach ECR (image pull), Secrets

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { MdAdd, MdErrorOutline, MdInfoOutline, MdRemove } from "react-icons/md";
 
 import Button from "@/components/basic/Button";
+import EntitySiblingIcon from "@/components/basic/EntitySiblingIcon";
 import Link from "@/components/basic/Link";
 import LoadingCard from "@/components/basic/LoadingCard";
 import Pagination from "@/components/basic/Pagination";
@@ -171,6 +172,12 @@ const CorrelationTable = ({
                         >
                           {row.name}
                         </Link>
+                        {tableLocation !== "chemical" && (
+                          <EntitySiblingIcon
+                            siblings={row.ambiguity_siblings}
+                            entityKind="chemical"
+                          />
+                        )}
                       </div>
                     </td>
                     {/* evidence */}

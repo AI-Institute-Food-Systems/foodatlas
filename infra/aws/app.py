@@ -4,10 +4,11 @@ Instantiates the six stacks that make up the FoodAtlas AWS infrastructure:
 
 - NetworkStack: VPC, subnets, security groups
 - StorageStack: S3 bucket for KGC source data and pipeline artifacts
+- DownloadsStack: public-read S3 bucket for released data bundles
 - EcrStack: ECR repositories for the API and db jobs images
 - DatabaseStack: RDS PostgreSQL + Secrets Manager
 - ApiStack: ECS Fargate + ALB hosting the FastAPI backend
-- JobsStack: one-off Fargate task definition for migrations and ETL loads
+- JobsStack: one-off Fargate task definition for ETL data loads
 
 EcrStack is separate from the consuming stacks so the repos can be populated
 with Docker images before ECS tries to pull them on first deploy. JobsStack
@@ -25,6 +26,7 @@ import aws_cdk as cdk
 
 from stacks.api_stack import ApiStack
 from stacks.database_stack import DatabaseStack
+from stacks.downloads_stack import DownloadsStack
 from stacks.ecr_stack import EcrStack
 from stacks.jobs_stack import JobsStack
 from stacks.network_stack import NetworkStack
@@ -54,6 +56,12 @@ storage = StorageStack(
     env=env,
 )
 
+downloads = DownloadsStack(
+    app,
+    "FoodAtlasDownloadsStack",
+    env=env,
+)
+
 ecr_stack = EcrStack(
     app,
     "FoodAtlasEcrStack",
@@ -75,6 +83,7 @@ api_stack = ApiStack(
     db_instance=database.db_instance,
     db_secret=database.db_secret,
     kgc_bucket=storage.kgc_bucket,
+    downloads_bucket=downloads.downloads_bucket,
     env=env,
 )
 
