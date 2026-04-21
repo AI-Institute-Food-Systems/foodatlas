@@ -7,6 +7,7 @@ from aws_cdk.assertions import Match, Template
 
 from stacks.api_stack import ApiStack
 from stacks.database_stack import DatabaseStack
+from stacks.downloads_stack import DownloadsStack
 from stacks.ecr_stack import EcrStack
 from stacks.network_stack import NetworkStack
 from stacks.storage_stack import StorageStack
@@ -22,6 +23,7 @@ def _synth(*, cert_arn: str | None = None) -> Template:
     app = cdk.App(context=context)
     network = NetworkStack(app, "TestNetworkStack")
     storage = StorageStack(app, "TestStorageStack")
+    downloads = DownloadsStack(app, "TestDownloadsStack")
     ecr_stack = EcrStack(app, "TestEcrStack")
     database = DatabaseStack(
         app,
@@ -36,6 +38,7 @@ def _synth(*, cert_arn: str | None = None) -> Template:
         db_instance=database.db_instance,
         db_secret=database.db_secret,
         kgc_bucket=storage.kgc_bucket,
+        downloads_bucket=downloads.downloads_bucket,
     )
     return Template.from_stack(stack)
 

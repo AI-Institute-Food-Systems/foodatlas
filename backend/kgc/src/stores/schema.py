@@ -17,11 +17,9 @@ FILE_RELATIONSHIPS = "relationships.parquet"
 DIR_INTERMEDIATE = "intermediate"
 FILE_LUT_FOOD = "intermediate/lookup_table_food.json"
 FILE_LUT_CHEMICAL = "intermediate/lookup_table_chemical.json"
-FILE_RETIRED = "retired.parquet"
 
 RELATIONSHIP_COLUMNS = ["foodatlas_id", "name"]
 LUT_COLUMNS = ["name", "foodatlas_id"]
-RETIRED_COLUMNS = ["foodatlas_id", "action", "destination"]
 
 FILE_REGISTRY = "entity_registry.parquet"
 REGISTRY_COLUMNS = ["source", "native_id", "foodatlas_id"]

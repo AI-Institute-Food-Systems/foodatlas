@@ -10,7 +10,7 @@ import click
 import pandas as pd
 from src.models.settings import KGCSettings
 from src.pipeline.ingest.runner import ALL_ADAPTERS
-from src.pipeline.report.format import format_report
+from src.pipeline.report.format import format_changelog, format_report
 from src.pipeline.report.load_old import load_old_kg
 from src.pipeline.report.runner import run_diff
 from src.pipeline.runner import PipelineRunner
@@ -139,25 +139,39 @@ def diagnostics_cmd(ctx: click.Context) -> None:
     click.echo(f"Wrote {n_unclass} unclassified entities to {unclass_out}")
 
 
-@cli.command("diff")
+@cli.command("report")
 @click.option(
     "--output",
     type=click.Path(),
     default=None,
-    help="Write report to file instead of stdout.",
+    help="Write report to file. Defaults to '<kg_dir>/CHANGELOG.md' for "
+    "markdown format, stdout for text format. Pass '-' to force stdout.",
+)
+@click.option(
+    "--format",
+    "fmt",
+    type=click.Choice(["markdown", "text"], case_sensitive=False),
+    default="markdown",
+    help="Output format: 'markdown' (default) for release-notes bundled "
+    "into the release zip, 'text' for the plaintext operator report.",
 )
 @click.pass_context
-def diff_cmd(ctx: click.Context, output: str | None) -> None:
-    """Compare old v3.3 KG with current KG."""
+def report_cmd(ctx: click.Context, output: str | None, fmt: str) -> None:
+    """Compare old v3.3 KG with current KG and emit a release report."""
     settings: KGCSettings = ctx.obj["settings"]
     old_kg = load_old_kg(settings.data_dir)
     result = run_diff(old_kg, settings.kg_dir)
-    report = format_report(result)
-    if output:
-        Path(output).write_text(report)
+    is_markdown = fmt.lower() != "text"
+    rendered = format_changelog(result) if is_markdown else format_report(result)
+
+    if output is None and is_markdown:
+        output = str(Path(settings.kg_dir) / "CHANGELOG.md")
+
+    if output and output != "-":
+        Path(output).write_text(rendered)
         click.echo(f"Report written to {output}")
     else:
-        click.echo(report)
+        click.echo(rendered)
 
 
 if __name__ == "__main__":

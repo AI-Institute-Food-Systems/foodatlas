@@ -25,7 +25,7 @@ class EntitySummary:
     old_counts: dict[str, int] = field(default_factory=dict)
     new_counts: dict[str, int] = field(default_factory=dict)
     new_ids: list[str] = field(default_factory=list)
-    retired_ids: list[str] = field(default_factory=list)
+    removed_ids: list[str] = field(default_factory=list)
     stable_count: int = 0
     old_orphans_by_type: dict[str, int] = field(default_factory=dict)
     new_orphans_by_type: dict[str, int] = field(default_factory=dict)
@@ -91,7 +91,7 @@ def compare_entities(
         old_counts=old_counts,
         new_counts=new_counts,
         new_ids=sorted(new_ids - old_ids),
-        retired_ids=sorted(old_ids - new_ids),
+        removed_ids=sorted(old_ids - new_ids),
         stable_count=len(old_ids & new_ids),
         old_orphans_by_type=orphan_counts_by_type(old_ents, old_trips),
         new_orphans_by_type=orphan_counts_by_type(new_ents, new_trips),

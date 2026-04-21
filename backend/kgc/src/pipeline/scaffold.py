@@ -18,7 +18,6 @@ from ..stores.schema import (
     FILE_LUT_FOOD,
     FILE_REGISTRY,
     FILE_RELATIONSHIPS,
-    FILE_RETIRED,
     FILE_TRIPLETS,
     REGISTRY_COLUMNS,
 )
@@ -83,4 +82,3 @@ def create_empty_triplet_files(settings: KGCSettings) -> None:
     pd.DataFrame().to_parquet(kg_dir / FILE_TRIPLETS)
     pd.DataFrame().to_parquet(kg_dir / FILE_EVIDENCE)
     pd.DataFrame().to_parquet(kg_dir / FILE_ATTESTATIONS)
-    pd.DataFrame().to_parquet(kg_dir / FILE_RETIRED)

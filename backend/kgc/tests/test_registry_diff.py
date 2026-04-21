@@ -1,10 +1,6 @@
 """Tests for registry_diff — build diff computation."""
 
-from src.stores.registry_diff import (
-    RegistryDiff,
-    build_retired_df,
-    compute_diff,
-)
+from src.stores.registry_diff import RegistryDiff, compute_diff
 
 
 class TestComputeDiff:
@@ -49,24 +45,3 @@ class TestComputeDiff:
         diff = compute_diff(set(), {"e1", "e2"}, {})
         assert diff.new_ids == ["e1", "e2"]
         assert diff.retired_ids == []
-
-
-class TestBuildRetiredDf:
-    def test_empty_diff(self) -> None:
-        df = build_retired_df(RegistryDiff())
-        assert len(df) == 0
-        assert list(df.columns) == ["foodatlas_id", "action", "destination"]
-
-    def test_retired_and_merged(self) -> None:
-        diff = RegistryDiff(
-            retired_ids=["e3"],
-            merged=[("e2", "e1")],
-        )
-        df = build_retired_df(diff)
-        assert len(df) == 2
-        retired_row = df[df["foodatlas_id"] == "e3"].iloc[0]
-        assert retired_row["action"] == "retired"
-        assert retired_row["destination"] == ""
-        merged_row = df[df["foodatlas_id"] == "e2"].iloc[0]
-        assert merged_row["action"] == "merged"
-        assert merged_row["destination"] == "e1"

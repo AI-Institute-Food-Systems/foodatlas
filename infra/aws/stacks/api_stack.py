@@ -60,6 +60,7 @@ class ApiStack(cdk.Stack):
         db_instance: rds.IDatabaseInstance,
         db_secret: secretsmanager.ISecret,
         kgc_bucket: s3.IBucket,
+        downloads_bucket: s3.IBucket,
         **kwargs: object,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -126,6 +127,8 @@ class ApiStack(cdk.Stack):
                 "DB_PORT": db_instance.db_instance_endpoint_port,
                 "DB_NAME": "foodatlas",
                 "KGC_BUCKET": kgc_bucket.bucket_name,
+                "API_DOWNLOADS_BUCKET": downloads_bucket.bucket_name,
+                "API_DOWNLOADS_REGION": cdk.Stack.of(self).region,
             },
             secrets={
                 "DB_USER": ecs.Secret.from_secrets_manager(db_secret, "username"),

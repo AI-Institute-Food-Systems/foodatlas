@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from src.pipeline.report.format import format_report
+from src.pipeline.report.format import format_changelog, format_report
 from src.pipeline.report.runner import (
     EntityDetailChanges,
     EntitySummary,
@@ -18,7 +18,7 @@ def _make_result() -> KGDiffResult:
             old_counts={"food": 10, "chemical": 20},
             new_counts={"food": 12, "chemical": 25, "disease": 5},
             new_ids=["e100", "e101"],
-            retired_ids=["e50"],
+            removed_ids=["e50"],
             stable_count=28,
             old_orphans_by_type={"chemical": 3},
             new_orphans_by_type={"chemical": 2, "disease": 1},
@@ -84,3 +84,40 @@ class TestFormatReport:
         # Old total 3, new total 3 (2 + 1)
         lines = [line for line in report.splitlines() if "TOTAL" in line]
         assert any("3" in line for line in lines)
+
+
+class TestFormatChangelog:
+    def test_has_section_headings(self) -> None:
+        md = format_changelog(_make_result())
+        assert "## Entities" in md
+        assert "## Triplets" in md
+        assert "## Source coverage" in md
+        assert "## Notable entity updates" in md
+
+    def test_entity_counts_table(self) -> None:
+        md = format_changelog(_make_result())
+        assert "| Type | Previous | This release | Delta |" in md
+        assert "| food |" in md
+        assert "| **TOTAL** |" in md
+
+    def test_triplet_table_uses_relationship_labels(self) -> None:
+        md = format_changelog(_make_result())
+        assert "CONTAINS" in md
+        assert "IS_A" in md
+
+    def test_new_and_removed_counts_surfaced(self) -> None:
+        md = format_changelog(_make_result())
+        assert "**New** entity IDs: 2" in md
+        assert "**Removed** entity IDs: 1" in md
+        assert "**Stable** entity IDs: 28" in md
+
+    def test_source_coverage_lists_sources(self) -> None:
+        md = format_changelog(_make_result())
+        assert "`fdc`: 120" in md
+        assert "`chebi`: 80" in md
+        assert "`pubmed`: 50" in md
+
+    def test_omits_debug_sections_from_text_report(self) -> None:
+        md = format_changelog(_make_result())
+        assert "Sample name changes" not in md
+        assert "'apple'" not in md

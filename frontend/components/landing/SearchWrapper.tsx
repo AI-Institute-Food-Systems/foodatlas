@@ -9,7 +9,7 @@ const SearchWrapper = () => {
     useContext(SearchContext);
 
   useEffect(() => {
-    setOffsetTop(440);
+    setOffsetTop(540);
     setIsVisible(true);
     setIsFocused(false);
   }, [setIsFocused, setIsVisible, setOffsetTop]);

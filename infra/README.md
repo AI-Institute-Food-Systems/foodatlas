@@ -241,7 +241,6 @@ s3://<kgcbucket>/
     │   │   ├── evidence.parquet
     │   │   ├── attestations.parquet
     │   │   ├── attestations_ambiguous.parquet
-    │   │   ├── retired.parquet
     │   │   ├── checkpoints/             ← debugging sidecars
     │   │   ├── diagnostics/
     │   │   └── intermediate/
