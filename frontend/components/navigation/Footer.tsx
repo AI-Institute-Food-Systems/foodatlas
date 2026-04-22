@@ -32,6 +32,7 @@ const Footer = () => {
                 className="w-32 md:w-1/2 my-auto"
                 href="https://aifs.ucdavis.edu"
                 tabIndex={0}
+                aria-label="AI Institute for Next Generation Food Systems (AIFS) website"
               >
                 <AIFSIcon width="100%" height="58" color="#FFFBF7" />
               </a>
@@ -40,15 +41,16 @@ const Footer = () => {
                 className="w-32 md:w-1/2 my-auto"
                 href="https://ucdavis.edu"
                 tabIndex={0}
+                aria-label="University of California, Davis website"
               >
                 <UCDIcon width="100%" height="58" color="#FFFBF7" />
               </a>
             </div>
           </div>
           <div className="md:w-1/3">
-            <h3 className="text-sm lg:text-md italic font-semibold font-mono text-light-50">
+            <h2 className="text-sm lg:text-md italic font-semibold font-mono text-light-50">
               About AIFS
-            </h3>
+            </h2>
             <p className="mt-3 md:mt-5 leading-6 text-sm lg:text-md text-light-300">
               The{" "}
               <Link href={"https://aifs.ucdavis.edu"}>
@@ -63,9 +65,9 @@ const Footer = () => {
             </p>
           </div>
           <div className="md:w-1/3">
-            <h3 className="text-sm lg:text-md italic font-semibold font-mono text-light-50">
+            <h2 className="text-sm lg:text-md italic font-semibold font-mono text-light-50">
               Connect with us
-            </h3>
+            </h2>
             <p className="mt-3 md:mt-5 leading-6 text-sm lg:text-md text-light-300">
               Subscribe to our newsletter to stay up-to-date on AIFS events,
               industry news, and AI research.
@@ -91,6 +93,7 @@ const Footer = () => {
               className="cursor-pointer hover:text-light-50 transition duration-300 ease-in-out"
               href="https://www.threads.net/@aifoodsystems"
               tabIndex={0}
+              aria-label="AIFS on Threads"
             >
               <FaThreads className="h-8 w-8 md:h-9 md:w-9" />
             </a>
@@ -98,6 +101,7 @@ const Footer = () => {
               className="cursor-pointer hover:text-light-50 transition duration-300 ease-in-out"
               href="https://www.instagram.com/aifoodsystems"
               tabIndex={0}
+              aria-label="AIFS on Instagram"
             >
               <FaInstagram className="h-8 w-8 md:h-9 md:w-9" />
             </a>
@@ -105,6 +109,7 @@ const Footer = () => {
               className="cursor-pointer hover:text-light-50 transition duration-300 ease-in-out"
               href="https://www.linkedin.com/company/aifoodsystems/"
               tabIndex={0}
+              aria-label="AIFS on LinkedIn"
             >
               <FaLinkedin className="h-8 w-8 md:h-9 md:w-9" />
             </a>
@@ -112,6 +117,7 @@ const Footer = () => {
               className="cursor-pointer hover:text-light-50 transition duration-300 ease-in-out"
               href="https://www.youtube.com/channel/UCyvVBZ6Qx34ElPB0UmoEF2A"
               tabIndex={0}
+              aria-label="AIFS on YouTube"
             >
               <FaYoutube className="h-8 w-8 md:h-9 md:w-9" />
             </a>

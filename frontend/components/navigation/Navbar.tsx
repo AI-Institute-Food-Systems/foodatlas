@@ -103,6 +103,7 @@ const Navbar = ({ className }: NavbarProps) => {
             isIconOnly
             tabIndex={10}
             onClick={() => router.push("/")}
+            aria-label="FoodAtlas home"
           >
             <FoodAtlasIcon height={45} width={""} color={"#FFFBF7"} />
           </Button>

@@ -177,7 +177,7 @@ const SearchBar = () => {
 
   return (
     isVisible && (
-      <>
+      <div role="search" aria-label="Site search">
         <div
           className={`z-10 w-full absolute ] px-3md:px-12 ${
             isFocused ? "absolute inset-0 top-24 -right-4" : ""
@@ -271,8 +271,9 @@ const SearchBar = () => {
           className={`absolute inset-0 h-screen transition-all duration-300 backdrop-blur-md bg-black/30 saturate-150 pointer-events-none ${
             isFocused ? "opacity-100" : "opacity-0"
           }`}
+          aria-hidden="true"
         />
-      </>
+      </div>
     )
   );
 };
