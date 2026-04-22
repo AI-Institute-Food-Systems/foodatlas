@@ -30,7 +30,7 @@ const Person = ({ member }: PersonProps) => {
           <a
             href={member.linkToWebsite}
             target="_blank"
-            className="inline-flex items-center justify-center min-h-11 min-w-11 p-2"
+            tabIndex={0}
             aria-label={`${member.name}'s personal website`}
           >
             <MdLanguage className="h-5 w-5 text-light-300" />
@@ -40,7 +40,7 @@ const Person = ({ member }: PersonProps) => {
           <a
             href={member.linkToLinkedIn}
             target="_blank"
-            className="inline-flex items-center justify-center min-h-11 min-w-11 p-2"
+            tabIndex={0}
             aria-label={`${member.name} on LinkedIn`}
           >
             <FaLinkedin className="h-5 w-5 text-light-300" />
