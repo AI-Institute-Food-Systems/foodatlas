@@ -19,8 +19,10 @@ const Person = ({ member }: PersonProps) => {
           alt={`A portrait of ${member.name}`}
         />
       </div>
-      <p className="mt-2 text-center text-xl">{member.name}</p>
-      <p className="mt-0.5 text-center text-sm font-mono text-light-400">
+      <p className="mt-2 text-center text-xl leading-relaxed">
+        {member.name}
+      </p>
+      <p className="mt-0.5 text-center text-sm font-mono text-light-400 leading-relaxed">
         {member.position}
       </p>
       <div className="mt-3 flex justify-center items-center gap-3">
@@ -28,7 +30,7 @@ const Person = ({ member }: PersonProps) => {
           <a
             href={member.linkToWebsite}
             target="_blank"
-            tabIndex={0}
+            className="inline-flex items-center justify-center min-h-11 min-w-11 p-2"
             aria-label={`${member.name}'s personal website`}
           >
             <MdLanguage className="h-5 w-5 text-light-300" />
@@ -38,7 +40,7 @@ const Person = ({ member }: PersonProps) => {
           <a
             href={member.linkToLinkedIn}
             target="_blank"
-            tabIndex={0}
+            className="inline-flex items-center justify-center min-h-11 min-w-11 p-2"
             aria-label={`${member.name} on LinkedIn`}
           >
             <FaLinkedin className="h-5 w-5 text-light-300" />
