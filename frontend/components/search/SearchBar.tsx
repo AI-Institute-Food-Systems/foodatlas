@@ -234,7 +234,6 @@ const SearchBar = () => {
                 {/* search input */}
                 <input
                   ref={inputRef}
-                  tabIndex={1}
                   className={`pl-12 w-full h-12 rounded-lg border-[1.5px] border-light-600 bg-light-950/50 backdrop-blur-3xl saturate-150 hover:outline-white text-light-100 transition duration-100 ease-in-out outline-light-50/60 placeholder-light-500 ${
                     isFocused &&
                     cachedSuggestions.length > 0 &&
