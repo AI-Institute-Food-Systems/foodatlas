@@ -244,6 +244,7 @@ const SearchBar = () => {
                   type="text"
                   value={searchTerm}
                   placeholder={placeholder}
+                  aria-label="Search foods, chemicals and diseases"
                   onChange={handleInputChange}
                   onFocus={handleFocus}
                   // @ts-ignore

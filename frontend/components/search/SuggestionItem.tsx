@@ -30,9 +30,7 @@ const SuggestionItem = ({
   const router = useRouter();
   const { setIsVisible } = useContext(SearchContext);
 
-  const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    e.stopPropagation();
-    e.preventDefault();
+  const navigate = () => {
     setIsVisible(false);
     router.push(
       `/${suggestion.entity_type}/${encodeURIComponent(
@@ -41,8 +39,29 @@ const SuggestionItem = ({
     );
   };
 
+  const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    e.preventDefault();
+    navigate();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      e.stopPropagation();
+      navigate();
+    }
+  };
+
   const hasCommonName = suggestion.common_name !== null;
   const hasScientificName = suggestion.scientific_name !== null;
+
+  const label = [
+    hasCommonName ? suggestion.common_name : null,
+    hasScientificName ? suggestion.scientific_name : null,
+  ]
+    .filter(Boolean)
+    .join(" — ");
 
   return (
     <div
@@ -50,8 +69,11 @@ const SuggestionItem = ({
       className={`flex gap-6 px-5 py-5 cursor-pointer border-b-light-50/20 border-b ${
         isSelected && "bg-light-50/15 border-light-50/15"
       }`}
+      role="button"
       tabIndex={0}
+      aria-label={`Open ${suggestion.entity_type} ${label}`}
       onClick={handleClick}
+      onKeyDown={handleKeyDown}
       onMouseMove={onMouseMove}
     >
       {/* left */}
