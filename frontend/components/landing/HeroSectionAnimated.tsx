@@ -30,7 +30,7 @@ const HeroSectionAnimated = () => {
           {/* separator */}
           <hr className="w-32 border-accent-600 border-[1px]" />
           {/* secondary heading */}
-          <h2 className="text-md md:text-xl lg:text-2xl text-light-300 text-shadow-lg text-center">
+          <h2 className="text-md md:text-xl lg:text-2xl text-light-300 text-shadow-lg text-center leading-relaxed">
             Introducing FoodAtlas, the world&apos;s first evidence-based food
             knowledge base.
           </h2>
