@@ -187,7 +187,7 @@ const TechnicalBackground = () => {
             {pipeline.slice(0, 3).map((step: any, index: number) => (
               <div key={index + " " + step.title} className="relative">
                 <div className="flex gap-3">
-                  <div className="bg-accent-600/80 w-6 h-6 flex items-center justify-center rounded-full flex-shrink-0 font-mono text-xs">
+                  <div className="bg-accent-400 text-light-1000 w-6 h-6 flex items-center justify-center rounded-full flex-shrink-0 font-mono text-xs font-semibold">
                     <span>{index + 1}</span>
                   </div>
                   <div>
@@ -217,7 +217,7 @@ const TechnicalBackground = () => {
             {pipeline.slice(3, 6).map((step: any, index: number) => (
               <div key={index + 3 + " " + step.title} className="relative">
                 <div className="flex gap-3">
-                  <div className="bg-accent-600/80 w-6 h-6 flex items-center justify-center rounded-full flex-shrink-0 font-mono text-xs">
+                  <div className="bg-accent-400 text-light-1000 w-6 h-6 flex items-center justify-center rounded-full flex-shrink-0 font-mono text-xs font-semibold">
                     <span>{index + 4}</span>
                   </div>
                   <div>
