@@ -25,12 +25,22 @@ const Person = ({ member }: PersonProps) => {
       </p>
       <div className="mt-3 flex justify-center items-center gap-3">
         {member.linkToWebsite && (
-          <a href={member.linkToWebsite} target="_blank" tabIndex={0}>
+          <a
+            href={member.linkToWebsite}
+            target="_blank"
+            tabIndex={0}
+            aria-label={`${member.name}'s personal website`}
+          >
             <MdLanguage className="h-5 w-5 text-light-300" />
           </a>
         )}
         {member.linkToLinkedIn && (
-          <a href={member.linkToLinkedIn} target="_blank" tabIndex={0}>
+          <a
+            href={member.linkToLinkedIn}
+            target="_blank"
+            tabIndex={0}
+            aria-label={`${member.name} on LinkedIn`}
+          >
             <FaLinkedin className="h-5 w-5 text-light-300" />
           </a>
         )}

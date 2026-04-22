@@ -1,6 +1,14 @@
+import { Metadata } from "next";
+
 import Heading from "@/components/basic/Heading";
 import SubHeading from "@/components/basic/SubHeading";
 import ContactForm from "@/components/contact/ContactForm";
+
+export const metadata: Metadata = {
+  title: "Contact FoodAtlas | Get in Touch with the Research Team",
+  description:
+    "Contact the FoodAtlas team with questions about our research, data, or methodology, or to request API access for your project.",
+};
 
 interface ContactPageProps {
   params: { id: string };

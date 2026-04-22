@@ -48,11 +48,11 @@ const HeroSection = () => {
             </Heading>
             {/* separator */}
             <div className="w-32 md:w-48 h-[0.1rem] md:h-1 rounded-full  bg-gradient-to-r from-accent-400/50 via-accent-600/80 to-accent-400/50 border border-accent-500" />
-            {/* secondary heading */}
-            <h2 className="max-w-xl lg:max-w-none text-lg md:text-2xl text-light-300 text-center">
+            {/* tagline */}
+            <p className="max-w-xl lg:max-w-none text-lg md:text-2xl text-light-300 text-center">
               Introducing <i>FoodAtlas</i>, the world&apos;s first
               evidence-based food knowledge base.
-            </h2>
+            </p>
           </div>
         </div>
         <SearchWrapper />
