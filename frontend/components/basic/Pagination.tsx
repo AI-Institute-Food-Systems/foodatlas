@@ -53,6 +53,7 @@ const Pagination = ({
         isDisabled={isLoading || currentPage === 1}
         isSquared
         onClick={handleFirstPageClick}
+        aria-label="First page"
       >
         <MdKeyboardDoubleArrowLeft />
       </Button>
@@ -62,6 +63,7 @@ const Pagination = ({
         isDisabled={isLoading || currentPage === 1}
         isSquared
         onClick={handlePreviousPageClick}
+        aria-label="Previous page"
       >
         <MdKeyboardArrowLeft />
       </Button>
@@ -77,6 +79,7 @@ const Pagination = ({
         isIconOnly
         isDisabled={isLoading || currentPage === numberOfPages}
         onClick={handleNextPageClick}
+        aria-label="Next page"
       >
         <MdKeyboardArrowRight />
       </Button>
@@ -85,6 +88,7 @@ const Pagination = ({
         isIconOnly
         isDisabled={isLoading || currentPage === numberOfPages}
         onClick={handleLastPageClick}
+        aria-label="Last page"
       >
         <MdKeyboardDoubleArrowRight />
       </Button>

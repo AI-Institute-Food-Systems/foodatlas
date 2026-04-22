@@ -19,8 +19,10 @@ const Person = ({ member }: PersonProps) => {
           alt={`A portrait of ${member.name}`}
         />
       </div>
-      <p className="mt-2 text-center text-xl">{member.name}</p>
-      <p className="mt-0.5 text-center text-sm font-mono text-light-400">
+      <p className="mt-2 text-center text-xl leading-relaxed">
+        {member.name}
+      </p>
+      <p className="mt-0.5 text-center text-sm font-mono text-light-400 leading-relaxed">
         {member.position}
       </p>
       <div className="mt-3 flex justify-center items-center gap-3">

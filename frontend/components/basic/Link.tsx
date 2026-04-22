@@ -19,7 +19,6 @@ const Link = ({
       href={href}
       target={isExternal ? "_blank" : ""}
       rel={isExternal ? "noopener noreferrer" : ""}
-      tabIndex={0}
     >
       {children}
       {isExternal && <span aria-hidden="true"> ↗︎</span>}
