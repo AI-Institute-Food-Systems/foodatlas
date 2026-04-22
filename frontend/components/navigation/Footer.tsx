@@ -31,6 +31,7 @@ const Footer = () => {
               <a
                 className="w-32 md:w-1/2 my-auto"
                 href="https://aifs.ucdavis.edu"
+                tabIndex={0}
                 aria-label="AI Institute for Next Generation Food Systems (AIFS) website"
               >
                 <AIFSIcon width="100%" height="58" color="#FFFBF7" />
@@ -39,6 +40,7 @@ const Footer = () => {
               <a
                 className="w-32 md:w-1/2 my-auto"
                 href="https://ucdavis.edu"
+                tabIndex={0}
                 aria-label="University of California, Davis website"
               >
                 <UCDIcon width="100%" height="58" color="#FFFBF7" />
@@ -90,6 +92,7 @@ const Footer = () => {
             <a
               className="inline-flex items-center justify-center min-h-11 min-w-11 p-2 cursor-pointer hover:text-light-50 transition duration-300 ease-in-out"
               href="https://www.threads.net/@aifoodsystems"
+              tabIndex={0}
               aria-label="AIFS on Threads"
             >
               <FaThreads className="h-8 w-8 md:h-9 md:w-9" />
@@ -97,6 +100,7 @@ const Footer = () => {
             <a
               className="inline-flex items-center justify-center min-h-11 min-w-11 p-2 cursor-pointer hover:text-light-50 transition duration-300 ease-in-out"
               href="https://www.instagram.com/aifoodsystems"
+              tabIndex={0}
               aria-label="AIFS on Instagram"
             >
               <FaInstagram className="h-8 w-8 md:h-9 md:w-9" />
@@ -104,6 +108,7 @@ const Footer = () => {
             <a
               className="inline-flex items-center justify-center min-h-11 min-w-11 p-2 cursor-pointer hover:text-light-50 transition duration-300 ease-in-out"
               href="https://www.linkedin.com/company/aifoodsystems/"
+              tabIndex={0}
               aria-label="AIFS on LinkedIn"
             >
               <FaLinkedin className="h-8 w-8 md:h-9 md:w-9" />
@@ -111,6 +116,7 @@ const Footer = () => {
             <a
               className="inline-flex items-center justify-center min-h-11 min-w-11 p-2 cursor-pointer hover:text-light-50 transition duration-300 ease-in-out"
               href="https://www.youtube.com/channel/UCyvVBZ6Qx34ElPB0UmoEF2A"
+              tabIndex={0}
               aria-label="AIFS on YouTube"
             >
               <FaYoutube className="h-8 w-8 md:h-9 md:w-9" />
