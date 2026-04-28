@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 import pandas as pd
 from pydantic_core import PydanticUndefined
@@ -13,6 +13,7 @@ from ..models.attestation import Attestation
 from .schema import ATTESTATION_COLUMNS, FILE_ATTESTATIONS
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -59,7 +60,10 @@ class AttestationStore:
             if col in rows.columns:
                 continue
             if field.default_factory is not None:
-                rows[col] = [field.default_factory() for _ in range(len(rows))]
+                # Pydantic v2 types default_factory as a union of zero-arg and
+                # one-arg callables; our models only use the zero-arg form.
+                factory = cast("Callable[[], Any]", field.default_factory)
+                rows[col] = [factory() for _ in range(len(rows))]
             elif field.default is not PydanticUndefined:
                 rows[col] = field.default
         keys = (

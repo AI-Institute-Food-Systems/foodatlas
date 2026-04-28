@@ -3,12 +3,16 @@
 import io
 import json
 import logging
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 import pandas as pd
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
 from tqdm import tqdm
+
+if TYPE_CHECKING:
+    import psycopg
 
 logger = logging.getLogger(__name__)
 
@@ -115,7 +119,7 @@ def bulk_copy(
     Uses psycopg3's COPY FROM STDIN for fast bulk loading.
     Returns the total number of rows inserted.
     """
-    raw = conn.connection  # unwrap to psycopg connection
+    raw = cast("psycopg.Connection", conn.connection)
     total = 0
     col_list = ", ".join(f'"{c}"' for c in columns)
     copy_sql = f"COPY {table_name} ({col_list}) FROM STDIN"
