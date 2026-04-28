@@ -91,16 +91,17 @@ In production, `DB_USER`/`DB_PASSWORD` come from AWS Secrets Manager, `API_DEBUG
 ## Branching strategy
 
 ```
-main           ← protected, production-ready
-  ├── hotfix/  ← urgent fixes, PR directly to main
-  └── dev      ← integration branch, PR target for features
-       └── feat/your-name/description
-       └── fix/your-name/description
+main           ← protected, production-ready (CD deploys from here)
+  └── dev      ← integration branch, only branch allowed to PR into main
+       ├── feat/<name>/<description>
+       ├── fix/<name>/<description>
+       └── hotfix/<description>          ← high priority, but still flows through dev
 ```
 
 - **Never push directly to `main` or `dev`.**
-- Create feature/fix branches off `dev`. PRs target `dev`.
-- For urgent production fixes, branch `hotfix/<description>` off `main` and PR into `main`.
+- Every change — feature, fix, or hotfix — branches off `dev` and PRs into `dev`.
+- `main` is updated only via `dev → main` PRs. The `guard-main.yml` workflow enforces this and will fail any PR to `main` whose source isn't `dev`.
+- The `hotfix/<description>` name is purely a signal to reviewers that a change is high-priority and should be expedited through dev → main. There's no different mechanical path: it still goes feat-style through dev, gets the same CI, and rides the next dev → main rollup (which can be opened immediately for an urgent fix).
 - Naming: `feat/<name>/<description>`, `fix/<name>/<description>`, `hotfix/<description>`.
 
 ## Development workflow
@@ -120,25 +121,36 @@ Each merge target has a fixed strategy — pick the right one in the GitHub PR U
 
 | PR direction | Strategy | Why |
 |---|---|---|
-| `feat/*` or `fix/*` → `dev` | **Squash and merge** | Collapses a noisy review history into one logical commit on `dev`. |
-| `dev` → `main` | **Create a merge commit** | Preserves the individual feature commits already on `dev` so production history reflects exactly what shipped. |
-| `hotfix/*` → `main` | **Create a merge commit** | Same reason — keep the hotfix commits intact on `main`. |
+| `feat/*`, `fix/*`, or `hotfix/*` → `dev` | **Squash and merge** | Collapses a noisy review history into one logical commit on `dev`. |
+| `dev` → `main` | **Create a merge commit** | Preserves the individual squashed-feature commits already on `dev` so production history reflects exactly what shipped. |
 
-### Keeping `dev` in sync with `main`
+### Drift between `dev` and `main`
 
-When a `hotfix/*` lands on `main`, `dev` is now missing those commits. Pull them back so the next `dev → main` PR doesn't reintroduce stale code:
+Because everything reaches `main` only via `dev → main`, `dev` is always a content-superset of `main`: every patch on `main` is also on `dev`. There is no scenario in normal operation where `dev` falls behind `main`.
+
+**Don't be fooled by `git log dev..main`.** Each `dev → main` merge creates a merge-commit shell on `main` only (that's what merge commits *are*). After many rollups, `git log origin/dev..origin/main` will report a growing count of commits that exist on `main` but not on `dev`. **This is not drift.** Those commits are merge-shells whose tree content is already in `dev` via the squashed feature commits they wrap.
+
+The only meaningful drift check is at the file level:
+
+```bash
+git fetch origin
+git diff origin/dev origin/main             # empty = no drift
+git cherry origin/dev origin/main | grep '^+'   # any '+' line = real new content on main
+```
+
+If either of these shows real content on `main` that isn't on `dev`, **something bypassed the dev → main rule** — investigate before doing anything else (likely cause: someone disabled the `guard-main` workflow or used admin override). Once you understand what landed, sync it back into `dev` with the recipe below; otherwise leave `dev` alone.
+
+#### Emergency sync-back recipe (should never be needed)
 
 ```bash
 git checkout main && git pull
 git checkout dev && git pull
 git checkout -b chore/sync-main-into-dev
-git merge main          # standard merge, keep main's commits
+git merge main
 git push -u origin chore/sync-main-into-dev
 ```
 
-Open a PR targeting `dev`. It still uses the dev-side strategy (**squash and merge**) — the granular commits are already preserved on `main`, so collapsing the sync to a single `chore: sync main into dev` commit on `dev` is fine. Recent example: [PR #133](https://github.com/AI-Institute-Food-Systems/foodatlas/pull/133).
-
-When `dev` itself merges to `main`, no sync is needed — the merge commit on `main` brings everything in `dev` over, and `dev` is unchanged.
+Then open a PR targeting `dev` and squash-merge it. Past example: [PR #133](https://github.com/AI-Institute-Food-Systems/foodatlas/pull/133).
 
 ## Code quality
 
