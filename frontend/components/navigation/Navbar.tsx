@@ -99,17 +99,16 @@ const Navbar = ({ className }: NavbarProps) => {
       <div className="max-w-6xl mx-auto">
         <div className="py-2 w-full h-14 sm:h-16 md:h-20 mx-auto flex justify-between items-center">
           <Button
-            className="relative flex-shrink-0 cursor-pointer p-0 m-0"
+            className="relative flex-shrink-0 cursor-pointer min-h-11 min-w-11 p-2 m-0"
             isIconOnly
-            tabIndex={10}
             onClick={() => router.push("/")}
+            aria-label="FoodAtlas home"
           >
             <FoodAtlasIcon height={45} width={""} color={"#FFFBF7"} />
           </Button>
           <div className="hidden md:flex md:gap-8 lg:gap-20">
-            {NAV_ITEMS.map((navItem, index) => (
+            {NAV_ITEMS.map((navItem) => (
               <NavbarLink
-                index={index + 11}
                 key={navItem.href}
                 label={navItem.text}
                 href={navItem.href}
@@ -130,7 +129,12 @@ const Navbar = ({ className }: NavbarProps) => {
             </Button> */}
             {/* menu button */}
             <div className="">
-              <Button onClick={handleNavButtonClick} isIconOnly>
+              <Button
+                className="min-h-11 min-w-11"
+                onClick={handleNavButtonClick}
+                isIconOnly
+                aria-label="Open navigation menu"
+              >
                 <MdMenu className="w-7 h-7" />
               </Button>
             </div>
@@ -138,9 +142,8 @@ const Navbar = ({ className }: NavbarProps) => {
         </div>
         {isNavMenuOpen && (
           <div className="h-screen mt-16 mx-3 flex flex-col gap-12">
-            {NAV_ITEMS.map((navItem, index) => (
+            {NAV_ITEMS.map((navItem) => (
               <NavbarLink
-                index={index}
                 key={navItem.href}
                 label={navItem.text}
                 href={navItem.href}

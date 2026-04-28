@@ -48,6 +48,7 @@ const Modal = ({
                 className="text-lg text-light-400"
                 isIconOnly
                 onClick={onClose}
+                aria-label="Close dialog"
               >
                 <MdClose />
               </Button>

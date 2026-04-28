@@ -19,7 +19,7 @@ enum Variants {
 
 const variants = {
   filled:
-    "bg-accent-600 shadow-inner shadow-accent-500/20  hover:from-accent-600 hover:to-accent-600 hover:shadow-accent-700/30",
+    "bg-accent-900 text-light-50 shadow-inner shadow-accent-500/20 hover:bg-accent-800 hover:shadow-accent-700/30",
   outlined:
     "border text-light-300 border-light-300 hover:border-light-200 hover:text-light-200",
   ghost: "px-0 !shadow-none",
@@ -61,6 +61,7 @@ interface ButtonProps {
   isIconOnly?: boolean;
   isSquared?: boolean; // New prop added here
   onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
+  "aria-label"?: string;
 }
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
@@ -78,6 +79,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       isIconOnly = false,
       isSquared = false, // Default value for the new prop
       onClick: propagateOnClick = () => {},
+      "aria-label": ariaLabel,
     },
     ref
   ) => {
@@ -142,6 +144,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         type={type}
         onClick={handleClick}
         onKeyUp={handleKeyUp}
+        aria-label={ariaLabel}
       >
         {children}
       </button>

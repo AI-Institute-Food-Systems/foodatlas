@@ -24,7 +24,7 @@ const ApiDisclosure = ({
 }: ApiDisclosureProps) => {
   return (
     <Card className="p-0 md:p-0">
-      <Disclosure as="div" tabIndex={0}>
+      <Disclosure as="div">
         {({ open }) => (
           <>
             <DisclosureButton className="flex min-w-full justify-between rounded-lg text-left items-center text-light-100">

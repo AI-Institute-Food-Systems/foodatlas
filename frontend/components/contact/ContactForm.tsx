@@ -6,6 +6,7 @@ import {
   Fieldset,
   Input,
   Label,
+  Legend,
   Select,
   Textarea,
 } from "@headlessui/react";
@@ -77,6 +78,7 @@ const ContactForm = ({ isApiAccressRequest }: ContactFormProps) => {
     <form className="mx-auto flex gap-4" onSubmit={handleSubmit}>
       <Card>
         <Fieldset className="space-y-6">
+          <Legend className="sr-only">Contact form</Legend>
           {/* name */}
           <Field>
             <Label className="text-sm/6 font-medium text-white">Name</Label>
