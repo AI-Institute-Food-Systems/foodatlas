@@ -28,29 +28,39 @@ Settings are read from `API_*` and `DB_*` environment variables (or a `.env` fil
 | Variable | Default (local) | Production source | Description |
 |---|---|---|---|
 | `API_KEY` | (empty) | env var on the task | Bearer token for authentication |
-| `API_CORS_ORIGINS` | `http://localhost:3000` | env var on the task | Comma-separated allowed origins (Vercel domains in prod) |
+| `API_CORS_ORIGINS` | `http://localhost:3000` | env var on the task | Comma-separated allowed origins. Set to `http://localhost:3001` to call from the local Next.js dev server. |
 | `API_DEBUG` | `true` | `False` | Skip API key verification when true |
+| `API_DOWNLOADS_BUCKET` | (empty) | downloads bucket name from `FoodAtlasDownloadsStack` | Public-read S3 bucket the `/download` endpoint reads `bundles/index.json` from |
+| `API_DOWNLOADS_REGION` | `us-west-1` | env var on the task | AWS region for the downloads bucket |
 | `DB_HOST` | `localhost` | RDS endpoint | PostgreSQL host |
 | `DB_PORT` | `5432` | RDS endpoint port | PostgreSQL port |
 | `DB_NAME` | `foodatlas` | `foodatlas` | Database name |
 | `DB_USER` | `foodatlas` | Secrets Manager | Database user |
 | `DB_PASSWORD` | `foodatlas` | Secrets Manager | Database password |
-| `KGC_BUCKET` | (unset) | `KgcBucketName` output | S3 bucket for parquet artifacts |
 
 ## API Endpoints
 
+All routes (except `/health`) require the `Authorization: Bearer <API_KEY>` header when `API_DEBUG=False`.
+
 | Method | Path | Description |
 |---|---|---|
+| GET | `/health` | Liveness probe (no auth, used by ALB target group) |
 | GET | `/food/metadata` | Food entity metadata |
+| GET | `/food/taxonomy` | Food's FoodOn ancestor chain |
 | GET | `/food/profile` | Macro and micro nutrient profile |
 | GET | `/food/composition` | Food-chemical composition (paginated) |
+| GET | `/food/composition/counts` | Composition row counts per chemical group (used to drive composition filters) |
 | GET | `/chemical/metadata` | Chemical entity metadata |
+| GET | `/chemical/taxonomy` | Chemical's ChEBI ancestor chain |
 | GET | `/chemical/composition` | Foods containing a chemical |
+| GET | `/chemical/correlation` | Diseases correlated with a chemical |
 | GET | `/disease/metadata` | Disease entity metadata |
-| GET | `/disease/correlation` | Chemical-disease correlations (paginated) |
+| GET | `/disease/taxonomy` | Disease's MeSH ancestor chain |
+| GET | `/disease/correlation` | Chemicals correlated with a disease (paginated) |
 | GET | `/metadata/statistics` | Database statistics |
-| GET | `/metadata/search` | Autocomplete search |
-| GET | `/download` | Download entries |
+| GET | `/metadata/search` | Autocomplete search (trigram-backed) |
+| GET | `/resolve` | Resolve a `foodatlas_id` to `entity_type` + `common_name` (used by frontend URL routing) |
+| GET | `/download` | List released data bundles from the public downloads bucket |
 
 ## Project Structure
 
@@ -66,17 +76,8 @@ api/
 │   ├── app.py              # FastAPI application factory + /health
 │   ├── config.py           # APISettings (pydantic-settings)
 │   ├── dependencies.py     # DB session and auth dependencies
-│   ├── routes/             # Route handlers
-│   │   ├── food.py
-│   │   ├── chemical.py
-│   │   ├── disease.py
-│   │   ├── metadata.py
-│   │   └── download.py
-│   ├── repositories/       # Database query logic
-│   │   ├── food.py
-│   │   ├── chemical.py
-│   │   ├── disease.py
-│   │   └── search.py
+│   ├── routes/             # Route handlers (food, chemical, disease, metadata, download, resolve)
+│   ├── repositories/       # Database query logic + result formatting + downloads/manifest fetcher
 │   └── schemas/            # Pydantic response models
 └── tests/
 ```

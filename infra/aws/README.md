@@ -1,6 +1,6 @@
 # FoodAtlas AWS
 
-AWS CDK Python project that defines the FoodAtlas production infrastructure as six stacks. **For architecture, deploy phases, scripts, troubleshooting, and the local-vs-AWS overview, see [`../README.md`](../README.md).** This file is a CDK CLI cheat sheet.
+AWS CDK Python project that defines the FoodAtlas production infrastructure. **For architecture, stack inventory, deploy phases, scripts, troubleshooting, and the local-vs-AWS overview, see [`../README.md`](../README.md).** This file is a CDK CLI cheat sheet.
 
 ## Setup
 
@@ -22,9 +22,10 @@ Requires:
 |---|---|---|
 | `FoodAtlasNetworkStack` | `stacks/network_stack.py` | — |
 | `FoodAtlasStorageStack` | `stacks/storage_stack.py` | — |
+| `FoodAtlasDownloadsStack` | `stacks/downloads_stack.py` | — |
 | `FoodAtlasEcrStack` | `stacks/ecr_stack.py` | — |
 | `FoodAtlasDatabaseStack` | `stacks/database_stack.py` | Network |
-| `FoodAtlasApiStack` | `stacks/api_stack.py` | Network, Storage, Ecr, Database |
+| `FoodAtlasApiStack` | `stacks/api_stack.py` | Network, Storage, Downloads, Ecr, Database |
 | `FoodAtlasJobsStack` | `stacks/jobs_stack.py` | Network, Storage, Ecr, Database, Api |
 
 CDK resolves deploy order from constructor dependencies in `app.py`. You can `cdk deploy <stack>` and dependents are pulled in automatically.
@@ -54,10 +55,10 @@ uv run cdk deploy FoodAtlasJobsStack -c db_image_tag=abc1234
 ## Tests
 
 ```
-uv run pytest                             # 31 snapshot tests, 100% coverage
+uv run pytest
 ```
 
-Tests under `tests/` use `aws_cdk.assertions.Template` to assert the synthesized CloudFormation has the expected resources and properties. They run in CI on every PR touching `infra/aws/`.
+Tests under `tests/` use `aws_cdk.assertions.Template` to assert the synthesized CloudFormation has the expected resources and properties. They run in CI (`infra-aws-test` job) on every PR touching `infra/aws/`.
 
 ## Ad-hoc scripts
 
@@ -70,20 +71,9 @@ aws/
 ├── app.py                  # CDK app entry point
 ├── cdk.json                # CDK CLI config (app command, feature flags)
 ├── pyproject.toml          # Dependencies + pytest config
-├── stacks/
-│   ├── network_stack.py
-│   ├── storage_stack.py
-│   ├── ecr_stack.py
-│   ├── database_stack.py
-│   ├── api_stack.py
-│   └── jobs_stack.py
-├── tests/
-│   ├── test_network_stack.py
-│   ├── test_storage_stack.py
-│   ├── test_ecr_stack.py
-│   ├── test_database_stack.py
-│   ├── test_api_stack.py
-│   └── test_jobs_stack.py
+├── stacks/                 # One module per stack (network, storage, downloads,
+│                           # ecr, database, api, jobs)
+├── tests/                  # One snapshot-test module per stack
 └── scripts/
     ├── _lib.sh             # Shared helpers
     └── run-data-load.sh

@@ -39,12 +39,15 @@ Run the full monthly pipeline (IE → KGC → DB load → S3 upload):
 bash infra/local/scripts/run_monthly.sh
 ```
 
-Run with stages skipped:
+Run with stages skipped or with a pinned date:
 
 ```
-bash infra/local/scripts/run_monthly.sh --skip-ie       # Reuse existing IE outputs
-bash infra/local/scripts/run_monthly.sh --ie-only       # IE only, stop before KGC
-bash infra/local/scripts/run_monthly.sh --skip-s3       # Skip the S3 upload step
+bash infra/local/scripts/run_monthly.sh --date 2026_04_28  # Override run date (default: today UTC)
+bash infra/local/scripts/run_monthly.sh --skip-ie          # Reuse existing IE outputs
+bash infra/local/scripts/run_monthly.sh --skip-ingest      # Skip KGC ingest stage (ontologies rarely change)
+bash infra/local/scripts/run_monthly.sh --skip-db          # Skip database load step
+bash infra/local/scripts/run_monthly.sh --skip-s3          # Skip the S3 upload step
+bash infra/local/scripts/run_monthly.sh --ie-only          # IE only, stop before KGC
 ```
 
 The pipeline reads API keys from environment variables or a `.env` file at the repo root: `OPENAI_API_KEY`, `NCBI_API_KEY`, `NCBI_EMAIL`. Logs land in `infra/local/scripts/logs/<run-date>/`.
@@ -52,4 +55,4 @@ The pipeline reads API keys from environment variables or a `.env` file at the r
 ## See also
 
 - [`../README.md`](../README.md) — full operations guide (local + AWS)
-- [`../cdk/README.md`](../cdk/README.md) — CDK CLI reference for the AWS production deploy
+- [`../aws/README.md`](../aws/README.md) — CDK CLI reference for the AWS production deploy

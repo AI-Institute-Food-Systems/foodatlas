@@ -64,10 +64,11 @@ The database has two layers:
 
 - **Base tables** — Normalized data loaded directly from KGC parquet files:
   `base_entities`, `relationships`, `base_triplets`, `base_evidence`, `base_attestations`
-- **Materialized API tables** — Pre-joined, denormalized tables optimized for API queries:
-  `mv_food_entities`, `mv_chemical_entities`, `mv_disease_entities`,
-  `mv_food_chemical_composition`, `mv_chemical_disease_correlation`,
-  `mv_search_auto_complete`, `mv_metadata_statistics`
+- **Materialized API tables** (`mv_*`) — Pre-joined, denormalized tables populated by the materializer step. The API reads only these. Examples: `mv_food_entities`, `mv_chemical_entities`, `mv_disease_entities`, `mv_food_chemical_composition`, `mv_chemical_disease_correlation`, `mv_search_auto_complete`, `mv_metadata_statistics`.
+
+These are SQLAlchemy-managed tables, not Postgres `MATERIALIZED VIEW` objects — the `mv_` prefix is conventional, and the `refresh` command rebuilds them from the base tables.
+
+The autocomplete index (`mv_search_auto_complete`) uses Postgres trigram similarity, so the database needs the `pg_trgm` extension installed. The local Docker init script (`infra/local/init-db.sql`) handles this; in production the loader enables it on first run.
 
 The schema lives entirely in the SQLAlchemy models under `src/models/`. `load` drops and recreates everything, so the models are the only source of truth.
 
@@ -106,11 +107,12 @@ db/
 │   └── etl/                # ETL pipeline
 │       ├── parquet_reader.py
 │       ├── bulk_insert.py
-│       ├── loader.py       # Orchestrates load
+│       ├── loader.py       # Orchestrates load + refresh; ensures pg_trgm extension
 │       ├── s3_sync.py      # Downloads s3:// parquet to a local temp dir
-│       ├── materializer.py
-│       ├── materializer_correlation.py
-│       └── materializer_search.py
+│       ├── materializer.py            # Top-level materializer for entity tables
+│       ├── materializer_composition.py # mv_food_chemical_composition + counts
+│       ├── materializer_correlation.py # mv_chemical_disease_correlation
+│       └── materializer_search.py      # mv_search_auto_complete (trigram)
 └── tests/
 ```
 
