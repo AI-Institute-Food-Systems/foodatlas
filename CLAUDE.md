@@ -13,17 +13,17 @@ This is a polyglot monorepo with independent sub-projects:
 - **`backend/`** — Four independent Python sub-projects, each with its own `pyproject.toml`, `uv.lock`, and `.venv`:
   - `api/` — FastAPI REST service (uvicorn, port 8000). Routes, repositories, config, auth.
   - `db/` — PostgreSQL schema (SQLAlchemy models, drop-and-recreate on each load), ETL pipeline (parquet → Postgres).
-  - `ie/` — Information extraction (stub, not yet implemented)
-  - `kgc/` — Knowledge graph construction pipeline (Click CLI, multi-stage: ingest → entities → triplets → postprocessing)
-- **`frontend/`** — Next.js 14 app (React 18, TypeScript, Tailwind, App Router)
-- **`infra/`** — Local dev infrastructure: `docker-compose.yml` for PostgreSQL 16
-- **`docs/`** — Architecture and planning documents (e.g., `bmad/backend-integration-plan.md`)
+  - `ie/` — Information extraction pipeline (Click CLI, four stages: corpus → search → filtering → extraction). PubMed/PMC search + BioBERT filter + OpenAI batch extraction.
+  - `kgc/` — Knowledge graph construction pipeline (Click CLI, five stages: ingest → entities → triplets → ie → enrichment).
+- **`frontend/`** — Next.js 14 app (React 18, TypeScript, Tailwind, App Router). Dev server runs on port 3001.
+- **`infra/`** — Local dev infrastructure (`infra/local/`, Docker Compose Postgres 16) and AWS CDK (`infra/aws/`).
+- **`docs/`** — Architecture and planning documents.
 
 Each backend sub-project follows the same layout: `src/` is the module, `tests/` for tests, `main.py` as entry point.
 
 ### Local stack
 
-PostgreSQL 16 (Docker) → Data load (ETL, drops and recreates schema) → FastAPI (port 8000) → Next.js (port 3001)
+PostgreSQL 16 (Docker, port 5432) → DB ETL (drops and recreates schema, loads from KGC parquet) → FastAPI (port 8000) → Next.js (port 3001)
 
 ### Configuration split
 

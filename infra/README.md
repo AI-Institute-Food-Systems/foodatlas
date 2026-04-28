@@ -3,7 +3,7 @@
 This directory holds everything needed to run FoodAtlas in the two operating modes the project supports:
 
 - **Local development** — A single-machine Docker Compose stack with PostgreSQL, used while writing code and running tests on a developer laptop.
-- **AWS production** — A multi-stack AWS CDK deployment (RDS, ECS Fargate, ALB, S3, ECR, Secrets Manager) that hosts the live API for the Vercel frontend.
+- **AWS production** — A multi-stack AWS CDK deployment (RDS, ECS Fargate, ALB, S3 (private + public-read for releases), ECR, Secrets Manager) that hosts the live API for the Vercel frontend.
 
 The two modes share **zero physical infrastructure**. Local Postgres lives in a Docker container on your laptop; production Postgres is RDS in `us-west-1`. The only thing in common is the Python code in `backend/` and the SQLAlchemy schema in `backend/db/src/models/`. Everything else — credentials, networking, deploy steps — diverges by mode.
 
@@ -75,7 +75,7 @@ bash infra/local/scripts/run_monthly.sh --ie-only           # IE only, stop befo
 
 ## Mode 2: AWS production
 
-Production runs on AWS and is defined entirely in CDK Python under `infra/aws/`. The infrastructure is split into six stacks; each is independently deployable but they have constructor dependencies that CDK uses to enforce deploy order.
+Production runs on AWS and is defined entirely in CDK Python under `infra/aws/`. The infrastructure is split into seven stacks; each is independently deployable but they have constructor dependencies that CDK uses to enforce deploy order.
 
 ### Architecture
 
@@ -86,7 +86,8 @@ flowchart TB
     api["ECS Fargate<br/>FastAPI task<br/>(public subnet)"]
     rds[("RDS PostgreSQL 16<br/>db.t4g.small<br/>Single-AZ<br/>(isolated subnet)")]
     secrets[("Secrets Manager<br/>(DB credentials)")]
-    s3[("S3 bucket<br/>data/&lt;ts&gt;/<br/>outputs/&lt;ts&gt;/")]
+    s3[("S3 (private)<br/>data/&lt;ts&gt;/<br/>outputs/&lt;ts&gt;/")]
+    downloads[("S3 (public-read)<br/>bundles/&lt;version&gt;/")]
     jobs["ECS Fargate<br/>one-off task<br/>(ETL data load)"]
     ecr_api[("ECR<br/>foodatlas-api")]
     ecr_db[("ECR<br/>foodatlas-db")]
@@ -96,21 +97,23 @@ flowchart TB
     api -->|":5432"| rds
     api -->|"fetch at start"| secrets
     api -->|"image pull"| ecr_api
+    api -->|"read bundles/index.json"| downloads
     jobs -->|":5432"| rds
     jobs -->|"fetch at start"| secrets
     jobs -->|"image pull"| ecr_db
     jobs -->|"download"| s3
 ```
 
-### The six stacks
+### The seven stacks
 
 | Stack | Responsibility | Resources |
 |---|---|---|
 | `FoodAtlasNetworkStack` | VPC, subnets, security groups | 1 VPC, 2 AZs, public + isolated subnets, no NAT |
-| `FoodAtlasStorageStack` | S3 bucket for KGC artifacts | 1 versioned encrypted bucket with lifecycle rules |
+| `FoodAtlasStorageStack` | Private S3 bucket for KGC source data + pipeline artifacts | 1 versioned encrypted bucket with lifecycle rules |
+| `FoodAtlasDownloadsStack` | Public-read S3 bucket for released data bundles + `bundles/index.json` manifest | 1 bucket, `s3:GetObject` granted to anonymous principals (listing not granted) |
 | `FoodAtlasEcrStack` | Container registries | 2 ECR repos (`foodatlas-api`, `foodatlas-db`), each with `keep-last-10` lifecycle |
 | `FoodAtlasDatabaseStack` | Postgres + credentials | RDS db.t4g.small Single-AZ, Secrets Manager secret |
-| `FoodAtlasApiStack` | Long-running API service | ECS cluster, task def, service, ALB, log group |
+| `FoodAtlasApiStack` | Long-running API service | ECS cluster, task def, service, ALB, log group; reads the downloads bucket for `/download` |
 | `FoodAtlasJobsStack` | One-off task runner | Task def + log group + SG (no service) |
 
 The Single-AZ RDS choice means an AZ-level outage requires ~15 minutes to recover from automated backup. Flip `multi_az=True` in `database_stack.py` to upgrade to true high availability.
@@ -121,6 +124,7 @@ The Single-AZ RDS choice means an AZ-level outage requires ~15 minutes to recove
 flowchart TB
     network[NetworkStack]
     storage[StorageStack]
+    downloads[DownloadsStack]
     ecr[EcrStack]
     db[DatabaseStack]
     api[ApiStack]
@@ -131,6 +135,7 @@ flowchart TB
     network --> jobs
     storage --> api
     storage --> jobs
+    downloads --> api
     ecr --> api
     ecr --> jobs
     db --> api
@@ -158,7 +163,7 @@ This is what a fresh AWS account looks like. Skip steps you've already done.
 ### CDK bootstrap (once per account+region)
 
 ```
-cdk bootstrap aws://YOUR_ACCOUNT/us-west-1
+uv run cdk bootstrap aws://YOUR_ACCOUNT/us-west-1
 ```
 
 This creates the `CDKToolkit` stack which provisions an S3 bucket and an ECR repo that CDK uses for asset publishing.
@@ -167,10 +172,10 @@ This creates the `CDKToolkit` stack which provisions an S3 bucket and an ECR rep
 
 ```
 cd infra/aws
-uv run cdk deploy FoodAtlasNetworkStack FoodAtlasStorageStack FoodAtlasEcrStack
+uv run cdk deploy FoodAtlasNetworkStack FoodAtlasStorageStack FoodAtlasDownloadsStack FoodAtlasEcrStack
 ```
 
-`FoodAtlasNetworkStack` and `FoodAtlasStorageStack` deploy in parallel (no dependency between them). `FoodAtlasEcrStack` deploys after to create the ECR repos.
+These four have no dependencies on each other and deploy in parallel. `FoodAtlasDownloadsStack` is the public-read bucket that serves released data bundles to the website.
 
 ### Build and push the container images
 
@@ -241,12 +246,27 @@ s3://<kgcbucket>/
     │   │   ├── evidence.parquet
     │   │   ├── attestations.parquet
     │   │   ├── attestations_ambiguous.parquet
+    │   │   ├── CHANGELOG.md             ← auto-generated diff vs. the previous run
+    │   │   ├── SUMMARY.md               ← human-readable run summary
     │   │   ├── checkpoints/             ← debugging sidecars
     │   │   ├── diagnostics/
     │   │   └── intermediate/
     │   └── ingest/
     │       └── (per-source ingestion outputs)
     └── LATEST
+```
+
+A separate `FoodAtlasDownloadsStack` bucket holds **public** released bundles, populated by `publish-bundle.sh`:
+
+```
+s3://<downloadsbucket>/
+└── bundles/
+    ├── index.json                     ← manifest the API's /download endpoint reads
+    ├── foodatlas-v1.0/
+    │   ├── foodatlas-v1.0.zip         ← parquets + CHANGELOG + SUMMARY + README
+    │   └── SUMMARY.md                 ← also surfaced standalone for the website
+    └── foodatlas-v1.1/
+        └── ...
 ```
 
 **Why split data and outputs.** Source ontologies are 10+ GB and refresh quarterly. KGC outputs are smaller (~hundreds of MB) and refresh monthly. If we bundled them, every monthly KGC run would re-upload the entire source tree.
@@ -273,6 +293,8 @@ Two categories: **artifact publishing** (lives next to the artifact being publis
 | `backend/kgc/scripts/sync-outputs-to-s3.sh` | Upload `backend/kgc/outputs/` to `s3://<bucket>/outputs/<ts>/`, write `manifest.json`, bump `outputs/LATEST` |
 | `backend/kgc/scripts/pull-data-from-s3.sh [version]` | Download `data/<latest>/` (or explicit `[version]`) into `backend/kgc/data/` |
 | `backend/kgc/scripts/pull-from-s3.sh [version]` | Download `outputs/<latest>/kg/` into `backend/kgc/data/PreviousFAKG/<ts>/` (the baseline for the next KGC run) |
+| `backend/kgc/scripts/publish-bundle.sh <version> <summary-file> [--kgc-run <id>] [--release-date <YYYY-MM-DD>]` | Package a private KGC run as a public release bundle, upload to `s3://<downloads>/bundles/foodatlas-<version>/`, refresh `bundles/index.json` |
+| `backend/kgc/scripts/_lib.sh` | Shared bash helpers (CFN-output lookup, version pointer handling) used by the four sync/pull/publish scripts |
 
 ### Cloud orchestration
 
