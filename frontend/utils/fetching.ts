@@ -82,6 +82,14 @@ export async function getFoodMacroAndMicroData(
 }
 
 // fetch food composition data, i.e. its chemical composition
+//
+// `trust` is forwarded to the API:
+//   - "default"  : low-trust extractions hidden (server-side filter)
+//   - "show_all" : every extraction returned, annotated with `trust_low`
+//   - "low_only" : only low-trust extractions returned (used when the user
+//                  clicks the trust badge from the row)
+export type TrustMode = "default" | "show_all" | "low_only";
+
 export async function getFoodCompositionData(
   commonName: string,
   currentPage: number,
@@ -89,7 +97,8 @@ export async function getFoodCompositionData(
   searchTerm: string,
   sort: { column: string; direction: string },
   showAllConcentrations: boolean,
-  classificationFilters: string[] = []
+  classificationFilters: string[] = [],
+  trust: TrustMode = "default"
 ) {
   const clsParam =
     classificationFilters.length > 0
@@ -104,7 +113,7 @@ export async function getFoodCompositionData(
       "%2B"
     )}&search=${encodeURIComponent(searchTerm)}&sort_by=${
       sort.column
-    }&sort_dir=${sort.direction}&show_all_rows=${showAllConcentrations}${clsParam}`,
+    }&sort_dir=${sort.direction}&show_all_rows=${showAllConcentrations}${clsParam}&trust=${trust}`,
     {
       headers: {
         Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,

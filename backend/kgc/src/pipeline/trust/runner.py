@@ -16,7 +16,6 @@ the upsert in the DB loader overwrites the prior error row.
 from __future__ import annotations
 
 import hashlib
-import json
 import logging
 from datetime import UTC, datetime
 from pathlib import Path
@@ -170,24 +169,21 @@ class TrustRunner:
         attestation_ids: list[str],
         bundle: VersionBundle,
     ) -> list[TrustLLMRequest]:
+        # The v1 plausibility prompt deliberately sees only food + chemical
+        # + standardized concentration — no original units, no source
+        # sentence, no evidence. This is "is the claim reasonable on its
+        # own?", not "does the source support the claim?" (faithfulness /
+        # entailment is intentionally out of scope for this signal_kind).
         att_df: pd.DataFrame = kg.attestations._records
-        ev_df: pd.DataFrame = kg.evidence._records
         rows = att_df.loc[attestation_ids]
 
         requests: list[TrustLLMRequest] = []
         for att_id, row in rows.iterrows():
-            sentence = _resolve_sentence(ev_df, str(row["evidence_id"]))
-            if sentence is None:
-                logger.debug("Skipping %s: no source sentence in evidence", att_id)
-                continue
             try:
                 user_prompt = bundle.prompts.user.format(
                     food=row.get("head_name_raw", ""),
                     chemical=row.get("tail_name_raw", ""),
                     conc_value=row["conc_value"],
-                    conc_value_raw=row.get("conc_value_raw", ""),
-                    conc_unit_raw=row.get("conc_unit_raw", ""),
-                    sentence=sentence,
                 )
             except KeyError:
                 logger.exception(
@@ -203,18 +199,6 @@ def _read_existing(path: Path) -> pd.DataFrame:
     if not path.exists() or path.stat().st_size == 0:
         return pd.DataFrame(columns=_TRUST_COLUMNS)
     return pd.read_parquet(path)
-
-
-def _resolve_sentence(ev_df: pd.DataFrame, evidence_id: str) -> str | None:
-    if ev_df.empty or evidence_id not in ev_df.index:
-        return None
-    raw = ev_df.loc[evidence_id, "reference"]
-    try:
-        ref: dict[str, Any] = json.loads(raw)
-    except (TypeError, ValueError, json.JSONDecodeError):
-        return None
-    text = ref.get("text")
-    return text if isinstance(text, str) and text else None
 
 
 def _responses_to_rows(

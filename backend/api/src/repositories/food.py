@@ -171,21 +171,29 @@ async def get_composition(
 
     where = " AND ".join(where_parts)
     offset = rows_per_page * (page - 1)
-    params["offset"] = offset
-    params["limit"] = rows_per_page
 
-    sql = _compose_sql(select_cols, where, sort_col, direction, paginated=True)
+    # Fetch every matching row (no LIMIT/OFFSET in SQL). The trust filter
+    # rewrites medians and drops rows, so SQL-level pagination would be
+    # wrong for trust != show_all (rows can move pages once their median
+    # changes). Total rows in tomato-scale foods is in the hundreds; the
+    # cost of fetching all in one query is well below the cost of an
+    # incorrect page count or the wrong rows on the page.
+    sql = _compose_sql(select_cols, where, sort_col, direction, paginated=False)
     result = await session.execute(text(sql), params)
-    data = [dict(row._mapping) for row in result]
-
-    count_params = {k: v for k, v in params.items() if k not in ("offset", "limit")}
-    count_sql = _compose_sql(select_cols, where, sort_col, direction, count_only=True)
-    count_result = await session.execute(text(count_sql), count_params)
-    total_rows = count_result.scalar() or 0
-    total_pages = (total_rows + rows_per_page - 1) // rows_per_page if total_rows else 0
+    all_rows = [dict(row._mapping) for row in result]
 
     threshold = APISettings().trust_low_threshold
-    data = await apply_trust_filter(session, data, mode=trust, threshold=threshold)
+    all_rows = await apply_trust_filter(
+        session, all_rows, mode=trust, threshold=threshold
+    )
+    # Re-sort using the recomputed median (default / low_only) — show_all
+    # keeps the stored median so SQL order is already correct.
+    if trust != "show_all":
+        all_rows = _resort_after_filter(all_rows, sort_by, direction)
+
+    total_rows = len(all_rows)
+    total_pages = (total_rows + rows_per_page - 1) // rows_per_page if total_rows else 0
+    data = all_rows[offset : offset + rows_per_page]
 
     return {
         "data": data,
@@ -274,6 +282,32 @@ def _compose_sql(
         + " NULLS LAST"
         + pagination
     )
+
+
+def _resort_after_filter(data: list[dict], sort_by: str, direction: str) -> list[dict]:
+    """Re-sort the page using the post-filter (recomputed) median.
+
+    Pagination is unchanged — we operate on whatever rows the SQL page
+    returned. This restores within-page ordering after the trust filter
+    rewrites medians; cross-page ordering can still be approximate.
+    """
+    descending = direction.upper() == "DESC"
+    if sort_by == "median_concentration":
+        with_val: list[dict] = []
+        without_val: list[dict] = []
+        for row in data:
+            mc = row.get("median_concentration")
+            val = mc.get("value") if isinstance(mc, dict) else None
+            (with_val if val is not None else without_val).append(row)
+        with_val.sort(
+            key=lambda r: r["median_concentration"]["value"], reverse=descending
+        )
+        return with_val + without_val  # NULLS LAST
+    if sort_by == "common_name":
+        return sorted(
+            data, key=lambda r: (r.get("name") or "").lower(), reverse=descending
+        )
+    return data
 
 
 def _empty_composition(rows_per_page: int) -> dict[str, object]:

@@ -17,16 +17,14 @@ generation:
 
 prompts:
   system: |
-    You are a food chemistry expert evaluating the plausibility of an
-    extracted claim about a chemical's concentration in a food.
+    You are a food chemistry expert evaluating the plausibility of a claim
+    about a chemical's concentration in a food.
 
-    A claim is given as: a food name, a chemical name, the concentration
-    converted to milligrams per 100 grams (mg/100g), the original
-    concentration string from the source paper, and the source sentence the
-    claim was extracted from.
+    A claim is given as: a food name, a chemical name, and a concentration
+    in milligrams per 100 grams (mg/100g).
 
-    Judge ONLY whether the claimed concentration is plausible given general
-    world knowledge of food composition. Consider:
+    Judge whether the claimed concentration is plausible given general world
+    knowledge of food composition. Consider:
     - Whether the chemical is known to occur in this food, or in similar foods.
     - Whether the magnitude is in a typical range for the food / chemical pair.
       Use orders of magnitude — exact numbers vary by cultivar, ripeness, and
@@ -34,9 +32,10 @@ prompts:
     - Whether the value is physically possible. Anything above 100,000 mg/100g
       exceeds 100% by mass and is impossible.
 
-    Do NOT judge whether the source sentence supports the claim — that is a
-    separate signal. Assume the extraction faithfully reflects the sentence
-    and judge only the world-state plausibility of the resulting claim.
+    You are NOT given the source paper, the source sentence, or the original
+    units. This is a deliberate choice: this signal is plausibility only, not
+    faithfulness or entailment. Judge the world-state plausibility of the
+    claim as stated, on its own.
 
     Output a JSON object with two fields:
       score:  number between 0 and 1.
@@ -52,8 +51,7 @@ prompts:
   user: |
     Food: {food}
     Chemical: {chemical}
-    Concentration: {conc_value} mg/100g (original: "{conc_value_raw} {conc_unit_raw}")
-    Source sentence: "{sentence}"
+    Concentration: {conc_value} mg/100g
 
     Return JSON: {{"score": <number 0..1>, "reason": "<one short sentence>"}}.
 

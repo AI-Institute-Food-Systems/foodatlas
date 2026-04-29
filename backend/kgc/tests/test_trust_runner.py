@@ -7,7 +7,6 @@ gate correctness: id derivation, response → row translation, parquet merge.
 
 from __future__ import annotations
 
-import json
 from datetime import UTC, datetime
 from typing import Any
 
@@ -16,7 +15,6 @@ import pytest
 from src.pipeline.trust.llm.base import TrustLLMRequest, TrustLLMResponse
 from src.pipeline.trust.runner import (
     _merge_for_run,
-    _resolve_sentence,
     _responses_to_rows,
     signal_id,
 )
@@ -70,36 +68,6 @@ class TestSignalId:
         assert signal_id("at1", "range_check", "v1", "h" * 64) != base
         assert signal_id("at1", "llm_plausibility", "v2", "h" * 64) != base
         assert signal_id("at1", "llm_plausibility", "v1", "g" * 64) != base
-
-
-class TestResolveSentence:
-    def test_returns_text_field_from_reference_json(self):
-        ev = pd.DataFrame(
-            {"reference": [json.dumps({"pmcid": 1, "text": "tomato is red."})]},
-            index=["ev1"],
-        )
-        assert _resolve_sentence(ev, "ev1") == "tomato is red."
-
-    def test_missing_text_returns_none(self):
-        ev = pd.DataFrame(
-            {"reference": [json.dumps({"url": "http://x"})]},
-            index=["ev1"],
-        )
-        assert _resolve_sentence(ev, "ev1") is None
-
-    def test_unknown_evidence_id_returns_none(self):
-        ev = pd.DataFrame(
-            {"reference": [json.dumps({"text": "x"})]},
-            index=["ev1"],
-        )
-        assert _resolve_sentence(ev, "missing") is None
-
-    def test_malformed_reference_returns_none(self):
-        ev = pd.DataFrame({"reference": ["not-json"]}, index=["ev1"])
-        assert _resolve_sentence(ev, "ev1") is None
-
-    def test_empty_dataframe(self):
-        assert _resolve_sentence(pd.DataFrame(), "ev1") is None
 
 
 class TestResponsesToRows:
