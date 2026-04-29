@@ -4,7 +4,7 @@ from src.pipeline.stages import ALL_STAGES, PipelineStage
 
 
 def test_all_stages_present() -> None:
-    assert len(PipelineStage) == 5
+    assert len(PipelineStage) == 6
 
 
 def test_stage_names() -> None:
@@ -14,6 +14,7 @@ def test_stage_names() -> None:
         "TRIPLETS",
         "IE",
         "ENRICHMENT",
+        "TRUST",
     }
     assert {s.name for s in PipelineStage} == expected
 

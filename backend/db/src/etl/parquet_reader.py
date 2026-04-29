@@ -59,6 +59,22 @@ def read_evidence(kg_dir: Path) -> pd.DataFrame:
     return df
 
 
+def read_trust_signals(kg_dir: Path) -> pd.DataFrame | None:
+    """Read trust_signals.parquet if present; return None when missing.
+
+    Distinct from the other readers because trust signals are optional (the
+    KGC trust stage is opt-in) and accumulate across runs rather than being
+    rebuilt from scratch each ``db load``.
+    """
+    path = kg_dir / "trust_signals.parquet"
+    if not path.exists() or path.stat().st_size == 0:
+        return None
+    df = pd.read_parquet(path)
+    df["reason"] = df["reason"].fillna("")
+    df["error_text"] = df["error_text"].fillna("")
+    return df
+
+
 def read_attestations(kg_dir: Path) -> pd.DataFrame:
     df = pd.read_parquet(kg_dir / "attestations.parquet")
     for col in (

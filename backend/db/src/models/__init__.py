@@ -6,6 +6,8 @@ from .entities import BaseEntity
 from .evidence import BaseEvidence
 from .relationships import Relationship
 from .triplets import BaseTriplet
+from .trust_base import TrustBase
+from .trust_signals import BaseTrustSignal
 from .views import (
     MVChemicalDiseaseCorrelation,
     MVChemicalEntity,
@@ -22,6 +24,7 @@ __all__ = [
     "BaseEntity",
     "BaseEvidence",
     "BaseTriplet",
+    "BaseTrustSignal",
     "MVChemicalDiseaseCorrelation",
     "MVChemicalEntity",
     "MVDiseaseEntity",
@@ -30,4 +33,5 @@ __all__ = [
     "MVMetadataStatistics",
     "MVSearchAutoComplete",
     "Relationship",
+    "TrustBase",
 ]

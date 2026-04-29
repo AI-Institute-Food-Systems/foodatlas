@@ -11,6 +11,14 @@
       },
       "kg_init": {
         "previous_kg_entities": "data/PreviousFAKG/v3.3/entities.tsv"
+      },
+      "trust": {
+        "signal": "llm_plausibility",
+        "version": "v1",
+        "source_filter": ["lit2kg:"],
+        "limit": null,
+        "batch_size": 50000,
+        "batch_mode": false
       }
     }
   }
