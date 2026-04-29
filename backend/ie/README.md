@@ -1,6 +1,93 @@
 # FoodAtlas Information Extraction
 
-End-to-end pipeline for discovering food-chemical relationships from the biomedical literature. Starting from a list of food terms, the pipeline searches PubMed/PMC, filters candidate sentences with a fine-tuned BioBERT model, and extracts structured triplets (`food, food_part, chemical, concentration`) using an LLM (GPT-4 / GPT-3.5-ft / GPT-5.2).
+End-to-end pipeline for extracting food–chemical relationships from the biomedical literature. Starting from a list of food terms, the pipeline searches PubMed/PMC, filters candidate sentences with a fine-tuned BioBERT classifier, and extracts structured triplets (`food, food_part, chemical, concentration`) using an LLM via the OpenAI Batch API.
+
+The output TSV is consumed by KGC's `ie` stage (see [`backend/kgc/src/pipeline/ie/`](../kgc/src/pipeline/ie/)).
+
+---
+
+## Setup
+
+```bash
+cd backend/ie
+uv sync
+```
+
+### Required assets
+
+The fine-tuned BioBERT binary classifier and the historical prediction archive aren't checked in. Fetch them with the bundled `download.sh` scripts:
+
+```bash
+bash scripts/biobert_binary_prod/download.sh
+bash scripts/past_sentence_filtering_preds/download.sh
+```
+
+### API keys
+
+```bash
+export NCBI_API_KEY=<your_key>     # Optional — raises PubMed rate limits
+export NCBI_EMAIL=<your_email>     # Required by NCBI E-utilities
+export OPENAI_API_KEY=<your_key>   # Required for the extraction stage
+```
+
+A `.env` at the project root or `backend/ie/.env` is also picked up automatically.
+
+---
+
+## Running the Pipeline
+
+```bash
+cd backend/ie
+
+# List available stages
+uv run python main.py stages
+
+# Run all stages
+uv run python main.py run
+
+# Run a single stage (by name or number)
+uv run python main.py run --stages corpus
+uv run python main.py run --stages 0
+
+# Run a range
+uv run python main.py run --stages 1:3      # search → filtering → extraction
+```
+
+The `--config` flag on the top-level group lets you point at a JSON file that overrides `src/config/defaults.json`. Field names match the `IESettings` model (env prefix `IE_`).
+
+For a full monthly run, the canonical orchestrator is [`infra/local/scripts/run_monthly.sh`](../../infra/local/scripts/run_monthly.sh), which chains IE → KGC → DB → S3. On SLURM clusters, wrap individual stages in `sbatch --wrap="cd backend/ie && uv run python main.py run --stages <stage>"` with stage-appropriate resources (GPU for `filtering`, CPU elsewhere).
+
+---
+
+## Pipeline Stages
+
+| # | Stage | Module | Description |
+|---|-------|--------|-------------|
+| 0 | `CORPUS` | `src/pipeline/corpus/` | Refresh the local BioC-PMC corpus and the `PMC-ids.csv` mapping |
+| 1 | `SEARCH` | `src/pipeline/search/` | Query PubMed for each food term, retrieve and fuzzy-match sentences from BioC-PMC |
+| 2 | `FILTERING` | `src/pipeline/filtering/` | BioBERT binary classifier (GPU) + threshold + dedup against historical predictions |
+| 3 | `EXTRACTION` | `src/pipeline/extraction/` | Submit filtered sentences to the OpenAI Batch API; parse responses into `extraction_predicted.tsv` |
+
+Per-stage runners live at `src/pipeline/<stage>/runner.py`. The top-level `IERunner` (`src/pipeline/runner.py`) dispatches them in order.
+
+The extraction stage reads its prompts from `src/pipeline/extraction/prompts/{system,user}/v1.txt` so prompt changes are versioned alongside the code.
+
+---
+
+## Configuration
+
+Defaults live in `src/config/defaults.json` and load into the `IESettings` Pydantic model. CLI flags / env vars (`IE_*`) override the file. Key fields:
+
+| Setting | Default | Description |
+|---|---|---|
+| `date` | today (UTC) | Run date tag (`YYYY_MM_DD`) used in output paths |
+| `model` | `gpt-5.2` | LLM model for extraction |
+| `bioc_pmc_dir` | (set in defaults) | Path to the local BioC-PMC corpus |
+| `biobert_model_dir` | (set in defaults) | Path to the fine-tuned BioBERT classifier |
+| `food_terms` | `data/food_terms.txt` | Food query terms file |
+| `pipeline.biobert_filter.threshold` | `0.99` (under `aggregate`) | BioBERT confidence cutoff |
+| `pipeline.aggregate.reference_dir` | `outputs/extraction` | Historical predictions for sentence dedup |
+| `pipeline.extraction.temperature` | `0.0` | LLM sampling temperature |
 
 ---
 
@@ -12,180 +99,30 @@ ie/
 ├── pyproject.toml
 ├── data/
 │   ├── food_terms.txt               # Query terms used to search PubMed/PMC
-│   ├── translated_food_terms.txt    # Translated/aliased food terms
-│   └── NCBI/                        # PMC-ids.csv downloaded at runtime
-├── outputs/
-│   ├── biobert_binary_prod/         # Fine-tuned BioBERT sentence classifier
-│   ├── past_sentence_filtering_preds/  # Historical LLM prediction files
-│   └── text_parser/
-│       ├── last_search_date.txt     # Date of most recent completed run
-│       └── {DATE}/                  # Per-run outputs (created at runtime)
-│           ├── retrieved_sentences/ # Raw PMC sentences + merged input
-│           ├── sentence_filtering/  # BioBERT chunk predictions
-│           └── filtered_sentences/  # Aggregated & deduplicated IE input
+│   └── translated_food_terms.txt    # Translated/aliased food terms
+├── outputs/                         # Per-stage outputs (created at runtime)
+│   ├── corpus/                      #   Refreshed PMC IDs + BioC archives
+│   ├── search/{date}/               #   Search results + retrieved sentences
+│   ├── filtering/{date}/            #   BioBERT predictions + aggregated TSVs
+│   └── extraction/{date}/           #   Batch input + parsed predictions
 ├── scripts/
-│   ├── run_pipeline.sh              # SLURM orchestrator (wraps main.py)
-│   └── train_biobert_binary.sh      # BioBERT training job
+│   ├── train_biobert_binary.sh      # BioBERT training job (SLURM)
+│   ├── biobert_binary_prod/
+│   │   └── download.sh              # Fetch the fine-tuned classifier
+│   └── past_sentence_filtering_preds/
+│       └── download.sh              # Fetch historical predictions for dedup
 ├── src/
-│   ├── config/
-│   │   └── defaults.json            # Default pipeline configuration
-│   ├── runner.py                    # Pipeline runner (dispatches stages)
-│   ├── stages.py                    # IEStage enum
-│   └── lit2kg/
-│       ├── 0_update_PMC_BioC.py                       # Step 1: update local BioC-PMC corpus
-│       ├── 1_search_pubmed_pmc.py                     # Step 2: search + retrieve sentences
-│       ├── pubmed_search.py                           #   PubMed query utilities
-│       ├── sentence_retrieval.py                      #   BioC sentence extraction
-│       ├── 2_run_sentence_filtering.py                # Step 3: BioBERT inference
-│       ├── 3_aggregate_sentence_filtering_results.py  # Step 4: aggregate + dedup
-│       ├── 4_run_information_extraction.py            # Step 5: LLM extraction
-│       ├── 5_parse_text_parser_predictions.py         # Step 6: parse LLM output
-│       ├── information_extraction_model_config.py     # LLM prompt config
-│       ├── biobert/                                   # BioBERT model + training code
-│       └── openai/                                    # OpenAI batch API wrapper
+│   ├── config/defaults.json         # Default configuration
+│   ├── models/settings.py           # IESettings (Pydantic)
+│   └── pipeline/
+│       ├── stages.py                # IEStage enum
+│       ├── runner.py                # Top-level IERunner
+│       ├── corpus/                  # Stage 0
+│       ├── search/                  # Stage 1 — pubmed_search.py + sentence_retrieval.py
+│       ├── filtering/               # Stage 2 — biobert/ + aggregate.py
+│       └── extraction/              # Stage 3 — openai/, prompts/, parse_predictions.py
 └── tests/
 ```
-
----
-
-## Setup
-
-### 1. Install dependencies
-
-```bash
-cd backend/ie
-uv sync
-```
-
-### 2. Download the BioBERT model
-
-The fine-tuned BioBERT binary classifier must be placed at `outputs/biobert_binary_prod/`:
-
-```bash
-bash outputs/biobert_binary_prod/download.sh
-```
-
-### 3. Download historical LLM predictions
-
-Past prediction files are required by Step 4 (aggregate) to deduplicate sentences already processed in prior runs:
-
-```bash
-bash outputs/past_sentence_filtering_preds/download.sh
-```
-
-### 4. API keys
-
-```bash
-export NCBI_API_KEY=<your_key>     # Optional — avoids PubMed rate limits
-export OPENAI_API_KEY=<your_key>   # Required for Step 5 (LLM extraction)
-```
-
----
-
-## Running the Pipeline
-
-### CLI (recommended)
-
-```bash
-cd backend/ie
-
-# List available stages
-uv run python main.py stages
-
-# Run all stages
-uv run python main.py run
-
-# Run specific stages (by number or range)
-uv run python main.py run --stages 3        # BioBERT filter only
-uv run python main.py run --stages 2:4      # Search + BioBERT + Aggregate
-uv run python main.py run --stages 5:6      # Extract + Parse
-
-# Override defaults
-uv run python main.py run --stages 5:6 --model gpt-4 --date 2026_04_06
-```
-
-| Option | Default | Description |
-|---|---|---|
-| `--stages` | all | Stage number or range (e.g. `3`, `2:5`) |
-| `--date` | today | Run date tag (`YYYY_MM_DD`) |
-| `--model` | `gpt-5.2` | LLM model for extraction |
-| `--bioc-pmc-dir` | `data/BioC-PMC` | Local BioC-PMC corpus path |
-| `--biobert-model-dir` | `outputs/biobert_binary_prod` | BioBERT model path |
-| `--food-terms` | `data/food_terms.txt` | Food query terms file |
-| `--threshold` | `0.99` | BioBERT confidence threshold |
-
-### SLURM
-
-For GPU-heavy steps or long-running jobs, wrap the CLI in sbatch:
-
-```bash
-# GPU step (BioBERT)
-sbatch --gres=gpu:1 --mem=32G --time=48:00:00 \
-  --wrap="cd backend/ie && uv run python main.py run --stages 3"
-
-# CPU step (aggregation)
-sbatch --mem=8G --time=02:00:00 \
-  --wrap="cd backend/ie && uv run python main.py run --stages 4"
-```
-
-A full SLURM orchestrator with job dependencies is also available:
-
-```bash
-bash scripts/run_pipeline.sh [DATE] [MODEL_NAME]
-```
-
----
-
-## Pipeline Stages
-
-| Stage | Name | Script | Description |
-|-------|------|--------|-------------|
-| 0 | `DOWNLOAD_PMC_IDS` | — | Download `PMC-ids.csv.gz` from NCBI FTP |
-| 1 | `UPDATE_BIOC` | `0_update_PMC_BioC.py` | Incrementally download new BioC-PMC articles |
-| 2 | `SEARCH_PUBMED` | `1_search_pubmed_pmc.py` | Search PubMed, retrieve and filter sentences |
-| 3 | `BIOBERT_FILTER` | `2_run_sentence_filtering.py` | BioBERT binary classification (GPU) |
-| 4 | `AGGREGATE` | `3_aggregate_sentence_filtering_results.py` | Merge chunks, threshold, deduplicate |
-| 5 | `EXTRACT` | `4_run_information_extraction.py` | LLM extraction via OpenAI Batch API |
-| 6 | `PARSE` | `5_parse_text_parser_predictions.py` | Parse LLM outputs into TSV/JSON |
-
-### Step 0 — Download PMC ID map
-
-Downloads `PMC-ids.csv.gz` from NCBI FTP into `data/NCBI/`. This maps PMC IDs to PubMed IDs and is required by Step 2.
-
-### Step 1 — Update BioC-PMC corpus
-
-Incrementally downloads new BioC-PMC article archives from NCBI FTP. Only archives containing articles newer than the local corpus are downloaded.
-
-### Step 2 — Search PubMed / PMC
-
-For each food term, queries PubMed for matching articles, retrieves full-text sentences from the local BioC-PMC corpus, and applies fuzzy matching. Outputs chunked TSV files merged into `sentence_filtering_input.tsv`.
-
-### Step 3 — BioBERT sentence filtering (GPU)
-
-Runs the fine-tuned BioBERT binary classifier to score sentences as food-chemical relevant. Processes in chunks of 10,000 sentences.
-
-### Step 4 — Aggregate & deduplicate
-
-Merges BioBERT outputs, applies confidence threshold (default 0.99), and deduplicates against historical predictions in `outputs/past_sentence_filtering_preds/`.
-
-### Step 5 — LLM information extraction
-
-Sends filtered sentences to the OpenAI Batch API. Extracts structured triplets: `food, food_part, chemical, concentration`.
-
-### Step 6 — Parse predictions
-
-Parses raw LLM batch outputs into clean TSV and JSON files.
-
----
-
-## Configuration
-
-Default pipeline parameters are in `src/config/defaults.json`. CLI flags override these defaults. Key settings:
-
-- **`model`** — LLM model name (e.g. `gpt-4`, `gpt-3.5-ft`, `gpt-5.2`)
-- **`pipeline.biobert_filter.threshold`** — BioBERT confidence cutoff
-- **`pipeline.extraction.temperature`** — LLM sampling temperature
-- **`pipeline.aggregate.reference_dir`** — Historical predictions for dedup
 
 ---
 
@@ -193,22 +130,11 @@ Default pipeline parameters are in `src/config/defaults.json`. CLI flags overrid
 
 ```bash
 cd backend/ie
-uv run python -m src.lit2kg.biobert.train --output_dir outputs/biobert_binary_prod --production
+uv run python -m src.pipeline.filtering.biobert.train --output_dir outputs/biobert_binary_prod --production
 ```
 
 Or via SLURM:
 
 ```bash
 sbatch scripts/train_biobert_binary.sh
-```
-
----
-
-## Tests
-
-```bash
-cd backend/ie
-uv run pytest              # 116 tests, 86% coverage
-uv run ruff check src/     # Lint
-uv run mypy src/           # Type check
 ```

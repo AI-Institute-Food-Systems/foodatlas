@@ -60,6 +60,26 @@ const Downloads = async () => {
       </div>
       <Divider />
       <div className="mt-14">
+        <Heading type="h2" className="text-3xl">
+          How to Cite
+        </Heading>
+        <SubHeading>
+          If you use <i>FoodAtlas</i> in your research, please cite:
+        </SubHeading>
+        <Card className="mt-6">
+          <p className="leading-relaxed text-light-200">
+            Li, F., Youn, J., Xie, K., Chan, T., Gupta, P., Yoo, A., ... &
+            Tagkopoulos, I. (2026). A unified knowledge graph linking foodomics
+            to chemical-disease networks and flavor profiles.{" "}
+            <i>npj Science of Food</i>.{" "}
+            <Link href="https://doi.org/10.1038/s41538-025-00680-9">
+              https://doi.org/10.1038/s41538-025-00680-9
+            </Link>
+          </p>
+        </Card>
+      </div>
+      <Divider />
+      <div className="mt-14">
         <Card>
           <DownloadsTable data={data} />
         </Card>

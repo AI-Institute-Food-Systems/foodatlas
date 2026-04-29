@@ -1,9 +1,9 @@
 """CDK app entry point.
 
-Instantiates the six stacks that make up the FoodAtlas AWS infrastructure:
+Instantiates the seven stacks that make up the FoodAtlas AWS infrastructure:
 
 - NetworkStack: VPC, subnets, security groups
-- StorageStack: S3 bucket for KGC source data and pipeline artifacts
+- StorageStack: private S3 bucket for KGC source data and pipeline artifacts
 - DownloadsStack: public-read S3 bucket for released data bundles
 - EcrStack: ECR repositories for the API and db jobs images
 - DatabaseStack: RDS PostgreSQL + Secrets Manager

@@ -9,7 +9,7 @@ from ast import literal_eval
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 from Bio import Entrez
@@ -294,9 +294,12 @@ def search_queries(
     api_key: str | None = None,
 ) -> dict[tuple[str, str], list[str]]:
     """Search PubMed/PMC for each query and collect article UIDs."""
-    Entrez.email = email
+    # Bio.Entrez stubs declare these module attrs as None-typed even though
+    # the runtime expects strings; cast to Any to honor the runtime contract.
+    entrez = cast("Any", Entrez)
+    entrez.email = email
     if api_key:
-        Entrez.api_key = api_key
+        entrez.api_key = api_key
     _init_rate_limiter(api_key)
 
     new_queries = [q for q in queries if q not in previous_queries]

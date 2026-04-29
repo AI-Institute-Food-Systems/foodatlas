@@ -16,8 +16,8 @@ jobs:
         env:
           HEAD_REF: ${{ github.head_ref }}
         run: |
-          if [[ "$HEAD_REF" != "dev" && "$HEAD_REF" != hotfix/* ]]; then
-            echo "::error::PRs to main must come from 'dev' or 'hotfix/*'. Got: '$HEAD_REF'."
+          if [[ "$HEAD_REF" != "dev" ]]; then
+            echo "::error::PRs to main must come from 'dev'. Got: '$HEAD_REF'. Hotfixes flow feat|fix|hotfix/* → dev → main."
             exit 1
           fi
           echo "Head branch '$HEAD_REF' is allowed."

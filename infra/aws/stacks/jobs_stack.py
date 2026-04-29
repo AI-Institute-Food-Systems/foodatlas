@@ -14,7 +14,7 @@ ID — everything needed to construct an ``aws ecs run-task`` invocation.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import aws_cdk as cdk
 from aws_cdk import RemovalPolicy
@@ -44,7 +44,7 @@ class JobsStack(cdk.Stack):
         db_instance: rds.IDatabaseInstance,
         db_secret: secretsmanager.ISecret,
         kgc_bucket: s3.IBucket,
-        **kwargs: object,
+        **kwargs: Any,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 

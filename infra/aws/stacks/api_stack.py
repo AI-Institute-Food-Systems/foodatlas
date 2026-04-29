@@ -61,7 +61,7 @@ class ApiStack(cdk.Stack):
         db_secret: secretsmanager.ISecret,
         kgc_bucket: s3.IBucket,
         downloads_bucket: s3.IBucket,
-        **kwargs: object,
+        **kwargs: Any,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 

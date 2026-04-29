@@ -17,7 +17,7 @@ resolve "current" without listing the bucket.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import aws_cdk as cdk
 from aws_cdk import Duration
@@ -53,7 +53,7 @@ class StorageStack(cdk.Stack):
         self,
         scope: Construct,
         construct_id: str,
-        **kwargs: object,
+        **kwargs: Any,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 

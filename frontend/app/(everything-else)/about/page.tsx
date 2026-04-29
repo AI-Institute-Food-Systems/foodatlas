@@ -1,6 +1,7 @@
 import { Metadata } from "next";
 
 import Person from "@/components/about/Person";
+import Card from "@/components/basic/Card";
 import Divider from "@/components/basic/Divider";
 import Heading from "@/components/basic/Heading";
 import SubHeading from "@/components/basic/SubHeading";
@@ -95,9 +96,7 @@ const About = () => {
           </Link>{" "}
           page or to the full{" "}
           <Link
-            href={
-              "https://drive.google.com/file/d/1e9hfCT3Og-Mvsch5Rse0oNq_V4ua_mKo/view?usp=sharing"
-            }
+            href="https://doi.org/10.1038/s41538-025-00680-9"
             isExternal={true}
           >
             publication
@@ -141,6 +140,45 @@ const About = () => {
               )
             )}
           </div>
+        </div>
+        {/* publications */}
+        <div>
+          <Heading type="h2" variant="boxed">
+            Publications
+          </Heading>
+          <Card className="mt-10">
+            <ol className="flex flex-col gap-4 list-decimal list-inside leading-relaxed text-light-200 marker:text-light-400">
+              <li>
+                Li, F., Youn, J., Xie, K., Chan, T., Gupta, P., Yoo, A., ... &
+                Tagkopoulos, I. (2026). A unified knowledge graph linking
+                foodomics to chemical-disease networks and flavor profiles.{" "}
+                <i>npj Science of Food</i>.{" "}
+                <Link href="https://doi.org/10.1038/s41538-025-00680-9">
+                  https://doi.org/10.1038/s41538-025-00680-9
+                </Link>
+              </li>
+              <li>
+                Youn, J., Li, F., Simmons, G., Kim, S., & Tagkopoulos, I.
+                (2024). FoodAtlas: automated knowledge extraction of food and
+                chemicals from literature.{" "}
+                <i>Computers in Biology and Medicine</i>, <i>181</i>, 109072.{" "}
+                <Link href="https://doi.org/10.1016/j.compbiomed.2024.109072">
+                  https://doi.org/10.1016/j.compbiomed.2024.109072
+                </Link>
+              </li>
+              <li>
+                Youn, J., Li, F., & Tagkopoulos, I. (2023). Semi-automated
+                construction of food composition knowledge base. In{" "}
+                <i>
+                  2nd AAAI Workshop on AI for Agriculture and Food Systems
+                </i>
+                .{" "}
+                <Link href="https://doi.org/10.48550/arXiv.2301.11322">
+                  https://doi.org/10.48550/arXiv.2301.11322
+                </Link>
+              </li>
+            </ol>
+          </Card>
         </div>
       </div>
     </div>
