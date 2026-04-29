@@ -53,6 +53,8 @@ Settings use Pydantic with env prefix `KGC_` (e.g. `KGC_DATA_DIR`). Key fields:
 
 Override via environment variables, config JSON, or CLI flags.
 
+The `trust` stage additionally needs `GOOGLE_API_KEY` set in the **root** `.env` (`<repo-root>/.env`, loaded by `KGCSettings`) for its v1 Gemini provider — see [#162](https://github.com/AI-Institute-Food-Systems/foodatlas/issues/162) for the open question of consolidating per-sub-project `.env` handling.
+
 ## Pipeline Stages
 
 | # | Stage | Description |
@@ -62,17 +64,19 @@ Override via environment variables, config JSON, or CLI flags.
 | 2 | `triplets` | Build ontology `is_a` (food/chemical/disease) + composition (`food → chemical`) + chemical–disease correlation triplets from ingest edges |
 | 3 | `ie` | Fold IE TSV output (from `backend/ie/`) into the KG: parse concentrations, resolve raw food/chemical names, attach attestations |
 | 4 | `enrichment` | Chemical/food classification (ChEBI/FoodOn-driven), grouping, common names, synonym display, flavor descriptions |
+| 5 | `trust` | Per-attestation trustworthiness signals (e.g. LLM plausibility judge). Reads attestations + evidence, runs the configured judge, writes `trust_signals.parquet`. Requires `GOOGLE_API_KEY` for the v1 Gemini provider. Configured via `pipeline.stages.trust` in the config JSON. |
 
 ### Architecture in two phases
 
 **Phase 1 — Ingest** (`src/pipeline/ingest/`): Source adapters parse raw data files into a standardized parquet format with `nodes`, `edges`, and `xrefs` per source. Each adapter implements the `SourceAdapter` protocol. Output lives under `outputs/ingest/<source>/`.
 
-**Phase 2 — Construct** (the `entities`, `triplets`, `ie`, and `enrichment` stages): Builds the KG from Phase 1 output, writing checkpoints between stages so each stage can be re-run independently.
+**Phase 2 — Construct** (the `entities`, `triplets`, `ie`, `enrichment`, and `trust` stages): Builds the KG from Phase 1 output, writing checkpoints between stages so each stage can be re-run independently.
 
 - **EntityRunner**: Loads ingest sources → filters ontology subtrees → multi-pass resolution (primary from authoritative sources; secondary linked via xrefs; unlinked entities created) → saves entities + lookup tables.
 - **TripletRunner**: Loads ingest sources → walks ingest edges to build typed triplets (`food_food`, `food_chemical`, `chemical_chemical`, `chemical_disease`, `disease_disease`) → writes `triplets.parquet` + per-triplet `evidence.parquet` and `attestations.parquet`.
 - **IERunner**: Reads `backend/ie/outputs/extraction/<date>/extraction_predicted.tsv`, parses concentrations, resolves food/chemical names against the entity LUTs, and folds new triplets + attestations into the KG. Ambiguous resolutions are written separately to `attestations_ambiguous.parquet`.
 - **Enrichment**: Adds derived attributes (chemical classification, food classification, synonym display, flavors) and grouping artifacts. Writes outputs into `outputs/kg/intermediate/` and back-fills entity rows.
+- **TrustRunner**: Per-attestation trustworthiness signals (v1 LLM-plausibility judge using Gemini 2.5 Flash-Lite; future: faithfulness, range checks). Reads attestations + evidence, runs the configured judge, writes `trust_signals.parquet`. Configured under `pipeline.stages.trust` in the config JSON; needs `GOOGLE_API_KEY` for the v1 Gemini provider. The DB loader upserts these into a separate `TrustBase` table so signals survive `db load` rebuilds. See `scripts/spot_check_food.py` for ad-hoc per-food calibration runs that bypass the persistent parquet.
 
 Manual corrections live in `src/config/corrections.yaml` and are loaded by `EntityRunner` during Phase 2. **Phase 1 ingest stays faithful** to the source data (no IDs dropped, no xrefs remapped) — corrections only kick in once construct starts. This separation keeps ingest reproducible and makes corrections auditable in one place.
 
@@ -110,6 +114,7 @@ The pipeline writes parquet files to `outputs/kg/` (the loadable knowledge graph
 | `evidence.parquet` | Per-triplet evidence rows |
 | `attestations.parquet` | Per-triplet attestation/provenance |
 | `attestations_ambiguous.parquet` | Attestations whose entity resolution was ambiguous |
+| `trust_signals.parquet` | Per-attestation trust scores from the `trust` stage (one row per `(attestation, signal_kind, version, config_hash)`) |
 | `CHANGELOG.md` | Auto-generated diff vs. the previous run (consumed by `publish-bundle.sh`) |
 | `SUMMARY.md` | Human-readable summary of the run (entity/triplet counts, source coverage) |
 
@@ -166,7 +171,13 @@ kgc/
 │       │   ├── flavor.py
 │       │   ├── common_name.py
 │       │   ├── synonyms_display.py
-│       │   └── grouping/          # Chemical / food / MeSH grouping
+│       │   └── grouping/          # Chemical / food / MeSH grouping (currently dormant)
+│       ├── trust/                 # Stage 5: per-attestation trust signals
+│       │   ├── runner.py          # TrustRunner — selection + dispatch + parquet write
+│       │   ├── versions.py        # Version-bundle yaml loader + canonical config_hash
+│       │   ├── labels.py          # Score → label thresholds (config-tunable)
+│       │   ├── llm/               # Pluggable provider clients (gemini, bedrock stub, openai stub)
+│       │   └── versions/          # Per-(signal_kind, version) yml bundles (e.g. llm_plausibility/v1.yml)
 │       └── report/                # Diff against previous KG (CHANGELOG.md generator)
 ├── data/                          # Reference data sources (see data/README.md)
 ├── outputs/                       # Generated output directory

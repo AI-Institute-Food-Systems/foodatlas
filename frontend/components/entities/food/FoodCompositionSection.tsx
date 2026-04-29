@@ -31,7 +31,10 @@ import Pagination from "@/components/basic/Pagination";
 import LoadingCard from "@/components/basic/LoadingCard";
 import Heading from "@/components/basic/Heading";
 import { AmbiguityBadge } from "@/components/basic/Ambiguity";
-import FoodCompositionEvidenceModal from "@/components/entities/food/FoodCompositionEvidenceModal";
+import { TrustBadge } from "@/components/basic/TrustBadge";
+import FoodCompositionEvidenceModal, {
+  EvidenceFilter,
+} from "@/components/entities/food/FoodCompositionEvidenceModal";
 import { usePaginations } from "@/context/paginationsContext";
 import { encodeSpace, formatConcentrationValueAlt } from "@/utils/utils";
 import {
@@ -106,10 +109,10 @@ const FoodCompositionSection = ({
     direction: "desc",
   });
   const [showAllConcentrations, setShowAllConcentrations] = useState(true);
+  const [showLowTrust, setShowLowTrust] = useState(false);
   const [selectedEvidenceName, setSelectedEvidenceName] = useState("");
-  const [ambiguousFilter, setAmbiguousFilter] = useState<
-    "all" | "ambiguous" | "not-ambiguous"
-  >("all");
+  const [evidenceFilter, setEvidenceFilter] =
+    useState<EvidenceFilter>("all");
   const [sourceCounts, setSourceCounts] = useState<Record<string, number>>({});
   const [classificationFilter, setClassificationFilter] = useState<
     string[]
@@ -168,7 +171,8 @@ const FoodCompositionSection = ({
           searchTerm,
           sort,
           showAllConcentrations,
-          activeClsFilter
+          activeClsFilter,
+          showLowTrust ? "show_all" : "default"
         );
         // client-side filter: only keep rows with evidence from selected sources
         const filteredData = (
@@ -201,6 +205,7 @@ const FoodCompositionSection = ({
     searchTerm,
     sort,
     showAllConcentrations,
+    showLowTrust,
     classificationFilter,
     classificationCounts,
   ]);
@@ -218,7 +223,7 @@ const FoodCompositionSection = ({
   ) => {
     event.preventDefault();
     event.stopPropagation();
-    setAmbiguousFilter("all");
+    setEvidenceFilter("all");
     setSelectedEvidenceName(name);
   };
 
@@ -229,7 +234,18 @@ const FoodCompositionSection = ({
   ) => {
     event.preventDefault();
     event.stopPropagation();
-    setAmbiguousFilter("ambiguous");
+    setEvidenceFilter("ambiguous");
+    setSelectedEvidenceName(name);
+  };
+
+  // handle trust badge click (opens modal pre-filtered to low-trust)
+  const handleTrustBadgeClick = (
+    event: React.MouseEvent<HTMLButtonElement>,
+    name: string
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setEvidenceFilter("low-trust");
     setSelectedEvidenceName(name);
   };
 
@@ -245,6 +261,19 @@ const FoodCompositionSection = ({
     return all.filter((ev) =>
       ev.extraction.some((ex) => (ex.chemical_candidates?.length ?? 0) > 1)
     ).length;
+  };
+
+  // count evidences (= "data points") that contain ≥1 low-trust extraction.
+  // Only meaningful when showLowTrust is on (otherwise the API filtered them
+  // server-side and the annotation isn't on the response).
+  const getRowLowTrustCount = (row: FoodCompositionData) => {
+    const all = [
+      ...(row.foodatlas_evidences ?? []),
+      ...(row.fdc_evidences ?? []),
+      ...(row.dmd_evidences ?? []),
+    ];
+    return all.filter((ev) => ev.extraction.some((ex) => ex.trust_low === true))
+      .length;
   };
 
   // handle search
@@ -270,6 +299,11 @@ const FoodCompositionSection = ({
 
   const handleConcentrationSwitchChange = () => {
     setShowAllConcentrations((prev) => !prev);
+    setTablePaginations("food-composition-table", 1, 20);
+  };
+
+  const handleLowTrustSwitchChange = () => {
+    setShowLowTrust((prev) => !prev);
     setTablePaginations("food-composition-table", 1, 20);
   };
 
@@ -311,6 +345,19 @@ const FoodCompositionSection = ({
                 <Switch
                   checked={showAllConcentrations}
                   onChange={handleConcentrationSwitchChange}
+                  className="group inline-flex h-6 w-11 items-center rounded-full bg-light-700 data-[checked]:bg-accent-600 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 flex-shrink-0"
+                >
+                  <span className="size-4 translate-x-1 rounded-full bg-white transition group-data-[checked]:translate-x-6" />
+                </Switch>
+              </div>
+              {/* switch to surface low-trust data points */}
+              <div className="flex gap-3 items-center justify-between">
+                <span className="uppercase text-xs text-light-400 md:max-w-[10rem] lg:text-right">
+                  show low trustworthiness data points
+                </span>
+                <Switch
+                  checked={showLowTrust}
+                  onChange={handleLowTrustSwitchChange}
                   className="group inline-flex h-6 w-11 items-center rounded-full bg-light-700 data-[checked]:bg-accent-600 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 flex-shrink-0"
                 >
                   <span className="size-4 translate-x-1 rounded-full bg-white transition group-data-[checked]:translate-x-6" />
@@ -598,6 +645,13 @@ const FoodCompositionSection = ({
                               handleAmbiguityBadgeClick(e, row.name)
                             }
                           />
+                          <TrustBadge
+                            lowTrustCount={getRowLowTrustCount(row)}
+                            totalCount={getRowEvidenceCount(row)}
+                            onClick={(e) =>
+                              handleTrustBadgeClick(e, row.name)
+                            }
+                          />
                         </div>
                       </td>
                       {/* classification */}
@@ -704,7 +758,7 @@ const FoodCompositionSection = ({
           })()}
           isOpen={selectedEvidenceName !== ""}
           onClose={() => setSelectedEvidenceName("")}
-          initialFilter={ambiguousFilter}
+          initialFilter={evidenceFilter}
         />
       </Portal>
     </>

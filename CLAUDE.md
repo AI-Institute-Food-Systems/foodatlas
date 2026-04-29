@@ -14,7 +14,7 @@ This is a polyglot monorepo with independent sub-projects:
   - `api/` — FastAPI REST service (uvicorn, port 8000). Routes, repositories, config, auth.
   - `db/` — PostgreSQL schema (SQLAlchemy models, drop-and-recreate on each load), ETL pipeline (parquet → Postgres).
   - `ie/` — Information extraction pipeline (Click CLI, four stages: corpus → search → filtering → extraction). PubMed/PMC search + BioBERT filter + OpenAI batch extraction.
-  - `kgc/` — Knowledge graph construction pipeline (Click CLI, five stages: ingest → entities → triplets → ie → enrichment).
+  - `kgc/` — Knowledge graph construction pipeline (Click CLI, six stages: ingest → entities → triplets → ie → enrichment → trust). The `trust` stage emits per-attestation trustworthiness signals (v1: Gemini-based LLM plausibility judge) and writes `trust_signals.parquet`; the `db` loader upserts these onto a separate `TrustBase` so signals survive `db load` rebuilds.
 - **`frontend/`** — Next.js 14 app (React 18, TypeScript, Tailwind, App Router). Dev server runs on port 3001.
 - **`infra/`** — Local dev infrastructure (`infra/local/`, Docker Compose Postgres 16) and AWS CDK (`infra/aws/`).
 - **`docs/`** — Architecture and planning documents.

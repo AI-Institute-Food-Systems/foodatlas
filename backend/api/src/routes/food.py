@@ -1,12 +1,19 @@
 """Food entity API routes."""
 
+from typing import TYPE_CHECKING, cast
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.dependencies import get_db, verify_api_key
 from src.repositories import food, taxonomy
 
+if TYPE_CHECKING:
+    from src.repositories.trust_filter import TrustMode
+
 router = APIRouter(prefix="/food", dependencies=[Depends(verify_api_key)])
+
+_VALID_TRUST_MODES = ("default", "show_all", "low_only")
 
 
 @router.get("/metadata")
@@ -51,9 +58,18 @@ async def food_composition(
     sort_dir: str = Query("desc"),
     show_all_rows: str = Query("true"),
     filter_classification: str = Query(""),
+    trust: str = Query(
+        "default",
+        description=(
+            "Per-attestation trust filter. 'default' hides low-trust "
+            "extractions; 'show_all' returns everything; 'low_only' returns "
+            "only low-trust extractions."
+        ),
+    ),
     db: AsyncSession = Depends(get_db),
 ):
     show_all = show_all_rows.lower() != "false"
+    trust_mode = cast("TrustMode", trust if trust in _VALID_TRUST_MODES else "default")
     return await food.get_composition(
         db,
         common_name,
@@ -64,4 +80,5 @@ async def food_composition(
         sort_dir,
         show_all,
         filter_classification,
+        trust=trust_mode,
     )

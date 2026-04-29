@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ..utils.timing import log_duration
-from .checkpoint import load_checkpoint
+from .checkpoint import load_checkpoint, save_checkpoint
 from .enrichment.classification import classify_chemicals
 from .enrichment.flavor import apply_flavor_descriptions
 from .enrichment.food_classification import classify_foods
@@ -18,6 +18,7 @@ from .knowledge_graph import KnowledgeGraph
 from .load_sources import load_sources
 from .stages import ALL_STAGES, PipelineStage
 from .triplets.runner import TripletRunner
+from .trust.runner import TrustRunner
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -86,6 +87,11 @@ class PipelineRunner:
         classify_foods(kg.entities, kg.triplets)
         apply_flavor_descriptions(kg, sources)
         kg.save()
+        save_checkpoint(kg_dir, "enrichment")
+
+    def _run_trust(self) -> None:
+        runner = TrustRunner(self._settings)
+        runner.run()
 
 
 _STAGE_HANDLERS: dict[PipelineStage, Callable[[PipelineRunner], None]] = {
@@ -94,4 +100,5 @@ _STAGE_HANDLERS: dict[PipelineStage, Callable[[PipelineRunner], None]] = {
     PipelineStage.TRIPLETS: PipelineRunner._run_triplets,
     PipelineStage.IE: PipelineRunner._run_ie,
     PipelineStage.ENRICHMENT: PipelineRunner._run_enrichment,
+    PipelineStage.TRUST: PipelineRunner._run_trust,
 }

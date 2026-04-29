@@ -7,8 +7,10 @@ from pathlib import Path
 import click
 from src.config import DBSettings
 from src.engine import create_sync_engine
-from src.etl.loader import load_kg, refresh_materialized_views
+from src.etl.loader import load_kg, load_trust_only, refresh_materialized_views
 from src.etl.s3_sync import download_s3_prefix, is_s3_uri
+
+_LOAD_SCOPES = ["trust"]
 
 logging.basicConfig(
     level=logging.INFO,
@@ -35,24 +37,36 @@ def cli() -> None:
         "downloaded to a temporary directory first."
     ),
 )
-def load(parquet_dir: str) -> None:
+@click.option(
+    "--only",
+    type=click.Choice(_LOAD_SCOPES),
+    default=None,
+    help=(
+        "Load only the named subset, skipping the full ETL "
+        "(no schema drop, no base bulk-inserts, no MV refresh). "
+        "Currently supported: 'trust' — upserts trust_signals.parquet "
+        "into base_trust_signals (TrustBase, separate metadata)."
+    ),
+)
+def load(parquet_dir: str, only: str | None) -> None:
     """Load KGC parquet output into PostgreSQL."""
     settings = DBSettings()
     engine = create_sync_engine(settings)
+    loader = load_trust_only if only == "trust" else load_kg
 
     if is_s3_uri(parquet_dir):
         with tempfile.TemporaryDirectory(prefix="foodatlas-s3-") as tmp:
             local_dir = Path(tmp)
             download_s3_prefix(parquet_dir, local_dir)
             with engine.connect() as conn:
-                load_kg(conn, local_dir)
+                loader(conn, local_dir)
     else:
         local_path = Path(parquet_dir)
         if not local_path.exists():
             msg = f"Parquet directory does not exist: {local_path}"
             raise click.BadParameter(msg, param_hint="--parquet-dir")
         with engine.connect() as conn:
-            load_kg(conn, local_path)
+            loader(conn, local_path)
 
     click.echo("Done.")
 
