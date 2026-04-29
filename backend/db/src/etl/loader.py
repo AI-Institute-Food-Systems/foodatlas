@@ -4,15 +4,21 @@ import logging
 from pathlib import Path
 
 from sqlalchemy import text
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.engine import Connection
 
-from ..models import Base
+from ..models import Base, BaseTrustSignal, TrustBase
 from . import parquet_reader
 from .bulk_insert import bulk_copy
 from .materializer import refresh_all
 from .materializer_search import refresh_search
 
 logger = logging.getLogger(__name__)
+
+# Postgres caps a single statement at 65535 bind parameters (16-bit). With
+# ~10 columns per trust-signal row, batches of 5000 stay well under the cap
+# (50000 params) with safety margin for any future column additions.
+_UPSERT_BATCH_SIZE = 5000
 
 
 def _recreate_schema(conn: Connection) -> None:
@@ -22,6 +28,40 @@ def _recreate_schema(conn: Connection) -> None:
     conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
     Base.metadata.create_all(bind=conn)
     conn.commit()
+
+
+def _load_trust_signals(conn: Connection, kg_dir: Path) -> None:
+    """Idempotently create base_trust_signals (separate Base) and upsert rows.
+
+    Trust signals live on :class:`TrustBase`, distinct from :class:`Base`, so
+    ``_recreate_schema``'s ``Base.metadata.drop_all`` does not wipe them.
+    Re-running ``db load`` upserts (last-write-wins on signal_id) so a
+    successful retry from KGC overwrites a prior error row.
+    """
+    TrustBase.metadata.create_all(bind=conn)
+    df = parquet_reader.read_trust_signals(kg_dir)
+    if df is None or df.empty:
+        logger.info("No trust_signals.parquet to load (skipping).")
+        return
+
+    rows = df.to_dict(orient="records")
+    # Chunk to stay under Postgres' 65535-bind-parameter cap per statement.
+    for start in range(0, len(rows), _UPSERT_BATCH_SIZE):
+        chunk = rows[start : start + _UPSERT_BATCH_SIZE]
+        stmt = pg_insert(BaseTrustSignal).values(chunk)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=[BaseTrustSignal.signal_id],
+            set_={
+                "score": stmt.excluded.score,
+                "reason": stmt.excluded.reason,
+                "error_text": stmt.excluded.error_text,
+                "model": stmt.excluded.model,
+                "created_at": stmt.excluded.created_at,
+            },
+        )
+        conn.execute(stmt)
+    conn.commit()
+    logger.info("Upserted %d trust-signal rows.", len(rows))
 
 
 def load_kg(conn: Connection, parquet_dir: Path) -> None:
@@ -120,9 +160,25 @@ def load_kg(conn: Connection, parquet_dir: Path) -> None:
     )
     conn.commit()
 
-    # 4. Materialize API tables
+    # 4. Trust signals (optional, opt-in via KGC trust stage)
+    _load_trust_signals(conn, kg_dir)
+
+    # 5. Materialize API tables
     refresh_materialized_views(conn)
     logger.info("ETL complete.")
+
+
+def load_trust_only(conn: Connection, parquet_dir: Path) -> None:
+    """Upsert only ``trust_signals.parquet`` into ``base_trust_signals``.
+
+    Skips the full ETL — no schema drop, no base bulk-inserts, no MV refresh.
+    Trust signals are already isolated on :class:`TrustBase` and the API does
+    a query-time JOIN against them, so neither step is needed when iterating
+    on KGC's trust stage outputs alone.
+    """
+    kg_dir = parquet_dir.resolve()
+    logger.info("Loading trust signals only from %s", kg_dir)
+    _load_trust_signals(conn, kg_dir)
 
 
 def refresh_materialized_views(conn: Connection) -> None:

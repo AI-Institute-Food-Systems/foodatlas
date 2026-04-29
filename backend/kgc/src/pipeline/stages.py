@@ -15,6 +15,7 @@ class PipelineStage(Enum):
     TRIPLETS = 2
     IE = 3
     ENRICHMENT = 4
+    TRUST = 5
 
 
 ALL_STAGES: list[PipelineStage] = sorted(PipelineStage, key=lambda s: s.value)

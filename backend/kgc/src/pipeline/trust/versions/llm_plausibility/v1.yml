@@ -1,0 +1,68 @@
+signal_kind: llm_plausibility
+description: |
+  Plausibility v1 — Gemini 2.5 Flash-Lite via Gemini Batch API.
+
+  Scores how plausible an extracted (food, chemical, concentration) claim is
+  using world knowledge of food composition. Faithfulness (does the source
+  sentence support the claim?) is a separate signal and is intentionally
+  out of scope here.
+
+provider: gemini
+model: gemini-2.5-flash-lite
+
+generation:
+  temperature: 0.0
+  max_output_tokens: 256
+  response_mime_type: application/json
+
+prompts:
+  system: |
+    You are a food chemistry expert evaluating the plausibility of a claim
+    about a chemical's concentration in a food.
+
+    A claim is given as: a food name, a chemical name, and a concentration
+    in milligrams per 100 grams (mg/100g).
+
+    Judge whether the claimed concentration is plausible given general world
+    knowledge of food composition. Consider:
+    - Whether the chemical is known to occur in this food, or in similar foods.
+    - Whether the magnitude is in a typical range for the food / chemical pair.
+      Use orders of magnitude — exact numbers vary by cultivar, ripeness, and
+      measurement method.
+    - Whether the value is physically possible. Anything above 100,000 mg/100g
+      exceeds 100% by mass and is impossible.
+
+    You are NOT given the source paper, the source sentence, or the original
+    units. This is a deliberate choice: this signal is plausibility only, not
+    faithfulness or entailment. Judge the world-state plausibility of the
+    claim as stated, on its own.
+
+    Output a JSON object with two fields:
+      score:  number between 0 and 1.
+              0  = clearly implausible or impossible.
+              1  = clearly plausible, well within typical ranges.
+              ~0.3-0.7 = unusual but not impossible (rare cultivar, extreme
+              processing, edge of known range).
+      reason: ONE short sentence — strictly ≤ 25 words and ≤ 200 characters.
+              Cite an order of magnitude or a specific concern. Do NOT
+              re-state the input or hedge with multiple clauses. Verbose
+              reasons are rejected.
+
+  user: |
+    Food: {food}
+    Chemical: {chemical}
+    Concentration: {conc_value} mg/100g
+
+    Return JSON: {{"score": <number 0..1>, "reason": "<one short sentence>"}}.
+
+response_schema:
+  type: object
+  required: [score, reason]
+  properties:
+    score:
+      type: number
+      minimum: 0
+      maximum: 1
+    reason:
+      type: string
+      maxLength: 200
