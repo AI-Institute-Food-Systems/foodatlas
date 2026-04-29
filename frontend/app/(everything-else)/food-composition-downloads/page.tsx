@@ -68,9 +68,10 @@ const Downloads = async () => {
         </SubHeading>
         <Card className="mt-6">
           <p className="leading-relaxed text-light-200">
-            Li, F., Youn, J., Xie, K. et al. A unified knowledge graph linking
-            foodomics to chemical-disease networks and flavor profiles.{" "}
-            <i>npj Sci Food</i> <strong>10</strong>, 33 (2026).{" "}
+            Li, F., Youn, J., Xie, K., Chan, T., Gupta, P., Yoo, A., ... &
+            Tagkopoulos, I. (2026). A unified knowledge graph linking foodomics
+            to chemical-disease networks and flavor profiles.{" "}
+            <i>npj Science of Food</i>.{" "}
             <Link href="https://doi.org/10.1038/s41538-025-00680-9">
               https://doi.org/10.1038/s41538-025-00680-9
             </Link>

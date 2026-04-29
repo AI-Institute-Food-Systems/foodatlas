@@ -88,13 +88,10 @@ const TechnicalBackground = () => {
         </p>
         <p className="mt-2.5 text-lg leading-loose text-light-200">
           The following provides a brief overview of some of the methods and
-          technologies used. For a detailed look behind the scenes, refer to our
-          first{" "}
+          technologies used. For a detailed look behind the scenes, refer to our{" "}
           <Link
             className="whitespace-nowrap"
-            href={
-              "https://drive.google.com/file/d/1e9hfCT3Og-Mvsch5Rse0oNq_V4ua_mKo/view?usp=sharing"
-            }
+            href="https://doi.org/10.1038/s41538-025-00680-9"
           >
             publication
           </Link>
