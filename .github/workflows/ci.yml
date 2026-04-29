@@ -16,13 +16,8 @@ jobs:
     permissions:
       contents: read
     outputs:
-      api: ${{ steps.diff.outputs.api }}
-      db: ${{ steps.diff.outputs.db }}
-      ie: ${{ steps.diff.outputs.ie }}
-      kgc: ${{ steps.diff.outputs.kgc }}
       frontend: ${{ steps.diff.outputs.frontend }}
-      infra_aws: ${{ steps.diff.outputs.infra_aws }}
-      backend_projects: ${{ steps.diff.outputs.backend_projects }}
+      python_projects: ${{ steps.diff.outputs.python_projects }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -33,84 +28,30 @@ jobs:
           BASE=${{ github.event.pull_request.base.sha }}
           HEAD=${{ github.sha }}
           CHANGED=$(git diff --name-only "$BASE" "$HEAD" -- ':!*.md')
-          echo "api=$( echo "$CHANGED" | grep -q '^backend/api/' && echo true || echo false )" >> "$GITHUB_OUTPUT"
-          echo "db=$(  echo "$CHANGED" | grep -q '^backend/db/'  && echo true || echo false )" >> "$GITHUB_OUTPUT"
-          echo "ie=$(  echo "$CHANGED" | grep -q '^backend/ie/'  && echo true || echo false )" >> "$GITHUB_OUTPUT"
-          echo "kgc=$( echo "$CHANGED" | grep -q '^backend/kgc/' && echo true || echo false )" >> "$GITHUB_OUTPUT"
           echo "frontend=$( echo "$CHANGED" | grep -q '^frontend/' && echo true || echo false )" >> "$GITHUB_OUTPUT"
-          echo "infra_aws=$( echo "$CHANGED" | grep -q '^infra/aws/' && echo true || echo false )" >> "$GITHUB_OUTPUT"
-          projects='[]'
+          # python_projects carries {path, src} per project so all per-project
+          # jobs can `cd path` and target `src` uniformly across backend (src/)
+          # and infra/aws (stacks/).
+          python_projects='[]'
           for p in api db ie kgc; do
             if echo "$CHANGED" | grep -q "^backend/$p/"; then
-              projects=$(jq -cn --argjson a "$projects" --arg p "$p" '$a + [$p]')
+              python_projects=$(jq -cn --argjson a "$python_projects" --arg path "backend/$p" \
+                '$a + [{path: $path, src: "src"}]')
             fi
           done
-          echo "backend_projects=$projects" >> "$GITHUB_OUTPUT"
+          if echo "$CHANGED" | grep -q "^infra/aws/"; then
+            python_projects=$(jq -cn --argjson a "$python_projects" \
+              '$a + [{path: "infra/aws", src: "stacks"}]')
+          fi
+          echo "python_projects=$python_projects" >> "$GITHUB_OUTPUT"
 
   python-lint:
     needs: changes
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.db == 'true' || needs.changes.outputs.ie == 'true' || needs.changes.outputs.kgc == 'true' || needs.changes.outputs.infra_aws == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Ruff lint
-        uses: astral-sh/ruff-action@v3
-        with:
-          version: "0.15.8"
-          src: backend/ infra/aws/
-          args: check
-
-      - name: Ruff format check
-        uses: astral-sh/ruff-action@v3
-        with:
-          version: "0.15.8"
-          src: backend/ infra/aws/
-          args: format --check
-
-  python-security:
-    needs: changes
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.db == 'true' || needs.changes.outputs.ie == 'true' || needs.changes.outputs.kgc == 'true' || needs.changes.outputs.infra_aws == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install bandit
-        run: pip install "bandit[toml]"
-
-      - name: Bandit security scan
-        run: bandit -c pyproject.toml -r backend/ infra/aws/ --exclude "backend/api/tests,backend/db/tests,backend/ie/tests,backend/kgc/tests,backend/api/.venv,backend/db/.venv,backend/ie/.venv,backend/kgc/.venv,infra/aws/tests,infra/aws/.venv"
-
-  python-typecheck:
-    needs: changes
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.db == 'true' || needs.changes.outputs.ie == 'true' || needs.changes.outputs.kgc == 'true' || needs.changes.outputs.infra_aws == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install mypy
-        run: pip install mypy types-requests types-beautifulsoup4 types-PyYAML
-
-      - name: Mypy type check
-        run: mypy --explicit-package-bases --exclude '\.venv' backend/ infra/aws/
-
-  backend-test:
-    needs: changes
-    if: needs.changes.outputs.backend_projects != '[]'
+    if: needs.changes.outputs.python_projects != '[]'
     strategy:
       fail-fast: false
       matrix:
-        project: ${{ fromJSON(needs.changes.outputs.backend_projects) }}
+        project: ${{ fromJSON(needs.changes.outputs.python_projects) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -121,36 +62,84 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Test backend/${{ matrix.project }}
-        run: cd backend/${{ matrix.project }} && uv sync && uv run pytest
+      - name: Ruff lint ${{ matrix.project.path }}
+        run: cd ${{ matrix.project.path }} && uv sync && uv run ruff check .
 
-  infra-aws-test:
+      - name: Ruff format check ${{ matrix.project.path }}
+        run: cd ${{ matrix.project.path }} && uv run ruff format --check .
+
+  python-security:
     needs: changes
-    if: needs.changes.outputs.infra_aws == 'true'
+    if: needs.changes.outputs.python_projects != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        project: ${{ fromJSON(needs.changes.outputs.python_projects) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v5
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      - name: Set up Node.js (for cdk synth)
+      - name: Bandit security scan ${{ matrix.project.path }}
+        run: cd ${{ matrix.project.path }} && uv sync && uv run bandit -c "$GITHUB_WORKSPACE/pyproject.toml" -r ${{ matrix.project.src }}
+
+  python-typecheck:
+    needs: changes
+    if: needs.changes.outputs.python_projects != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        project: ${{ fromJSON(needs.changes.outputs.python_projects) }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Mypy type check ${{ matrix.project.path }}
+        run: cd ${{ matrix.project.path }} && uv sync && uv run mypy --explicit-package-bases ${{ matrix.project.src }}
+
+  python-test:
+    needs: changes
+    if: needs.changes.outputs.python_projects != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        project: ${{ fromJSON(needs.changes.outputs.python_projects) }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Node.js (CDK synth, infra/aws only)
+        if: matrix.project.path == 'infra/aws'
         uses: actions/setup-node@v4
         with:
           node-version: "20"
 
-      - name: Install CDK CLI
+      - name: Install CDK CLI (infra/aws only)
+        if: matrix.project.path == 'infra/aws'
         run: npm install -g aws-cdk@2
 
-      - name: Run CDK tests
-        run: cd infra/aws && uv sync && uv run pytest
+      - name: Test ${{ matrix.project.path }}
+        run: cd ${{ matrix.project.path }} && uv sync && uv run pytest
 
-      - name: CDK synth
+      - name: CDK synth (infra/aws only)
+        if: matrix.project.path == 'infra/aws'
         run: cd infra/aws && uv run cdk synth --quiet
         env:
           CDK_DEFAULT_ACCOUNT: "000000000000"
@@ -226,8 +215,7 @@ jobs:
       - python-lint
       - python-security
       - python-typecheck
-      - backend-test
-      - infra-aws-test
+      - python-test
       - frontend-lint
       - frontend-build
       - frontend-test

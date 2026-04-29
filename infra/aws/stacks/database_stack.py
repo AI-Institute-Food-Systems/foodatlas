@@ -13,7 +13,7 @@ means ~15 min of downtime while RDS restores from backup — acceptable at
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import aws_cdk as cdk
 from aws_cdk import Duration, RemovalPolicy
@@ -37,7 +37,7 @@ class DatabaseStack(cdk.Stack):
         construct_id: str,
         *,
         vpc: ec2.IVpc,
-        **kwargs: object,
+        **kwargs: Any,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
