@@ -159,8 +159,9 @@ def _build_extractions_vectorized(
 
     return pd.Series(
         [
-            _make_extraction(sf, sc, cr, cv, cu, src, hc, tc)
-            for sf, sc, cr, cv, cu, src, hc, tc in zip(
+            _make_extraction(att_id, sf, sc, cr, cv, cu, src, hc, tc)
+            for att_id, sf, sc, cr, cv, cu, src, hc, tc in zip(
+                df["attestation_id"],
                 df["show_food"],
                 df["show_chem"],
                 conc_raw,
@@ -177,6 +178,7 @@ def _build_extractions_vectorized(
 
 
 def _make_extraction(
+    attestation_id: str,
     sf: str,
     sc: str,
     cr: str | None,
@@ -186,7 +188,12 @@ def _make_extraction(
     head_candidates: list[str] | None,
     tail_candidates: list[str] | None,
 ) -> dict:
+    # `attestation_id` is exposed on every evidence dict (fdc/foodatlas/dmd)
+    # so the API can JOIN against base_trust_signals at request time without
+    # re-aggregating from base tables. FDC and DMD attestations don't carry
+    # trust signals today; they're surfaced for symmetry and future use.
     extraction: dict = {
+        "attestation_id": attestation_id,
         "extracted_food_name": sf,
         "extracted_chemical_name": sc,
         "extracted_concentration": cr,

@@ -95,6 +95,7 @@ class TestBuildEvidenceJson:
         return pd.DataFrame(
             [
                 {
+                    "attestation_id": "at_test",
                     "source": source,
                     "reference": {
                         "url": "https://example.com",
@@ -154,6 +155,7 @@ class TestBuildEvidenceJson:
         group = pd.DataFrame(
             [
                 {
+                    "attestation_id": "at_test",
                     "source": "fdc",
                     "reference": {"fdc_id": "12345", "url": "https://fdc.example.com"},
                     "conc_value": 10.0,
@@ -173,6 +175,7 @@ class TestBuildEvidenceJson:
         group = pd.DataFrame(
             [
                 {
+                    "attestation_id": "at_test",
                     "source": "dmd",
                     "reference": {
                         "dmd_concentration_id": "dmd99",
@@ -195,6 +198,7 @@ class TestBuildEvidenceJson:
         group = pd.DataFrame(
             [
                 {
+                    "attestation_id": "at_a",
                     "source": "lit2kg",
                     "reference": {"pmcid": "PMC1", "text": "same premise"},
                     "conc_value": 5.0,
@@ -205,6 +209,7 @@ class TestBuildEvidenceJson:
                     "show_chem": "vit c",
                 },
                 {
+                    "attestation_id": "at_b",
                     "source": "lit2kg",
                     "reference": {"pmcid": "PMC1", "text": "same premise"},
                     "conc_value": 10.0,
@@ -225,6 +230,7 @@ class TestBuildEvidenceJson:
         group = pd.DataFrame(
             [
                 {
+                    "attestation_id": "at_test",
                     "source": "fdc",
                     "reference": "not_a_dict",
                     "conc_value": 10.0,
@@ -242,6 +248,7 @@ class TestBuildEvidenceJson:
     def test_empty_group_returns_all_none(self):
         group = pd.DataFrame(
             columns=[
+                "attestation_id",
                 "source",
                 "reference",
                 "conc_value",
@@ -267,6 +274,7 @@ class TestBuildEvidenceJson:
         group = pd.DataFrame(
             [
                 {
+                    "attestation_id": "at_test",
                     "source": "lit2kg",
                     "reference": {"pmcid": "", "text": "premise"},
                     "conc_value": 5.0,
@@ -289,6 +297,7 @@ class TestAmbiguousCandidates:
         return pd.DataFrame(
             [
                 {
+                    "attestation_id": "at_test",
                     "source": "lit2kg",
                     "reference": {"pmcid": "PMC1", "text": "t"},
                     "conc_value": 10.0,

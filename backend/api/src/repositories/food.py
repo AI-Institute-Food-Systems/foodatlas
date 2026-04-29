@@ -3,7 +3,10 @@
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.config import APISettings
+
 from .formatting import format_external_ids
+from .trust_filter import TrustMode, apply_trust_filter
 
 ROWS_PER_PAGE = 25
 
@@ -132,8 +135,19 @@ async def get_composition(
     show_all_rows: bool = True,
     filter_classification: str = "",
     rows_per_page: int = ROWS_PER_PAGE,
+    trust: TrustMode = "default",
 ) -> dict[str, object]:
-    """Get paginated food chemical composition with filtering/sorting."""
+    """Get paginated food chemical composition with filtering/sorting.
+
+    The ``trust`` param controls per-attestation visibility:
+    ``default`` hides extractions whose llm_plausibility score is below
+    :attr:`APISettings.trust_low_threshold`; ``show_all`` returns everything
+    so the UI can render low-trust items with a warning icon; ``low_only``
+    returns only the low-trust items. Filtering happens after pagination
+    today, so page sizes for the non-default modes may be slightly under
+    ``rows_per_page`` — acceptable trade-off for v1; revisit if pagination
+    accuracy becomes a real UX issue.
+    """
     sources = [s for s in filter_source.split("+") if s] if filter_source else []
     if filter_source and not sources:
         return _empty_composition(rows_per_page)
@@ -169,6 +183,9 @@ async def get_composition(
     count_result = await session.execute(text(count_sql), count_params)
     total_rows = count_result.scalar() or 0
     total_pages = (total_rows + rows_per_page - 1) // rows_per_page if total_rows else 0
+
+    threshold = APISettings().trust_low_threshold
+    data = await apply_trust_filter(session, data, mode=trust, threshold=threshold)
 
     return {
         "data": data,
