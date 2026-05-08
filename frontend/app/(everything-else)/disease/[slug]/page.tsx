@@ -1,4 +1,5 @@
 import { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
 import DiseaseCorrelationsSection from "@/components/entities/disease/DiseaseCorrelationsSection";
@@ -20,11 +21,12 @@ export async function generateMetadata({
   const commonName = decodeSpace(decodeURIComponent(slug));
 
   const metaData = await getMetaData(commonName, "disease");
+  if (!metaData) notFound();
 
   return {
-    title: `${toTitleCase(metaData?.common_name)} and Your Health`,
+    title: `${toTitleCase(metaData.common_name)} and Your Health`,
     description: `Evidence-based correlations between ${toTitleCase(
-      metaData?.common_name
+      metaData.common_name
     )} and the foods that contain it.`,
   };
 }

@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { Metadata } from "next";
+import { notFound } from "next/navigation";
 
 import FoodCompositionSection from "@/components/entities/food/FoodCompositionSection";
 import HeaderSection from "@/components/entities/HeaderSection";
@@ -22,6 +23,7 @@ export async function generateMetadata({
   const commonName = decodeSpace(decodeURIComponent(slug));
 
   const metaData = await getMetaData(commonName, "food");
+  if (!metaData) notFound();
 
   return {
     title: `${toTitleCase(metaData.common_name)} - Food Composition`,
