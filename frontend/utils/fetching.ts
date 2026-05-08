@@ -1,10 +1,11 @@
 import { MacroAndMicroData, Metadata, TaxonomyData } from "@/types";
 
 // fetch metadata for a given entity
+// returns null when no entity matches the given common name
 export async function getMetaData(
   commonName: string,
   entityType: string
-): Promise<Metadata> {
+): Promise<Metadata | null> {
   const res = await fetch(
     `${
       process.env.NEXT_PUBLIC_API_URL
@@ -23,7 +24,7 @@ export async function getMetaData(
 
   const data = await res.json();
 
-  return data.data[0];
+  return data.data[0] ?? null;
 }
 
 // fetch taxonomy ancestry for a given entity
