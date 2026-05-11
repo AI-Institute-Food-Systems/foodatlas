@@ -3,6 +3,18 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: false,
+  rewrites: async () => [
+    // Proxy umami through a first-party path so adblock pattern rules
+    // (||umami.*, /script.js, /api/send) don't match.
+    {
+      source: "/_a/script.js",
+      destination: "https://umami.aifs.ucdavis.edu/script.js",
+    },
+    {
+      source: "/_a/api/send",
+      destination: "https://umami.aifs.ucdavis.edu/api/send",
+    },
+  ],
   redirects: async () => [
     // old urls
     {
