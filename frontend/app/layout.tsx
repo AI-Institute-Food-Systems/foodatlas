@@ -1,5 +1,6 @@
 import { Portal } from "@headlessui/react";
 import { GoogleAnalytics } from "@next/third-parties/google";
+import Script from "next/script";
 
 import Providers from "@/app/providers";
 import SearchBar from "@/components/search/SearchBar";
@@ -28,6 +29,14 @@ const Layout = ({ children }: ClientLayoutProps) => {
         <GoogleAnalytics
           gaId={process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ?? ""}
         />
+        {process.env.VERCEL_ENV === "production" && (
+          <Script
+            defer
+            src="/_a/script.js"
+            data-website-id="a63b88b0-aa17-4ca1-a3c6-62a568fe0757"
+            data-host-url="/_a"
+          />
+        )}
         <Providers>
           <main id="main-content">
             {children}
