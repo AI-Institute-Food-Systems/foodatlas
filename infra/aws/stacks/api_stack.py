@@ -90,6 +90,23 @@ class ApiStack(cdk.Stack):
             ),
         )
 
+        # Hashed public /v1/ API keys: a JSON object keyed by sha256(key) with
+        # {email, created, notes} metadata. Initial value is an empty object;
+        # new keys are issued via ``backend/api/scripts/issue_public_key.py``
+        # and pasted in with ``aws secretsmanager update-secret``. The API
+        # loads this at startup and refreshes every few minutes so adding a
+        # key never requires a redeploy.
+        public_keys_secret = secretsmanager.Secret(
+            self,
+            "ApiPublicKeysSecret",
+            secret_name="foodatlas/public-api-keys",
+            description=(
+                "Hashed public /v1/ API keys "
+                "({sha256(key): {email, created, notes}})."
+            ),
+            secret_string_value=cdk.SecretValue.unsafe_plain_text("{}"),
+        )
+
         task_definition = ecs.FargateTaskDefinition(
             self,
             "ApiTaskDefinition",
@@ -129,6 +146,8 @@ class ApiStack(cdk.Stack):
                 "KGC_BUCKET": kgc_bucket.bucket_name,
                 "API_DOWNLOADS_BUCKET": downloads_bucket.bucket_name,
                 "API_DOWNLOADS_REGION": cdk.Stack.of(self).region,
+                "API_PUBLIC_KEYS_SECRET_NAME": public_keys_secret.secret_name,
+                "API_AWS_REGION": cdk.Stack.of(self).region,
             },
             secrets={
                 "DB_USER": ecs.Secret.from_secrets_manager(db_secret, "username"),
@@ -142,6 +161,10 @@ class ApiStack(cdk.Stack):
 
         # Task role needs read access to KGC bucket for ad-hoc fetches
         kgc_bucket.grant_read(task_definition.task_role)
+
+        # Read access to the public-keys secret. The API polls this at runtime
+        # via boto3 so we cannot inject the value once at task start.
+        public_keys_secret.grant_read(task_definition.task_role)
 
         cert_arn = self.node.try_get_context("api_cert_arn")
         service_kwargs: dict[str, Any] = {
@@ -200,5 +223,17 @@ class ApiStack(cdk.Stack):
                 "Secrets Manager ARN for the API bearer token. Fetch the "
                 "value with: aws secretsmanager get-secret-value "
                 "--secret-id <arn> --query SecretString --output text"
+            ),
+        )
+
+        cdk.CfnOutput(
+            self,
+            "ApiPublicKeysSecretArn",
+            value=public_keys_secret.secret_arn,
+            description=(
+                "Secrets Manager ARN holding the JSON object of hashed "
+                "public /v1/ API keys. Issue new keys with "
+                "backend/api/scripts/issue_public_key.py and merge them in "
+                "with aws secretsmanager update-secret."
             ),
         )
