@@ -46,13 +46,13 @@ class TestParseSecretPayload:
         payload = json.dumps({_hash("k"): "scalar"})
         assert _parse_secret_payload(payload) == {}
 
-    def test_invalid_json_raises(self) -> None:
-        with pytest.raises(ValueError, match="not valid JSON"):
-            _parse_secret_payload("{not json")
+    def test_invalid_json_returns_empty(self) -> None:
+        # CDK provisions the secret with a non-JSON placeholder; the loader
+        # must treat that as "no keys configured" rather than crashing.
+        assert _parse_secret_payload("{not json") == {}
 
-    def test_non_object_raises(self) -> None:
-        with pytest.raises(ValueError, match="JSON object"):
-            _parse_secret_payload("[]")
+    def test_non_object_returns_empty(self) -> None:
+        assert _parse_secret_payload("[]") == {}
 
 
 class TestPublicKeyStoreVerify:

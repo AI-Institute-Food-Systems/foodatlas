@@ -123,15 +123,26 @@ def _hash(token: str) -> str:
 
 
 def _parse_secret_payload(raw: str) -> dict[str, KeyRecord]:
-    """Parse the secret JSON; drop malformed entries with a warning."""
+    """Parse the secret JSON; log and return empty on malformed payloads.
+
+    A non-JSON payload is the expected state when CDK first provisions the
+    secret (placeholder random string) — we treat it the same as "no keys
+    configured yet". Anything stricter than that has us crashing the API on
+    fresh deploys; the internal-key auth path still works regardless.
+    """
     try:
         payload = json.loads(raw or "{}")
     except json.JSONDecodeError as exc:
-        msg = f"public_keys secret is not valid JSON: {exc}"
-        raise ValueError(msg) from exc
+        logger.warning(
+            "public_keys: secret is not valid JSON, treating as empty: %s", exc
+        )
+        return {}
     if not isinstance(payload, dict):
-        msg = "public_keys secret must be a JSON object keyed by key hash"
-        raise ValueError(msg)
+        logger.warning(
+            "public_keys: secret must be a JSON object keyed by key hash, got %s",
+            type(payload).__name__,
+        )
+        return {}
     out: dict[str, KeyRecord] = {}
     for key_hash, meta in payload.items():
         if not isinstance(key_hash, str) or len(key_hash) != 64:
