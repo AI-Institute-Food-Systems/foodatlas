@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from src.config import APISettings
+from src.public_keys import get_store
 
 
 class DBSettings(BaseSettings):
@@ -82,3 +83,32 @@ async def verify_api_key(
     auth = request.headers.get("Authorization", "")
     if auth != f"Bearer {settings.key}":
         raise HTTPException(status_code=401, detail="Invalid API key")
+
+
+async def verify_v1_key(
+    request: Request,
+    settings: APISettings = _settings_dep,
+) -> None:
+    """Authorise /v1/* requests with either the internal key or a public key.
+
+    Accept order: debug bypass → internal ``settings.key`` (the frontend) →
+    sha256 hash matches a record in :class:`PublicKeyStore`. Misses 401.
+
+    The matched public key's email is stashed on ``request.state.api_key_email``
+    so future logging middleware can attribute usage without re-reading
+    headers.
+    """
+    if settings.debug:
+        return
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Invalid API key")
+    token = auth[len("Bearer ") :]
+    if settings.key and token == settings.key:
+        request.state.api_key_email = "internal"
+        return
+    store = get_store()
+    record = store.verify(token) if store is not None else None
+    if record is None:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+    request.state.api_key_email = record.email
