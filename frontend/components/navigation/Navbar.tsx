@@ -12,7 +12,7 @@ import { SearchContext } from "@/context/searchContext";
 
 const NAV_ITEMS = [
   { text: "Background", href: "/technical-background" },
-  // { text: "API", href: "/food-composition-api" },
+  { text: "API", href: "/developers" },
   { text: "Downloads", href: "/food-composition-downloads" },
   { text: "About", href: "/about" },
   { text: "Contact", href: "/contact" },

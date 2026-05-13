@@ -7,7 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 from src.app import create_app
 from src.config import APISettings
-from src.dependencies import get_db, get_settings, verify_api_key
+from src.dependencies import get_db, get_settings, verify_api_key, verify_v1_key
 
 
 def _make_debug_settings() -> APISettings:
@@ -33,6 +33,7 @@ def _build_client(settings: APISettings, mock_db: AsyncMock) -> TestClient:
 
     app.dependency_overrides[get_db] = _override_db
     app.dependency_overrides[verify_api_key] = _override_verify
+    app.dependency_overrides[verify_v1_key] = _override_verify
     app.dependency_overrides[get_settings] = lambda: settings
 
     return TestClient(app, raise_server_exceptions=False)
