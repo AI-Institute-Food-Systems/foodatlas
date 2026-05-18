@@ -10,14 +10,10 @@ import SubHeading from "@/components/basic/SubHeading";
 export const metadata: Metadata = {
   title: "Developers | FoodAtlas Public API",
   description:
-    "Programmatic access to the FoodAtlas knowledge graph. Authenticate with an API key, then call any /v1/ endpoint. Email aifs@ucdavis.edu to request a key.",
+    "Programmatic access to the FoodAtlas knowledge graph. Authenticate with an API key, then call any /v1/ endpoint. Request a key via the contact form.",
 };
 
 const API_BASE = "https://api.foodatlas.ai";
-const MAILTO =
-  "mailto:aifs@ucdavis.edu" +
-  "?subject=FoodAtlas%20API%20key%20request" +
-  "&body=Name%3A%0AAffiliation%3A%0AIntended%20use%3A%0A";
 
 const CURL_EXAMPLE = `curl -H "Authorization: Bearer YOUR_KEY" \\
   ${API_BASE}/v1/foods/FA:0001`;
@@ -103,9 +99,9 @@ const Developers = () => {
         <Card>
           <p className="text-lg font-light text-light-300">
             Keys are issued by hand to keep the door open without inviting
-            abuse. Email{" "}
-            <Link href={MAILTO} isExternal={true}>
-              aifs@ucdavis.edu
+            abuse.{" "}
+            <Link href="/contact?api-access" isExternal={false}>
+              Request access via the contact form
             </Link>{" "}
             with your name, affiliation, and a one-line description of what
             you&apos;re building. You&apos;ll usually hear back within a few
