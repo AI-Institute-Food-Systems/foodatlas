@@ -113,11 +113,15 @@ class ApiStack(cdk.Stack):
             ),
         )
 
+        # 0.5 vCPU / 1 GB — the smallest Fargate tier (0.25/512) was
+        # starvation-prone under any concurrent load (see stress-test in
+        # issue #187). One step up gives headroom without changing cost
+        # category materially.
         task_definition = ecs.FargateTaskDefinition(
             self,
             "ApiTaskDefinition",
-            cpu=256,
-            memory_limit_mib=512,
+            cpu=512,
+            memory_limit_mib=1024,
             runtime_platform=ecs.RuntimePlatform(
                 cpu_architecture=ecs.CpuArchitecture.X86_64,
                 operating_system_family=ecs.OperatingSystemFamily.LINUX,
@@ -176,7 +180,11 @@ class ApiStack(cdk.Stack):
         service_kwargs: dict[str, Any] = {
             "cluster": self.cluster,
             "task_definition": task_definition,
-            "desired_count": 1,
+            # Baseline of 2 tasks gives HA across deploys (min_healthy=100
+            # means rolling deploys never drop below this) and ~headroom
+            # for one task's worth of measured saturation (~50 RPS).
+            # Autoscaling configured below takes us up to 6 if load grows.
+            "desired_count": 2,
             "min_healthy_percent": 100,
             "public_load_balancer": True,
             "assign_public_ip": True,
@@ -211,6 +219,24 @@ class ApiStack(cdk.Stack):
             timeout=Duration.seconds(5),
             healthy_threshold_count=2,
             unhealthy_threshold_count=3,
+        )
+
+        # Auto-scale on ALB request rate. Target 1800 req/min/task (= 30
+        # RPS/task) — about half of the per-task saturation measured in
+        # the stress test (issue #187), giving us a buffer before
+        # latency degrades. Scale-out is aggressive (1 min cooldown);
+        # scale-in is conservative (3 min) so transient dips don't churn
+        # tasks.
+        scaling = self.service.service.auto_scale_task_count(
+            min_capacity=2,
+            max_capacity=6,
+        )
+        scaling.scale_on_request_count(
+            "ApiRequestRateScaling",
+            requests_per_target=1800,
+            target_group=self.service.target_group,
+            scale_in_cooldown=Duration.seconds(180),
+            scale_out_cooldown=Duration.seconds(60),
         )
 
         scheme = "https" if cert_arn else "http"
