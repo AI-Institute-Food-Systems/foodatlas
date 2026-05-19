@@ -28,3 +28,9 @@ class APISettings(BaseSettings):
     public_keys_secret_name: str = ""
     public_keys_refresh_seconds: int = 300
     aws_region: str = "us-west-1"
+    # /v1/ per-API-key rate limit. The internal key (frontend SSR path)
+    # always bypasses. Disabled in debug mode and when
+    # ``rate_limit_enabled`` is False.
+    rate_limit_enabled: bool = True
+    rate_limit_per_minute: int = 60
+    rate_limit_burst: int = 10
