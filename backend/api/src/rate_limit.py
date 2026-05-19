@@ -7,7 +7,7 @@ bypasses; every distinct public key gets its own bucket.
 
 Storage is per-process. When the API runs on more than one Fargate task
 (see issue #187), each task tracks its own buckets, so the effective
-cluster-wide rate is N× the configured per-task rate. Acceptable while
+cluster-wide rate is N times the configured per-task rate. Acceptable while
 the task count is small; swap to a Redis-backed limiter if/when that
 ceases to be true.
 
