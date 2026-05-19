@@ -9,6 +9,7 @@ from fastapi.openapi.utils import get_openapi
 from src.config import APISettings
 from src.dependencies import init_session_factory
 from src.public_keys import get_store, init_store
+from src.rate_limit import TokenBucketLimiter
 from src.routes import chemical, disease, download, food, metadata, resolve
 from src.routes import v1 as v1_routes
 
@@ -24,8 +25,10 @@ a key, use the contact form at https://www.foodatlas.ai/contact?api-access
 and provide your name, affiliation, and intended use.
 
 ### Rate limits
-No per-key limits are enforced today. Please be polite; we will reach out
-if usage looks abusive.
+Each key is limited to 60 requests per minute, with a burst capacity of 10
+(meaning short spikes up to 10 requests can land at once before throttling
+kicks in). Over-limit requests receive `429 Too Many Requests` with a
+`Retry-After` header indicating when capacity will be available again.
 
 ### Versioning & terms
 Endpoints under `/v1/` follow a stable contract. Use is intended for
@@ -67,6 +70,12 @@ def create_app(settings: APISettings | None = None) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    if settings.rate_limit_enabled and not settings.debug:
+        app.state.rate_limiter = TokenBucketLimiter(
+            sustained_per_min=settings.rate_limit_per_minute,
+            burst=settings.rate_limit_burst,
+        )
 
     @app.get("/health", tags=["health"])
     async def health() -> dict[str, str]:
