@@ -29,9 +29,11 @@ kicks in). Over-limit requests receive `429 Too Many Requests` with a
 `Retry-After` header indicating when capacity will be available again.
 
 ### Versioning & terms
-Endpoints under `/v1/` follow a stable contract. Use is intended for
-academic and non-commercial research. Cite FoodAtlas in any published work
-that uses this data.
+Endpoints under `/v1/` follow a stable contract. FoodAtlas is a publicly
+funded research project (USDA-NSF); its data and code are released under
+the Apache 2.0 license, which permits both academic and commercial use.
+A citation in any published work that uses this data is appreciated but
+not required.
 """.strip()
 
 
@@ -57,7 +59,10 @@ def create_app(settings: APISettings | None = None) -> FastAPI:
         version="1.0.0",
         description=PUBLIC_API_DESCRIPTION,
         contact={"name": "FoodAtlas Team", "email": "aifs@ucdavis.edu"},
-        license_info={"name": "Academic use only"},
+        license_info={
+            "name": "Apache License 2.0",
+            "url": "https://www.apache.org/licenses/LICENSE-2.0",
+        },
         lifespan=lifespan,
     )
 
