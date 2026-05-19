@@ -6,7 +6,10 @@ from src.config import APISettings
 from src.dependencies import get_settings, verify_api_key
 from src.repositories import downloads
 
-router = APIRouter(dependencies=[Depends(verify_api_key)])
+router = APIRouter(
+    dependencies=[Depends(verify_api_key)],
+    include_in_schema=False,
+)
 
 
 @router.get("/download")

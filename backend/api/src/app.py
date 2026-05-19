@@ -15,9 +15,7 @@ from src.routes import v1 as v1_routes
 
 PUBLIC_API_DESCRIPTION = """
 FoodAtlas exposes its food-chemical-disease knowledge graph through a
-versioned public REST API under `/v1/`. Internal UI routes (e.g. `/food/`,
-`/chemical/`) are not part of the public contract; use `/v1/` for any
-external integration.
+versioned public REST API under `/v1/`.
 
 ### Authentication
 All `/v1/` requests must include `Authorization: Bearer <key>`. To request
@@ -31,9 +29,11 @@ kicks in). Over-limit requests receive `429 Too Many Requests` with a
 `Retry-After` header indicating when capacity will be available again.
 
 ### Versioning & terms
-Endpoints under `/v1/` follow a stable contract. Use is intended for
-academic and non-commercial research. Cite FoodAtlas in any published work
-that uses this data.
+Endpoints under `/v1/` follow a stable contract. FoodAtlas is a publicly
+funded research project (USDA-NSF); its data and code are released under
+the Apache 2.0 license, which permits both academic and commercial use.
+A citation in any published work that uses this data is appreciated but
+not required.
 """.strip()
 
 
@@ -59,7 +59,10 @@ def create_app(settings: APISettings | None = None) -> FastAPI:
         version="1.0.0",
         description=PUBLIC_API_DESCRIPTION,
         contact={"name": "FoodAtlas Team", "email": "aifs@ucdavis.edu"},
-        license_info={"name": "Academic use only"},
+        license_info={
+            "name": "Apache License 2.0",
+            "url": "https://www.apache.org/licenses/LICENSE-2.0",
+        },
         lifespan=lifespan,
     )
 
@@ -77,7 +80,7 @@ def create_app(settings: APISettings | None = None) -> FastAPI:
             burst=settings.rate_limit_burst,
         )
 
-    @app.get("/health", tags=["health"])
+    @app.get("/health", tags=["health"], include_in_schema=False)
     async def health() -> dict[str, str]:
         """Liveness probe for the ALB target group (no auth required)."""
         return {"status": "ok"}

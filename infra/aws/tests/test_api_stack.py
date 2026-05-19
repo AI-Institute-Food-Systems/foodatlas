@@ -60,10 +60,52 @@ def test_task_definition_has_correct_cpu_and_memory() -> None:
         "AWS::ECS::TaskDefinition",
         Match.object_like(
             {
-                "Cpu": "256",
-                "Memory": "512",
+                "Cpu": "512",
+                "Memory": "1024",
                 "NetworkMode": "awsvpc",
                 "RequiresCompatibilities": ["FARGATE"],
+            },
+        ),
+    )
+
+
+def test_service_baseline_desired_count_is_two() -> None:
+    template = _synth()
+    template.has_resource_properties(
+        "AWS::ECS::Service",
+        Match.object_like({"DesiredCount": 2}),
+    )
+
+
+def test_autoscaling_configured_min_two_max_six() -> None:
+    template = _synth()
+    template.has_resource_properties(
+        "AWS::ApplicationAutoScaling::ScalableTarget",
+        Match.object_like(
+            {
+                "MinCapacity": 2,
+                "MaxCapacity": 6,
+                "ServiceNamespace": "ecs",
+            },
+        ),
+    )
+
+
+def test_autoscaling_targets_alb_request_rate() -> None:
+    template = _synth()
+    template.has_resource_properties(
+        "AWS::ApplicationAutoScaling::ScalingPolicy",
+        Match.object_like(
+            {
+                "PolicyType": "TargetTrackingScaling",
+                "TargetTrackingScalingPolicyConfiguration": Match.object_like(
+                    {
+                        "TargetValue": 1800,
+                        "PredefinedMetricSpecification": Match.object_like(
+                            {"PredefinedMetricType": "ALBRequestCountPerTarget"},
+                        ),
+                    },
+                ),
             },
         ),
     )
