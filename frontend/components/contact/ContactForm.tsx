@@ -17,15 +17,15 @@ import Card from "@/components/basic/Card";
 import { twMerge } from "tailwind-merge";
 
 interface ContactFormProps {
-  isApiAccressRequest: boolean;
+  isApiAccessRequest: boolean;
 }
 
-const ContactForm = ({ isApiAccressRequest }: ContactFormProps) => {
+const ContactForm = ({ isApiAccessRequest }: ContactFormProps) => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [affiliation, setAffiliation] = useState("");
   const [topic, setTopic] = useState(
-    isApiAccressRequest ? "API Access Request" : "General Inquiry"
+    isApiAccessRequest ? "API Access Request" : "General Inquiry"
   );
   const [message, setMessage] = useState("");
 

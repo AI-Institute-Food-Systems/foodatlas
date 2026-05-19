@@ -20,8 +20,8 @@ external integration.
 
 ### Authentication
 All `/v1/` requests must include `Authorization: Bearer <key>`. To request
-a key, email aifs@ucdavis.edu with your name, affiliation, and intended
-use.
+a key, use the contact form at https://www.foodatlas.ai/contact?api-access
+and provide your name, affiliation, and intended use.
 
 ### Rate limits
 No per-key limits are enforced today. Please be polite; we will reach out

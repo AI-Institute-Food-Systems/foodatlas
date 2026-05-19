@@ -16,7 +16,7 @@ interface ContactPageProps {
 }
 
 const Contact = ({ searchParams }: ContactPageProps) => {
-  const isApiAccressRequest = searchParams.hasOwnProperty("api-access");
+  const isApiAccessRequest = searchParams.hasOwnProperty("api-access");
 
   return (
     <div>
@@ -38,7 +38,7 @@ const Contact = ({ searchParams }: ContactPageProps) => {
           </p>
         </div>
         <div className="md:w-1/2">
-          <ContactForm isApiAccressRequest={isApiAccressRequest} />
+          <ContactForm isApiAccessRequest={isApiAccessRequest} />
         </div>
       </div>
     </div>

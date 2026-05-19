@@ -152,7 +152,7 @@ class ApiStack(cdk.Stack):
                 "KGC_BUCKET": kgc_bucket.bucket_name,
                 "API_DOWNLOADS_BUCKET": downloads_bucket.bucket_name,
                 "API_DOWNLOADS_REGION": cdk.Stack.of(self).region,
-                "API_PUBLIC_KEYS_RESOURCE_ID": public_keys_secret.secret_name,
+                "API_PUBLIC_KEYS_SECRET_NAME": public_keys_secret.secret_name,
                 "API_AWS_REGION": cdk.Stack.of(self).region,
             },
             secrets={
