@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Depends
 
 from src.dependencies import verify_v1_key
+from src.rate_limit import enforce_rate_limit
 
 from . import (
     attestations,
@@ -17,7 +18,7 @@ from . import (
 
 router = APIRouter(
     prefix="/v1",
-    dependencies=[Depends(verify_v1_key)],
+    dependencies=[Depends(verify_v1_key), Depends(enforce_rate_limit)],
     tags=["public-v1"],
 )
 router.include_router(foods.router)
