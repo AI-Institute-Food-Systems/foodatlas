@@ -6,7 +6,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.dependencies import get_db, verify_api_key
 from src.repositories import disease, taxonomy
 
-router = APIRouter(prefix="/disease", dependencies=[Depends(verify_api_key)])
+router = APIRouter(
+    prefix="/disease",
+    dependencies=[Depends(verify_api_key)],
+    include_in_schema=False,
+)
 
 
 @router.get("/metadata")
