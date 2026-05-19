@@ -11,7 +11,11 @@ from src.repositories import food, taxonomy
 if TYPE_CHECKING:
     from src.repositories.trust_filter import TrustMode
 
-router = APIRouter(prefix="/food", dependencies=[Depends(verify_api_key)])
+router = APIRouter(
+    prefix="/food",
+    dependencies=[Depends(verify_api_key)],
+    include_in_schema=False,
+)
 
 _VALID_TRUST_MODES = ("default", "show_all", "low_only")
 

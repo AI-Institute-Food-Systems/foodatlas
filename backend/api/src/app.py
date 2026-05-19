@@ -15,9 +15,7 @@ from src.routes import v1 as v1_routes
 
 PUBLIC_API_DESCRIPTION = """
 FoodAtlas exposes its food-chemical-disease knowledge graph through a
-versioned public REST API under `/v1/`. Internal UI routes (e.g. `/food/`,
-`/chemical/`) are not part of the public contract; use `/v1/` for any
-external integration.
+versioned public REST API under `/v1/`.
 
 ### Authentication
 All `/v1/` requests must include `Authorization: Bearer <key>`. To request
@@ -77,7 +75,7 @@ def create_app(settings: APISettings | None = None) -> FastAPI:
             burst=settings.rate_limit_burst,
         )
 
-    @app.get("/health", tags=["health"])
+    @app.get("/health", tags=["health"], include_in_schema=False)
     async def health() -> dict[str, str]:
         """Liveness probe for the ALB target group (no auth required)."""
         return {"status": "ok"}
