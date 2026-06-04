@@ -9,13 +9,19 @@ Requires a running PostgreSQL instance (see [root README](../../README.md) for D
 ```bash
 uv sync
 
-# Load KGC parquet output into the database (drops + recreates schema)
+# Load KGC parquet output into the database (drops + recreates schema).
+# Defaults to reading backend/kgc/outputs/kg.
 uv run python main.py load
+
+# Load from a downloaded release bundle (or any other parquet dir).
+uv run python main.py load --parquet-dir /path/to/foodatlas-<version>
 
 # Rebuild materialized views from existing base tables (skip parquet
 # read + base inserts). Use when iterating on materializer logic.
 uv run python main.py refresh
 ```
+
+To load the latest **published** data with no AWS account, see the "Load the latest released bundle" option in [`DEVELOPER.md`](../../DEVELOPER.md) — it fetches the public bundle and points `--parquet-dir` at it.
 
 ## Production
 

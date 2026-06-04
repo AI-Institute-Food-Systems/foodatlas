@@ -32,12 +32,59 @@ PostgreSQL 16 listens on port 5432, database `foodatlas` (user/password: `foodat
 
 ### 2. Load knowledge graph data
 
+`uv run python main.py load` (run from `backend/db`) drops and recreates the schema, then loads KGC parquet from `backend/kgc/outputs/kg` (override with `--parquet-dir`). How you get that parquet depends on your role:
+
+#### Public developers — load the released data
+
+Download the latest data bundle from [foodatlas.ai/food-composition-downloads](https://www.foodatlas.ai/food-composition-downloads), unzip it (it expands to a `foodatlas-<version>/` folder of parquet files), and load it. No AWS account needed.
+
 ```bash
+cd backend/db
+uv run python main.py load --parquet-dir /path/to/foodatlas-<version>
+```
+
+This deploys the prebuilt knowledge graph locally. It does **not** include the raw source data, so you can't regenerate the KG from scratch — if you need that, [contact the FoodAtlas team](https://www.foodatlas.ai/contact).
+
+#### Internal developers (AWS access)
+
+The flows below need AWS credentials with read access to the KGC S3 bucket. One-time setup:
+
+1. Install the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html).
+2. **Get access** — contact the FoodAtlas admin to be provisioned a login. They'll give you the SSO start URL + account ID + region (or static access keys). Read-only S3 access is enough for the pull scripts here; deploying infrastructure needs broader access (see [`infra/README.md`](infra/README.md)).
+3. Configure and sign in:
+   ```bash
+   aws configure sso            # or `aws configure` for static keys
+   aws sso login                # if using SSO
+   aws sts get-caller-identity  # verify you're authenticated
+   ```
+
+Once authenticated, choose one of the two paths below.
+
+**Pull a prebuilt KG** (fast — skip the pipeline). Download the latest published KG outputs and load them:
+
+```bash
+# Pulls outputs/<version>/kg/ into backend/kgc/data/PreviousFAKG/<version>/
+# (the script prints the exact <version> path it wrote)
+backend/kgc/scripts/pull-from-s3.sh
+
+cd backend/db
+uv run python main.py load --parquet-dir ../kgc/data/PreviousFAKG/<version>
+```
+
+**Build the KG yourself** (when changing the KGC/IE pipeline). Pull the source data, run the pipeline, then load:
+
+```bash
+# 1. Pull source data into backend/kgc/data/ (run from repo root)
+backend/kgc/scripts/pull-data-from-s3.sh
+
+# 2. Run the KGC pipeline to produce backend/kgc/outputs/kg (see backend/kgc/README.md)
+
+# 3. Load it
 cd backend/db
 uv run python main.py load
 ```
 
-Drops and recreates the schema from the SQLAlchemy models, then loads KGC parquet output. See [`backend/kgc/README.md`](backend/kgc/README.md) to generate the parquet locally, or [`infra/README.md`](infra/README.md) to pull a published version from S3.
+To load into the **production** database instead of local Postgres, see [`infra/README.md`](infra/README.md).
 
 ### 3. Start the API
 
