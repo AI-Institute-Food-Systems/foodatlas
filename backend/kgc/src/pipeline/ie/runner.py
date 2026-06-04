@@ -69,7 +69,7 @@ class IERunner:
     def _discover_ie_files(self) -> list[tuple[str, Path]]:
         """Scan ie_raw_dir for extraction files with model metadata.
 
-        Each subdirectory should contain ``extraction_predicted.tsv``
+        Each subdirectory should contain ``extraction_predicted.json``
         and optionally ``run_info.json`` with a ``model`` key.
         Returns a list of ``(method, path)`` pairs.
         """
