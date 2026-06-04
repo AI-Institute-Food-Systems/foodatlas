@@ -2,7 +2,7 @@
 
 End-to-end pipeline for extracting food–chemical relationships from the biomedical literature. Starting from a list of food terms, the pipeline searches PubMed/PMC, filters candidate sentences with a fine-tuned BioBERT classifier, and extracts structured triplets (`food, food_part, chemical, concentration`) using an LLM via the OpenAI Batch API.
 
-The output TSV is consumed by KGC's `ie` stage (see [`backend/kgc/src/pipeline/ie/`](../kgc/src/pipeline/ie/)).
+The output (`extraction_predicted.json`) is consumed by KGC's `ie` stage (see [`backend/kgc/src/pipeline/ie/`](../kgc/src/pipeline/ie/)).
 
 ---
 
@@ -66,7 +66,7 @@ For a full monthly run, the canonical orchestrator is [`infra/local/scripts/run_
 | 0 | `CORPUS` | `src/pipeline/corpus/` | Refresh the local BioC-PMC corpus and the `PMC-ids.csv` mapping |
 | 1 | `SEARCH` | `src/pipeline/search/` | Query PubMed for each food term, retrieve and fuzzy-match sentences from BioC-PMC |
 | 2 | `FILTERING` | `src/pipeline/filtering/` | BioBERT binary classifier (GPU) + threshold + dedup against historical predictions |
-| 3 | `EXTRACTION` | `src/pipeline/extraction/` | Submit filtered sentences to the OpenAI Batch API; parse responses into `extraction_predicted.tsv` |
+| 3 | `EXTRACTION` | `src/pipeline/extraction/` | Submit filtered sentences to the OpenAI Batch API; parse responses into `extraction_predicted.json` (a TSV is written first, then converted) |
 
 Per-stage runners live at `src/pipeline/<stage>/runner.py`. The top-level `IERunner` (`src/pipeline/runner.py`) dispatches them in order.
 

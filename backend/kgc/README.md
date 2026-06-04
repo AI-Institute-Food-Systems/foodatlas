@@ -62,7 +62,7 @@ The `trust` stage additionally needs `GOOGLE_API_KEY` set in the **root** `.env`
 | 0 | `ingest` | Parse external sources into standardized parquet (`nodes`, `edges`, `xrefs`) per source |
 | 1 | `entities` | Subtree filter + multi-pass entity resolution (food, chemical, disease) |
 | 2 | `triplets` | Build ontology `is_a` (food/chemical/disease) + composition (`food → chemical`) + chemical–disease correlation triplets from ingest edges |
-| 3 | `ie` | Fold IE TSV output (from `backend/ie/`) into the KG: parse concentrations, resolve raw food/chemical names, attach attestations |
+| 3 | `ie` | Fold IE output (from `backend/ie/`) into the KG: parse concentrations, resolve raw food/chemical names, attach attestations |
 | 4 | `enrichment` | Chemical/food classification (ChEBI/FoodOn-driven), grouping, common names, synonym display, flavor descriptions |
 | 5 | `trust` | Per-attestation trustworthiness signals (e.g. LLM plausibility judge). Reads attestations + evidence, runs the configured judge, writes `trust_signals.parquet`. Requires `GOOGLE_API_KEY` for the v1 Gemini provider. Configured via `pipeline.stages.trust` in the config JSON. |
 
@@ -74,7 +74,7 @@ The `trust` stage additionally needs `GOOGLE_API_KEY` set in the **root** `.env`
 
 - **EntityRunner**: Loads ingest sources → filters ontology subtrees → multi-pass resolution (primary from authoritative sources; secondary linked via xrefs; unlinked entities created) → saves entities + lookup tables.
 - **TripletRunner**: Loads ingest sources → walks ingest edges to build typed triplets (`food_food`, `food_chemical`, `chemical_chemical`, `chemical_disease`, `disease_disease`) → writes `triplets.parquet` + per-triplet `evidence.parquet` and `attestations.parquet`.
-- **IERunner**: Reads `backend/ie/outputs/extraction/<date>/extraction_predicted.tsv`, parses concentrations, resolves food/chemical names against the entity LUTs, and folds new triplets + attestations into the KG. Ambiguous resolutions are written separately to `attestations_ambiguous.parquet`.
+- **IERunner**: Reads `backend/ie/outputs/extraction/<date>/extraction_predicted.json`, parses concentrations, resolves food/chemical names against the entity LUTs, and folds new triplets + attestations into the KG. Ambiguous resolutions are written separately to `attestations_ambiguous.parquet`.
 - **Enrichment**: Adds derived attributes (chemical classification, food classification, synonym display, flavors) and grouping artifacts. Writes outputs into `outputs/kg/intermediate/` and back-fills entity rows.
 - **TrustRunner**: Per-attestation trustworthiness signals (v1 LLM-plausibility judge using Gemini 2.5 Flash-Lite; future: faithfulness, range checks). Reads attestations + evidence, runs the configured judge, writes `trust_signals.parquet`. Configured under `pipeline.stages.trust` in the config JSON; needs `GOOGLE_API_KEY` for the v1 Gemini provider. The DB loader upserts these into a separate `TrustBase` table so signals survive `db load` rebuilds. See `scripts/spot_check_food.py` for ad-hoc per-food calibration runs that bypass the persistent parquet.
 
