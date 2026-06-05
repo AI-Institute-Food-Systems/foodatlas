@@ -1,12 +1,10 @@
-"""Load old v3.3 KG TSV files into normalized DataFrames."""
+"""Load previous KG snapshot (parquet) for changelog comparison."""
 
 from __future__ import annotations
 
-import ast
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 import pandas as pd
 
@@ -23,57 +21,50 @@ class OldKG:
     metadata_diseases_sources: pd.Series
 
 
-def _safe_literal(val: Any) -> Any:
-    """Parse a Python literal string, returning None on failure."""
-    try:
-        return ast.literal_eval(str(val))
-    except (ValueError, SyntaxError):
-        return None
-
-
-def load_old_entities(path: Path) -> pd.DataFrame:
-    """Load ``entities.tsv`` and parse list/dict columns."""
-    df = pd.read_csv(path, sep="\t")
-    df["synonyms"] = df["synonyms"].apply(_safe_literal)
-    df["external_ids"] = df["external_ids"].apply(_safe_literal)
-    return df.set_index("foodatlas_id")
-
-
-def load_old_triplets(path_triplets: Path, path_ontology: Path) -> pd.DataFrame:
-    """Load ``triplets.tsv`` + ``food_ontology.tsv`` and combine."""
-    cols = ["head_id", "relationship_id", "tail_id"]
-    t = pd.read_csv(path_triplets, sep="\t", usecols=cols)
-    o = pd.read_csv(path_ontology, sep="\t", usecols=cols)
-    return pd.concat([t, o], ignore_index=True)
+def _latest_snapshot(data_dir: str) -> Path:
+    """Return the most recent snapshot directory under PreviousFAKG/."""
+    base = Path(data_dir) / "PreviousFAKG"
+    snapshots = sorted(
+        [d for d in base.iterdir() if d.is_dir() and not d.is_symlink()],
+        key=lambda d: d.name,
+    )
+    if not snapshots:
+        raise FileNotFoundError(f"No snapshots found under {base}")
+    return snapshots[-1]
 
 
 def load_old_kg(data_dir: str) -> OldKG:
-    """Load all old v3.3 KG files from *data_dir*/PreviousFAKG/v3.3."""
-    base = Path(data_dir) / "PreviousFAKG" / "v3.3"
-    entities = load_old_entities(base / "entities.tsv")
-    triplets = load_old_triplets(
-        base / "triplets.tsv",
-        base / "food_ontology.tsv",
+    """Load the latest KG snapshot from data_dir/PreviousFAKG/<latest>/."""
+    snapshot = _latest_snapshot(data_dir)
+    logger.info("Loading previous KG snapshot from %s", snapshot)
+
+    entities = pd.read_parquet(snapshot / "entities.parquet")
+    if "foodatlas_id" in entities.columns:
+        entities = entities.set_index("foodatlas_id")
+
+    triplets = pd.read_parquet(
+        snapshot / "triplets.parquet",
+        columns=["head_id", "relationship_id", "tail_id"],
     )
-    mc = pd.read_csv(
-        base / "metadata_contains.tsv",
-        sep="\t",
-        usecols=["source"],
-        low_memory=False,
+
+    attestations = pd.read_parquet(
+        snapshot / "attestations.parquet", columns=["source"]
     )
-    md = pd.read_csv(
-        base / "metadata_diseases.tsv",
-        sep="\t",
-        usecols=["source"],
-    )
+    # Split attestations into contains (non-CTD) and diseases (CTD) to
+    # approximate the old metadata_contains / metadata_diseases TSV split.
+    attestations["source"] = attestations["source"].astype(str)
+    is_ctd = attestations["source"].str.startswith("ctd")
+    contains_sources = attestations[~is_ctd]["source"].value_counts()
+    diseases_sources = attestations[is_ctd]["source"].value_counts()
+
     logger.info(
-        "Loaded old KG: %d entities, %d triplets.",
+        "Loaded old KG snapshot: %d entities, %d triplets.",
         len(entities),
         len(triplets),
     )
     return OldKG(
         entities=entities,
         triplets=triplets,
-        metadata_contains_sources=mc["source"].value_counts(),
-        metadata_diseases_sources=md["source"].value_counts(),
+        metadata_contains_sources=contains_sources,
+        metadata_diseases_sources=diseases_sources,
     )

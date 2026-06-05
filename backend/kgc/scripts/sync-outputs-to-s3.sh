@@ -79,6 +79,13 @@ echo "$MANIFEST" | aws s3 cp - "${DEST}manifest.json" --region "$REGION"
 echo "Updating outputs/LATEST -> $VERSION"
 echo -n "$VERSION" | aws s3 cp - "s3://$BUCKET/outputs/LATEST" --region "$REGION"
 
+# Snapshot current kg/ outputs as the new PreviousFAKG reference so the
+# next 'uv run python main.py report' can diff against this release.
+SNAPSHOT_DIR="data/PreviousFAKG/$VERSION"
+echo "Snapshotting outputs/kg/ -> $SNAPSHOT_DIR"
+mkdir -p "$SNAPSHOT_DIR"
+cp outputs/kg/*.parquet "$SNAPSHOT_DIR/"
+
 echo
 echo "Done. KGC outputs version: $VERSION"
 echo "Load this version into RDS with:"
