@@ -7,6 +7,7 @@ from src.etl.parquet_reader import (
     _ensure_list_col,
     _parse_json_col,
     read_attestations,
+    read_bioactivity_attestations,
     read_entities,
     read_evidence,
     read_relationships,
@@ -174,3 +175,47 @@ class TestReadAttestations:
         att003 = df[df["attestation_id"] == "att003"].iloc[0]
         assert att001["conc_value"] == 4.6
         assert pd.isna(att003["conc_value"])
+
+
+class TestReadBioactivityAttestations:
+    """Test read_bioactivity_attestations with fixture parquet."""
+
+    def test_reads_correct_shape(self, fixtures_dir: Path):
+        df = read_bioactivity_attestations(fixtures_dir)
+        assert df is not None
+        assert len(df) == 4
+
+    def test_returns_none_when_missing(self, tmp_path: Path):
+        assert read_bioactivity_attestations(tmp_path) is None
+
+    def test_target_ids_are_lists(self, fixtures_dir: Path):
+        df = read_bioactivity_attestations(fixtures_dir)
+        assert df is not None
+        for val in df["target_ids"]:
+            assert isinstance(val, list)
+
+    def test_candidates_are_lists(self, fixtures_dir: Path):
+        df = read_bioactivity_attestations(fixtures_dir)
+        assert df is not None
+        for col in ("head_candidates", "tail_candidates"):
+            for val in df[col]:
+                assert isinstance(val, list)
+
+    def test_validated_booleans(self, fixtures_dir: Path):
+        df = read_bioactivity_attestations(fixtures_dir)
+        assert df is not None
+        assert df["validated"].dtype == bool
+        assert df["validated_correct"].dtype == bool
+
+    def test_exhibit_types_present(self, fixtures_dir: Path):
+        df = read_bioactivity_attestations(fixtures_dir)
+        assert df is not None
+        types = set(df["exhibit_type"].dropna())
+        assert types == {"direct", "inherited"}
+
+    def test_inherited_row_has_via_chemical(self, fixtures_dir: Path):
+        df = read_bioactivity_attestations(fixtures_dir)
+        assert df is not None
+        inherited = df[df["exhibit_type"] == "inherited"].iloc[0]
+        assert inherited["via_chemical_id"] == "c001"
+        assert inherited["derived_from_attestation_id"] == "ba001"

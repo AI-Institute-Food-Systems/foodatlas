@@ -30,6 +30,49 @@ def _recreate_schema(conn: Connection) -> None:
     conn.commit()
 
 
+_BIOACTIVITY_ATTESTATION_COLUMNS = [
+    "attestation_id",
+    "evidence_id",
+    "bioactivity_metadata_id",
+    "source",
+    "head_name_raw",
+    "tail_name_raw",
+    "head_candidates",
+    "tail_candidates",
+    "validated",
+    "validated_correct",
+    "source_assay_id",
+    "target_ids",
+    "evidence_value_potency_value",
+    "evidence_value_potency_unit",
+    "evidence_value_efficacy_zeroactivity",
+    "evidence_value_efficacy_infiniteactivity",
+    "evidence_value_efficacy_logac50_value",
+    "evidence_value_efficacy_hillslope",
+    "evidence_source",
+    "evidence_type",
+    "exhibit_type",
+    "polarity",
+    "derived_from_attestation_id",
+    "via_chemical_id",
+]
+
+
+def _load_bioactivity_attestations(conn: Connection, kg_dir: Path) -> None:
+    """Bulk-copy bioactivity_attestations.parquet if present.
+
+    Optional during the transition before the KGC ingest author lands.
+    """
+    df = parquet_reader.read_bioactivity_attestations(kg_dir)
+    if df is None or df.empty:
+        logger.info("No bioactivity_attestations.parquet to load (skipping).")
+        return
+    logger.info("Inserting bioactivity attestations (%d rows)...", len(df))
+    bulk_copy(
+        conn, "base_bioactivity_attestations", df, _BIOACTIVITY_ATTESTATION_COLUMNS
+    )
+
+
 def _load_trust_signals(conn: Connection, kg_dir: Path) -> None:
     """Idempotently create base_trust_signals (separate Base) and upsert rows.
 
@@ -158,6 +201,8 @@ def load_kg(conn: Connection, parquet_dir: Path) -> None:
             "tail_candidates",
         ],
     )
+
+    _load_bioactivity_attestations(conn, kg_dir)
     conn.commit()
 
     # 4. Trust signals (optional, opt-in via KGC trust stage)

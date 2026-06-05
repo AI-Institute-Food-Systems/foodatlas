@@ -14,6 +14,8 @@ def _stub_reader(mock_reader: MagicMock) -> None:
     mock_reader.read_triplets.return_value = pd.DataFrame()
     mock_reader.read_evidence.return_value = pd.DataFrame()
     mock_reader.read_attestations.return_value = pd.DataFrame()
+    mock_reader.read_bioactivity_attestations.return_value = None
+    mock_reader.read_trust_signals.return_value = None
 
 
 class TestLoadKg:
@@ -145,3 +147,54 @@ class TestLoadKg:
         load_kg(conn, fixtures_dir)
 
         conn.commit.assert_called_once()
+
+    @patch("src.etl.loader.refresh_search")
+    @patch("src.etl.loader.refresh_all")
+    @patch("src.etl.loader.bulk_copy")
+    @patch("src.etl.loader._recreate_schema")
+    @patch("src.etl.loader.parquet_reader")
+    def test_skips_bioactivity_when_missing(
+        self,
+        mock_reader,
+        mock_recreate,
+        mock_bulk,
+        mock_refresh,
+        mock_search,
+        fixtures_dir: Path,
+    ):
+        """When bioactivity parquet is absent, no bioactivity bulk_copy occurs."""
+        _stub_reader(mock_reader)
+        mock_bulk.return_value = 0
+        conn = MagicMock()
+
+        load_kg(conn, fixtures_dir)
+
+        table_names = [c.args[1] for c in mock_bulk.call_args_list]
+        assert "base_bioactivity_attestations" not in table_names
+
+    @patch("src.etl.loader.refresh_search")
+    @patch("src.etl.loader.refresh_all")
+    @patch("src.etl.loader.bulk_copy")
+    @patch("src.etl.loader._recreate_schema")
+    @patch("src.etl.loader.parquet_reader")
+    def test_loads_bioactivity_when_present(
+        self,
+        mock_reader,
+        mock_recreate,
+        mock_bulk,
+        mock_refresh,
+        mock_search,
+        fixtures_dir: Path,
+    ):
+        """When bioactivity parquet is present, it is bulk-copied."""
+        _stub_reader(mock_reader)
+        mock_reader.read_bioactivity_attestations.return_value = pd.DataFrame(
+            {"attestation_id": ["ba1"]}
+        )
+        mock_bulk.return_value = 0
+        conn = MagicMock()
+
+        load_kg(conn, fixtures_dir)
+
+        table_names = [c.args[1] for c in mock_bulk.call_args_list]
+        assert "base_bioactivity_attestations" in table_names

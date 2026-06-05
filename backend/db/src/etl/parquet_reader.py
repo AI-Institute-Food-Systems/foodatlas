@@ -92,3 +92,24 @@ def read_attestations(kg_dir: Path) -> pd.DataFrame:
     df["validated"] = df["validated"].fillna(False).astype(bool)
     df["validated_correct"] = df["validated_correct"].fillna(True).astype(bool)
     return df
+
+
+def read_bioactivity_attestations(kg_dir: Path) -> pd.DataFrame | None:
+    """Read bioactivity_attestations.parquet if present; return None when missing.
+
+    Optional during the transition before the KGC ingest author lands the
+    bioactivity pipeline. Once the file exists, schema follows
+    docs/bioactivity-parquet-contract.md.
+    """
+    path = kg_dir / "bioactivity_attestations.parquet"
+    if not path.exists() or path.stat().st_size == 0:
+        return None
+    df = pd.read_parquet(path)
+    df["head_candidates"] = _ensure_list_col(_parse_json_col(df["head_candidates"]))
+    df["tail_candidates"] = _ensure_list_col(_parse_json_col(df["tail_candidates"]))
+    df["target_ids"] = _ensure_list_col(_parse_json_col(df["target_ids"]))
+    for col in ("head_name_raw", "tail_name_raw"):
+        df[col] = df[col].fillna("")
+    df["validated"] = df["validated"].fillna(False).astype(bool)
+    df["validated_correct"] = df["validated_correct"].fillna(True).astype(bool)
+    return df

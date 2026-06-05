@@ -4,12 +4,17 @@ from sqlalchemy import inspect
 from src.models import (
     Base,
     BaseAttestation,
+    BaseBioactivityAttestation,
     BaseEntity,
     BaseEvidence,
     BaseTriplet,
+    MVBioactivityDiseaseAssociation,
+    MVBioactivityEntity,
+    MVChemicalBioactivityMeasurement,
     MVChemicalDiseaseCorrelation,
     MVChemicalEntity,
     MVDiseaseEntity,
+    MVFoodBioactivityExhibits,
     MVFoodChemicalComposition,
     MVFoodEntity,
     MVMetadataStatistics,
@@ -32,6 +37,9 @@ class TestBaseTableRegistration:
 
     def test_base_attestations_registered(self):
         assert "base_attestations" in Base.metadata.tables
+
+    def test_base_bioactivity_attestations_registered(self):
+        assert "base_bioactivity_attestations" in Base.metadata.tables
 
     def test_relationships_registered(self):
         assert "relationships" in Base.metadata.tables
@@ -60,6 +68,18 @@ class TestMVTableRegistration:
 
     def test_mv_metadata_statistics_registered(self):
         assert "mv_metadata_statistics" in Base.metadata.tables
+
+    def test_mv_bioactivity_entities_registered(self):
+        assert "mv_bioactivity_entities" in Base.metadata.tables
+
+    def test_mv_chemical_bioactivity_measurement_registered(self):
+        assert "mv_chemical_bioactivity_measurement" in Base.metadata.tables
+
+    def test_mv_food_bioactivity_exhibits_registered(self):
+        assert "mv_food_bioactivity_exhibits" in Base.metadata.tables
+
+    def test_mv_bioactivity_disease_association_registered(self):
+        assert "mv_bioactivity_disease_association" in Base.metadata.tables
 
 
 class TestTableNames:
@@ -211,3 +231,63 @@ class TestMVSearchAutoCompleteColumns:
         assert "exact_auto" in col_names
         assert "substr_auto" in col_names
         assert "associations" in col_names
+
+
+class TestBaseBioactivityAttestationColumns:
+    """Verify BaseBioactivityAttestation column definitions."""
+
+    def test_primary_key(self):
+        mapper = inspect(BaseBioactivityAttestation)
+        pk_cols = [c.key for c in mapper.primary_key]
+        assert pk_cols == ["attestation_id"]
+
+    def test_has_assay_columns(self):
+        mapper = inspect(BaseBioactivityAttestation)
+        col_names = {c.key for c in mapper.columns}
+        expected = {
+            "attestation_id",
+            "evidence_id",
+            "bioactivity_metadata_id",
+            "source_assay_id",
+            "target_ids",
+            "evidence_value_potency_value",
+            "evidence_value_potency_unit",
+            "evidence_value_efficacy_zeroactivity",
+            "evidence_value_efficacy_infiniteactivity",
+            "evidence_value_efficacy_logac50_value",
+            "evidence_value_efficacy_hillslope",
+            "evidence_source",
+            "evidence_type",
+            "exhibit_type",
+            "polarity",
+            "derived_from_attestation_id",
+            "via_chemical_id",
+        }
+        assert expected.issubset(col_names)
+
+
+class TestMVBioactivityViewsColumns:
+    """Verify columns specific to the four bioactivity MVs."""
+
+    def test_bioactivity_entity_has_description(self):
+        col_names = {c.key for c in inspect(MVBioactivityEntity).columns}
+        assert "description" in col_names
+        # No parent_classification (Pranav: each MeSH is independent)
+        assert "parent_classification" not in col_names
+
+    def test_chemical_bioactivity_measurement_columns(self):
+        col_names = {c.key for c in inspect(MVChemicalBioactivityMeasurement).columns}
+        assert "chemical_foodatlas_id" in col_names
+        assert "bioactivity_foodatlas_id" in col_names
+        assert "measurements" in col_names
+
+    def test_food_bioactivity_exhibits_columns(self):
+        col_names = {c.key for c in inspect(MVFoodBioactivityExhibits).columns}
+        assert "exhibit_type" in col_names
+        assert "via_chemical_id" in col_names
+        assert "efficacy_pred" in col_names
+
+    def test_bioactivity_disease_association_columns(self):
+        col_names = {c.key for c in inspect(MVBioactivityDiseaseAssociation).columns}
+        assert "polarity" in col_names
+        assert "target_ids" in col_names

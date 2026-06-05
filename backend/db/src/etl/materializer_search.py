@@ -31,6 +31,9 @@ def _materialize_search_auto_complete(conn: Connection) -> None:
 
     r1 = triplets[triplets["relationship_id"] == "r1"]
     r3r4 = triplets[triplets["relationship_id"].isin(["r3", "r4"])]
+    r5 = triplets[triplets["relationship_id"] == "r5"]
+    r6 = triplets[triplets["relationship_id"] == "r6"]
+    r7 = triplets[triplets["relationship_id"] == "r7"]
 
     # Per-entity association counts mirror what the entity page actually
     # renders: row counts from the already-populated composition and
@@ -39,10 +42,13 @@ def _materialize_search_auto_complete(conn: Connection) -> None:
     assoc_counts = _load_assoc_counts(conn)
 
     # Pre-compute relevant entity ID sets
-    food_ids = set(r1["head_id"])
-    food_chem_ids = set(r1["tail_id"])
-    disease_chem_ids = set(r3r4["head_id"]) & food_chem_ids
-    relevant_disease_ids = set(r3r4[r3r4["head_id"].isin(disease_chem_ids)]["tail_id"])
+    food_ids = set(r1["head_id"]) | set(r6["head_id"])
+    food_chem_ids = set(r1["tail_id"]) | set(r5["head_id"])
+    disease_chem_ids = set(r3r4["head_id"]) & set(r1["tail_id"])
+    relevant_disease_ids = set(
+        r3r4[r3r4["head_id"].isin(disease_chem_ids)]["tail_id"]
+    ) | set(r7["tail_id"])
+    bioactivity_ids = set(r5["tail_id"]) | set(r6["tail_id"]) | set(r7["head_id"])
 
     # Filter entities to only those participating in relevant triplets
     relevant = entities[
@@ -54,6 +60,10 @@ def _materialize_search_auto_complete(conn: Connection) -> None:
         | (
             (entities["entity_type"] == "disease")
             & entities["foodatlas_id"].isin(relevant_disease_ids)
+        )
+        | (
+            (entities["entity_type"] == "bioactivity")
+            & entities["foodatlas_id"].isin(bioactivity_ids)
         )
     ]
 
@@ -123,6 +133,18 @@ def _load_assoc_counts(conn: Connection) -> dict[str, int]:
         " FROM mv_chemical_disease_correlation GROUP BY chemical_foodatlas_id",
         "SELECT disease_foodatlas_id AS fid, COUNT(*) AS n"
         " FROM mv_chemical_disease_correlation GROUP BY disease_foodatlas_id",
+        "SELECT chemical_foodatlas_id AS fid, COUNT(*) AS n"
+        " FROM mv_chemical_bioactivity_measurement GROUP BY chemical_foodatlas_id",
+        "SELECT bioactivity_foodatlas_id AS fid, COUNT(*) AS n"
+        " FROM mv_chemical_bioactivity_measurement GROUP BY bioactivity_foodatlas_id",
+        "SELECT food_foodatlas_id AS fid, COUNT(*) AS n"
+        " FROM mv_food_bioactivity_exhibits GROUP BY food_foodatlas_id",
+        "SELECT bioactivity_foodatlas_id AS fid, COUNT(*) AS n"
+        " FROM mv_food_bioactivity_exhibits GROUP BY bioactivity_foodatlas_id",
+        "SELECT bioactivity_foodatlas_id AS fid, COUNT(*) AS n"
+        " FROM mv_bioactivity_disease_association GROUP BY bioactivity_foodatlas_id",
+        "SELECT disease_foodatlas_id AS fid, COUNT(*) AS n"
+        " FROM mv_bioactivity_disease_association GROUP BY disease_foodatlas_id",
     )
     counts: dict[str, int] = {}
     for sql in queries:
