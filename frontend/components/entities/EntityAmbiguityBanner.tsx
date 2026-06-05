@@ -6,7 +6,7 @@ import { AmbiguitySibling } from "@/types/Metadata";
 import { encodeSpace } from "@/utils/utils";
 
 interface EntityAmbiguityBannerProps {
-  entityType: "food" | "chemical" | "disease";
+  entityType: "food" | "chemical" | "disease" | "bioactivity";
   siblings: AmbiguitySibling[] | undefined | null;
 }
 

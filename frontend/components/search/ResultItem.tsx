@@ -9,6 +9,7 @@ import Badge from "@/components/basic/Badge";
 import ChemicalIcon from "@/components/icons/ChemicalIcon";
 import DiseaseIcon from "@/components/icons/DiseaseIcon";
 import FoodIcon from "@/components/icons/FoodIcon";
+import BioactivityIcon from "@/components/icons/BioactivityIcon";
 import { SearchContext } from "@/context/searchContext";
 import { Suggestion } from "@/types/Suggestion";
 import { encodeSpace } from "@/utils/utils";
@@ -18,12 +19,15 @@ const colorScheme = {
   chemical: "text-cyan-600 border-cyan-600 bg-cyan-600/10 shadow-cyan-600/50",
   disease:
     "text-purple-500 border-purple-500 bg-purple-500/10 shadow-purple-500/50",
+  bioactivity:
+    "text-emerald-500 border-emerald-500 bg-emerald-500/10 shadow-emerald-500/50",
 };
 
 const icon = {
   food: <FoodIcon color="#d97706" />,
   chemical: <ChemicalIcon color="#0891b2" />,
   disease: <DiseaseIcon color="#a855f7" />,
+  bioactivity: <BioactivityIcon color="#10b981" />,
 };
 
 const highlightMatch = (text: string, searchTerm: string) => {

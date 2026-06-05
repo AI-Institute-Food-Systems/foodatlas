@@ -130,11 +130,25 @@ const MetainformationSection = async ({
             {data?.synonyms && data.synonyms.length > 0 && (
               <Synonyms synonyms={data.synonyms} />
             )}
-            {/* taxonomy */}
-            <TaxonomySection
-              commonName={commonName}
-              entityType={entityType}
-            />
+            {/* description (bioactivity only — other entities don't carry one) */}
+            {data?.description && (
+              <Card>
+                <Heading
+                  type="h4"
+                  className="font-mono italic text-light-400 text-xs"
+                >
+                  Description
+                </Heading>
+                <p className="mt-3">{data.description}</p>
+              </Card>
+            )}
+            {/* taxonomy — bioactivity has no taxonomy (each MeSH is independent) */}
+            {entityType !== "bioactivity" && (
+              <TaxonomySection
+                commonName={commonName}
+                entityType={entityType}
+              />
+            )}
           </div>
         </div>
         {/* identifiers container */}
