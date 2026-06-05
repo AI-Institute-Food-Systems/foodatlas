@@ -14,6 +14,14 @@ import { ChemicalCorrelation } from "@/types/ChemicalCorrelation";
 import { FoodCompositionData } from "@/types/FoodCompositionData";
 import { MacroAndMicroData } from "./MacroAndMicroData";
 import { TaxonomyData, TaxonomyNode, TaxonomyEdge } from "./TaxonomyData";
+import {
+  BioactivityChemicalRow,
+  BioactivityDiseaseRow,
+  BioactivityFoodRow,
+  BioactivityHillCurve,
+  BioactivityMeasurement,
+  BioactivityPotency,
+} from "./Bioactivity";
 
 export type {
   TeamMember,
@@ -34,4 +42,10 @@ export type {
   TaxonomyData,
   TaxonomyNode,
   TaxonomyEdge,
+  BioactivityChemicalRow,
+  BioactivityDiseaseRow,
+  BioactivityFoodRow,
+  BioactivityHillCurve,
+  BioactivityMeasurement,
+  BioactivityPotency,
 };
