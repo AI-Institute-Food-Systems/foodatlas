@@ -7,9 +7,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.dependencies import get_db
 from src.repositories import taxonomy as taxonomy_repo
-from src.repositories.v1 import entities, relationships
+from src.repositories.v1 import bioactivity, entities, relationships
 from src.repositories.v1.pagination import build_page, clamp_page_size
 from src.repositories.v1.serializers import (
+    BioactivityDiseaseRow,
     CorrelationRow,
     Disease,
     DiseaseSummary,
@@ -90,3 +91,24 @@ async def disease_taxonomy(
         raise HTTPException(status_code=404, detail="Disease not found")
     payload = await taxonomy_repo.get_taxonomy(db, entity["common_name"], "disease")
     return ItemResponse[Taxonomy](data=Taxonomy(**cast("dict", payload["data"])))
+
+
+@router.get(
+    "/{disease_id}/bioactivities",
+    response_model=ListResponse[BioactivityDiseaseRow],
+    summary="Bioactivities associated with this disease",
+)
+async def disease_bioactivities(
+    disease_id: str,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+) -> ListResponse[BioactivityDiseaseRow]:
+    size = clamp_page_size(page_size)
+    rows, total = await bioactivity.list_associations(
+        db, disease_id=disease_id, page=page, page_size=size
+    )
+    return ListResponse[BioactivityDiseaseRow](
+        data=[BioactivityDiseaseRow(**r) for r in rows],
+        page=build_page(page, size, total),
+    )

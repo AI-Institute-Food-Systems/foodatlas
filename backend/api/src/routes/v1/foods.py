@@ -7,9 +7,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.dependencies import get_db
 from src.repositories import taxonomy as taxonomy_repo
-from src.repositories.v1 import entities, relationships
+from src.repositories.v1 import bioactivity, entities, relationships
 from src.repositories.v1.pagination import build_page, clamp_page_size
 from src.repositories.v1.serializers import (
+    BioactivityExhibitRow,
     CompositionRow,
     Food,
     FoodSummary,
@@ -17,6 +18,8 @@ from src.repositories.v1.serializers import (
     ListResponse,
     Taxonomy,
 )
+
+_VALID_EXHIBIT_TYPES = {"all", "direct", "inherited"}
 
 router = APIRouter(prefix="/foods")
 
@@ -92,3 +95,36 @@ async def food_taxonomy(
         raise HTTPException(status_code=404, detail="Food not found")
     payload = await taxonomy_repo.get_taxonomy(db, entity["common_name"], "food")
     return ItemResponse[Taxonomy](data=Taxonomy(**cast("dict", payload["data"])))
+
+
+@router.get(
+    "/{food_id}/bioactivities",
+    response_model=ListResponse[BioactivityExhibitRow],
+    summary="Bioactivities this food exhibits",
+)
+async def food_bioactivities(
+    food_id: str,
+    exhibit_type: str = Query(
+        "all", description="'direct', 'inherited', or 'all' (default)"
+    ),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+) -> ListResponse[BioactivityExhibitRow]:
+    if exhibit_type not in _VALID_EXHIBIT_TYPES:
+        raise HTTPException(
+            status_code=422,
+            detail="exhibit_type must be one of direct, inherited, all",
+        )
+    size = clamp_page_size(page_size)
+    rows, total = await bioactivity.list_exhibits(
+        db,
+        food_id=food_id,
+        exhibit_type=exhibit_type,
+        page=page,
+        page_size=size,
+    )
+    return ListResponse[BioactivityExhibitRow](
+        data=[BioactivityExhibitRow(**r) for r in rows],
+        page=build_page(page, size, total),
+    )

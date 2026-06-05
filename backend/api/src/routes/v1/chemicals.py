@@ -7,9 +7,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.dependencies import get_db
 from src.repositories import taxonomy as taxonomy_repo
-from src.repositories.v1 import entities, relationships
+from src.repositories.v1 import bioactivity, entities, relationships
 from src.repositories.v1.pagination import build_page, clamp_page_size
 from src.repositories.v1.serializers import (
+    BioactivityMeasurementRow,
     Chemical,
     ChemicalSummary,
     CompositionRow,
@@ -124,3 +125,24 @@ async def chemical_taxonomy(
         raise HTTPException(status_code=404, detail="Chemical not found")
     payload = await taxonomy_repo.get_taxonomy(db, entity["common_name"], "chemical")
     return ItemResponse[Taxonomy](data=Taxonomy(**cast("dict", payload["data"])))
+
+
+@router.get(
+    "/{chemical_id}/bioactivities",
+    response_model=ListResponse[BioactivityMeasurementRow],
+    summary="Bioactivities measured against this chemical",
+)
+async def chemical_bioactivities(
+    chemical_id: str,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+) -> ListResponse[BioactivityMeasurementRow]:
+    size = clamp_page_size(page_size)
+    rows, total = await bioactivity.list_measurements(
+        db, chemical_id=chemical_id, page=page, page_size=size
+    )
+    return ListResponse[BioactivityMeasurementRow](
+        data=[BioactivityMeasurementRow(**r) for r in rows],
+        page=build_page(page, size, total),
+    )

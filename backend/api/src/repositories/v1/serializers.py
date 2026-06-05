@@ -165,9 +165,80 @@ class Taxonomy(BaseModel):
 class SearchHit(BaseModel):
     id: str
     common_name: str
-    entity_type: Literal["food", "chemical", "disease"]
+    entity_type: Literal["food", "chemical", "disease", "bioactivity"]
     scientific_name: str = ""
     associations: int = 0
+
+
+class BioactivitySummary(BaseModel):
+    id: str
+    common_name: str
+    scientific_name: str = ""
+
+
+class Bioactivity(BioactivitySummary):
+    synonyms: list[str] = Field(default_factory=list)
+    external_ids: dict[str, list[str]] = Field(default_factory=dict)
+    description: str = ""
+
+
+class HillCurve(BaseModel):
+    """Hill-equation coefficients from a chemical-bioactivity assay."""
+
+    zero_activity: float | None = None
+    infinite_activity: float | None = None
+    log_ac50: float | None = None
+    hill_slope: float | None = None
+
+
+class Potency(BaseModel):
+    value: float | None = None
+    unit: str | None = None
+
+
+class BioactivityMeasurementRow(BaseModel):
+    """Flat row for /v1/chemicals/{id}/bioactivities and the reverse."""
+
+    chemical_id: str
+    chemical_name: str
+    bioactivity_id: str
+    bioactivity_name: str
+    measurement_count: int = 0
+    potency: Potency = Field(default_factory=Potency)
+    hill_curve: HillCurve = Field(default_factory=HillCurve)
+    target_ids: list[str] = Field(default_factory=list)
+    evidence_source: str | None = None
+    evidence_type: str | None = None
+
+
+class BioactivityExhibitRow(BaseModel):
+    """Flat row for /v1/foods/{id}/bioactivities and the reverse.
+
+    ``exhibit_type`` is ``direct`` or ``inherited``; inherited rows expose the
+    bridging chemical via ``via_chemical_id`` / ``via_chemical_name``.
+    """
+
+    food_id: str
+    food_name: str
+    bioactivity_id: str
+    bioactivity_name: str
+    exhibit_type: Literal["direct", "inherited"]
+    via_chemical_id: str | None = None
+    via_chemical_name: str | None = None
+    efficacy_pred: float | None = None
+    evidence_count: int = 0
+
+
+class BioactivityDiseaseRow(BaseModel):
+    """Flat row for /v1/bioactivities/{id}/diseases and the reverse."""
+
+    bioactivity_id: str
+    bioactivity_name: str
+    disease_id: str
+    disease_name: str
+    polarity: str | None = None
+    target_ids: list[str] = Field(default_factory=list)
+    evidence_count: int = 0
 
 
 class Stats(BaseModel):

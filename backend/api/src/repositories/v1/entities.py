@@ -22,6 +22,7 @@ _ENTITY_TABLE: dict[str, str] = {
     "food": "mv_food_entities",
     "chemical": "mv_chemical_entities",
     "disease": "mv_disease_entities",
+    "bioactivity": "mv_bioactivity_entities",
 }
 
 _ENTITY_SELECT: dict[str, str] = {
@@ -35,6 +36,10 @@ _ENTITY_SELECT: dict[str, str] = {
     ),
     "disease": (
         "foodatlas_id AS id, common_name, scientific_name, synonyms, external_ids"
+    ),
+    "bioactivity": (
+        "foodatlas_id AS id, common_name, scientific_name, synonyms, "
+        "external_ids, description"
     ),
 }
 
@@ -71,6 +76,7 @@ async def list_entities(
         )
         where.append(f":cls = ANY({col})")
         params["cls"] = classification
+    # bioactivity and disease have no classification column; ignore the filter.
 
     where_sql = " WHERE " + " AND ".join(where) if where else ""
 
