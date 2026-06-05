@@ -20,9 +20,9 @@ const Landing = () => {
               News
             </div>
             <div className="mt-1 text-light-200 text-base md:text-lg">
-              <span className="text-light-400">4/20/2026 — </span>
-              FoodAtlas Knowledge Graph <strong>v4.0</strong> has been
-              released with improved data quality and expanded coverage!
+              <span className="text-light-400">6/05/2026 — </span>
+              FoodAtlas Knowledge Graph <strong>v4.1</strong> has been
+              released with improved data quality and expanded coverage.
             </div>
           </div>
         </div>

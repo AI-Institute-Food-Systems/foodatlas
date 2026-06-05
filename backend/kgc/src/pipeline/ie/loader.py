@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import csv as _csv
+import io as _io
 import json
 import logging
 from typing import TYPE_CHECKING
@@ -33,32 +35,33 @@ def standardize_name(name: str) -> str:
 
 
 def _parse_tuple(line: str) -> tuple[str, str, str, str] | None:
-    """Extract (food, food_part, chemical, quantity) from a response line.
+    """Parse a response line in 3-field (v3: food,chemical,concentration) or
+    4-field (legacy: food,food_part,chemical,concentration) CSV format.
 
-    Chemical names may contain commas (e.g. ``3,4-dihydroxyphenylethanol``),
-    so we split on the first two commas and the last comma.
+    Uses csv.reader so quoted fields with internal commas parse correctly.
     """
     inner = line.strip().lstrip("(").rstrip(")")
     if not inner:
         return None
-
-    parts = inner.split(",", 2)
-    if len(parts) < 3:
+    try:
+        parts = [p.strip() for p in next(_csv.reader(_io.StringIO(inner)))]
+    except StopIteration:
         return None
 
-    food = parts[0].strip()
-    food_part = parts[1].strip()
-    rest = parts[2]
+    # Skip CSV header rows emitted by v3 model.
+    if parts and parts[0].lower() == "food":
+        return None
 
-    last_comma = rest.rfind(",")
-    if last_comma == -1:
-        chemical = rest.strip()
-        quantity = ""
+    if len(parts) == 3:
+        food, chemical, quantity = parts
+        food_part = ""
+    elif len(parts) >= 4:
+        food, food_part = parts[0], parts[1]
+        chemical = ",".join(parts[2:-1])
+        quantity = parts[-1]
     else:
-        chemical = rest[:last_comma].strip()
-        quantity = rest[last_comma + 1 :].strip()
+        return None
 
-    # Take first pipe-separated alias as the primary name.
     if "|" in chemical:
         chemical = chemical.split("|")[0].strip()
 
@@ -72,22 +75,26 @@ def _process_line(
     line: str,
     rec: pd.Series,
     rows: list[dict],
-    parse_errors: list[dict],
-    conc_errors: list[dict],
+    errors: tuple[list[dict], list[dict]],
     *,
     method: str,
 ) -> None:
-    """Parse one response line into a row dict, or log an error."""
+    """Parse one response line into a row dict, or log an error.
+
+    ``errors`` is ``(parse_errors, conc_errors)`` passed as one arg to stay
+    within the project's 5-argument limit.
+    """
     parsed = _parse_tuple(line)
     if parsed is None:
-        parse_errors.append(
+        errors[0].append(
             {"pmcid": rec["pmcid"], "line": line.strip(), "reason": "bad_tuple"}
         )
         return
     food, food_part, chemical, quantity = parsed
-    conc_value_raw, conc_unit_raw = _parse_quantity(quantity, rec, parse_errors)
+    food_norm, chem_norm = standardize_name(food), standardize_name(chemical)
+    conc_value_raw, conc_unit_raw = _parse_quantity(quantity, rec, errors[0])
     conc_value_converted, conc_unit_converted = _convert_quantity(
-        conc_value_raw, conc_unit_raw, rec, conc_errors
+        conc_value_raw, conc_unit_raw, rec, errors[1]
     )
     ref = json.dumps({"pmcid": rec["pmcid"], "text": rec.get("sentence", "")})
     rows.append(
@@ -95,8 +102,8 @@ def _process_line(
             "source_type": "pubmed",
             "reference": ref,
             "source": f"lit2kg:{method}",
-            "head_name_raw": standardize_name(food),
-            "tail_name_raw": standardize_name(chemical),
+            "head_name_raw": food_norm,
+            "tail_name_raw": chem_norm,
             "conc_value": conc_value_converted,
             "conc_unit": conc_unit_converted,
             "conc_value_raw": conc_value_raw,
@@ -104,8 +111,8 @@ def _process_line(
             "food_part": food_part.strip().lower(),
             "food_processing": "",
             "filter_score": float(rec["prob"]),
-            "_food_name": standardize_name(food),
-            "_chemical_name": standardize_name(chemical),
+            "_food_name": food_norm,
+            "_chemical_name": chem_norm,
         }
     )
 
@@ -202,7 +209,7 @@ def load_ie_raw(path: Path, output_dir: Path, *, method: str) -> pd.DataFrame:
             )
             continue
         for line in response.split("\n"):
-            _process_line(line, rec, rows, parse_errors, conc_errors, method=method)
+            _process_line(line, rec, rows, (parse_errors, conc_errors), method=method)
 
     if parse_errors:
         errors_path = output_dir / FILE_IE_PARSE_ERRORS

@@ -84,7 +84,7 @@ def parse_conc(raw: str) -> tuple[str, str] | None:
         return None
 
     value_str = m.group(1)
-    unit_str = m.group(2)
+    unit_str = _normalize_unit(m.group(2))
 
     # Unit must contain at least one letter-like char or '%'.
     if not unit_str or not any(c.isalpha() or c == "%" for c in unit_str):
@@ -120,6 +120,57 @@ _VOLUME: dict[str, float] = {
     "ul": 1e-6,
     "μl": 1e-6,
 }
+
+# Superscript minus-one suffixes: U+2212 MINUS SIGN and U+2013 EN DASH.
+_SUPERSCRIPT_M1 = ("\u22121", "\u20131")
+
+# All known units sorted longest-first for greedy prefix matching.
+_UNIT_LIST: list[str] = sorted(
+    list(_MASS.keys()) + list(_VOLUME.keys()),
+    key=len,
+    reverse=True,
+)
+
+
+def _split_concatenated_units(s: str) -> str:
+    """Convert concatenated unit pair 'XY' or 'X{n}Y' to 'X/{n}Y'.
+
+    Used after stripping a superscript -1 suffix (U+2212/U+2013), e.g. 'mgkg' → 'mg/kg',
+    'mg100g' → 'mg/100g'. Returns *s* unchanged if no split is found.
+    """
+    for num_unit in _UNIT_LIST:
+        if not s.startswith(num_unit):
+            continue
+        rest = s[len(num_unit) :]
+        m = re.match(r"^(\d*)(.+)$", rest)
+        if not m:
+            continue
+        factor_str, den_unit = m.group(1), m.group(2).lower()
+        if den_unit in _MASS or den_unit in _VOLUME:
+            den = f"{factor_str}{den_unit}" if factor_str else den_unit
+            return f"{num_unit}/{den}"
+    return s
+
+
+def _normalize_unit(unit_str: str) -> str:
+    """Normalise non-standard unit notation to 'X/{n}Y' form.
+
+    Handles:
+    - Middle-dot separator: mg*kg-1 -> mg/kg
+    - Superscript minus-one: mgkg-1 -> mg/kg, mg100g-1 -> mg/100g
+    - No-space 'per': ``mgper100g`` → ``mg/100g``
+    """
+    s = unit_str.replace("·", "/")
+    # Replace 'per' used as separator between unit letters/digits.
+    s = re.sub(r"(?<=[a-zA-Zµμ])per(?=\d*[a-zA-Zµμ])", "/", s)
+    for suffix in _SUPERSCRIPT_M1:
+        if s.endswith(suffix):
+            s = s[: -len(suffix)]
+            if "/" not in s:
+                s = _split_concatenated_units(s)
+            break
+    return s
+
 
 # Maximum plausible mg/100g (sanity check).
 _MAX_MG_100G = 1e5
@@ -169,6 +220,8 @@ def _convert_unit(unit_str: str) -> float | None:
         if clean.lower().endswith(suffix):
             clean = clean[: -len(suffix)].strip()
             break
+
+    clean = _normalize_unit(clean)
 
     if clean == "%":
         return None
