@@ -9,4 +9,5 @@ if __name__ == "__main__":
     # Auto-reload for local development (API_DEBUG=True); disabled in
     # production containers where API_DEBUG=False.
     reload = os.environ.get("API_DEBUG", "True").lower() == "true"
-    uvicorn.run("src.app:app", host=host, port=8000, reload=reload)
+    port = int(os.environ.get("API_PORT", "8000"))
+    uvicorn.run("src.app:app", host=host, port=port, reload=reload)

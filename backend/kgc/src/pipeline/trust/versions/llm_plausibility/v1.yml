@@ -1,6 +1,6 @@
 signal_kind: llm_plausibility
 description: |
-  Plausibility v1 — Gemini 2.5 Flash-Lite via Gemini Batch API.
+  Plausibility v1 — Gemini 3.1 Flash-Lite via Gemini Batch API.
 
   Scores how plausible an extracted (food, chemical, concentration) claim is
   using world knowledge of food composition. Faithfulness (does the source
@@ -8,7 +8,7 @@ description: |
   out of scope here.
 
 provider: gemini
-model: gemini-2.5-flash-lite
+model: gemini-3.1-flash-lite
 
 generation:
   temperature: 0.0
