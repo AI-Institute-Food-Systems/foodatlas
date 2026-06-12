@@ -13,16 +13,25 @@ vi.mock("@/utils/fetching", () => ({
   getBioactivityChemicals: vi.fn(),
   getBioactivityFoods: vi.fn(),
   getBioactivityDiseases: vi.fn(),
+  getChemicalBioactivities: vi.fn(),
+  getFoodBioactivities: vi.fn(),
+  getDiseaseBioactivities: vi.fn(),
 }));
 
 import {
   getBioactivityChemicals,
   getBioactivityDiseases,
   getBioactivityFoods,
+  getChemicalBioactivities,
+  getDiseaseBioactivities,
+  getFoodBioactivities,
 } from "@/utils/fetching";
 import BioactivityChemicalsSection from "@/components/entities/bioactivity/BioactivityChemicalsSection";
 import BioactivityFoodsSection from "@/components/entities/bioactivity/BioactivityFoodsSection";
 import BioactivityDiseasesSection from "@/components/entities/bioactivity/BioactivityDiseasesSection";
+import ChemicalBioactivitiesSection from "@/components/entities/bioactivity/ChemicalBioactivitiesSection";
+import FoodBioactivitiesSection from "@/components/entities/bioactivity/FoodBioactivitiesSection";
+import DiseaseBioactivitiesSection from "@/components/entities/bioactivity/DiseaseBioactivitiesSection";
 
 async function renderAsync(node: Promise<JSX.Element>) {
   render(await node);
@@ -140,5 +149,65 @@ describe("BioactivityDiseasesSection", () => {
     );
     expect(screen.getByText(/asthma/i)).toBeInTheDocument();
     expect(screen.getByText(/UniProt:P18054/)).toBeInTheDocument();
+  });
+});
+
+describe("ChemicalBioactivitiesSection", () => {
+  it("renders linked bioactivity rows", async () => {
+    vi.mocked(getChemicalBioactivities).mockResolvedValueOnce({
+      data: [
+        {
+          id: "bio1",
+          name: "anti-inflammatory",
+          measurement_count: 2,
+          measurements: [],
+        },
+      ],
+      metadata: { total_rows: 1 },
+    });
+    await renderAsync(
+      ChemicalBioactivitiesSection({ commonName: "quercetin" })
+    );
+    const link = screen.getByRole("link", { name: /anti-inflammatory/i });
+    expect(link).toHaveAttribute("href", "/bioactivity/anti-inflammatory");
+  });
+});
+
+describe("FoodBioactivitiesSection", () => {
+  it("links bioactivities and shows direct/inherited split", async () => {
+    vi.mocked(getFoodBioactivities).mockResolvedValueOnce({
+      data: [
+        {
+          id: "bio1",
+          name: "anti-inflammatory",
+          exhibit_type: "inherited",
+          via_chemical_id: "c1",
+          via_chemical_name: "quercetin",
+          efficacy_pred: null,
+          evidence_count: 1,
+        },
+      ],
+      metadata: { total_rows: 1 },
+    });
+    await renderAsync(
+      FoodBioactivitiesSection({ commonName: "strawberry" })
+    );
+    expect(
+      screen.getByRole("link", { name: /anti-inflammatory/i })
+    ).toBeInTheDocument();
+    expect(screen.getByText(/0 direct, 1 inherited/)).toBeInTheDocument();
+  });
+});
+
+describe("DiseaseBioactivitiesSection", () => {
+  it("renders empty state when no associations", async () => {
+    vi.mocked(getDiseaseBioactivities).mockResolvedValueOnce({
+      data: [],
+      metadata: { total_rows: 0 },
+    });
+    await renderAsync(DiseaseBioactivitiesSection({ commonName: "asthma" }));
+    expect(
+      screen.getByText(/no bioactivity associations recorded/i)
+    ).toBeInTheDocument();
   });
 });
