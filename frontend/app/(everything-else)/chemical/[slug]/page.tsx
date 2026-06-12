@@ -3,6 +3,7 @@ import { Metadata } from "next";
 
 import ChemicalCompositionSection from "@/components/entities/chemical/ChemicalCompositionSection";
 import ChemicalCorrelationSection from "@/components/entities/chemical/ChemicalCorrelationSection";
+import ChemicalBioactivitiesSection from "@/components/entities/bioactivity/ChemicalBioactivitiesSection";
 import MetainformationSection from "@/components/entities/MetainformationSection";
 import HeaderSection from "@/components/entities/HeaderSection";
 import HeaderSectionSuspense from "@/components/entities/HeaderSectionSuspense";
@@ -56,6 +57,8 @@ const ChemicalPage = async ({ params }: ChemicalPageProps) => {
         </Suspense>
         {/* correlation */}
         <ChemicalCorrelationSection commonName={commonName} />
+        {/* bioactivities */}
+        <ChemicalBioactivitiesSection commonName={commonName} />
       </div>
     </div>
   );

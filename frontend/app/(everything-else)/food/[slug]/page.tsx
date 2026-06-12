@@ -3,6 +3,7 @@ import { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import FoodCompositionSection from "@/components/entities/food/FoodCompositionSection";
+import FoodBioactivitiesSection from "@/components/entities/bioactivity/FoodBioactivitiesSection";
 import HeaderSection from "@/components/entities/HeaderSection";
 import HeaderSectionSuspense from "@/components/entities/HeaderSectionSuspense";
 import MetainformationSection from "@/components/entities/MetainformationSection";
@@ -61,6 +62,8 @@ const FoodPage = async ({ params }: FoodPageProps) => {
         </Suspense>
         {/* composition */}
         <FoodCompositionSection commonName={commonName} />
+        {/* bioactivities */}
+        <FoodBioactivitiesSection commonName={commonName} />
       </div>
     </div>
   );

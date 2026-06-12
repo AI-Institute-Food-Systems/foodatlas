@@ -299,6 +299,75 @@ export async function getBioactivityDiseases(
   return res.json();
 }
 
+// bioactivities measured against a chemical (reverse of getBioactivityChemicals)
+export async function getChemicalBioactivities(
+  commonName: string,
+  page: number = 1
+) {
+  const res = await fetch(
+    `${
+      process.env.NEXT_PUBLIC_API_URL
+    }/chemical/bioactivities?common_name=${encodeURIComponent(commonName)}&page=${page}`,
+    {
+      headers: {
+        Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
+      },
+      next: { revalidate: 86400 },
+    }
+  );
+  if (!res.ok) {
+    throw new Error(`Failed to fetch chemical bioactivities for ${commonName}`);
+  }
+  return res.json();
+}
+
+// bioactivities exhibited by a food
+export async function getFoodBioactivities(
+  commonName: string,
+  page: number = 1,
+  exhibitType: "all" | "direct" | "inherited" = "all"
+) {
+  const res = await fetch(
+    `${
+      process.env.NEXT_PUBLIC_API_URL
+    }/food/bioactivities?common_name=${encodeURIComponent(
+      commonName
+    )}&page=${page}&exhibit_type=${exhibitType}`,
+    {
+      headers: {
+        Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
+      },
+      next: { revalidate: 86400 },
+    }
+  );
+  if (!res.ok) {
+    throw new Error(`Failed to fetch food bioactivities for ${commonName}`);
+  }
+  return res.json();
+}
+
+// bioactivities associated with a disease
+export async function getDiseaseBioactivities(
+  commonName: string,
+  page: number = 1
+) {
+  const res = await fetch(
+    `${
+      process.env.NEXT_PUBLIC_API_URL
+    }/disease/bioactivities?common_name=${encodeURIComponent(commonName)}&page=${page}`,
+    {
+      headers: {
+        Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
+      },
+      next: { revalidate: 86400 },
+    }
+  );
+  if (!res.ok) {
+    throw new Error(`Failed to fetch disease bioactivities for ${commonName}`);
+  }
+  return res.json();
+}
+
 // cache & fetching testing function
 export async function getTime() {
   const response = await fetch("https://worldtimeapi.org/api/timezone/Etc/UTC");
