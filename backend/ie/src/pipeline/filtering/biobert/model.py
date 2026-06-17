@@ -15,6 +15,10 @@ from transformers import AutoModelForSequenceClassification, AutoTokenizer
 log = logging.getLogger(__name__)
 
 
+def _select_device() -> torch.device:
+    return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
 class _SentenceDataset(TorchDataset):
     """Simple dataset wrapping tokenizer encodings."""
 
@@ -43,16 +47,19 @@ class BioBERTRunner:
     ) -> None:
         self._batch_size = batch_size
         self._max_length = max_length
-        self._device = torch.device(
-            "cuda" if torch.cuda.is_available() else "cpu",
-        )
+        self._device = _select_device()
         log.info("Loading BioBERT from %s on %s", model_dir, self._device)
-        self._tokenizer: Any = AutoTokenizer.from_pretrained(model_dir)
-        self._model: Any = AutoModelForSequenceClassification.from_pretrained(
-            model_dir,
+
+        self._tokenizer: Any = AutoTokenizer.from_pretrained(
+            model_dir, use_fast=True,
         )
-        self._model.eval()
-        self._model.to(self._device)
+        self._model: Any = self._load_inference_model(model_dir)
+
+    def _load_inference_model(self, model_dir: str) -> Any:
+        model = AutoModelForSequenceClassification.from_pretrained(model_dir)
+        model.eval()
+        model.to(self._device)
+        return model
 
     def infer(self, sentences: list[str]) -> list[float]:
         """Return class-1 probabilities for each sentence.

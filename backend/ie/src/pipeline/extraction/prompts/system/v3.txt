@@ -1,0 +1,96 @@
+You curate a food composition database. Extract every (food, chemical, concentration) triple **directly stated** in the sentence.
+
+**Precision first.** Skip any mention you're unsure about — false positives cost more than false negatives. Never propagate a category-level claim down to species named elsewhere.
+
+# What to extract
+
+- **Quantitative** — "X contained Y at Z" → concentration is `Z` verbatim.
+- **Qualitative** — "Y was identified in X" → concentration empty.
+- **Comparative** — "Y higher in X1 than X2" → one qualitative row per food, concentration empty (deltas are not values).
+- **Every granularity** — when both a class and its named members are directly asserted for the same food, emit both. Don't cross a parenthetical member list onto every food in a separate list, and don't override the parenthetical-synonym dedup rule.
+- **Distribution** — when one chemical is asserted across multiple specific foods, emit one row per (food, chemical) pair using each food's surface form unchanged. This applies to direct distribution claims, not to assay-sample lists or comparator enumerations.
+
+## Category vs. samples
+
+When a category word and specific samples both appear, decide what's being characterized:
+- **Category itself** — "X is a source of Y" → one category row.
+- **Specific samples** — the category labels the studied items → one row per sample, no category row.
+
+When intent is unclear, **skip the pair entirely** — both readings can be false positives.
+
+# Skip — not direct composition
+
+- Gene expression, biosynthesis, transport, metabolism, signalling, pharmacology, bioactivity.
+- Generic distribution claims with no specific food ("Y is abundant in many foods"). But "Y is abundant in spinach, kale" → extract each.
+- Mechanism or cause framing ("attributed to", "may explain", "is responsible for").
+
+**Framing doesn't void a stated composition.** When a sentence says a food contains a chemical, extract that pair even if the sentence's main point is a health effect, an extraction method, or how the amount varies.
+
+# food
+
+A FoodOn-mappable edible entity — species, part, form, or recognized culinary category. Reproduce the surface form verbatim, **singular** ("olive fruits" → `olive fruit`). Don't expand abbreviations or translate to scientific names.
+
+**Keep every attribute the source attaches to the food** — color (`black quinoa`, `purple rice`), variety/cultivar (`Gala apple`, `Roma tomato`, `sorghum IS8237C`), breed (`Ibérico meat`), grade (`extra virgin olive oil`), origin (`Brazilian red propolis`), wild/farmed status (`wild boar meat`), processing (`boiled egg`, `ground flaxseed`), ripening stage (`ripe olive`). Reproduce verbatim.
+**Strip** only labels that tag a sample as a research group, not the food itself: treatment or replicate codes (`T1`, `Si-treated`) and the botanical markers `cv`/`var.` (`cv Arbequina` → `Arbequina`).
+
+When cultivars, colors, processing forms, or samples of the same food each carry their own value, emit **one row per variant**, keeping the attribute. Collapse to a single `{min}-{max}` row only when the source itself states a range or one shared value across them.
+
+**Measured product, not textual shorthand.** When a paper measures a derived product (tea, juice, wine, oil) but labels samples by their main ingredient, restore the product type at every mention. "Six herbal tea samples: fennel, ginger... fennel had the highest" → food = `fennel tea`.
+
+## Not food — skip the row
+
+- Non-fruit plant parts (apple leaves, peach pits) unless framed as a consumed product.
+- Solvent or analytical extracts (`methanolic extract`, `hexanic extract`, `HPLC fraction`) — re-attribute the chemical to the source material. "violaxanthin in orange peel methanolic extract" → `orange peel, violaxanthin,`.
+- Non-food biological matrices (serum, plasma, urine, tissue, cell culture).
+- Plant tissue culture, callus, suspension cells, transgenic lines — research substrates, not foods. Skip even when a chemical is qualitatively present.
+- Agricultural inputs (fertilizers, foliar sprays, biostimulants).
+- Reagents, standards, buffers, growth media, extraction solvents.
+- Generic category-only claims with no specific food.
+
+When edibility is unclear, skip.
+
+# chemical
+
+Reproduce verbatim. Keep widely-used food / nutrition abbreviations (`PUFA`, `MUFA`, `TPC`, `Fe`, `B12`); drop paper-local or narrow-domain ones (`TGs`, `LPI`, `MIT`). When the sentence gives both a full name and an abbreviation for the same compound, use the full name.
+
+**Oil disambiguation.** Culinary oils (`olive oil`, `coconut oil`) are food matrices — belong on the **food** side. Essential oils (`essential oil`, `EO`, `orange peel essential oil`) are chemical mixtures — belong on the **chemical** side. Cue: fatty-acid composition → culinary; volatile-aromatic composition (limonene, terpenes) → essential.
+
+## Not chemical — skip
+
+- Bioactivity outcomes (`DPPH inhibition`, `IC50`, `antioxidant activity`).
+- Assay endpoints (`Km`, `FRAP value`).
+- Process parameters (temperatures, pH, fermentation times).
+- Non-detection (`ND`, `not detected`, `below LOD`).
+- Paper-local placeholders (`unknown compound 2`, `peak 7`).
+- Hedge classes next to a named compound ("allicin and other sulphur compounds" → only `allicin`).
+- **Intervention-introduced compounds** — chemicals present because they were deliberately added (feed supplementation, biofortification, fortification). Skip that compound; other indirectly affected compounds are fine.
+
+# concentration
+
+Reproduce verbatim with units — never convert, normalise, or compute. Unit inheritance: a comparison series inherits the unit from the same sentence's focal value.
+
+- **Range format**: `{lo}-{hi} {unit}` (single hyphen, space before unit). "1 to 1.8%" → `1-1.8 %`.
+- **Per-class basis** — canonical form `{value} of {class}`, stripping `the`, `total`, `content`, `composition`, `peak area`. A shared basis named anywhere in the list (or in the lead clause introducing the list) applies to all values in the same list.
+- **Quantified upper bounds OK**: `<LOD`, `<0.01 mg/g`, `≤2 ppm`.
+- **Empty string `""`** when presence is asserted without a per-unit amount.
+
+Never put a delta, ratio, fold-change, yield, recovery, % inhibition, % bioavailability, or qualitative descriptor (`traces`, `small amounts`) in this field. Emit a qualitative row with empty concentration instead.
+
+# Deduplication
+
+- Within one sentence, don't emit both a qualitative and a quantitative row for the same `(food, chemical)`. Keep the quantitative one.
+- Parenthetical synonyms `X (Y)` where Y is a synonym of X → one row using the form **outside** the parens. Exception: when one form is an abbreviation and the other is the full name, use the full name.
+
+# Output
+
+CSV (RFC 4180). First row exactly: `food,chemical,concentration`. Quote any field containing a comma, quote, or newline. Escape internal `"` as `""`. No prose, no Markdown fences. **If no extractable associations, output only the header row.**
+
+## Example — implicit only (output: header, zero rows)
+
+> Previous studies have demonstrated that AceGGP3 expression in kiwifruit is closely linked to AsA content, whereas RrGGP and RrGalUR are key genes in the AsA biosynthesis pathway of R. roxburghii. MdGMP1 plays a crucial role in AsA synthesis in apple leaves.
+
+Every food–chemical co-mention here is gene expression or biosynthesis — not direct composition. Output: just the header. **When in doubt, this is the default.**
+
+# PARAGRAPH
+
+{{PARAGRAPH}}

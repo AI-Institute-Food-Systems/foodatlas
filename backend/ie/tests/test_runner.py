@@ -37,11 +37,11 @@ class TestIEStage:
 
     def test_all_stages_sorted(self) -> None:
         values = [s.value for s in ALL_STAGES]
-        assert values == list(range(4))
+        assert values == [1, 2, 3, 4]
 
     def test_stage_names(self) -> None:
-        assert IEStage.CORPUS.value == 0
-        assert IEStage.EXTRACTION.value == 3
+        assert IEStage.SEARCH.value == 1
+        assert IEStage.EXTRACTION.value == 4
 
 
 class TestIESettings:
@@ -80,8 +80,11 @@ class TestIERunner:
         # Create dirs that downstream stages expect from prior stages
         date = settings.resolved_date
         search_dir = tmp_path / "outputs" / "search" / date
-        (search_dir / "retrieved_sentences").mkdir(parents=True)
-        (search_dir / "retrieved_sentences" / "sentence_filtering_input.tsv").touch()
+        search_dir.mkdir(parents=True)
+        (search_dir / "query_uid_results.tsv").touch()
+        retrieval_dir = tmp_path / "outputs" / "retrieval" / date
+        retrieval_dir.mkdir(parents=True)
+        (retrieval_dir / "sentence_filtering_input.tsv").touch()
         filter_dir = tmp_path / "outputs" / "filtering" / date
         (filter_dir / "filtered_sentences").mkdir(parents=True)
         (filter_dir / "filtered_sentences" / "information_extraction_input.tsv").touch()
@@ -92,8 +95,8 @@ class TestIERunner:
         called: list[str] = []
 
         with (
-            patch.object(runner, "_run_corpus", lambda: called.append("corpus")),
             patch.object(runner, "_run_search", lambda: called.append("search")),
+            patch.object(runner, "_run_retrieval", lambda: called.append("retrieval")),
             patch.object(runner, "_run_filtering", lambda: called.append("filtering")),
             patch.object(
                 runner, "_run_extraction", lambda: called.append("extraction")
@@ -107,8 +110,8 @@ class TestIERunner:
         called: list[str] = []
 
         with (
-            patch.object(runner, "_run_corpus", lambda: called.append("corpus")),
             patch.object(runner, "_run_search", lambda: called.append("search")),
+            patch.object(runner, "_run_retrieval", lambda: called.append("retrieval")),
             patch.object(runner, "_run_filtering", lambda: called.append("filtering")),
             patch.object(
                 runner, "_run_extraction", lambda: called.append("extraction")
@@ -116,19 +119,17 @@ class TestIERunner:
         ):
             runner.run()
 
-        assert called == ["corpus", "search", "filtering", "extraction"]
+        assert called == ["search", "retrieval", "filtering", "extraction"]
 
-    @patch("src.pipeline.runner.update_bioc")
     @patch("src.pipeline.runner.subprocess.run")
-    def test_corpus_downloads_and_updates(
-        self, mock_run: MagicMock, mock_update: MagicMock, runner: IERunner
+    def test_refresh_pmc_ids_csv_downloads(
+        self, mock_run: MagicMock, runner: IERunner
     ) -> None:
-        runner._run_corpus()
+        runner._refresh_pmc_ids_csv()
 
         assert mock_run.call_count == 2
         assert "wget" in mock_run.call_args_list[0][0][0]
         assert "gunzip" in mock_run.call_args_list[1][0][0]
-        mock_update.assert_called_once_with(bioc_pmc_dir="/tmp/bioc")
 
     @patch("src.pipeline.runner.aggregate_food_chem_sentences")
     @patch("src.pipeline.runner.run_biobert_filter")
@@ -182,7 +183,8 @@ class TestCLI:
     def test_stages_command(self) -> None:
         result = CliRunner().invoke(cli, ["stages"])
         assert result.exit_code == 0
-        assert "CORPUS" in result.output
+        assert "SEARCH" in result.output
+        assert "RETRIEVAL" in result.output
         assert "EXTRACTION" in result.output
 
     def test_run_help(self) -> None:
