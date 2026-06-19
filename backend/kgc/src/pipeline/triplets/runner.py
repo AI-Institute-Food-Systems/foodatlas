@@ -12,6 +12,7 @@ from ..knowledge_graph import KnowledgeGraph
 from ..load_sources import load_sources
 from ..scaffold import create_empty_triplet_files
 from .ambiguity import write_ambiguous_attestations
+from .bioactivity import promote_bioactivity_measurements
 from .builder import build_triplets
 
 if TYPE_CHECKING:
@@ -42,6 +43,8 @@ class TripletRunner:
 
         with log_duration("Save KG", logger):
             kg.save()
+        with log_duration("Promote bioactivity measurements", logger):
+            promote_bioactivity_measurements(self._settings, kg)
         self._validate(kg)
         with log_duration("Write ambiguous attestations", logger):
             write_ambiguous_attestations(kg.attestations, kg_dir)
