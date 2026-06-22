@@ -1,6 +1,7 @@
 """ORM models for the FoodAtlas database."""
 
 from .attestations import BaseAttestation
+from .attestations_bioactivity import BaseAttestationBioactivity
 from .base import Base
 from .entities import BaseEntity
 from .evidence import BaseEvidence
@@ -9,9 +10,12 @@ from .triplets import BaseTriplet
 from .trust_base import TrustBase
 from .trust_signals import BaseTrustSignal
 from .views import (
+    MVBioactivityEntity,
+    MVChemicalBioactivity,
     MVChemicalDiseaseCorrelation,
     MVChemicalEntity,
     MVDiseaseEntity,
+    MVFoodBioactivity,
     MVFoodChemicalComposition,
     MVFoodEntity,
     MVMetadataStatistics,
@@ -21,13 +25,17 @@ from .views import (
 __all__ = [
     "Base",
     "BaseAttestation",
+    "BaseAttestationBioactivity",
     "BaseEntity",
     "BaseEvidence",
     "BaseTriplet",
     "BaseTrustSignal",
+    "MVBioactivityEntity",
+    "MVChemicalBioactivity",
     "MVChemicalDiseaseCorrelation",
     "MVChemicalEntity",
     "MVDiseaseEntity",
+    "MVFoodBioactivity",
     "MVFoodChemicalComposition",
     "MVFoodEntity",
     "MVMetadataStatistics",

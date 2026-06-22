@@ -76,6 +76,7 @@ def load_kg(conn: Connection, parquet_dir: Path) -> None:
     triplets_df = parquet_reader.read_triplets(kg_dir)
     evidence_df = parquet_reader.read_evidence(kg_dir)
     attestations_df = parquet_reader.read_attestations(kg_dir)
+    attestations_bioactivity_df = parquet_reader.read_attestations_bioactivity(kg_dir)
 
     # 2. Recreate schema from ORM models
     _recreate_schema(conn)
@@ -158,6 +159,37 @@ def load_kg(conn: Connection, parquet_dir: Path) -> None:
             "tail_candidates",
         ],
     )
+
+    # Bioactivity measurements — present only when the KG includes the
+    # bioactivity source. r5/r6 triplets' attestation_ids resolve here.
+    if attestations_bioactivity_df is not None:
+        logger.info(
+            "Inserting bioactivity measurements (%d rows)...",
+            len(attestations_bioactivity_df),
+        )
+        bulk_copy(
+            conn,
+            "base_attestations_bioactivity",
+            attestations_bioactivity_df,
+            [
+                "bioactivity_metadata_id",
+                "exhibit_type",
+                "source_assay_id",
+                "reported_activity_outcome",
+                "evidence_endpoint_type",
+                "evidence_relation",
+                "potency_value",
+                "potency_unit",
+                "efficacy_zeroactivity",
+                "efficacy_infiniteactivity",
+                "efficacy_logac50_value",
+                "efficacy_hillslope",
+                "evidence_source",
+                "evidence_type",
+                "evidence_fit_r2",
+                "evidence_fit_curveclass",
+            ],
+        )
     conn.commit()
 
     # 4. Trust signals (optional, opt-in via KGC trust stage)
