@@ -1,0 +1,3200 @@
+{
+  "data": [
+    {
+      "name": "anticancer",
+      "id": "e227383",
+      "measurement_count": 755,
+      "active_count": 83,
+      "inactive_count": 261,
+      "potency_summary": [
+        {
+          "n": 104,
+          "unit": "MICROMOLAR",
+          "median": 22.58745,
+          "endpoint": "Potency"
+        },
+        {
+          "n": 61,
+          "unit": "nM",
+          "median": 59292.53,
+          "endpoint": "GI50"
+        },
+        {
+          "n": 130,
+          "unit": "MICROMOLAR",
+          "median": 17.175,
+          "endpoint": "IC50"
+        },
+        {
+          "n": 126,
+          "unit": "",
+          "median": 1.0,
+          "endpoint": "GI50"
+        },
+        {
+          "n": 125,
+          "unit": "nM",
+          "median": 15500.0,
+          "endpoint": "IC50"
+        },
+        {
+          "n": 23,
+          "unit": "",
+          "median": 18.6548,
+          "endpoint": "Potency"
+        },
+        {
+          "n": 13,
+          "unit": "nM",
+          "median": 16626.1,
+          "endpoint": "Potency"
+        },
+        {
+          "n": 19,
+          "unit": "nM",
+          "median": 20000.0,
+          "endpoint": "EC50"
+        },
+        {
+          "n": 19,
+          "unit": "MICROMOLAR",
+          "median": 20.0,
+          "endpoint": "EC50"
+        },
+        {
+          "n": 20,
+          "unit": "ug.mL-1",
+          "median": 250.0,
+          "endpoint": "MIC"
+        },
+        {
+          "n": 2,
+          "unit": "MICROMOLAR",
+          "median": 0.185,
+          "endpoint": "ID50"
+        },
+        {
+          "n": 4,
+          "unit": "nM",
+          "median": 6000.0,
+          "endpoint": "Ki"
+        },
+        {
+          "n": 6,
+          "unit": "MICROMOLAR",
+          "median": 19.85,
+          "endpoint": "GI50"
+        },
+        {
+          "n": 7,
+          "unit": "nM",
+          "median": 50000.0,
+          "endpoint": "CC50"
+        },
+        {
+          "n": 7,
+          "unit": "MICROMOLAR",
+          "median": 50.0,
+          "endpoint": "CC50"
+        },
+        {
+          "n": 2,
+          "unit": "ug ml-1",
+          "median": 32.5,
+          "endpoint": "ED50"
+        },
+        {
+          "n": 10,
+          "unit": "ug.mL-1",
+          "median": 9.129999999999999,
+          "endpoint": "IC50"
+        },
+        {
+          "n": 3,
+          "unit": "ug.mL-1",
+          "median": 104.9,
+          "endpoint": "CC50"
+        },
+        {
+          "n": 1,
+          "unit": "MICROMOLAR",
+          "median": 21.8,
+          "endpoint": "PC50"
+        },
+        {
+          "n": 1,
+          "unit": "%",
+          "median": 0.05,
+          "endpoint": "ED50"
+        },
+        {
+          "n": 2,
+          "unit": "MICROMOLAR",
+          "median": 22.85,
+          "endpoint": "IC30"
+        },
+        {
+          "n": 4,
+          "unit": "MICROMOLAR",
+          "median": 6.0,
+          "endpoint": "Ki"
+        },
+        {
+          "n": 2,
+          "unit": "MICROMOLAR",
+          "median": 20.0,
+          "endpoint": "MNCC"
+        },
+        {
+          "n": 1,
+          "unit": "MICROMOLAR",
+          "median": 50.0,
+          "endpoint": "IC"
+        },
+        {
+          "n": 1,
+          "unit": "MICROMOLAR",
+          "median": 8.9,
+          "endpoint": "Kd"
+        },
+        {
+          "n": 1,
+          "unit": "uM",
+          "median": 83.4,
+          "endpoint": "TD50"
+        },
+        {
+          "n": 1,
+          "unit": "MICROMOLAR",
+          "median": 75.0,
+          "endpoint": "Activity"
+        },
+        {
+          "n": 1,
+          "unit": "MICROMOLAR",
+          "median": 83.4,
+          "endpoint": "TD50"
+        }
+      ],
+      "measurements": [
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 588856",
+          "value": 35.4813,
+          "outcome": "Inactive",
+          "endpoint": "Potency"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL749609",
+          "value": 60000.0,
+          "outcome": "Unspecified",
+          "endpoint": "GI50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1188611",
+          "value": 10.18,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL1964037",
+          "value": 100000.0,
+          "outcome": "Inactive",
+          "endpoint": "GI50"
+        },
+        {
+          "unit": "",
+          "assay": "AID: 85",
+          "value": 2.0,
+          "outcome": "Inactive",
+          "endpoint": "GI50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1346798",
+          "value": null,
+          "outcome": "Inactive",
+          "endpoint": "Potency"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL4014439",
+          "value": 10000.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL3625665",
+          "value": 45500.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "",
+          "assay": "AID: 2202659",
+          "value": 1.0,
+          "outcome": "Inactive",
+          "endpoint": "GI50"
+        },
+        {
+          "unit": "",
+          "assay": "AID: 55",
+          "value": 1.0,
+          "outcome": "Inactive",
+          "endpoint": "GI50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL4275400",
+          "value": 11970.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "",
+          "assay": "AID: 123",
+          "value": 1.0,
+          "outcome": "Inactive",
+          "endpoint": "GI50"
+        },
+        {
+          "unit": "",
+          "assay": "AID: 35",
+          "value": 1.0,
+          "outcome": "Inactive",
+          "endpoint": "GI50"
+        },
+        {
+          "unit": "",
+          "assay": "AID: 1347108",
+          "value": 16.6261,
+          "outcome": "Inconclusive",
+          "endpoint": "Potency"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL5347484",
+          "value": 3570.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1462059",
+          "value": 100.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL2114803",
+          "value": 23485.0,
+          "outcome": "Inactive",
+          "endpoint": "Potency"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 696769",
+          "value": 30.9,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL1046424",
+          "value": 58400.0,
+          "outcome": "Unspecified",
+          "endpoint": "EC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1053194",
+          "value": null,
+          "outcome": "Inactive",
+          "endpoint": "Potency"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1919866",
+          "value": 18.6548,
+          "outcome": "Active",
+          "endpoint": "Potency"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 658253",
+          "value": 19.8,
+          "outcome": "Unspecified",
+          "endpoint": "EC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL619245",
+          "value": 400.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL4651403",
+          "value": 20000.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL5543281",
+          "value": 15100.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        }
+      ]
+    },
+    {
+      "name": "antioxidant",
+      "id": "e227382",
+      "measurement_count": 232,
+      "active_count": 67,
+      "inactive_count": 3,
+      "potency_summary": [
+        {
+          "n": 2,
+          "unit": "MICROMOLAR",
+          "median": 41.1122,
+          "endpoint": "Potency"
+        },
+        {
+          "n": 74,
+          "unit": "MICROMOLAR",
+          "median": 6.0,
+          "endpoint": "IC50"
+        },
+        {
+          "n": 67,
+          "unit": "nM",
+          "median": 5600.0,
+          "endpoint": "IC50"
+        },
+        {
+          "n": 20,
+          "unit": "nM",
+          "median": 7500.0,
+          "endpoint": "EC50"
+        },
+        {
+          "n": 21,
+          "unit": "MICROMOLAR",
+          "median": 8.9,
+          "endpoint": "EC50"
+        },
+        {
+          "n": 19,
+          "unit": "ug.mL-1",
+          "median": 9.52,
+          "endpoint": "IC50"
+        },
+        {
+          "n": 3,
+          "unit": "MICROMOLAR",
+          "median": 3.5,
+          "endpoint": "IC25"
+        },
+        {
+          "n": 12,
+          "unit": "MICROMOLAR",
+          "median": 2845.0,
+          "endpoint": "Activity"
+        },
+        {
+          "n": 2,
+          "unit": "ug",
+          "median": 8.35,
+          "endpoint": "EC50"
+        },
+        {
+          "n": 2,
+          "unit": "MICROMOLAR",
+          "median": 10.25,
+          "endpoint": "ED50"
+        },
+        {
+          "n": 1,
+          "unit": "MICROMOLAR",
+          "median": 13.4,
+          "endpoint": "FRS50"
+        },
+        {
+          "n": 1,
+          "unit": "MICROMOLAR",
+          "median": 30.8,
+          "endpoint": "IC30"
+        },
+        {
+          "n": 1,
+          "unit": "MICROMOLAR",
+          "median": 1.45,
+          "endpoint": "A0.5"
+        },
+        {
+          "n": 2,
+          "unit": "uM",
+          "median": 10.25,
+          "endpoint": "ED50"
+        },
+        {
+          "n": 1,
+          "unit": "",
+          "median": 41.18885592,
+          "endpoint": "Potency"
+        },
+        {
+          "n": 1,
+          "unit": "10^-5mg/ml",
+          "median": 8.2,
+          "endpoint": "IC50"
+        }
+      ],
+      "measurements": [
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 624149",
+          "value": 20.5962,
+          "outcome": "Inconclusive",
+          "endpoint": "Potency"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1294432",
+          "value": 1338.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1311090",
+          "value": 1.1,
+          "outcome": "Active",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL3795658",
+          "value": 1500.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1294434",
+          "value": 2.4,
+          "outcome": "Active",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL4362798",
+          "value": 9300.0,
+          "outcome": "Unspecified",
+          "endpoint": "EC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1125770",
+          "value": 49.9,
+          "outcome": "Unspecified",
+          "endpoint": "EC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL3792110",
+          "value": 31740.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "ug.mL-1",
+          "assay": "ChEMBL: CHEMBL3070432",
+          "value": 14.6,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 630145",
+          "value": 6.91,
+          "outcome": "Active",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 378808",
+          "value": 29.12,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1805602",
+          "value": 6.0,
+          "outcome": "Active",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL4125401",
+          "value": 170.0,
+          "outcome": "Unspecified",
+          "endpoint": "EC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL1011395",
+          "value": 6000.0,
+          "outcome": "Unspecified",
+          "endpoint": "EC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 293297",
+          "value": 8.1,
+          "outcome": "Active",
+          "endpoint": "IC25"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 402233",
+          "value": 80.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL3594582",
+          "value": 200.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 378807",
+          "value": 2.39,
+          "outcome": "Active",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL3240979",
+          "value": 96000.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL4390727",
+          "value": 16960.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1270290",
+          "value": 7.26,
+          "outcome": "Active",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL3806886",
+          "value": 5570.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL3795657",
+          "value": 2400.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "ug.mL-1",
+          "assay": "ChEMBL: CHEMBL3075454",
+          "value": 20.1,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "ug.mL-1",
+          "assay": "ChEMBL: CHEMBL3619966",
+          "value": 10.47,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        }
+      ]
+    },
+    {
+      "name": "antiparasitic",
+      "id": "e227399",
+      "measurement_count": 109,
+      "active_count": 43,
+      "inactive_count": 15,
+      "potency_summary": [
+        {
+          "n": 15,
+          "unit": "nM",
+          "median": 7568.6,
+          "endpoint": "Potency"
+        },
+        {
+          "n": 7,
+          "unit": "ug.mL-1",
+          "median": 6.5,
+          "endpoint": "IC50"
+        },
+        {
+          "n": 16,
+          "unit": "MICROMOLAR",
+          "median": 7.32405,
+          "endpoint": "Potency"
+        },
+        {
+          "n": 2,
+          "unit": "MICROMOLAR",
+          "median": 16.69,
+          "endpoint": "AC50"
+        },
+        {
+          "n": 25,
+          "unit": "MICROMOLAR",
+          "median": 10.0,
+          "endpoint": "IC50"
+        },
+        {
+          "n": 25,
+          "unit": "nM",
+          "median": 8900.0,
+          "endpoint": "IC50"
+        },
+        {
+          "n": 3,
+          "unit": "nM",
+          "median": 473.0,
+          "endpoint": "Ki"
+        },
+        {
+          "n": 2,
+          "unit": "nM",
+          "median": 14550.0,
+          "endpoint": "EC50"
+        },
+        {
+          "n": 3,
+          "unit": "MICROMOLAR",
+          "median": 0.473,
+          "endpoint": "Ki"
+        },
+        {
+          "n": 1,
+          "unit": "MOLAR",
+          "median": 0.00571,
+          "endpoint": "AC50"
+        },
+        {
+          "n": 2,
+          "unit": "MICROMOLAR",
+          "median": 14.55,
+          "endpoint": "EC50"
+        }
+      ],
+      "measurements": [
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL1613767",
+          "value": 4466.8,
+          "outcome": "Active",
+          "endpoint": "Potency"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL1613900",
+          "value": 3548.1,
+          "outcome": "Active",
+          "endpoint": "Potency"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 743346",
+          "value": null,
+          "outcome": "Inactive",
+          "endpoint": "Potency"
+        },
+        {
+          "unit": "ug.mL-1",
+          "assay": "ChEMBL: CHEMBL1010478",
+          "value": 29.5,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 488752",
+          "value": 18.526,
+          "outcome": "Inconclusive",
+          "endpoint": "Potency"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1259420",
+          "value": 15.78,
+          "outcome": "Active",
+          "endpoint": "AC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 624147",
+          "value": null,
+          "outcome": "Inactive",
+          "endpoint": "Potency"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1376931",
+          "value": 17.54,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL5621558",
+          "value": 4300.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1882",
+          "value": 8.9125,
+          "outcome": "Active",
+          "endpoint": "Potency"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 703620",
+          "value": 100.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL2175399",
+          "value": 69600.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL3215001",
+          "value": 14950.2,
+          "outcome": "Inactive",
+          "endpoint": "Potency"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1815",
+          "value": 3.5481,
+          "outcome": "Active",
+          "endpoint": "Potency"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL859173",
+          "value": 8900.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 430218",
+          "value": 30.49,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 703621",
+          "value": 102.9,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL910788",
+          "value": 473.0,
+          "outcome": "Unspecified",
+          "endpoint": "Ki"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL1614221",
+          "value": 10417.9,
+          "outcome": "Active",
+          "endpoint": "Potency"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 624173",
+          "value": null,
+          "outcome": "Inactive",
+          "endpoint": "Potency"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL2175398",
+          "value": 6000.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL1614114",
+          "value": 2511.9,
+          "outcome": "Active",
+          "endpoint": "Potency"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL1737951",
+          "value": 22378.0,
+          "outcome": "Active",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 494830",
+          "value": 1.5,
+          "outcome": "Active",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 743324",
+          "value": null,
+          "outcome": "Inactive",
+          "endpoint": "Potency"
+        }
+      ]
+    },
+    {
+      "name": "anti-inflammatory",
+      "id": "e227381",
+      "measurement_count": 144,
+      "active_count": 35,
+      "inactive_count": 2,
+      "potency_summary": [
+        {
+          "n": 59,
+          "unit": "MICROMOLAR",
+          "median": 15.0,
+          "endpoint": "IC50"
+        },
+        {
+          "n": 57,
+          "unit": "nM",
+          "median": 14160.0,
+          "endpoint": "IC50"
+        },
+        {
+          "n": 2,
+          "unit": "nM",
+          "median": 23000.0,
+          "endpoint": "EC50"
+        },
+        {
+          "n": 8,
+          "unit": "MICROMOLAR",
+          "median": 5.6234,
+          "endpoint": "Potency"
+        },
+        {
+          "n": 1,
+          "unit": "ug.mL-1",
+          "median": 2.9,
+          "endpoint": "IC50"
+        },
+        {
+          "n": 2,
+          "unit": "MICROMOLAR",
+          "median": 15.535,
+          "endpoint": "AC50"
+        },
+        {
+          "n": 6,
+          "unit": "nM",
+          "median": 5623.4,
+          "endpoint": "Potency"
+        },
+        {
+          "n": 2,
+          "unit": "MICROMOLAR",
+          "median": 23.0,
+          "endpoint": "EC50"
+        },
+        {
+          "n": 3,
+          "unit": "MICROMOLAR",
+          "median": 13.5,
+          "endpoint": "Activity"
+        },
+        {
+          "n": 1,
+          "unit": "mg kg-1",
+          "median": 100.0,
+          "endpoint": "EC50"
+        },
+        {
+          "n": 2,
+          "unit": "nM",
+          "median": 15535.0,
+          "endpoint": "AC50"
+        },
+        {
+          "n": 1,
+          "unit": "mg",
+          "median": 0.16,
+          "endpoint": "ED50"
+        }
+      ],
+      "measurements": [
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1254801",
+          "value": 17.4,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1505144",
+          "value": 7.2,
+          "outcome": "Active",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1932118",
+          "value": 16.9,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL4623153",
+          "value": 4530.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL5543322",
+          "value": 35450.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL5543278",
+          "value": 22500.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL1006810",
+          "value": 20000.0,
+          "outcome": "Unspecified",
+          "endpoint": "EC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL619914",
+          "value": 300.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1159515",
+          "value": 55.4186,
+          "outcome": "Inconclusive",
+          "endpoint": "Potency"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 379054",
+          "value": 120.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL3107776",
+          "value": 4000.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1452",
+          "value": 1.122,
+          "outcome": "Inconclusive",
+          "endpoint": "Potency"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1234240",
+          "value": 1.8,
+          "outcome": "Active",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 654478",
+          "value": 37.12,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 6809",
+          "value": 0.3,
+          "outcome": "Active",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 504308",
+          "value": 34.5,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL4402917",
+          "value": 24000.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL619245",
+          "value": 400.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "ug.mL-1",
+          "assay": "ChEMBL: CHEMBL3365274",
+          "value": 2.9,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1313603",
+          "value": 15.13,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL5543281",
+          "value": 15100.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 457184",
+          "value": 54.3,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL4395600",
+          "value": 3000.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL4018388",
+          "value": 1400.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1063904",
+          "value": 4.0,
+          "outcome": "Active",
+          "endpoint": "IC50"
+        }
+      ]
+    },
+    {
+      "name": "antibacterial",
+      "id": "e227385",
+      "measurement_count": 177,
+      "active_count": 20,
+      "inactive_count": 3,
+      "potency_summary": [
+        {
+          "n": 55,
+          "unit": "ug.mL-1",
+          "median": 128.0,
+          "endpoint": "MIC"
+        },
+        {
+          "n": 32,
+          "unit": "nM",
+          "median": 11100.0,
+          "endpoint": "IC50"
+        },
+        {
+          "n": 33,
+          "unit": "MICROMOLAR",
+          "median": 15.3,
+          "endpoint": "IC50"
+        },
+        {
+          "n": 4,
+          "unit": "nM",
+          "median": 13950.0,
+          "endpoint": "Kd"
+        },
+        {
+          "n": 3,
+          "unit": "MICROMOLAR",
+          "median": 77.0,
+          "endpoint": "INH"
+        },
+        {
+          "n": 14,
+          "unit": "MICROMOLAR",
+          "median": 1690.0,
+          "endpoint": "MIC"
+        },
+        {
+          "n": 14,
+          "unit": "nM",
+          "median": 1690000.0,
+          "endpoint": "MIC"
+        },
+        {
+          "n": 1,
+          "unit": "MICROGR_PER_ML",
+          "median": 20.0,
+          "endpoint": "IC50"
+        },
+        {
+          "n": 4,
+          "unit": "ug.mL-1",
+          "median": 23.950000000000003,
+          "endpoint": "IC50"
+        },
+        {
+          "n": 3,
+          "unit": "nM",
+          "median": 4300.0,
+          "endpoint": "Ki"
+        },
+        {
+          "n": 4,
+          "unit": "MICROMOLAR",
+          "median": 13.95,
+          "endpoint": "Kd"
+        },
+        {
+          "n": 2,
+          "unit": "ug",
+          "median": 5.0,
+          "endpoint": "MIC"
+        },
+        {
+          "n": 2,
+          "unit": "MICROMOLAR",
+          "median": 49.873200000000004,
+          "endpoint": "Potency"
+        },
+        {
+          "n": 2,
+          "unit": "MICROMOLAR",
+          "median": 6.82,
+          "endpoint": "Ki"
+        },
+        {
+          "n": 1,
+          "unit": "MICROMOLAR",
+          "median": 990.0,
+          "endpoint": "EC50"
+        },
+        {
+          "n": 2,
+          "unit": "nM",
+          "median": 25216.0,
+          "endpoint": "Potency"
+        }
+      ],
+      "measurements": [
+        {
+          "unit": "ug.mL-1",
+          "assay": "ChEMBL: CHEMBL5247471",
+          "value": 128.0,
+          "outcome": "Unspecified",
+          "endpoint": "MIC"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL820514",
+          "value": 4000.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 501421",
+          "value": 0.14,
+          "outcome": "Active",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL5129342",
+          "value": 51800.0,
+          "outcome": "Unspecified",
+          "endpoint": "Kd"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 365",
+          "value": 54.0,
+          "outcome": "Inactive",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "ug.mL-1",
+          "assay": "ChEMBL: CHEMBL983106",
+          "value": 50.0,
+          "outcome": "Unspecified",
+          "endpoint": "MIC"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1923920",
+          "value": 2.8,
+          "outcome": "Active",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL4370675",
+          "value": 550.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "",
+          "assay": "AID: 585",
+          "value": null,
+          "outcome": "Active",
+          "endpoint": ""
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1533714",
+          "value": 77.0,
+          "outcome": "Unspecified",
+          "endpoint": "INH"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1239538",
+          "value": 1690.0,
+          "outcome": "Unspecified",
+          "endpoint": "MIC"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1973466",
+          "value": 15.8,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "ug.mL-1",
+          "assay": "ChEMBL: CHEMBL1799712",
+          "value": 128.0,
+          "outcome": "Unspecified",
+          "endpoint": "MIC"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL3603522",
+          "value": 1690000.0,
+          "outcome": "Unspecified",
+          "endpoint": "MIC"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL3603523",
+          "value": 1690000.0,
+          "outcome": "Unspecified",
+          "endpoint": "MIC"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 703620",
+          "value": 100.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL2175399",
+          "value": 69600.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "ug.mL-1",
+          "assay": "ChEMBL: CHEMBL800635",
+          "value": 15.6,
+          "outcome": "Unspecified",
+          "endpoint": "MIC"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1803286",
+          "value": 1.49,
+          "outcome": "Active",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1931098",
+          "value": 595.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 703621",
+          "value": 102.9,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "ug.mL-1",
+          "assay": "ChEMBL: CHEMBL3076028",
+          "value": 100.0,
+          "outcome": "Unspecified",
+          "endpoint": "MIC"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1533715",
+          "value": 418.0,
+          "outcome": "Unspecified",
+          "endpoint": "INH"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL3603518",
+          "value": 1690000.0,
+          "outcome": "Unspecified",
+          "endpoint": "MIC"
+        },
+        {
+          "unit": "MICROGR_PER_ML",
+          "assay": "AID: 1332",
+          "value": 20.0,
+          "outcome": "Inactive",
+          "endpoint": "IC50"
+        }
+      ]
+    },
+    {
+      "name": "antiviral",
+      "id": "e227396",
+      "measurement_count": 109,
+      "active_count": 19,
+      "inactive_count": 14,
+      "potency_summary": [
+        {
+          "n": 7,
+          "unit": "",
+          "median": 25.1189,
+          "endpoint": "Potency"
+        },
+        {
+          "n": 12,
+          "unit": "MICROMOLAR",
+          "median": 83.4,
+          "endpoint": "EC50"
+        },
+        {
+          "n": 2,
+          "unit": "ug.mL-1",
+          "median": 10.825,
+          "endpoint": "IC50"
+        },
+        {
+          "n": 28,
+          "unit": "MICROMOLAR",
+          "median": 16.8,
+          "endpoint": "IC50"
+        },
+        {
+          "n": 1,
+          "unit": "nM",
+          "median": 5623.4,
+          "endpoint": "Potency"
+        },
+        {
+          "n": 28,
+          "unit": "nM",
+          "median": 16800.0,
+          "endpoint": "IC50"
+        },
+        {
+          "n": 8,
+          "unit": "nM",
+          "median": 31450.0,
+          "endpoint": "EC50"
+        },
+        {
+          "n": 2,
+          "unit": "MICROMOLAR",
+          "median": 330.0,
+          "endpoint": "INH"
+        },
+        {
+          "n": 2,
+          "unit": "MICROMOLAR",
+          "median": 0.185,
+          "endpoint": "ID50"
+        },
+        {
+          "n": 2,
+          "unit": "ug.mL-1",
+          "median": 1.825,
+          "endpoint": "EC50"
+        },
+        {
+          "n": 2,
+          "unit": "MICROMOLAR",
+          "median": 18.112,
+          "endpoint": "Potency"
+        },
+        {
+          "n": 1,
+          "unit": "uM",
+          "median": 48.2,
+          "endpoint": "ED50"
+        },
+        {
+          "n": 1,
+          "unit": "nM",
+          "median": 3800.0,
+          "endpoint": "Ki"
+        },
+        {
+          "n": 1,
+          "unit": "",
+          "median": 50.0,
+          "endpoint": "EC50"
+        },
+        {
+          "n": 1,
+          "unit": "",
+          "median": 100.0,
+          "endpoint": "IC50"
+        },
+        {
+          "n": 1,
+          "unit": "MICROMOLAR",
+          "median": 48.2,
+          "endpoint": "ED50"
+        },
+        {
+          "n": 2,
+          "unit": "MICROMOLAR",
+          "median": 5.6,
+          "endpoint": "Ki"
+        }
+      ],
+      "measurements": [
+        {
+          "unit": "",
+          "assay": "AID: 1347151",
+          "value": 2.1192,
+          "outcome": "Active",
+          "endpoint": "Potency"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 455706",
+          "value": 133.6,
+          "outcome": "Unspecified",
+          "endpoint": "EC50"
+        },
+        {
+          "unit": "ug.mL-1",
+          "assay": "ChEMBL: CHEMBL1114806",
+          "value": 17.65,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 2112592",
+          "value": 0.56,
+          "outcome": "Active",
+          "endpoint": "EC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 417656",
+          "value": 2.7,
+          "outcome": "Active",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 366284",
+          "value": 87.6,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1409607",
+          "value": 2.29087,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL3562077",
+          "value": 5623.4,
+          "outcome": "Inactive",
+          "endpoint": "Potency"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 658253",
+          "value": 19.8,
+          "outcome": "Unspecified",
+          "endpoint": "EC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL4651403",
+          "value": 20000.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1704260",
+          "value": 73.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL5577109",
+          "value": 8700.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "",
+          "assay": "AID: 1347156",
+          "value": null,
+          "outcome": "Inactive",
+          "endpoint": "Potency"
+        },
+        {
+          "unit": "",
+          "assay": "AID: 1347131",
+          "value": null,
+          "outcome": "Inactive",
+          "endpoint": "Potency"
+        },
+        {
+          "unit": "",
+          "assay": "AID: 1347164",
+          "value": 25.1189,
+          "outcome": "Inconclusive",
+          "endpoint": "Potency"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL5577108",
+          "value": 560.0,
+          "outcome": "Unspecified",
+          "endpoint": "EC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL979143",
+          "value": 87600.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "",
+          "assay": "AID: 1347149",
+          "value": null,
+          "outcome": "Inactive",
+          "endpoint": "Potency"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 455705",
+          "value": 43.1,
+          "outcome": "Unspecified",
+          "endpoint": "EC50"
+        },
+        {
+          "unit": "",
+          "assay": "AID: 1347169",
+          "value": 0.0005,
+          "outcome": "Inactive",
+          "endpoint": "Potency"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL1065350",
+          "value": 1700.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1923942",
+          "value": 83.4,
+          "outcome": "Unspecified",
+          "endpoint": "EC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 654746",
+          "value": 20.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL979145",
+          "value": 67500.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL4616899",
+          "value": 84.46,
+          "outcome": "Unspecified",
+          "endpoint": "EC50"
+        }
+      ]
+    },
+    {
+      "name": "antidiabetic",
+      "id": "e227384",
+      "measurement_count": 80,
+      "active_count": 18,
+      "inactive_count": 11,
+      "potency_summary": [
+        {
+          "n": 37,
+          "unit": "MICROMOLAR",
+          "median": 10.8,
+          "endpoint": "IC50"
+        },
+        {
+          "n": 29,
+          "unit": "nM",
+          "median": 7810.0,
+          "endpoint": "IC50"
+        },
+        {
+          "n": 2,
+          "unit": "MICROMOLAR",
+          "median": 41.0109,
+          "endpoint": "Potency"
+        },
+        {
+          "n": 2,
+          "unit": "nM",
+          "median": 16000.0,
+          "endpoint": "Ki"
+        },
+        {
+          "n": 2,
+          "unit": "MICROMOLAR",
+          "median": 16.0,
+          "endpoint": "Ki"
+        },
+        {
+          "n": 1,
+          "unit": "ug.mL-1",
+          "median": 1.05,
+          "endpoint": "IC50"
+        }
+      ],
+      "measurements": [
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 639825",
+          "value": 2.2,
+          "outcome": "Active",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1938295",
+          "value": 26.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1224842",
+          "value": null,
+          "outcome": "Inactive",
+          "endpoint": "Potency"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL4119399",
+          "value": 14200.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 385353",
+          "value": 7.21,
+          "outcome": "Active",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL5380762",
+          "value": 15600.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL4184972",
+          "value": 7800.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1198740",
+          "value": 6.6,
+          "outcome": "Active",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1224841",
+          "value": null,
+          "outcome": "Inactive",
+          "endpoint": "Potency"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 34976",
+          "value": 7.7,
+          "outcome": "Active",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL936594",
+          "value": 2200.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1395903",
+          "value": 2.92,
+          "outcome": "Active",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL645597",
+          "value": 39900.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 743191",
+          "value": 55.4186,
+          "outcome": "Inconclusive",
+          "endpoint": "Potency"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1198741",
+          "value": 5.3,
+          "outcome": "Active",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 414643",
+          "value": 23.3,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 34804",
+          "value": 8.32,
+          "outcome": "Active",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 354608",
+          "value": 50.1,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL3362499",
+          "value": 2900.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1370805",
+          "value": 7.8,
+          "outcome": "Active",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL989312",
+          "value": 50100.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 480503",
+          "value": 2.85,
+          "outcome": "Active",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL644306",
+          "value": 7700.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL3411751",
+          "value": 6600.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL771170",
+          "value": 23300.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        }
+      ]
+    },
+    {
+      "name": "antidementia",
+      "id": "e227392",
+      "measurement_count": 41,
+      "active_count": 12,
+      "inactive_count": 2,
+      "potency_summary": [
+        {
+          "n": 19,
+          "unit": "MICROMOLAR",
+          "median": 5.6,
+          "endpoint": "IC50"
+        },
+        {
+          "n": 15,
+          "unit": "nM",
+          "median": 2910.0,
+          "endpoint": "IC50"
+        },
+        {
+          "n": 3,
+          "unit": "MICROMOLAR",
+          "median": 38.3,
+          "endpoint": "Ki"
+        },
+        {
+          "n": 3,
+          "unit": "nM",
+          "median": 38300.0,
+          "endpoint": "Ki"
+        }
+      ],
+      "measurements": [
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 483707",
+          "value": 10.82,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL3876903",
+          "value": 7940.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL4053402",
+          "value": 15300.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 720559",
+          "value": null,
+          "outcome": "Inactive",
+          "endpoint": "Potency"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL3750502",
+          "value": 15300.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1336867",
+          "value": 7.94,
+          "outcome": "Active",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL969284",
+          "value": 800.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1983228",
+          "value": 0.82,
+          "outcome": "Active",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL3071786",
+          "value": 5400.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1486117",
+          "value": 5.6,
+          "outcome": "Active",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1269368",
+          "value": 15.3,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1938215",
+          "value": 2.91,
+          "outcome": "Active",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL1070086",
+          "value": 240.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL1070087",
+          "value": 720.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1484013",
+          "value": 124.6,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL4055495",
+          "value": 5600.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 456188",
+          "value": 0.24,
+          "outcome": "Active",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 456189",
+          "value": 0.72,
+          "outcome": "Active",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL5241709",
+          "value": 2910.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL3588505",
+          "value": 6500.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 382346",
+          "value": 0.8,
+          "outcome": "Active",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1938216",
+          "value": 0.55,
+          "outcome": "Active",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 477795",
+          "value": 0.8,
+          "outcome": "Active",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL5241710",
+          "value": 550.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 441659",
+          "value": 68.0,
+          "outcome": "Unspecified",
+          "endpoint": "Ki"
+        }
+      ]
+    },
+    {
+      "name": "neuroprotective",
+      "id": "e227391",
+      "measurement_count": 43,
+      "active_count": 9,
+      "inactive_count": 6,
+      "potency_summary": [
+        {
+          "n": 2,
+          "unit": "nM",
+          "median": 30765.0,
+          "endpoint": "EC50"
+        },
+        {
+          "n": 16,
+          "unit": "MICROMOLAR",
+          "median": 12.07,
+          "endpoint": "IC50"
+        },
+        {
+          "n": 2,
+          "unit": "MICROMOLAR",
+          "median": 30.765,
+          "endpoint": "EC50"
+        },
+        {
+          "n": 13,
+          "unit": "nM",
+          "median": 5600.0,
+          "endpoint": "IC50"
+        },
+        {
+          "n": 2,
+          "unit": "MICROMOLAR",
+          "median": 53.15,
+          "endpoint": "Ki"
+        },
+        {
+          "n": 1,
+          "unit": "nM",
+          "median": 5600.0,
+          "endpoint": "AC50"
+        },
+        {
+          "n": 2,
+          "unit": "nM",
+          "median": 53150.0,
+          "endpoint": "Ki"
+        },
+        {
+          "n": 1,
+          "unit": "MICROMOLAR",
+          "median": 5.6,
+          "endpoint": "AC50"
+        }
+      ],
+      "measurements": [
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL3240408",
+          "value": 3130.0,
+          "outcome": "Unspecified",
+          "endpoint": "EC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 377655",
+          "value": 20.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 449299",
+          "value": 58.4,
+          "outcome": "Unspecified",
+          "endpoint": "EC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL977539",
+          "value": 20000.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL5254631",
+          "value": 2800.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL977538",
+          "value": 10.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 2138202",
+          "value": 5.6,
+          "outcome": "Active",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL5244526",
+          "value": 10890.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 2138201",
+          "value": 12.5,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL1046424",
+          "value": 58400.0,
+          "outcome": "Unspecified",
+          "endpoint": "EC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1938215",
+          "value": 2.91,
+          "outcome": "Active",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL1071606",
+          "value": 90000.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1347395",
+          "value": null,
+          "outcome": "Inactive",
+          "endpoint": "Potency"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 377654",
+          "value": 0.01,
+          "outcome": "Active",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1928479",
+          "value": 1.52,
+          "outcome": "Active",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1802766",
+          "value": 40.94,
+          "outcome": "Inactive",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL4042110",
+          "value": 2440.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1940950",
+          "value": 11.64,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL5628230",
+          "value": 12500.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL4042111",
+          "value": 38660.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL5241709",
+          "value": 2910.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL5231663",
+          "value": 1520.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 461721",
+          "value": 2.8,
+          "outcome": "Active",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL1071605",
+          "value": 2800.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 441659",
+          "value": 68.0,
+          "outcome": "Unspecified",
+          "endpoint": "Ki"
+        }
+      ]
+    },
+    {
+      "name": "antifungal",
+      "id": "e227388",
+      "measurement_count": 57,
+      "active_count": 4,
+      "inactive_count": 2,
+      "potency_summary": [
+        {
+          "n": 23,
+          "unit": "ug.mL-1",
+          "median": 37.5,
+          "endpoint": "MIC"
+        },
+        {
+          "n": 14,
+          "unit": "MICROMOLAR",
+          "median": 17.8,
+          "endpoint": "IC50"
+        },
+        {
+          "n": 4,
+          "unit": "ug.mL-1",
+          "median": 31.0,
+          "endpoint": "IC50"
+        },
+        {
+          "n": 12,
+          "unit": "nM",
+          "median": 14900.0,
+          "endpoint": "IC50"
+        },
+        {
+          "n": 1,
+          "unit": "MICROMOLAR",
+          "median": 15.1356,
+          "endpoint": "Ki"
+        },
+        {
+          "n": 1,
+          "unit": "nM",
+          "median": 15135.61,
+          "endpoint": "Ki"
+        }
+      ],
+      "measurements": [
+        {
+          "unit": "ug.mL-1",
+          "assay": "ChEMBL: CHEMBL4313254",
+          "value": 83.0,
+          "outcome": "Unspecified",
+          "endpoint": "MIC"
+        },
+        {
+          "unit": "ug.mL-1",
+          "assay": "ChEMBL: CHEMBL4313262",
+          "value": 7.8,
+          "outcome": "Unspecified",
+          "endpoint": "MIC"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1372148",
+          "value": 20.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "ug.mL-1",
+          "assay": "ChEMBL: CHEMBL4313379",
+          "value": 125.0,
+          "outcome": "Unspecified",
+          "endpoint": "MIC"
+        },
+        {
+          "unit": "ug.mL-1",
+          "assay": "ChEMBL: CHEMBL4313260",
+          "value": 7.8,
+          "outcome": "Unspecified",
+          "endpoint": "MIC"
+        },
+        {
+          "unit": "ug.mL-1",
+          "assay": "ChEMBL: CHEMBL4313257",
+          "value": 83.0,
+          "outcome": "Unspecified",
+          "endpoint": "MIC"
+        },
+        {
+          "unit": "ug.mL-1",
+          "assay": "ChEMBL: CHEMBL4313259",
+          "value": 7.8,
+          "outcome": "Unspecified",
+          "endpoint": "MIC"
+        },
+        {
+          "unit": "ug.mL-1",
+          "assay": "ChEMBL: CHEMBL943598",
+          "value": 12.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL4119399",
+          "value": 14200.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "ug.mL-1",
+          "assay": "ChEMBL: CHEMBL4313255",
+          "value": 83.0,
+          "outcome": "Unspecified",
+          "endpoint": "MIC"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL4186314",
+          "value": 20000.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 720559",
+          "value": null,
+          "outcome": "Inactive",
+          "endpoint": "Potency"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL4186313",
+          "value": 20000.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL3755177",
+          "value": 15.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL3411752",
+          "value": 5300.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL5380762",
+          "value": 15600.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "ug.mL-1",
+          "assay": "ChEMBL: CHEMBL4313253",
+          "value": 83.0,
+          "outcome": "Unspecified",
+          "endpoint": "MIC"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1372147",
+          "value": 20.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "ug.mL-1",
+          "assay": "ChEMBL: CHEMBL5127470",
+          "value": 37.5,
+          "outcome": "Unspecified",
+          "endpoint": "MIC"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1272001",
+          "value": 0.015,
+          "outcome": "Active",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "ug.mL-1",
+          "assay": "ChEMBL: CHEMBL4313256",
+          "value": 83.0,
+          "outcome": "Unspecified",
+          "endpoint": "MIC"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL3620092",
+          "value": 10980.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1198740",
+          "value": 6.6,
+          "outcome": "Active",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "ug.mL-1",
+          "assay": "ChEMBL: CHEMBL4313252",
+          "value": 83.0,
+          "outcome": "Unspecified",
+          "endpoint": "MIC"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1372144",
+          "value": 20.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        }
+      ]
+    },
+    {
+      "name": "antiobesity",
+      "id": "e227393",
+      "measurement_count": 15,
+      "active_count": 2,
+      "inactive_count": 0,
+      "potency_summary": [
+        {
+          "n": 2,
+          "unit": "nM",
+          "median": 16000.0,
+          "endpoint": "Ki"
+        },
+        {
+          "n": 4,
+          "unit": "MICROMOLAR",
+          "median": 37.145,
+          "endpoint": "IC50"
+        },
+        {
+          "n": 4,
+          "unit": "nM",
+          "median": 37145.0,
+          "endpoint": "IC50"
+        },
+        {
+          "n": 2,
+          "unit": "MICROMOLAR",
+          "median": 16.0,
+          "endpoint": "Ki"
+        },
+        {
+          "n": 1,
+          "unit": "ug.mL-1",
+          "median": 12.0,
+          "endpoint": "IC50"
+        },
+        {
+          "n": 1,
+          "unit": "MICROMOLAR",
+          "median": 30.0,
+          "endpoint": "AC50"
+        },
+        {
+          "n": 1,
+          "unit": "nM",
+          "median": 30000.0,
+          "endpoint": "AC50"
+        }
+      ],
+      "measurements": [
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL3395074",
+          "value": 16000.0,
+          "outcome": "Unspecified",
+          "endpoint": "Ki"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1975735",
+          "value": 1.53,
+          "outcome": "Active",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL2169241",
+          "value": 4290.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL5357891",
+          "value": 86980.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 697064",
+          "value": 4.29,
+          "outcome": "Active",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL5328237",
+          "value": 1530.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1189228",
+          "value": 16.0,
+          "outcome": "Unspecified",
+          "endpoint": "Ki"
+        },
+        {
+          "unit": "ug.mL-1",
+          "assay": "ChEMBL: CHEMBL943598",
+          "value": 12.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1961789",
+          "value": 30.0,
+          "outcome": "Unspecified",
+          "endpoint": "AC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1425891",
+          "value": 16.0,
+          "outcome": "Unspecified",
+          "endpoint": "Ki"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1204217",
+          "value": 70.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL3424042",
+          "value": 70000.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 2004480",
+          "value": 86.98,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL3992730",
+          "value": 16000.0,
+          "outcome": "Unspecified",
+          "endpoint": "Ki"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL5291832",
+          "value": 30000.0,
+          "outcome": "Unspecified",
+          "endpoint": "AC50"
+        }
+      ]
+    },
+    {
+      "name": "gastrointestinal",
+      "id": "e227395",
+      "measurement_count": 15,
+      "active_count": 2,
+      "inactive_count": 0,
+      "potency_summary": [
+        {
+          "n": 2,
+          "unit": "nM",
+          "median": 6820.0,
+          "endpoint": "Ki"
+        },
+        {
+          "n": 1,
+          "unit": "nM",
+          "median": 12900.0,
+          "endpoint": "Kd"
+        },
+        {
+          "n": 2,
+          "unit": "MICROMOLAR",
+          "median": 11.1,
+          "endpoint": "IC50"
+        },
+        {
+          "n": 2,
+          "unit": "MICROMOLAR",
+          "median": 6.82,
+          "endpoint": "Ki"
+        },
+        {
+          "n": 4,
+          "unit": "nM",
+          "median": 11200.0,
+          "endpoint": "IC50"
+        },
+        {
+          "n": 1,
+          "unit": "MICROMOLAR",
+          "median": 12.9,
+          "endpoint": "Kd"
+        },
+        {
+          "n": 3,
+          "unit": "ug.mL-1",
+          "median": 100.0,
+          "endpoint": "MIC"
+        }
+      ],
+      "measurements": [
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL5127434",
+          "value": 9340.0,
+          "outcome": "Unspecified",
+          "endpoint": "Ki"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL3074971",
+          "value": 12900.0,
+          "outcome": "Unspecified",
+          "endpoint": "Kd"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 745311",
+          "value": 11.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1113797",
+          "value": 4.3,
+          "outcome": "Active",
+          "endpoint": "Ki"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL2427756",
+          "value": 11200.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL3074976",
+          "value": 48500.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1871940",
+          "value": 9.34,
+          "outcome": "Active",
+          "endpoint": "Ki"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1113792",
+          "value": 12.9,
+          "outcome": "Unspecified",
+          "endpoint": "Kd"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL3074976",
+          "value": 4300.0,
+          "outcome": "Unspecified",
+          "endpoint": "Ki"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL2379097",
+          "value": 11000.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL5127434",
+          "value": 11200.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "ug.mL-1",
+          "assay": "ChEMBL: CHEMBL983106",
+          "value": 50.0,
+          "outcome": "Unspecified",
+          "endpoint": "MIC"
+        },
+        {
+          "unit": "ug.mL-1",
+          "assay": "ChEMBL: CHEMBL3074973",
+          "value": 100.0,
+          "outcome": "Unspecified",
+          "endpoint": "MIC"
+        },
+        {
+          "unit": "ug.mL-1",
+          "assay": "ChEMBL: CHEMBL3074975",
+          "value": 200.0,
+          "outcome": "Unspecified",
+          "endpoint": "MIC"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 771082",
+          "value": 11.2,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        }
+      ]
+    },
+    {
+      "name": "immunomodulator",
+      "id": "e227398",
+      "measurement_count": 5,
+      "active_count": 2,
+      "inactive_count": 2,
+      "potency_summary": [
+        {
+          "n": 2,
+          "unit": "MICROMOLAR",
+          "median": 22.40495,
+          "endpoint": "Potency"
+        },
+        {
+          "n": 1,
+          "unit": "nM",
+          "median": 16626.1,
+          "endpoint": "Potency"
+        }
+      ],
+      "measurements": [
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1347405",
+          "value": 28.1838,
+          "outcome": "Inconclusive",
+          "endpoint": "Potency"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1347411",
+          "value": null,
+          "outcome": "Inactive",
+          "endpoint": "Potency"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1053194",
+          "value": null,
+          "outcome": "Inactive",
+          "endpoint": "Potency"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1053195",
+          "value": 16.6261,
+          "outcome": "Active",
+          "endpoint": "Potency"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL3214997",
+          "value": 16626.1,
+          "outcome": "Active",
+          "endpoint": "Potency"
+        }
+      ]
+    },
+    {
+      "name": "antiaging",
+      "id": "e227389",
+      "measurement_count": 3,
+      "active_count": 1,
+      "inactive_count": 0,
+      "potency_summary": [
+        {
+          "n": 1,
+          "unit": "nM",
+          "median": 1900.0,
+          "endpoint": "IC50"
+        },
+        {
+          "n": 1,
+          "unit": "MICROMOLAR",
+          "median": 1.9,
+          "endpoint": "IC50"
+        },
+        {
+          "n": 1,
+          "unit": "MICROMOLAR",
+          "median": 990.0,
+          "endpoint": "EC50"
+        }
+      ],
+      "measurements": [
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL5227962",
+          "value": 1900.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1924878",
+          "value": 1.9,
+          "outcome": "Active",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1924881",
+          "value": 990.0,
+          "outcome": "Unspecified",
+          "endpoint": "EC50"
+        }
+      ]
+    },
+    {
+      "name": "antihypertensive",
+      "id": "e227397",
+      "measurement_count": 7,
+      "active_count": 0,
+      "inactive_count": 0,
+      "potency_summary": [
+        {
+          "n": 3,
+          "unit": "nM",
+          "median": 30000.0,
+          "endpoint": "AC50"
+        },
+        {
+          "n": 1,
+          "unit": "ug.mL-1",
+          "median": 4.0,
+          "endpoint": "IC50"
+        },
+        {
+          "n": 3,
+          "unit": "MICROMOLAR",
+          "median": 30.0,
+          "endpoint": "AC50"
+        }
+      ],
+      "measurements": [
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL5291744",
+          "value": 30000.0,
+          "outcome": "Unspecified",
+          "endpoint": "AC50"
+        },
+        {
+          "unit": "ug.mL-1",
+          "assay": "ChEMBL: CHEMBL1017497",
+          "value": 4.0,
+          "outcome": "Unspecified",
+          "endpoint": "IC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1961743",
+          "value": 30.0,
+          "outcome": "Unspecified",
+          "endpoint": "AC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1961860",
+          "value": 100.0,
+          "outcome": "Unspecified",
+          "endpoint": "AC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL5291903",
+          "value": 100000.0,
+          "outcome": "Unspecified",
+          "endpoint": "AC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1961701",
+          "value": 30.0,
+          "outcome": "Unspecified",
+          "endpoint": "AC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL5291786",
+          "value": 30000.0,
+          "outcome": "Unspecified",
+          "endpoint": "AC50"
+        }
+      ]
+    },
+    {
+      "name": "antiallergic",
+      "id": "e227394",
+      "measurement_count": 4,
+      "active_count": 0,
+      "inactive_count": 0,
+      "potency_summary": [
+        {
+          "n": 1,
+          "unit": "MICROMOLAR",
+          "median": 10.0,
+          "endpoint": "AC50"
+        },
+        {
+          "n": 1,
+          "unit": "nM",
+          "median": 35000.0,
+          "endpoint": "EC50"
+        },
+        {
+          "n": 1,
+          "unit": "nM",
+          "median": 10000.0,
+          "endpoint": "AC50"
+        },
+        {
+          "n": 1,
+          "unit": "MICROMOLAR",
+          "median": 35.0,
+          "endpoint": "EC50"
+        }
+      ],
+      "measurements": [
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1961766",
+          "value": 10.0,
+          "outcome": "Unspecified",
+          "endpoint": "AC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL2173401",
+          "value": 35000.0,
+          "outcome": "Unspecified",
+          "endpoint": "EC50"
+        },
+        {
+          "unit": "nM",
+          "assay": "ChEMBL: CHEMBL5291809",
+          "value": 10000.0,
+          "outcome": "Unspecified",
+          "endpoint": "AC50"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 701064",
+          "value": 35.0,
+          "outcome": "Unspecified",
+          "endpoint": "EC50"
+        }
+      ]
+    },
+    {
+      "name": "cardioprotective",
+      "id": "e227390",
+      "measurement_count": 2,
+      "active_count": 0,
+      "inactive_count": 2,
+      "potency_summary": null,
+      "measurements": [
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 588834",
+          "value": null,
+          "outcome": "Inactive",
+          "endpoint": "Potency"
+        },
+        {
+          "unit": "MICROMOLAR",
+          "assay": "AID: 1671200",
+          "value": null,
+          "outcome": "Inactive",
+          "endpoint": "Potency"
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "row_count": 17
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "data": [
+    {
+      "name": "antioxidant",
+      "id": "e227382",
+      "measurement_count": 1,
+      "measurements": [
+        {
+          "unit": "mmol/100g",
+          "assay": "FoodAtlasModel: RF_antioxidant_v1",
+          "value": 0.5188796930758847,
+          "outcome": "Unspecified",
+          "endpoint": "Activity"
+        }
+      ]
+    },
+    {
+      "name": "antidiabetic",
+      "id": "e227384",
+      "measurement_count": 1,
+      "measurements": [
+        {
+          "unit": "",
+          "assay": "FoodAtlasModel: RF_antidiabetic_v1",
+          "value": 15.05640680794259,
+          "outcome": "Unspecified",
+          "endpoint": "Glycemic Load"
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "row_count": 2
+  }
+}
