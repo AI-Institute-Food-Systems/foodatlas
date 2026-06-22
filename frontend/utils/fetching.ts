@@ -1,5 +1,31 @@
 import { MacroAndMicroData, Metadata, TaxonomyData } from "@/types";
 
+// The /bioactivity/metadata endpoint returns external_ids in a flat
+// shape ({key: ["id1", ...]}) while every other entity endpoint returns
+// the structured shape ({key: {display_name, ids: [{id, url}]}}).
+// Normalize here so MetainformationSection sees one shape.
+function normalizeExternalIds(raw: unknown): Metadata["external_ids"] {
+  if (!raw || typeof raw !== "object") return {} as Metadata["external_ids"];
+  const out: Record<
+    string,
+    { display_name: string; ids: { id: string; url: string | null }[] }
+  > = {};
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (Array.isArray(value)) {
+      out[key] = {
+        display_name: key
+          .split("_")
+          .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : ""))
+          .join(" "),
+        ids: value.map((id) => ({ id: String(id), url: null })),
+      };
+    } else if (value && typeof value === "object") {
+      out[key] = value as (typeof out)[string];
+    }
+  }
+  return out;
+}
+
 // fetch metadata for a given entity
 // returns null when no entity matches the given common name
 export async function getMetaData(
@@ -23,8 +49,12 @@ export async function getMetaData(
   }
 
   const data = await res.json();
-
-  return data.data[0] ?? null;
+  const record = data.data[0];
+  if (!record) return null;
+  return {
+    ...record,
+    external_ids: normalizeExternalIds(record.external_ids),
+  };
 }
 
 // fetch taxonomy ancestry for a given entity
@@ -231,14 +261,11 @@ export async function getDownloadEntries() {
 }
 
 // fetch chemicals measured against a bioactivity
-export async function getBioactivityChemicals(
-  commonName: string,
-  page: number = 1
-) {
+export async function getBioactivityChemicals(commonName: string) {
   const res = await fetch(
     `${
       process.env.NEXT_PUBLIC_API_URL
-    }/bioactivity/chemicals?common_name=${encodeURIComponent(commonName)}&page=${page}`,
+    }/bioactivity/chemicals?common_name=${encodeURIComponent(commonName)}`,
     {
       headers: {
         Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
@@ -252,18 +279,12 @@ export async function getBioactivityChemicals(
   return res.json();
 }
 
-// fetch foods exhibiting a bioactivity (direct or inherited)
-export async function getBioactivityFoods(
-  commonName: string,
-  page: number = 1,
-  exhibitType: "all" | "direct" | "inherited" = "all"
-) {
+// fetch foods exhibiting a bioactivity
+export async function getBioactivityFoods(commonName: string) {
   const res = await fetch(
     `${
       process.env.NEXT_PUBLIC_API_URL
-    }/bioactivity/foods?common_name=${encodeURIComponent(
-      commonName
-    )}&page=${page}&exhibit_type=${exhibitType}`,
+    }/bioactivity/foods?common_name=${encodeURIComponent(commonName)}`,
     {
       headers: {
         Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
@@ -277,37 +298,12 @@ export async function getBioactivityFoods(
   return res.json();
 }
 
-// fetch diseases associated with a bioactivity
-export async function getBioactivityDiseases(
-  commonName: string,
-  page: number = 1
-) {
-  const res = await fetch(
-    `${
-      process.env.NEXT_PUBLIC_API_URL
-    }/bioactivity/diseases?common_name=${encodeURIComponent(commonName)}&page=${page}`,
-    {
-      headers: {
-        Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
-      },
-      next: { revalidate: 86400 },
-    }
-  );
-  if (!res.ok) {
-    throw new Error(`Failed to fetch bioactivity diseases for ${commonName}`);
-  }
-  return res.json();
-}
-
 // bioactivities measured against a chemical (reverse of getBioactivityChemicals)
-export async function getChemicalBioactivities(
-  commonName: string,
-  page: number = 1
-) {
+export async function getChemicalBioactivities(commonName: string) {
   const res = await fetch(
     `${
       process.env.NEXT_PUBLIC_API_URL
-    }/chemical/bioactivities?common_name=${encodeURIComponent(commonName)}&page=${page}`,
+    }/chemical/bioactivities?common_name=${encodeURIComponent(commonName)}`,
     {
       headers: {
         Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
@@ -322,17 +318,11 @@ export async function getChemicalBioactivities(
 }
 
 // bioactivities exhibited by a food
-export async function getFoodBioactivities(
-  commonName: string,
-  page: number = 1,
-  exhibitType: "all" | "direct" | "inherited" = "all"
-) {
+export async function getFoodBioactivities(commonName: string) {
   const res = await fetch(
     `${
       process.env.NEXT_PUBLIC_API_URL
-    }/food/bioactivities?common_name=${encodeURIComponent(
-      commonName
-    )}&page=${page}&exhibit_type=${exhibitType}`,
+    }/food/bioactivities?common_name=${encodeURIComponent(commonName)}`,
     {
       headers: {
         Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
@@ -342,28 +332,6 @@ export async function getFoodBioactivities(
   );
   if (!res.ok) {
     throw new Error(`Failed to fetch food bioactivities for ${commonName}`);
-  }
-  return res.json();
-}
-
-// bioactivities associated with a disease
-export async function getDiseaseBioactivities(
-  commonName: string,
-  page: number = 1
-) {
-  const res = await fetch(
-    `${
-      process.env.NEXT_PUBLIC_API_URL
-    }/disease/bioactivities?common_name=${encodeURIComponent(commonName)}&page=${page}`,
-    {
-      headers: {
-        Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
-      },
-      next: { revalidate: 86400 },
-    }
-  );
-  if (!res.ok) {
-    throw new Error(`Failed to fetch disease bioactivities for ${commonName}`);
   }
   return res.json();
 }

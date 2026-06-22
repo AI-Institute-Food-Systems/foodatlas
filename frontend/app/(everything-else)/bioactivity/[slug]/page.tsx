@@ -4,7 +4,6 @@ import { Suspense } from "react";
 
 import BioactivityChemicalsSection from "@/components/entities/bioactivity/BioactivityChemicalsSection";
 import BioactivityFoodsSection from "@/components/entities/bioactivity/BioactivityFoodsSection";
-import BioactivityDiseasesSection from "@/components/entities/bioactivity/BioactivityDiseasesSection";
 import HeaderSection from "@/components/entities/HeaderSection";
 import HeaderSectionSuspense from "@/components/entities/HeaderSectionSuspense";
 import MetainformationSection from "@/components/entities/MetainformationSection";
@@ -27,7 +26,7 @@ export async function generateMetadata({
 
   return {
     title: `${toTitleCase(metaData.common_name)} — Bioactivity Profile`,
-    description: `Chemical measurements, food sources, and disease associations for the ${toTitleCase(
+    description: `Chemical measurements and food sources for the ${toTitleCase(
       metaData.common_name
     )} bioactivity.`,
   };
@@ -52,7 +51,6 @@ const BioactivityPage = async ({ params }: BioactivityPageProps) => {
         </Suspense>
         <BioactivityChemicalsSection commonName={commonName} />
         <BioactivityFoodsSection commonName={commonName} />
-        <BioactivityDiseasesSection commonName={commonName} />
       </div>
     </div>
   );

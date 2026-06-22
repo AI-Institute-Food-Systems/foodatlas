@@ -1,25 +1,29 @@
+import { MdInfoOutline } from "react-icons/md";
+
 import Card from "@/components/basic/Card";
 import Heading from "@/components/basic/Heading";
 import Link from "@/components/basic/Link";
 import { encodeSpace } from "@/utils/utils";
 import { getChemicalBioactivities } from "@/utils/fetching";
-import { BioactivityMeasurement } from "@/types";
+import { BioactivityChemicalRow } from "@/types";
+import { formatTopPotency } from "./format";
 
 interface Props {
   commonName: string;
 }
 
-interface Row {
-  id: string;
-  name: string;
-  measurement_count: number;
-  measurements: BioactivityMeasurement[];
-}
+const HEADERS = [
+  { label: "Bioactivity", align: "left" as const },
+  { label: "Total", align: "right" as const },
+  { label: "Active", align: "right" as const },
+  { label: "Inactive", align: "right" as const },
+  { label: "Top potency", align: "right" as const },
+];
 
 const ChemicalBioactivitiesSection = async ({ commonName }: Props) => {
   const payload = await getChemicalBioactivities(commonName);
-  const rows: Row[] = payload.data ?? [];
-  const totalRows: number = payload.metadata?.total_rows ?? 0;
+  const rows: BioactivityChemicalRow[] = payload.data ?? [];
+  const totalRows: number = payload.metadata?.row_count ?? rows.length;
 
   return (
     <div className="flex flex-col gap-7">
@@ -27,54 +31,91 @@ const ChemicalBioactivitiesSection = async ({ commonName }: Props) => {
         Bioactivities
       </Heading>
       <Card>
-        <p className="mb-4 text-sm text-light-400">
-          {totalRows === 0
-            ? "No bioactivity measurements recorded for this chemical."
-            : `${totalRows} bioactivit${
-                totalRows === 1 ? "y" : "ies"
-              } measured against this chemical.`}
-        </p>
-        {rows.length > 0 && (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-light-50/10 text-left font-mono text-xs italic text-light-400">
-                <th className="py-2 pr-4">Bioactivity</th>
-                <th className="py-2 pr-4">Measurements</th>
-                <th className="py-2">First potency</th>
+        <div className="text-sm text-neutral-400">
+          {`Found ${totalRows.toLocaleString()} bioactivit${
+            totalRows === 1 ? "y" : "ies"
+          }`}
+        </div>
+        <div className="mt-3 overflow-x-auto">
+          <table className="w-full table-fixed">
+            <colgroup>
+              <col className="w-[36%]" />
+              <col className="w-[14%]" />
+              <col className="w-[14%]" />
+              <col className="w-[14%]" />
+              <col className="w-[22%]" />
+            </colgroup>
+            <thead className="text-light-400 text-left">
+              <tr>
+                {HEADERS.map((header, idx) => (
+                  <th
+                    key={header.label}
+                    className={`h-12 border-b border-light-700 leading-none break-all md:break-normal py-3 ${
+                      idx === 0
+                        ? "pr-4"
+                        : idx === HEADERS.length - 1
+                        ? "pl-4"
+                        : "px-4"
+                    } ${header.align === "right" ? "text-right" : "text-left"}`}
+                  >
+                    <span className="select-none uppercase text-xs font-medium">
+                      {header.label}
+                    </span>
+                  </th>
+                ))}
               </tr>
             </thead>
-            <tbody>
-              {rows.map((row) => {
-                const first = row.measurements?.[0];
-                const potency =
-                  first?.potency?.value !== null &&
-                  first?.potency?.value !== undefined
-                    ? `${first.potency.value.toFixed(3)}${
-                        first.potency.unit ? ` ${first.potency.unit}` : ""
-                      }`
-                    : "—";
-                return (
-                  <tr
-                    key={row.id}
-                    className="border-b border-light-50/[0.05] align-top"
-                  >
-                    <td className="py-2 pr-4 capitalize break-all">
-                      <Link
-                        href={`/bioactivity/${encodeURIComponent(
-                          encodeSpace(row.name)
-                        )}`}
-                      >
-                        {row.name}
-                      </Link>
+            <tbody className="font-light">
+              {rows.length > 0 ? (
+                rows.map((row) => (
+                  <tr key={row.id}>
+                    <td className="py-3 pr-4">
+                      <div className="flex min-h-12 capitalize items-center">
+                        <Link
+                          href={`/bioactivity/${encodeURIComponent(
+                            encodeSpace(row.name)
+                          )}`}
+                          isExternal={false}
+                        >
+                          {row.name}
+                        </Link>
+                      </div>
                     </td>
-                    <td className="py-2 pr-4">{row.measurement_count}</td>
-                    <td className="py-2">{potency}</td>
+                    <td className="py-3 px-4">
+                      <div className="flex min-h-12 items-center justify-end">
+                        {row.measurement_count.toLocaleString()}
+                      </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="flex min-h-12 items-center justify-end">
+                        {row.active_count.toLocaleString()}
+                      </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="flex min-h-12 items-center justify-end">
+                        {row.inactive_count.toLocaleString()}
+                      </div>
+                    </td>
+                    <td className="py-3 pl-4">
+                      <div className="flex min-h-12 items-center justify-end font-mono text-xs">
+                        {formatTopPotency(row.potency_summary)}
+                      </div>
+                    </td>
                   </tr>
-                );
-              })}
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={HEADERS.length}>
+                    <div className="h-[10rem] flex items-center justify-center text-light-300 gap-2">
+                      <MdInfoOutline /> No bioactivity measurements recorded for
+                      this chemical
+                    </div>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
-        )}
+        </div>
       </Card>
     </div>
   );

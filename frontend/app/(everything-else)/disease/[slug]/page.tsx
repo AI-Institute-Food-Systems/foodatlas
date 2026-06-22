@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
 import DiseaseCorrelationsSection from "@/components/entities/disease/DiseaseCorrelationsSection";
-import DiseaseBioactivitiesSection from "@/components/entities/bioactivity/DiseaseBioactivitiesSection";
 import HeaderSection from "@/components/entities/HeaderSection";
 import MetainformationSection from "@/components/entities/MetainformationSection";
 import HeaderSectionSuspense from "@/components/entities/HeaderSectionSuspense";
@@ -55,11 +54,7 @@ const DiseasePage = async ({ params }: DiseasePageProps) => {
           />
         </Suspense>
         {/* correlations */}
-        {/* <Suspense fallback={<DiseaseCorrelationsSection commonName={commonName} />}> */}
         <DiseaseCorrelationsSection commonName={commonName} />
-        {/* </Suspense> */}
-        {/* bioactivities */}
-        <DiseaseBioactivitiesSection commonName={commonName} />
       </div>
     </div>
   );

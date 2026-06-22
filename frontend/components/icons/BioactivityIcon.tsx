@@ -3,11 +3,6 @@ const BioactivityIcon = (props: any) => {
 
   return (
     <svg
-      fill="none"
-      stroke={color}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={3}
       height={height}
       width={width}
       xmlns="http://www.w3.org/2000/svg"
@@ -15,7 +10,17 @@ const BioactivityIcon = (props: any) => {
       xmlSpace="preserve"
       {...rest}
     >
-      <path d="M4 24h6l4-12 8 24 4-16 4 8h14" />
+      {/* L-shaped axes */}
+      <path fill={color} d="M8 6h3v34h33v3H8z" />
+      {/* sigmoid dose-response curve */}
+      <path
+        d="M12 37 C20 37 22 37 25 24 C28 11 30 11 42 11"
+        fill="none"
+        stroke={color}
+        strokeWidth={4}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 };

@@ -1,55 +1,31 @@
-export type BioactivityPotency = {
+export type BioactivityMeasurement = {
+  endpoint: string | null;
+  outcome: string | null;
   value: number | null;
   unit: string | null;
+  assay: string | null;
 };
 
-export type BioactivityHillCurve = {
-  zero_activity: number | null;
-  infinite_activity: number | null;
-  log_ac50: number | null;
-  hill_slope: number | null;
-};
-
-export type BioactivityMeasurement = {
-  attestation_id: string;
-  bioactivity_metadata_id: string;
-  source_assay_id: string | null;
-  target_ids: string[];
-  potency: BioactivityPotency;
-  hill_curve: BioactivityHillCurve;
-  evidence_source: string | null;
-  evidence_type: string | null;
+export type BioactivityPotencySummary = {
+  endpoint: string | null;
+  unit: string | null;
+  median: number | null;
+  n: number;
 };
 
 export type BioactivityChemicalRow = {
   id: string;
   name: string;
   measurement_count: number;
+  active_count: number;
+  inactive_count: number;
+  potency_summary: BioactivityPotencySummary[];
   measurements: BioactivityMeasurement[];
 };
 
 export type BioactivityFoodRow = {
   id: string;
   name: string;
-  exhibit_type: "direct" | "inherited";
-  via_chemical_id: string | null;
-  via_chemical_name: string | null;
-  efficacy_pred: number | null;
-  evidence_count: number;
-  evidences: BioactivityMeasurement[];
-};
-
-export type BioactivityDiseaseRow = {
-  id: string;
-  name: string;
-  polarity: string | null;
-  target_ids: string[];
-  evidence_count: number;
-  evidences: Array<{
-    attestation_id: string;
-    bioactivity_metadata_id: string;
-    target_ids: string[];
-    evidence_source: string | null;
-    evidence_type: string | null;
-  }>;
+  measurement_count: number;
+  measurements: BioactivityMeasurement[];
 };

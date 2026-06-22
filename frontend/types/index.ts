@@ -16,11 +16,9 @@ import { MacroAndMicroData } from "./MacroAndMicroData";
 import { TaxonomyData, TaxonomyNode, TaxonomyEdge } from "./TaxonomyData";
 import {
   BioactivityChemicalRow,
-  BioactivityDiseaseRow,
   BioactivityFoodRow,
-  BioactivityHillCurve,
   BioactivityMeasurement,
-  BioactivityPotency,
+  BioactivityPotencySummary,
 } from "./Bioactivity";
 
 export type {
@@ -43,9 +41,7 @@ export type {
   TaxonomyNode,
   TaxonomyEdge,
   BioactivityChemicalRow,
-  BioactivityDiseaseRow,
   BioactivityFoodRow,
-  BioactivityHillCurve,
   BioactivityMeasurement,
-  BioactivityPotency,
+  BioactivityPotencySummary,
 };

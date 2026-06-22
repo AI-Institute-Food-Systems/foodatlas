@@ -1,29 +1,27 @@
+import { MdInfoOutline } from "react-icons/md";
+
 import Card from "@/components/basic/Card";
 import Heading from "@/components/basic/Heading";
 import Link from "@/components/basic/Link";
 import { encodeSpace } from "@/utils/utils";
 import { getFoodBioactivities } from "@/utils/fetching";
+import { BioactivityFoodRow } from "@/types";
+import { formatFoodMeasurement } from "./format";
 
 interface Props {
   commonName: string;
 }
 
-interface Row {
-  id: string;
-  name: string;
-  exhibit_type: "direct" | "inherited";
-  via_chemical_id: string | null;
-  via_chemical_name: string | null;
-  efficacy_pred: number | null;
-  evidence_count: number;
-}
+const HEADERS = [
+  { label: "Bioactivity", align: "left" as const },
+  { label: "Measurements", align: "right" as const },
+  { label: "First value", align: "right" as const },
+];
 
 const FoodBioactivitiesSection = async ({ commonName }: Props) => {
-  const payload = await getFoodBioactivities(commonName, 1, "all");
-  const rows: Row[] = payload.data ?? [];
-  const totalRows: number = payload.metadata?.total_rows ?? 0;
-  const direct = rows.filter((r) => r.exhibit_type === "direct").length;
-  const inherited = rows.filter((r) => r.exhibit_type === "inherited").length;
+  const payload = await getFoodBioactivities(commonName);
+  const rows: BioactivityFoodRow[] = payload.data ?? [];
+  const totalRows: number = payload.metadata?.row_count ?? rows.length;
 
   return (
     <div className="flex flex-col gap-7">
@@ -31,48 +29,79 @@ const FoodBioactivitiesSection = async ({ commonName }: Props) => {
         Bioactivities
       </Heading>
       <Card>
-        <p className="mb-4 text-sm text-light-400">
-          {totalRows === 0
-            ? "This food has no recorded bioactivities yet."
-            : `${totalRows} bioactivit${
-                totalRows === 1 ? "y" : "ies"
-              } (${direct} direct, ${inherited} inherited).`}
-        </p>
-        {rows.length > 0 && (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-light-50/10 text-left font-mono text-xs italic text-light-400">
-                <th className="py-2 pr-4">Bioactivity</th>
-                <th className="py-2 pr-4">Type</th>
-                <th className="py-2 pr-4">Via chemical</th>
-                <th className="py-2">Evidence</th>
+        <div className="text-sm text-neutral-400">
+          {`Found ${totalRows.toLocaleString()} bioactivit${
+            totalRows === 1 ? "y" : "ies"
+          }`}
+        </div>
+        <div className="mt-3 overflow-x-auto">
+          <table className="w-full table-fixed">
+            <colgroup>
+              <col className="w-[50%]" />
+              <col className="w-[20%]" />
+              <col className="w-[30%]" />
+            </colgroup>
+            <thead className="text-light-400 text-left">
+              <tr>
+                {HEADERS.map((header, idx) => (
+                  <th
+                    key={header.label}
+                    className={`h-12 border-b border-light-700 leading-none break-all md:break-normal py-3 ${
+                      idx === 0
+                        ? "pr-4"
+                        : idx === HEADERS.length - 1
+                        ? "pl-4"
+                        : "px-4"
+                    } ${header.align === "right" ? "text-right" : "text-left"}`}
+                  >
+                    <span className="select-none uppercase text-xs font-medium">
+                      {header.label}
+                    </span>
+                  </th>
+                ))}
               </tr>
             </thead>
-            <tbody>
-              {rows.map((row, idx) => (
-                <tr
-                  key={`${row.id}-${row.exhibit_type}-${idx}`}
-                  className="border-b border-light-50/[0.05] align-top"
-                >
-                  <td className="py-2 pr-4 capitalize break-all">
-                    <Link
-                      href={`/bioactivity/${encodeURIComponent(
-                        encodeSpace(row.name)
-                      )}`}
-                    >
-                      {row.name}
-                    </Link>
+            <tbody className="font-light">
+              {rows.length > 0 ? (
+                rows.map((row) => (
+                  <tr key={row.id}>
+                    <td className="py-3 pr-4">
+                      <div className="flex min-h-12 capitalize items-center">
+                        <Link
+                          href={`/bioactivity/${encodeURIComponent(
+                            encodeSpace(row.name)
+                          )}`}
+                          isExternal={false}
+                        >
+                          {row.name}
+                        </Link>
+                      </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="flex min-h-12 items-center justify-end">
+                        {row.measurement_count.toLocaleString()}
+                      </div>
+                    </td>
+                    <td className="py-3 pl-4">
+                      <div className="flex min-h-12 items-center justify-end font-mono text-xs">
+                        {formatFoodMeasurement(row.measurements?.[0])}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={HEADERS.length}>
+                    <div className="h-[10rem] flex items-center justify-center text-light-300 gap-2">
+                      <MdInfoOutline /> No bioactivities recorded for this food
+                      yet
+                    </div>
                   </td>
-                  <td className="py-2 pr-4 lowercase">{row.exhibit_type}</td>
-                  <td className="py-2 pr-4 capitalize break-all">
-                    {row.via_chemical_name ?? "—"}
-                  </td>
-                  <td className="py-2">{row.evidence_count}</td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
-        )}
+        </div>
       </Card>
     </div>
   );
