@@ -1,1 +1,0 @@
-FoodAtlas v4.1 updates the knowledge graph's literature-extracted food–chemical associations by reprocessing our existing corpus with Claude Opus 4.8, Anthropic's most capable model as of June 2026, improving extraction quality across 124,488 attestations. Going forward, new literature will be processed using Gemma 4 (gemma-4-31B-it), enabling continuous KG updates at scale. 
