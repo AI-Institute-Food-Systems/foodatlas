@@ -28,7 +28,7 @@ async def get_chemicals(session: AsyncSession, common_name: str) -> dict[str, ob
         text("""
             SELECT chemical_name AS name, chemical_foodatlas_id AS id,
                    measurement_count, active_count, inactive_count,
-                   potency_summary, measurements
+                   unspecified_count, inconclusive_count, measurements
             FROM mv_chemical_bioactivity WHERE bioactivity_name = :name
             ORDER BY active_count DESC, measurement_count DESC
         """),
@@ -61,7 +61,7 @@ async def get_chemical_bioactivities(
         text("""
             SELECT bioactivity_name AS name, bioactivity_foodatlas_id AS id,
                    measurement_count, active_count, inactive_count,
-                   potency_summary, measurements
+                   unspecified_count, inconclusive_count, measurements
             FROM mv_chemical_bioactivity WHERE chemical_name = :name
             ORDER BY active_count DESC, measurement_count DESC
         """),

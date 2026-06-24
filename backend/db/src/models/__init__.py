@@ -3,6 +3,7 @@
 from .attestations import BaseAttestation
 from .attestations_bioactivity import BaseAttestationBioactivity
 from .base import Base
+from .bioassays import BaseBioassay
 from .entities import BaseEntity
 from .evidence import BaseEvidence
 from .relationships import Relationship
@@ -26,6 +27,7 @@ __all__ = [
     "Base",
     "BaseAttestation",
     "BaseAttestationBioactivity",
+    "BaseBioassay",
     "BaseEntity",
     "BaseEvidence",
     "BaseTriplet",
