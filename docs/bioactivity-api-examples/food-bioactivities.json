@@ -10,7 +10,27 @@
           "assay": "FoodAtlasModel: RF_antioxidant_v1",
           "value": 0.5188796930758847,
           "outcome": "Unspecified",
-          "endpoint": "Activity"
+          "endpoint": "Activity",
+          "relation": "",
+          "assay_meta": {
+            "source": "FoodAtlasModel",
+            "description": "Predicted total antioxidant content (mmol/100 g) from a random-forest regression model trained on PTFI reference-food chemical concentrations restricted to 103 PubChem-CID features shared with the FoodAtlas chemical matrix.",
+            "target_name": "NON-PROTEIN TARGET",
+            "n_measurements": 826,
+            "target_uniprot": "",
+            "target_organism": "",
+            "target_entrez_gene": ""
+          },
+          "exhibit_type": "direct",
+          "evidence_type": "in silico",
+          "evidence_fit_r2": null,
+          "evidence_source": "Predicted",
+          "efficacy_hillslope": null,
+          "efficacy_zeroactivity": null,
+          "efficacy_logac50_value": null,
+          "bioactivity_metadata_id": "bm03675136",
+          "evidence_fit_curveclass": "",
+          "efficacy_infiniteactivity": null
         }
       ]
     },
@@ -24,7 +44,27 @@
           "assay": "FoodAtlasModel: RF_antidiabetic_v1",
           "value": 15.05640680794259,
           "outcome": "Unspecified",
-          "endpoint": "Glycemic Load"
+          "endpoint": "Glycemic Load",
+          "relation": "",
+          "assay_meta": {
+            "source": "FoodAtlasModel",
+            "description": "Predicted glycemic load from a random-forest regression model trained on PTFI reference-food chemical concentrations restricted to 103 PubChem-CID features shared with the FoodAtlas chemical matrix.",
+            "target_name": "NON-PROTEIN TARGET",
+            "n_measurements": 843,
+            "target_uniprot": "",
+            "target_organism": "Homo sapiens",
+            "target_entrez_gene": ""
+          },
+          "exhibit_type": "direct",
+          "evidence_type": "in silico",
+          "evidence_fit_r2": null,
+          "evidence_source": "Predicted",
+          "efficacy_hillslope": null,
+          "efficacy_zeroactivity": null,
+          "efficacy_logac50_value": null,
+          "bioactivity_metadata_id": "bm03676099",
+          "evidence_fit_curveclass": "",
+          "efficacy_infiniteactivity": null
         }
       ]
     }
