@@ -15,10 +15,13 @@ import { FoodCompositionData } from "@/types/FoodCompositionData";
 import { MacroAndMicroData } from "./MacroAndMicroData";
 import { TaxonomyData, TaxonomyNode, TaxonomyEdge } from "./TaxonomyData";
 import {
+  BioactivityAssayMeta,
   BioactivityChemicalRow,
   BioactivityFoodRow,
   BioactivityMeasurement,
+  BioactivityMeasurementFull,
   BioactivityPotencySummary,
+  BioactivityTopMeasurement,
 } from "./Bioactivity";
 
 export type {
@@ -40,8 +43,11 @@ export type {
   TaxonomyData,
   TaxonomyNode,
   TaxonomyEdge,
+  BioactivityAssayMeta,
   BioactivityChemicalRow,
   BioactivityFoodRow,
   BioactivityMeasurement,
+  BioactivityMeasurementFull,
   BioactivityPotencySummary,
+  BioactivityTopMeasurement,
 };

@@ -4,7 +4,6 @@ import { useState } from "react";
 import { MdInfoOutline, MdKeyboardArrowDown } from "react-icons/md";
 
 import Link from "@/components/basic/Link";
-import Card from "@/components/basic/Card";
 import EntitySiblingIcon from "@/components/basic/EntitySiblingIcon";
 import { AmbiguitySibling } from "@/types/Metadata";
 import { encodeSpace } from "@/utils/utils";
@@ -28,7 +27,7 @@ const NoConcentrationComposition = ({
   const [isExpanded, setIsExpanded] = useState(false);
 
   return (
-    <Card>
+    <div>
       {data && data.length > 0 ? (
         <div className="flex flex-col gap-3">
           {/* collapsible header */}
@@ -46,19 +45,23 @@ const NoConcentrationComposition = ({
               unknown concentration
             </span>
           </button>
-          {/* expanded content */}
+          {/* expanded content — chips align with the synonyms vocabulary
+           * elsewhere on the page so the visual language stays unified. */}
           {isExpanded && (
             <div className="flex flex-col gap-3">
             <p className="text-xs text-light-500">
               Number in parentheses indicates the number of evidence
               sources supporting this food-chemical relationship.
             </p>
-            <div className="flex gap-2 flex-wrap font-light">
+            <div className="flex flex-wrap gap-1">
               {data.map((row) => (
-                <span key={row.id} className="flex items-baseline gap-1">
+                <span
+                  key={row.id}
+                  className="inline-flex items-baseline gap-1 capitalize text-xs leading-tight px-2 py-0.5 rounded-full border border-light-700/70 bg-light-900/40 text-light-200 max-w-full"
+                >
                   <Link
                     className="capitalize"
-                    href={`/food/${encodeURIComponent(encodeSpace(row.name))}${chemicalName ? `?search=${encodeURIComponent(chemicalName)}#composition` : ""}`}
+                    href={`/food/${encodeURIComponent(encodeSpace(row.name))}${chemicalName ? `?highlight=${encodeURIComponent(chemicalName)}#composition` : ""}`}
                     isExternal={false}
                   >
                     {row.name}
@@ -68,8 +71,8 @@ const NoConcentrationComposition = ({
                     entityKind="food"
                   />
                   {row.evidence_count > 0 && (
-                    <span className="text-xs text-light-500">
-                      ({row.evidence_count})
+                    <span className="not-italic font-mono text-[10px] tabular-nums opacity-70">
+                      {row.evidence_count}
                     </span>
                   )}
                 </span>
@@ -83,7 +86,7 @@ const NoConcentrationComposition = ({
           <MdInfoOutline /> No foods found
         </div>
       )}
-    </Card>
+    </div>
   );
 };
 

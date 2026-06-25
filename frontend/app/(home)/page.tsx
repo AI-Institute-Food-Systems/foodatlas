@@ -2,6 +2,8 @@ import { Metadata } from "next";
 
 import HeroSection from "@/components/landing/HeroSection";
 import NumbersSection from "@/components/landing/NumbersSection";
+import NewsletterSection from "@/components/landing/NewsletterSection";
+import AIFSResourcesSection from "@/components/landing/AIFSResourcesSection";
 import DemoSection from "@/components/landing/DemoSection";
 
 export const metadata: Metadata = {
@@ -29,6 +31,8 @@ const Landing = () => {
       </div>
       <HeroSection />
       <NumbersSection />
+      <NewsletterSection />
+      <AIFSResourcesSection />
       {/* <DemoSection /> */}
     </>
   );

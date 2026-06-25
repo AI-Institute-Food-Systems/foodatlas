@@ -18,9 +18,9 @@ const EntityAmbiguityBanner = ({
   return (
     <div
       role="note"
-      className="mt-4 flex gap-2 items-start rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-100"
+      className="mt-3 flex gap-1.5 items-start rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-xs text-amber-100"
     >
-      <MdInfoOutline className="size-4 mt-0.5 text-amber-400 flex-shrink-0" />
+      <MdInfoOutline className="size-3.5 mt-0.5 text-amber-400 flex-shrink-0" />
       <p className="leading-snug">
         This name is also used for{" "}
         {siblings.map((s, i) => (

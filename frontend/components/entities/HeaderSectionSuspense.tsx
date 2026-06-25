@@ -30,8 +30,7 @@ const HeaderSectionSuspense = async ({
 }: HeaderSectionSuspenseProps) => {
   return (
     <div>
-      {/* badge & id */}
-      <div className="flex items-center gap-3">
+      <div className="relative flex items-center gap-x-4 gap-y-2 flex-wrap pr-16 md:pr-24">
         <Badge
           color={colorScheme[entityType]}
           leftIcon={icon[entityType]}
@@ -39,13 +38,10 @@ const HeaderSectionSuspense = async ({
         >
           {entityType}
         </Badge>
-        <div className="border-l h-6 border-light-400" />
-        <span className="flex items-center gap-2 font-mono font-medium italic text-sm text-light-300">
-          FoodAtlas <LoadingCard className="w-16 h-6" />
+        <LoadingCard className="h-9 md:h-10 w-56" />
+        <span className="absolute right-0 top-1/2 -translate-y-1/2">
+          <LoadingCard className="w-14 h-3" />
         </span>
-      </div>
-      <div className="mt-5">
-        <LoadingCard className="h-[3.9rem] w-56" />
       </div>
     </div>
   );

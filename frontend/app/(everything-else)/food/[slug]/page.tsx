@@ -2,15 +2,19 @@ import { Suspense } from "react";
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import FoodCompositionSection from "@/components/entities/food/FoodCompositionSection";
+import FoodCompositionTab from "@/components/entities/food/FoodCompositionTab";
 import FoodBioactivitiesSection from "@/components/entities/bioactivity/FoodBioactivitiesSection";
 import HeaderSection from "@/components/entities/HeaderSection";
 import HeaderSectionSuspense from "@/components/entities/HeaderSectionSuspense";
-import MetainformationSection from "@/components/entities/MetainformationSection";
-import MetainformationSuspense from "@/components/entities/MetainformationSuspense";
-import MacrosAndMicrosSection from "@/components/entities/food/MacrosAndMicrosSection";
-import MacrosAndMicrosSuspense from "@/components/entities/food/MacrosAndMicrosSuspense";
-import { getMetaData } from "@/utils/fetching";
+import EntityDetailLayout from "@/components/entities/EntityDetailLayout";
+import EntityOverviewPanel from "@/components/entities/EntityOverviewPanel";
+import EntityOverviewPanelSuspense from "@/components/entities/EntityOverviewPanelSuspense";
+import {
+  getFoodBioactivities,
+  getFoodCompositionData,
+  getFoodMacroAndMicroData,
+  getMetaData,
+} from "@/utils/fetching";
 import { decodeSpace, toTitleCase } from "@/utils/utils";
 
 interface FoodPageProps {
@@ -37,34 +41,86 @@ export async function generateMetadata({
 const FoodPage = async ({ params }: FoodPageProps) => {
   const { slug } = params;
   const commonName = decodeSpace(decodeURIComponent(slug));
-  const entityType = "food";
+  const entityType = "food" as const;
+
+  // Parallel best-effort count fetches for the tab badges. Failures fall
+  // back to null so the badge silently hides instead of breaking the page.
+  // Composition uses the same call as the table (default filters: all sources,
+  // include unmeasured, no search) so the badge matches "Found N chemicals".
+  // Counts from /food/composition/counts double-count multi-class chemicals.
+  const [compPayload, nutritionData, bioPayload] = await Promise.all([
+    getFoodCompositionData(
+      commonName,
+      1,
+      ["fdc", "foodatlas", "dmd"],
+      "",
+      { column: "median_concentration", direction: "desc" },
+      true,
+      [],
+      "default"
+    ).catch(() => null),
+    getFoodMacroAndMicroData(commonName).catch(() => null),
+    getFoodBioactivities(commonName).catch(() => null),
+  ]);
+  const compositionCount =
+    (compPayload?.metadata?.total_rows as number | undefined) ?? null;
+  const nutritionCount = nutritionData
+    ? Object.values(nutritionData).reduce((a, arr) => a + arr.length, 0)
+    : null;
+  const nutritionCategories = nutritionData
+    ? Object.entries(nutritionData)
+        .filter(([, items]) => items.length > 0)
+        .map(([key, items]) => ({ key, count: items.length }))
+    : [];
+  const bioactivitiesCount =
+    (bioPayload?.metadata?.row_count as number | undefined) ?? null;
 
   return (
     <div>
-      {/* header */}
       <Suspense fallback={<HeaderSectionSuspense entityType={entityType} />}>
         <HeaderSection commonName={commonName} entityType={entityType} />
       </Suspense>
-      {/* content */}
-      <div className="mt-12 flex flex-col gap-20">
-        {/* meta information */}
-        <Suspense
-          fallback={<MetainformationSuspense entityType={entityType} />}
-        >
-          <MetainformationSection
-            commonName={commonName}
-            entityType={entityType}
-          />
-        </Suspense>
-        {/* macros & micros */}
-        <Suspense fallback={<MacrosAndMicrosSuspense />}>
-          <MacrosAndMicrosSection commonName={commonName} />
-        </Suspense>
-        {/* composition */}
-        <FoodCompositionSection commonName={commonName} />
-        {/* bioactivities */}
-        <FoodBioactivitiesSection commonName={commonName} />
-      </div>
+      <EntityDetailLayout
+        entityType={entityType}
+        defaultTabId="composition"
+        tabs={[
+          {
+            id: "composition",
+            label: "Composition",
+            count: compositionCount,
+            content: (
+              <FoodCompositionTab
+                commonName={commonName}
+                chemicalsCount={compositionCount}
+                nutrientsCount={nutritionCount}
+                nutritionCategories={nutritionCategories}
+              />
+            ),
+          },
+          {
+            id: "bioactivities",
+            label: "Bioactivities",
+            count: bioactivitiesCount,
+            content: <FoodBioactivitiesSection commonName={commonName} />,
+          },
+          {
+            id: "overview",
+            label: "IDs & Metadata",
+            content: (
+              <Suspense
+                fallback={
+                  <EntityOverviewPanelSuspense entityType={entityType} />
+                }
+              >
+                <EntityOverviewPanel
+                  commonName={commonName}
+                  entityType={entityType}
+                />
+              </Suspense>
+            ),
+          },
+        ]}
+      />
     </div>
   );
 };

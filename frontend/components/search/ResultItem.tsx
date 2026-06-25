@@ -64,7 +64,9 @@ const ResultItem = ({ suggestion }: ResultItemProps) => {
     );
   };
 
-  const hasScientificName = suggestion.scientific_name !== null;
+  // Treat empty strings the same as null — see SuggestionItem for the
+  // reasoning; the KGC pipeline isn't carrying scientific names yet.
+  const hasScientificName = !!suggestion.scientific_name?.trim();
 
   return (
     <Card

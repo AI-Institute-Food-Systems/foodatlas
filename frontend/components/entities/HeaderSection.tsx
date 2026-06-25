@@ -36,30 +36,27 @@ const HeaderSection = async ({
 
   return (
     <div>
-      {/* badge & id */}
-      <div className="flex items-center gap-3">
+      {/* one-line header band: badge left, entity name beside it, FoodAtlas
+       * id pinned right. items-center vertically aligns the smaller badge
+       * with the H1's optical center (not horizontally centered). */}
+      <div className="relative flex items-center gap-x-4 gap-y-2 flex-wrap pr-16 md:pr-24">
         <Badge
           color={colorScheme[entityType]}
           leftIcon={icon[entityType]}
-          size="sm"
+          size="md"
         >
           {entityType}
         </Badge>
-        <div className="border-l h-6 border-light-500" />
-        <span className="font-mono font-medium italic text-sm text-light-300">
-          FoodAtlas {data?.id ?? "—"}
-        </span>
-      </div>
-      {/* name */}
-      <div className="mt-5">
         <Heading
           type="h1"
-          className="capitalize text-6xl font-semibold break-all"
+          className="capitalize text-3xl md:text-4xl font-semibold break-words leading-none"
         >
           {commonName}
         </Heading>
+        <span className="absolute right-0 top-1/2 -translate-y-1/2 font-mono italic text-xs text-light-300 whitespace-nowrap">
+          {data?.id ?? "—"}
+        </span>
       </div>
-      {/* ambiguity banner */}
       <EntityAmbiguityBanner
         entityType={entityType}
         siblings={data?.ambiguity_siblings}

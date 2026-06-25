@@ -6,9 +6,14 @@ import BioactivityChemicalsSection from "@/components/entities/bioactivity/Bioac
 import BioactivityFoodsSection from "@/components/entities/bioactivity/BioactivityFoodsSection";
 import HeaderSection from "@/components/entities/HeaderSection";
 import HeaderSectionSuspense from "@/components/entities/HeaderSectionSuspense";
-import MetainformationSection from "@/components/entities/MetainformationSection";
-import MetainformationSuspense from "@/components/entities/MetainformationSuspense";
-import { getMetaData } from "@/utils/fetching";
+import EntityDetailLayout from "@/components/entities/EntityDetailLayout";
+import EntityOverviewPanel from "@/components/entities/EntityOverviewPanel";
+import EntityOverviewPanelSuspense from "@/components/entities/EntityOverviewPanelSuspense";
+import {
+  getBioactivityChemicals,
+  getBioactivityFoods,
+  getMetaData,
+} from "@/utils/fetching";
 import { decodeSpace, toTitleCase } from "@/utils/utils";
 
 interface BioactivityPageProps {
@@ -35,23 +40,56 @@ export async function generateMetadata({
 const BioactivityPage = async ({ params }: BioactivityPageProps) => {
   const { slug } = params;
   const commonName = decodeSpace(decodeURIComponent(slug));
-  const entityType = "bioactivity";
+  const entityType = "bioactivity" as const;
+
+  const [chemPayload, foodPayload] = await Promise.all([
+    getBioactivityChemicals(commonName).catch(() => null),
+    getBioactivityFoods(commonName).catch(() => null),
+  ]);
+  const chemicalsCount =
+    (chemPayload?.metadata?.row_count as number | undefined) ?? null;
+  const foodsCount =
+    (foodPayload?.metadata?.row_count as number | undefined) ?? null;
 
   return (
     <div>
       <Suspense fallback={<HeaderSectionSuspense entityType={entityType} />}>
         <HeaderSection commonName={commonName} entityType={entityType} />
       </Suspense>
-      <div className="mt-12 flex flex-col gap-20">
-        <Suspense fallback={<MetainformationSuspense entityType={entityType} />}>
-          <MetainformationSection
-            commonName={commonName}
-            entityType={entityType}
-          />
-        </Suspense>
-        <BioactivityChemicalsSection commonName={commonName} />
-        <BioactivityFoodsSection commonName={commonName} />
-      </div>
+      <EntityDetailLayout
+        entityType={entityType}
+        defaultTabId="chemicals"
+        tabs={[
+          {
+            id: "chemicals",
+            label: "Chemicals Measured",
+            count: chemicalsCount,
+            content: <BioactivityChemicalsSection commonName={commonName} />,
+          },
+          {
+            id: "foods",
+            label: "Foods Exhibiting",
+            count: foodsCount,
+            content: <BioactivityFoodsSection commonName={commonName} />,
+          },
+          {
+            id: "overview",
+            label: "IDs & Metadata",
+            content: (
+              <Suspense
+                fallback={
+                  <EntityOverviewPanelSuspense entityType={entityType} />
+                }
+              >
+                <EntityOverviewPanel
+                  commonName={commonName}
+                  entityType={entityType}
+                />
+              </Suspense>
+            ),
+          },
+        ]}
+      />
     </div>
   );
 };
