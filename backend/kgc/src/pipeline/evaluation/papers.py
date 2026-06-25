@@ -101,8 +101,8 @@ def _read_cache(pmcid: str, cache_dir: str) -> dict | None:
 def _fetch(pmcid: str) -> dict | None:
     url = _BIOC_URL.format(pmcid=pmcid)
     try:
-        # nosec B310 — url scheme is fixed by _BIOC_URL template (https://… NCBI)
-        with urllib.request.urlopen(url, timeout=30) as resp:
+        # url scheme is fixed by _BIOC_URL constant (https://NCBI); not user-input
+        with urllib.request.urlopen(url, timeout=30) as resp:  # nosec B310
             data: dict = json.loads(resp.read().decode("utf-8"))
             return data
     except Exception:

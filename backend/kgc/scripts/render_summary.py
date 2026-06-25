@@ -14,7 +14,7 @@ from pathlib import Path
 
 _SENTENCE = (
     "Weekly update — {new_associations:,} new associations "
-    "({new_food_chemical:,} new food–chemical associations across {foods:,} foods and "
+    "({new_food_chemical:,} new food-chemical associations across {foods:,} foods and "
     "{chemicals:,} chemicals) from {new_papers:,} new papers."
 )
 _QUALITY = (
