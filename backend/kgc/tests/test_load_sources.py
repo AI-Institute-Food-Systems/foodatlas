@@ -50,16 +50,16 @@ def test_missing_source_dir_logged_and_skipped(tmp_path: Path, caplog: object) -
     assert "chebi" in result
     # All others were absent
     other_sources = [
-            "foodon",
-            "cdno",
-            "ctd",
-            "mesh",
-            "pubchem",
-            "flavordb",
-            "fdc",
-            "dmd",
-            "bioactivity",
-        ]
+        "foodon",
+        "cdno",
+        "ctd",
+        "mesh",
+        "pubchem",
+        "flavordb",
+        "fdc",
+        "dmd",
+        "bioactivity",
+    ]
     for s in other_sources:
         assert s not in result
 

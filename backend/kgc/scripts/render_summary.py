@@ -60,9 +60,7 @@ def main() -> int:
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--version", required=True, help="Release version, e.g. v4.2")
-    parser.add_argument(
-        "--json", type=Path, default=Path("outputs/kg/newsletter.json")
-    )
+    parser.add_argument("--json", type=Path, default=Path("outputs/kg/newsletter.json"))
     parser.add_argument(
         "--eval-metrics",
         type=Path,
