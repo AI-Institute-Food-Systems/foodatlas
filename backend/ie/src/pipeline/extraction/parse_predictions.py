@@ -118,7 +118,11 @@ def tsv_to_json(input_path: str) -> None:
         raw_response = str(row["response"])
         triplets = parse_response(raw_response)
         pmcid_raw = str(row["pmcid"])
-        pmcid_int = int(pmcid_raw.removeprefix("PMC")) if pmcid_raw.startswith("PMC") else int(pmcid_raw)
+        pmcid_int = (
+            int(pmcid_raw.removeprefix("PMC"))
+            if pmcid_raw.startswith("PMC")
+            else int(pmcid_raw)
+        )
         entry: dict[str, object] = {
             "pmcid": pmcid_int,
             "section": row.get("section", ""),

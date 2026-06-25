@@ -87,9 +87,7 @@ def _resolve_tail(kg: KnowledgeGraph, edges: pd.DataFrame) -> pd.DataFrame:
     )
 
 
-def _resolve_head(
-    kg: KnowledgeGraph, df: pd.DataFrame, head_kind: str
-) -> pd.DataFrame:
+def _resolve_head(kg: KnowledgeGraph, df: pd.DataFrame, head_kind: str) -> pd.DataFrame:
     """Resolve the head: food by raw foodatlas_id (with existence guard),
     chemical by PubChem CID via external_ids."""
     if df.empty:
@@ -119,9 +117,9 @@ def _explode_measurements(df: pd.DataFrame, rel_id: str) -> pd.DataFrame:
     as the triplet's attestation_ids."""
     df = df.assign(
         _bm=df["raw_attrs"].apply(
-            lambda a: a.get("bioactivity_metadata_ids", [])
-            if isinstance(a, dict)
-            else []
+            lambda a: (
+                a.get("bioactivity_metadata_ids", []) if isinstance(a, dict) else []
+            )
         )
     )
     exploded = df.explode("_bm").dropna(subset=["_bm"])
@@ -157,11 +155,15 @@ def merge_bioactivity_ontology(
     df = is_a.merge(
         lookup, left_on="head_native_id", right_on="native_id", how="inner"
     ).drop(columns=["native_id"])
-    df = df.rename(columns={"foodatlas_id": "_head_id", "candidates": "head_candidates"})
+    df = df.rename(
+        columns={"foodatlas_id": "_head_id", "candidates": "head_candidates"}
+    )
     df = df.merge(
         lookup, left_on="tail_native_id", right_on="native_id", how="inner"
     ).drop(columns=["native_id"])
-    df = df.rename(columns={"foodatlas_id": "_tail_id", "candidates": "tail_candidates"})
+    df = df.rename(
+        columns={"foodatlas_id": "_tail_id", "candidates": "tail_candidates"}
+    )
     if df.empty:
         logger.info("No bioactivity is_a edges to merge.")
         return

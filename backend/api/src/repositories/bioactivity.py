@@ -12,8 +12,13 @@ it bypasses the MV and reads ``base_attestations_bioactivity`` directly
 so it can return the FULL unbounded set for a single pair.
 """
 
+import logging
+
 from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger(__name__)
 
 ROWS_PER_PAGE_DEFAULT = 20
 
@@ -319,9 +324,12 @@ async def get_measurements(
     )
     rows = [dict(r._mapping) for r in rows_result]
 
-    try:
-        ids = {r["assay"] for r in rows if r.get("assay")}
-        if ids:
+    # Assay metadata is best-effort enrichment — base_bioassays may not exist
+    # in environments that haven't yet migrated. Log and continue so the
+    # measurements themselves still ship.
+    ids = {r["assay"] for r in rows if r.get("assay")}
+    if ids:
+        try:
             meta_result = await session.execute(
                 text("""
                     SELECT source_assay_id, source, assay_description,
@@ -346,7 +354,7 @@ async def get_measurements(
             }
             for r in rows:
                 r["assay_meta"] = assay_meta.get(r.get("assay"))
-    except Exception:
-        pass
+        except SQLAlchemyError as exc:
+            logger.warning("base_bioassays lookup failed: %s", exc)
 
     return {"data": rows, "metadata": {"row_count": len(rows)}}

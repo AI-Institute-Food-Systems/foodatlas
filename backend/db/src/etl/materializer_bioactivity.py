@@ -43,7 +43,8 @@ def materialize_bioactivity(conn: Connection) -> None:
 
 def _name_map(conn: Connection) -> dict[str, str]:
     df = pd.read_sql(text("SELECT foodatlas_id, common_name FROM base_entities"), conn)
-    return df.set_index("foodatlas_id")["common_name"].to_dict()
+    result: dict[str, str] = df.set_index("foodatlas_id")["common_name"].to_dict()
+    return result
 
 
 def _assay_meta_map(conn: Connection) -> dict[str, dict]:
@@ -64,7 +65,9 @@ def _assay_meta_map(conn: Connection) -> dict[str, dict]:
             "target_organism": r.target_organism,
             "target_uniprot": r.target_uniprot,
             "target_entrez_gene": r.target_entrez_gene,
-            "n_measurements": None if pd.isna(r.n_measurements) else int(r.n_measurements),
+            "n_measurements": (
+                None if pd.isna(r.n_measurements) else int(r.n_measurements)
+            ),
         }
         for r in df.itertuples(index=False)
     }
@@ -298,7 +301,8 @@ def _hierarchy(
     r2 = r2[r2["head_id"].isin(bio_ids) & r2["tail_id"].isin(bio_ids)]
     parents: dict[str, list] = defaultdict(list)
     children: dict[str, list] = defaultdict(list)
-    for child, parent in zip(r2["head_id"], r2["tail_id"]):  # head is_a tail
+    # head is_a tail
+    for child, parent in zip(r2["head_id"], r2["tail_id"], strict=False):
         parents[child].append(
             {"foodatlas_id": parent, "common_name": name_map.get(parent, parent)}
         )
@@ -318,4 +322,4 @@ def _linked_counts(conn: Connection, rel_id: str) -> dict[str, int]:
         conn,
         params={"rel": rel_id},
     )
-    return dict(zip(df["tail_id"], df["n"]))
+    return dict(zip(df["tail_id"], df["n"], strict=False))

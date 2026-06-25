@@ -274,6 +274,6 @@ def _as_list(value: object) -> list[str]:
             else []
         )
     try:
-        return [str(v) for v in value if str(v).strip()]
+        return [str(v) for v in value if str(v).strip()]  # type: ignore[attr-defined]
     except TypeError:
         return []

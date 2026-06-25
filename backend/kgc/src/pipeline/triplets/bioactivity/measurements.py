@@ -30,9 +30,7 @@ _ID_COL = "bioactivity_metadata_id"
 _ASSOC_RELS = {str(RelationshipType.EXHIBITS), str(RelationshipType.MEASURED)}
 
 
-def promote_bioactivity_measurements(
-    settings: KGCSettings, kg: KnowledgeGraph
-) -> None:
+def promote_bioactivity_measurements(settings: KGCSettings, kg: KnowledgeGraph) -> None:
     """Prune ingested measurements to referenced ids and write to kg_dir."""
     src = Path(settings.ingest_dir) / "bioactivity" / _INGEST_FILE
     if not src.exists():

@@ -90,7 +90,9 @@ describe("BioactivityChemicalsSection", () => {
     });
     renderWithPagination(<BioactivityChemicalsSection commonName="antioxidant" />);
     expect(await screen.findByText(/quercetin/i)).toBeInTheDocument();
-    expect(screen.getByText("755")).toBeInTheDocument();
+    // Total count moved into the "View N assays" button; standalone count
+    // column was removed in the apothecary redesign.
+    expect(screen.getByText(/View 755 assays/)).toBeInTheDocument();
     expect(screen.getByText("83")).toBeInTheDocument();
     expect(screen.getByText("261")).toBeInTheDocument();
     expect(screen.getByText(/IC50: 17\.2 MICROMOLAR/)).toBeInTheDocument();

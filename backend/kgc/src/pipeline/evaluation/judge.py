@@ -108,7 +108,7 @@ class Judge:
         usage = Usage()
 
         for turn in range(_MAX_TURNS):
-            response = self._client.messages.create(
+            response = self._client.messages.create(  # type: ignore[call-overload]
                 model=self._model,
                 max_tokens=self._max_tokens,
                 thinking={"type": "adaptive"},

@@ -94,14 +94,17 @@ def _read_cache(pmcid: str, cache_dir: str) -> dict | None:
     path = Path(cache_dir) / f"PMC{pmcid}.xml"
     if not path.exists():
         return None
-    return json.loads(path.read_text(encoding="utf-8"))
+    data: dict = json.loads(path.read_text(encoding="utf-8"))
+    return data
 
 
 def _fetch(pmcid: str) -> dict | None:
     url = _BIOC_URL.format(pmcid=pmcid)
     try:
-        with urllib.request.urlopen(url, timeout=30) as resp:
-            return json.loads(resp.read().decode("utf-8"))
+        # nosec B310 — url scheme is fixed by _BIOC_URL template (https://… NCBI)
+        with urllib.request.urlopen(url, timeout=30) as resp:  # noqa: S310
+            data: dict = json.loads(resp.read().decode("utf-8"))
+            return data
     except Exception:
         logger.exception("BioC fetch failed for PMCID %s", pmcid)
         return None

@@ -57,6 +57,10 @@ async def chemical_bioactivities(
     db: AsyncSession = Depends(get_db),
 ):
     return await bioactivity.get_chemical_bioactivities(
-        db, common_name, page=page, search=search,
-        sort_by=sort_by, sort_dir=sort_dir,
+        db,
+        common_name,
+        page=page,
+        search=search,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
     )

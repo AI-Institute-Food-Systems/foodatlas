@@ -14,7 +14,7 @@ import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
@@ -128,7 +128,7 @@ class EvaluationRunner:
         l2 = _total(rows, "l2")
         usage = _total_usage(rows)
         n = len(rows)
-        metrics = {
+        metrics: dict[str, Any] = {
             "sources": self._cfg.source_filter,
             "judge_model": self._cfg.judge_model,
             "prompt_version": PROMPT_VERSION,

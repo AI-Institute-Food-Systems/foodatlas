@@ -116,8 +116,8 @@ def _build_nodes(concepts: pd.DataFrame) -> pd.DataFrame:
         name = str(row["common_name"]).lower().strip()
         synonyms = [name] if name else []
         synonym_types = ["name"] if name else []
-        for syn in _parse_json_list(row["Synonyms"]):
-            syn = syn.lower().strip()
+        for raw_syn in _parse_json_list(row["Synonyms"]):
+            syn = raw_syn.lower().strip()
             if syn and syn not in synonyms:
                 synonyms.append(syn)
                 synonym_types.append("synonym")
@@ -230,9 +230,9 @@ def _build_disease(path: Path) -> pd.DataFrame:
     """Disease↔assay bridge passthrough (Phase-2 input)."""
     df = pd.read_csv(path)
     df["relationship"] = df["relationship"].apply(_parse_json_list)
-    df["bioactivity_disease_metadata_id"] = df[
-        "bioactivity_disease_metadata_id"
-    ].apply(_parse_json_list)
+    df["bioactivity_disease_metadata_id"] = df["bioactivity_disease_metadata_id"].apply(
+        _parse_json_list
+    )
     return df
 
 
@@ -275,7 +275,8 @@ def _parse_json_list(cell: object) -> list[str]:
     """Parse a JSON-array CSV cell (e.g. Synonyms, bioactivity_metadata_ids)."""
     if not isinstance(cell, str) or not cell.strip():
         return []
-    return json.loads(cell)
+    parsed: list[str] = json.loads(cell)
+    return parsed
 
 
 def _parse_comma_list(cell: object) -> list[str]:

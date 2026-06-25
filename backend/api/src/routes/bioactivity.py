@@ -31,8 +31,12 @@ async def bioactivity_chemicals(
     db: AsyncSession = Depends(get_db),
 ):
     return await bioactivity.get_chemicals(
-        db, common_name, page=page, search=search,
-        sort_by=sort_by, sort_dir=sort_dir,
+        db,
+        common_name,
+        page=page,
+        search=search,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
     )
 
 
@@ -46,8 +50,12 @@ async def bioactivity_foods(
     db: AsyncSession = Depends(get_db),
 ):
     return await bioactivity.get_foods(
-        db, common_name, page=page, search=search,
-        sort_by=sort_by, sort_dir=sort_dir,
+        db,
+        common_name,
+        page=page,
+        search=search,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
     )
 
 
