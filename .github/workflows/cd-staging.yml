@@ -1,0 +1,138 @@
+name: CD (Staging)
+
+# Mirrors cd.yml but for the dev → staging path. Push to `dev` builds new
+# API + DB images, tags them with the SHA, and rolls them out to the
+# FoodAtlas*-Staging CDK stacks (separate RDS, separate API ALB; shared
+# Network / Storage / ECR with production).
+#
+# Production deploys (push to main) live in cd.yml. Keep these two
+# workflows in sync when you change the build/deploy steps.
+
+on:
+  push:
+    branches:
+      - dev
+    paths:
+      - "backend/api/**"
+      - "backend/db/**"
+      - "infra/aws/**"
+      - "!**/*.md"
+  workflow_dispatch:
+
+concurrency:
+  group: cd-staging
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-west-1
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # Reuses the existing "Preview" GH Environment — must hold AWS_ROLE_ARN
+    # (copy of Production's value; same AWS account today) plus optional
+    # STAGING_API_URL and API_CERT_ARN_STAGING.
+    environment: Preview
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          # Same role as production for now — staging stacks live in the
+          # same AWS account. When we move staging to the AIFS cluster
+          # (see aws-migration-todo) swap to a staging-specific role ARN.
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Compute image tag
+        id: tag
+        run: echo "image_tag=${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push API image
+        run: ./backend/api/scripts/push-to-ecr.sh "${{ steps.tag.outputs.image_tag }}"
+
+      - name: Build and push DB image
+        run: ./backend/db/scripts/push-to-ecr.sh "${{ steps.tag.outputs.image_tag }}"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install CDK CLI
+        run: npm install -g aws-cdk@2
+
+      - name: Resolve AWS account
+        id: account
+        run: echo "id=$(aws sts get-caller-identity --query Account --output text)" >> "$GITHUB_OUTPUT"
+
+      - name: Sync CDK dependencies
+        run: cd infra/aws && uv sync
+
+      - name: Deploy Database + Jobs (staging)
+        env:
+          CDK_DEFAULT_ACCOUNT: ${{ steps.account.outputs.id }}
+          CDK_DEFAULT_REGION: ${{ env.AWS_REGION }}
+          TAG: ${{ steps.tag.outputs.image_tag }}
+          API_CERT_ARN: ${{ secrets.API_CERT_ARN_STAGING }}
+        run: |
+          cd infra/aws
+          args=(
+            --context "api_image_tag=$TAG"
+            --context "db_image_tag=$TAG"
+            --require-approval never
+          )
+          if [ -n "$API_CERT_ARN" ]; then
+            args+=(--context "api_cert_arn=$API_CERT_ARN")
+          fi
+          uv run cdk deploy \
+            FoodAtlasDatabaseStack-Staging \
+            FoodAtlasJobsStack-Staging \
+            "${args[@]}"
+
+      - name: Deploy API (staging)
+        env:
+          CDK_DEFAULT_ACCOUNT: ${{ steps.account.outputs.id }}
+          CDK_DEFAULT_REGION: ${{ env.AWS_REGION }}
+          TAG: ${{ steps.tag.outputs.image_tag }}
+          API_CERT_ARN: ${{ secrets.API_CERT_ARN_STAGING }}
+        run: |
+          cd infra/aws
+          args=(
+            --context "api_image_tag=$TAG"
+            --context "db_image_tag=$TAG"
+            --require-approval never
+          )
+          if [ -n "$API_CERT_ARN" ]; then
+            args+=(--context "api_cert_arn=$API_CERT_ARN")
+          fi
+          uv run cdk deploy FoodAtlasApiStack-Staging "${args[@]}"
+
+      - name: Smoke test /health (staging)
+        # Pass the staging API URL in via `STAGING_API_URL` (no custom
+        # domain yet — set it to the ApiStack-Staging ALB DNS or to a
+        # custom CNAME like api-staging.foodatlas.ai once you wire one up).
+        # Falls back to a no-op when the secret isn't set so first-time
+        # bootstrap doesn't fail just because the URL isn't known yet.
+        run: |
+          if [ -z "${{ secrets.STAGING_API_URL }}" ]; then
+            echo "STAGING_API_URL secret not set — skipping smoke test."
+            exit 0
+          fi
+          curl --fail --show-error --retry 10 --retry-delay 10 \
+               --retry-all-errors --max-time 30 \
+               "${{ secrets.STAGING_API_URL }}/health"
