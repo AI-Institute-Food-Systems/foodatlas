@@ -9,7 +9,7 @@ const Layout = ({ children }: Props) => {
   return (
     <div>
       <Navbar />
-      <div className="my-24 md:my-28 lg:my-32 px-3 md:px-12 ">
+      <div className="my-16 md:my-20 lg:my-24 px-3 md:px-12 ">
         <div className="max-w-6xl mx-auto min-h-screen">{children}</div>
       </div>
       <Footer />

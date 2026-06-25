@@ -68,13 +68,13 @@ const TechnicalBackground = () => {
         <SubHeading>
           <i>FoodAtlas</i> behind the Scenes
         </SubHeading>
-        <p className="mt-10 text-lg leading-loose text-light-200">
+        <p className="mt-10 text-base leading-relaxed text-light-200">
           <i>FoodAtlas</i> is an AI-powered tool that maps the complex
           relationships between food, chemicals, and diseases. It not only
           identifies the types and quantities of chemicals in the foods we
           consume but also explores their potential health impacts.
         </p>
-        <p className="mt-2.5 text-lg leading-loose text-light-200">
+        <p className="mt-2.5 text-base leading-relaxed text-light-200">
           Our system continuously monitors new research, extracting data on
           chemical concentrations and disease correlations. This data is
           cross-referenced with established databases, such as{" "}
@@ -86,7 +86,7 @@ const TechnicalBackground = () => {
           </Link>
           , and incorporated into our knowledge graph.
         </p>
-        <p className="mt-2.5 text-lg leading-loose text-light-200">
+        <p className="mt-2.5 text-base leading-relaxed text-light-200">
           The following provides a brief overview of some of the methods and
           technologies used. For a detailed look behind the scenes, refer to our{" "}
           <Link
@@ -113,7 +113,7 @@ const TechnicalBackground = () => {
         {/* info card */}
         <div className="md:w-1/3">
           <Card>
-            <Heading type="h2" className="text-3xl">
+            <Heading type="h2">
               Knowledge Graph
             </Heading>
             <p className="mt-4 leading-loose text-light-300">
@@ -138,7 +138,7 @@ const TechnicalBackground = () => {
       <div className="mt-36 flex flex-col-reverse md:flex-row gap-2">
         <div className="md:w-5/12">
           <Card>
-            <Heading type="h2" className="text-3xl">
+            <Heading type="h2">
               Graph Semantics
             </Heading>
             <p className="mt-4 leading-loose text-light-300">
@@ -166,10 +166,10 @@ const TechnicalBackground = () => {
       <Divider />
       {/* pipeline */}
       <div className="">
-        <Heading type="h2" className="text-3xl">
+        <Heading type="h2">
           Pipeline
         </Heading>
-        <p className="mt-4 text-lg leading-loose text-light-300 font-light">
+        <p className="mt-4 text-base leading-relaxed text-light-300 font-light">
           Our pipeline uses state-of-the-art AI models to extract and quantify
           food connections. The two major steps are{" "}
           <i>(a) knowledge extraction</i>, i.e., converting literature into

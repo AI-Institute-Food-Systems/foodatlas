@@ -11,6 +11,7 @@ import json
 import logging
 import os
 import time
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -142,6 +143,15 @@ def run_extraction(
         BATCH_SIZE,
     )
 
+    # Create the output dir before submission so we can persist batch IDs
+    # immediately. This is what protects against double-charging if the
+    # polling loop dies — a re-run sees batch_ids.jsonl and refuses to
+    # resubmit.
+    out = Path(output_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    batch_ids_path = out / "batch_ids.jsonl"
+    log.info("Recording batch IDs to %s for recovery", batch_ids_path)
+
     batches: list[Any] = []
     for i, chunk in enumerate(chunks):
         jsonl_bytes = build_batch_jsonl(
@@ -173,12 +183,22 @@ def run_extraction(
             completion_window="24h",
         )
         log.info("    Batch ID: %s", batch.id)
+        with batch_ids_path.open("a", encoding="utf-8") as fp:
+            fp.write(
+                json.dumps(
+                    {
+                        "batch_id": batch.id,
+                        "chunk_index": i,
+                        "n_rows": len(chunk),
+                        "model": model,
+                        "submitted_at": datetime.now(UTC).isoformat(),
+                    }
+                )
+                + "\n"
+            )
         batches.append(batch)
 
     batches = _poll_batches(client, batches)
-
-    out = Path(output_dir)
-    out.mkdir(parents=True, exist_ok=True)
 
     log.info("Downloading results ...")
     for i, b in enumerate(batches):

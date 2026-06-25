@@ -17,6 +17,64 @@ html {
   overflow-y: scroll !important;
 }
 
+@keyframes fadeSlide {
+  from {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pillSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Table row highlight — when arriving from a cross-entity link the matching
+ * row is overlaid with this rectangle. It's drawn as an absolutely-positioned
+ * sibling inside the table's relative wrapper (NOT on the row itself) so the
+ * row geometry, padding, and content stay exactly the way they would in the
+ * unhighlighted state. The overlay sits above the row content with a tinted
+ * background; pointer-events: none lets clicks pass through to the cells.
+ * Fade-in on appearance, fade-out on dismiss via the React-controlled class.
+ */
+@keyframes rowHighlightAppear {
+  from {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.row-highlight-overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+  background-color: rgba(244, 81, 30, 0.1);
+  border: 2px solid rgba(244, 81, 30, 0.7);
+  border-radius: 6px;
+  box-shadow: 0 0 0 4px rgba(244, 81, 30, 0.08);
+  animation: rowHighlightAppear 600ms ease-out;
+  transition: opacity 500ms ease-out;
+  z-index: 1;
+}
+.row-highlight-overlay.is-dismissing {
+  opacity: 0;
+}
+
 a {
   text-decoration: none;
 }

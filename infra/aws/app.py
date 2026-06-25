@@ -99,4 +99,47 @@ JobsStack(
     env=env,
 )
 
+# ---------------------------------------------------------------------------
+# Staging environment — bioactivity preview for frontend development.
+#
+# A separate, isolated copy of the database + API + ETL: its own RDS instance,
+# Fargate API (own ALB URL), DB secret, and API key. Reuses the shared VPC, S3
+# buckets, and ECR images. PRODUCTION stacks above are untouched — bioactivity
+# never reaches the live RDS until launch.  Deploy with:
+#   cdk deploy FoodAtlasDatabaseStack-Staging FoodAtlasApiStack-Staging \
+#              FoodAtlasJobsStack-Staging
+# ---------------------------------------------------------------------------
+database_staging = DatabaseStack(
+    app,
+    "FoodAtlasDatabaseStack-Staging",
+    vpc=network.vpc,
+    name_suffix="-staging",
+    env=env,
+)
+
+api_staging = ApiStack(
+    app,
+    "FoodAtlasApiStack-Staging",
+    vpc=network.vpc,
+    repository=ecr_stack.api_repository,
+    db_instance=database_staging.db_instance,
+    db_secret=database_staging.db_secret,
+    kgc_bucket=storage.kgc_bucket,
+    downloads_bucket=downloads.downloads_bucket,
+    name_suffix="-staging",
+    env=env,
+)
+
+JobsStack(
+    app,
+    "FoodAtlasJobsStack-Staging",
+    vpc=network.vpc,
+    cluster=api_staging.cluster,
+    repository=ecr_stack.db_repository,
+    db_instance=database_staging.db_instance,
+    db_secret=database_staging.db_secret,
+    kgc_bucket=storage.kgc_bucket,
+    env=env,
+)
+
 app.synth()

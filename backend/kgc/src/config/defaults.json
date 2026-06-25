@@ -10,7 +10,7 @@
         "output_dir": "outputs/data_cleaning"
       },
       "kg_init": {
-        "previous_kg_entities": "data/PreviousFAKG/v3.3/entities.tsv"
+        "previous_kg_entities": ""
       },
       "trust": {
         "signal": "llm_plausibility",
@@ -19,6 +19,27 @@
         "limit": null,
         "batch_size": 50000,
         "batch_mode": false
+      },
+      "evaluation": {
+        "source_filter": ["lit2kg:"],
+        "sample_size": 100,
+        "seed": 42,
+        "limit": null,
+        "judge_model": "claude-opus-4-8",
+        "max_workers": 6,
+        "bioc_cache_dir": "/mnt/data/shared/BioC-PMC",
+        "fetch_missing_papers": true
+      },
+      "newsletter": {
+        "top_n": 5,
+        "candidate_pool": 20,
+        "curate": true,
+        "curate_model": "claude-opus-4-8",
+        "max_chemicals": 5,
+        "max_workers": 5,
+        "paper_count": 5,
+        "paper_chips": 6,
+        "bioc_cache_dir": "/mnt/data/shared/BioC-PMC"
       }
     }
   }

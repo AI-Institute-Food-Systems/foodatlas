@@ -1,0 +1,858 @@
+{
+  "data": [
+    {
+      "name": "snail",
+      "id": "e10005",
+      "measurement_count": 1,
+      "measurements": [
+        {
+          "unit": "mmol/100g",
+          "assay": "FoodAtlasModel: RF_antioxidant_v1",
+          "value": 0.5188796930758847,
+          "outcome": "Unspecified",
+          "endpoint": "Activity",
+          "relation": "",
+          "assay_meta": {
+            "source": "FoodAtlasModel",
+            "description": "Predicted total antioxidant content (mmol/100 g) from a random-forest regression model trained on PTFI reference-food chemical concentrations restricted to 103 PubChem-CID features shared with the FoodAtlas chemical matrix.",
+            "target_name": "NON-PROTEIN TARGET",
+            "n_measurements": 826,
+            "target_uniprot": "",
+            "target_organism": "",
+            "target_entrez_gene": ""
+          },
+          "exhibit_type": "direct",
+          "evidence_type": "in silico",
+          "evidence_fit_r2": null,
+          "evidence_source": "Predicted",
+          "efficacy_hillslope": null,
+          "efficacy_zeroactivity": null,
+          "efficacy_logac50_value": null,
+          "bioactivity_metadata_id": "bm03674191",
+          "evidence_fit_curveclass": "",
+          "efficacy_infiniteactivity": null
+        }
+      ]
+    },
+    {
+      "name": "langostino colorado",
+      "id": "e10007",
+      "measurement_count": 1,
+      "measurements": [
+        {
+          "unit": "mmol/100g",
+          "assay": "FoodAtlasModel: RF_antioxidant_v1",
+          "value": 0.5188796930758847,
+          "outcome": "Unspecified",
+          "endpoint": "Activity",
+          "relation": "",
+          "assay_meta": {
+            "source": "FoodAtlasModel",
+            "description": "Predicted total antioxidant content (mmol/100 g) from a random-forest regression model trained on PTFI reference-food chemical concentrations restricted to 103 PubChem-CID features shared with the FoodAtlas chemical matrix.",
+            "target_name": "NON-PROTEIN TARGET",
+            "n_measurements": 826,
+            "target_uniprot": "",
+            "target_organism": "",
+            "target_entrez_gene": ""
+          },
+          "exhibit_type": "direct",
+          "evidence_type": "in silico",
+          "evidence_fit_r2": null,
+          "evidence_source": "Predicted",
+          "efficacy_hillslope": null,
+          "efficacy_zeroactivity": null,
+          "efficacy_logac50_value": null,
+          "bioactivity_metadata_id": "bm03674192",
+          "evidence_fit_curveclass": "",
+          "efficacy_infiniteactivity": null
+        }
+      ]
+    },
+    {
+      "name": "cipollini plant",
+      "id": "e10014",
+      "measurement_count": 1,
+      "measurements": [
+        {
+          "unit": "mmol/100g",
+          "assay": "FoodAtlasModel: RF_antioxidant_v1",
+          "value": 0.5188796930758847,
+          "outcome": "Unspecified",
+          "endpoint": "Activity",
+          "relation": "",
+          "assay_meta": {
+            "source": "FoodAtlasModel",
+            "description": "Predicted total antioxidant content (mmol/100 g) from a random-forest regression model trained on PTFI reference-food chemical concentrations restricted to 103 PubChem-CID features shared with the FoodAtlas chemical matrix.",
+            "target_name": "NON-PROTEIN TARGET",
+            "n_measurements": 826,
+            "target_uniprot": "",
+            "target_organism": "",
+            "target_entrez_gene": ""
+          },
+          "exhibit_type": "direct",
+          "evidence_type": "in silico",
+          "evidence_fit_r2": null,
+          "evidence_source": "Predicted",
+          "efficacy_hillslope": null,
+          "efficacy_zeroactivity": null,
+          "efficacy_logac50_value": null,
+          "bioactivity_metadata_id": "bm03674193",
+          "evidence_fit_curveclass": "",
+          "efficacy_infiniteactivity": null
+        }
+      ]
+    },
+    {
+      "name": "enoki mushroom",
+      "id": "e10018",
+      "measurement_count": 1,
+      "measurements": [
+        {
+          "unit": "mmol/100g",
+          "assay": "FoodAtlasModel: RF_antioxidant_v1",
+          "value": 0.5188796930758847,
+          "outcome": "Unspecified",
+          "endpoint": "Activity",
+          "relation": "",
+          "assay_meta": {
+            "source": "FoodAtlasModel",
+            "description": "Predicted total antioxidant content (mmol/100 g) from a random-forest regression model trained on PTFI reference-food chemical concentrations restricted to 103 PubChem-CID features shared with the FoodAtlas chemical matrix.",
+            "target_name": "NON-PROTEIN TARGET",
+            "n_measurements": 826,
+            "target_uniprot": "",
+            "target_organism": "",
+            "target_entrez_gene": ""
+          },
+          "exhibit_type": "direct",
+          "evidence_type": "in silico",
+          "evidence_fit_r2": null,
+          "evidence_source": "Predicted",
+          "efficacy_hillslope": null,
+          "efficacy_zeroactivity": null,
+          "efficacy_logac50_value": null,
+          "bioactivity_metadata_id": "bm03674194",
+          "evidence_fit_curveclass": "",
+          "efficacy_infiniteactivity": null
+        }
+      ]
+    },
+    {
+      "name": "obsolete: cultivated mushroom (organism)",
+      "id": "e10034",
+      "measurement_count": 1,
+      "measurements": [
+        {
+          "unit": "mmol/100g",
+          "assay": "FoodAtlasModel: RF_antioxidant_v1",
+          "value": 0.5188796930758847,
+          "outcome": "Unspecified",
+          "endpoint": "Activity",
+          "relation": "",
+          "assay_meta": {
+            "source": "FoodAtlasModel",
+            "description": "Predicted total antioxidant content (mmol/100 g) from a random-forest regression model trained on PTFI reference-food chemical concentrations restricted to 103 PubChem-CID features shared with the FoodAtlas chemical matrix.",
+            "target_name": "NON-PROTEIN TARGET",
+            "n_measurements": 826,
+            "target_uniprot": "",
+            "target_organism": "",
+            "target_entrez_gene": ""
+          },
+          "exhibit_type": "direct",
+          "evidence_type": "in silico",
+          "evidence_fit_r2": null,
+          "evidence_source": "Predicted",
+          "efficacy_hillslope": null,
+          "efficacy_zeroactivity": null,
+          "efficacy_logac50_value": null,
+          "bioactivity_metadata_id": "bm03674195",
+          "evidence_fit_curveclass": "",
+          "efficacy_infiniteactivity": null
+        }
+      ]
+    },
+    {
+      "name": "gum arabic",
+      "id": "e10035",
+      "measurement_count": 1,
+      "measurements": [
+        {
+          "unit": "mmol/100g",
+          "assay": "FoodAtlasModel: RF_antioxidant_v1",
+          "value": 0.5188796930758847,
+          "outcome": "Unspecified",
+          "endpoint": "Activity",
+          "relation": "",
+          "assay_meta": {
+            "source": "FoodAtlasModel",
+            "description": "Predicted total antioxidant content (mmol/100 g) from a random-forest regression model trained on PTFI reference-food chemical concentrations restricted to 103 PubChem-CID features shared with the FoodAtlas chemical matrix.",
+            "target_name": "NON-PROTEIN TARGET",
+            "n_measurements": 826,
+            "target_uniprot": "",
+            "target_organism": "",
+            "target_entrez_gene": ""
+          },
+          "exhibit_type": "direct",
+          "evidence_type": "in silico",
+          "evidence_fit_r2": null,
+          "evidence_source": "Predicted",
+          "efficacy_hillslope": null,
+          "efficacy_zeroactivity": null,
+          "efficacy_logac50_value": null,
+          "bioactivity_metadata_id": "bm03674196",
+          "evidence_fit_curveclass": "",
+          "efficacy_infiniteactivity": null
+        }
+      ]
+    },
+    {
+      "name": "sweet onion plant",
+      "id": "e10052",
+      "measurement_count": 1,
+      "measurements": [
+        {
+          "unit": "mmol/100g",
+          "assay": "FoodAtlasModel: RF_antioxidant_v1",
+          "value": 0.5188796930758847,
+          "outcome": "Unspecified",
+          "endpoint": "Activity",
+          "relation": "",
+          "assay_meta": {
+            "source": "FoodAtlasModel",
+            "description": "Predicted total antioxidant content (mmol/100 g) from a random-forest regression model trained on PTFI reference-food chemical concentrations restricted to 103 PubChem-CID features shared with the FoodAtlas chemical matrix.",
+            "target_name": "NON-PROTEIN TARGET",
+            "n_measurements": 826,
+            "target_uniprot": "",
+            "target_organism": "",
+            "target_entrez_gene": ""
+          },
+          "exhibit_type": "direct",
+          "evidence_type": "in silico",
+          "evidence_fit_r2": null,
+          "evidence_source": "Predicted",
+          "efficacy_hillslope": null,
+          "efficacy_zeroactivity": null,
+          "efficacy_logac50_value": null,
+          "bioactivity_metadata_id": "bm03674197",
+          "evidence_fit_curveclass": "",
+          "efficacy_infiniteactivity": null
+        }
+      ]
+    },
+    {
+      "name": "maitake mushroom",
+      "id": "e10053",
+      "measurement_count": 1,
+      "measurements": [
+        {
+          "unit": "mmol/100g",
+          "assay": "FoodAtlasModel: RF_antioxidant_v1",
+          "value": 0.5188796930758847,
+          "outcome": "Unspecified",
+          "endpoint": "Activity",
+          "relation": "",
+          "assay_meta": {
+            "source": "FoodAtlasModel",
+            "description": "Predicted total antioxidant content (mmol/100 g) from a random-forest regression model trained on PTFI reference-food chemical concentrations restricted to 103 PubChem-CID features shared with the FoodAtlas chemical matrix.",
+            "target_name": "NON-PROTEIN TARGET",
+            "n_measurements": 826,
+            "target_uniprot": "",
+            "target_organism": "",
+            "target_entrez_gene": ""
+          },
+          "exhibit_type": "direct",
+          "evidence_type": "in silico",
+          "evidence_fit_r2": null,
+          "evidence_source": "Predicted",
+          "efficacy_hillslope": null,
+          "efficacy_zeroactivity": null,
+          "efficacy_logac50_value": null,
+          "bioactivity_metadata_id": "bm03674198",
+          "evidence_fit_curveclass": "",
+          "efficacy_infiniteactivity": null
+        }
+      ]
+    },
+    {
+      "name": "king oyster mushroom",
+      "id": "e10054",
+      "measurement_count": 1,
+      "measurements": [
+        {
+          "unit": "mmol/100g",
+          "assay": "FoodAtlasModel: RF_antioxidant_v1",
+          "value": 0.5188796930758847,
+          "outcome": "Unspecified",
+          "endpoint": "Activity",
+          "relation": "",
+          "assay_meta": {
+            "source": "FoodAtlasModel",
+            "description": "Predicted total antioxidant content (mmol/100 g) from a random-forest regression model trained on PTFI reference-food chemical concentrations restricted to 103 PubChem-CID features shared with the FoodAtlas chemical matrix.",
+            "target_name": "NON-PROTEIN TARGET",
+            "n_measurements": 826,
+            "target_uniprot": "",
+            "target_organism": "",
+            "target_entrez_gene": ""
+          },
+          "exhibit_type": "direct",
+          "evidence_type": "in silico",
+          "evidence_fit_r2": null,
+          "evidence_source": "Predicted",
+          "efficacy_hillslope": null,
+          "efficacy_zeroactivity": null,
+          "efficacy_logac50_value": null,
+          "bioactivity_metadata_id": "bm03674199",
+          "evidence_fit_curveclass": "",
+          "efficacy_infiniteactivity": null
+        }
+      ]
+    },
+    {
+      "name": "pearl oyster mushroom",
+      "id": "e10061",
+      "measurement_count": 1,
+      "measurements": [
+        {
+          "unit": "mmol/100g",
+          "assay": "FoodAtlasModel: RF_antioxidant_v1",
+          "value": 0.5188796930758847,
+          "outcome": "Unspecified",
+          "endpoint": "Activity",
+          "relation": "",
+          "assay_meta": {
+            "source": "FoodAtlasModel",
+            "description": "Predicted total antioxidant content (mmol/100 g) from a random-forest regression model trained on PTFI reference-food chemical concentrations restricted to 103 PubChem-CID features shared with the FoodAtlas chemical matrix.",
+            "target_name": "NON-PROTEIN TARGET",
+            "n_measurements": 826,
+            "target_uniprot": "",
+            "target_organism": "",
+            "target_entrez_gene": ""
+          },
+          "exhibit_type": "direct",
+          "evidence_type": "in silico",
+          "evidence_fit_r2": null,
+          "evidence_source": "Predicted",
+          "efficacy_hillslope": null,
+          "efficacy_zeroactivity": null,
+          "efficacy_logac50_value": null,
+          "bioactivity_metadata_id": "bm03674200",
+          "evidence_fit_curveclass": "",
+          "efficacy_infiniteactivity": null
+        }
+      ]
+    },
+    {
+      "name": "white beech mushroom",
+      "id": "e10093",
+      "measurement_count": 1,
+      "measurements": [
+        {
+          "unit": "mmol/100g",
+          "assay": "FoodAtlasModel: RF_antioxidant_v1",
+          "value": 0.5188796930758847,
+          "outcome": "Unspecified",
+          "endpoint": "Activity",
+          "relation": "",
+          "assay_meta": {
+            "source": "FoodAtlasModel",
+            "description": "Predicted total antioxidant content (mmol/100 g) from a random-forest regression model trained on PTFI reference-food chemical concentrations restricted to 103 PubChem-CID features shared with the FoodAtlas chemical matrix.",
+            "target_name": "NON-PROTEIN TARGET",
+            "n_measurements": 826,
+            "target_uniprot": "",
+            "target_organism": "",
+            "target_entrez_gene": ""
+          },
+          "exhibit_type": "direct",
+          "evidence_type": "in silico",
+          "evidence_fit_r2": null,
+          "evidence_source": "Predicted",
+          "efficacy_hillslope": null,
+          "efficacy_zeroactivity": null,
+          "efficacy_logac50_value": null,
+          "bioactivity_metadata_id": "bm03674201",
+          "evidence_fit_curveclass": "",
+          "efficacy_infiniteactivity": null
+        }
+      ]
+    },
+    {
+      "name": "milk fat",
+      "id": "e1010",
+      "measurement_count": 1,
+      "measurements": [
+        {
+          "unit": "mmol/100g",
+          "assay": "FoodAtlasModel: RF_antioxidant_v1",
+          "value": 0.5188796930758847,
+          "outcome": "Unspecified",
+          "endpoint": "Activity",
+          "relation": "",
+          "assay_meta": {
+            "source": "FoodAtlasModel",
+            "description": "Predicted total antioxidant content (mmol/100 g) from a random-forest regression model trained on PTFI reference-food chemical concentrations restricted to 103 PubChem-CID features shared with the FoodAtlas chemical matrix.",
+            "target_name": "NON-PROTEIN TARGET",
+            "n_measurements": 826,
+            "target_uniprot": "",
+            "target_organism": "",
+            "target_entrez_gene": ""
+          },
+          "exhibit_type": "direct",
+          "evidence_type": "in silico",
+          "evidence_fit_r2": null,
+          "evidence_source": "Predicted",
+          "efficacy_hillslope": null,
+          "efficacy_zeroactivity": null,
+          "efficacy_logac50_value": null,
+          "bioactivity_metadata_id": "bm03674202",
+          "evidence_fit_curveclass": "",
+          "efficacy_infiniteactivity": null
+        }
+      ]
+    },
+    {
+      "name": "horn of plenty",
+      "id": "e10101",
+      "measurement_count": 1,
+      "measurements": [
+        {
+          "unit": "mmol/100g",
+          "assay": "FoodAtlasModel: RF_antioxidant_v1",
+          "value": 0.5188796930758847,
+          "outcome": "Unspecified",
+          "endpoint": "Activity",
+          "relation": "",
+          "assay_meta": {
+            "source": "FoodAtlasModel",
+            "description": "Predicted total antioxidant content (mmol/100 g) from a random-forest regression model trained on PTFI reference-food chemical concentrations restricted to 103 PubChem-CID features shared with the FoodAtlas chemical matrix.",
+            "target_name": "NON-PROTEIN TARGET",
+            "n_measurements": 826,
+            "target_uniprot": "",
+            "target_organism": "",
+            "target_entrez_gene": ""
+          },
+          "exhibit_type": "direct",
+          "evidence_type": "in silico",
+          "evidence_fit_r2": null,
+          "evidence_source": "Predicted",
+          "efficacy_hillslope": null,
+          "efficacy_zeroactivity": null,
+          "efficacy_logac50_value": null,
+          "bioactivity_metadata_id": "bm03674203",
+          "evidence_fit_curveclass": "",
+          "efficacy_infiniteactivity": null
+        }
+      ]
+    },
+    {
+      "name": "yellow foot",
+      "id": "e10102",
+      "measurement_count": 1,
+      "measurements": [
+        {
+          "unit": "mmol/100g",
+          "assay": "FoodAtlasModel: RF_antioxidant_v1",
+          "value": 0.5188796930758847,
+          "outcome": "Unspecified",
+          "endpoint": "Activity",
+          "relation": "",
+          "assay_meta": {
+            "source": "FoodAtlasModel",
+            "description": "Predicted total antioxidant content (mmol/100 g) from a random-forest regression model trained on PTFI reference-food chemical concentrations restricted to 103 PubChem-CID features shared with the FoodAtlas chemical matrix.",
+            "target_name": "NON-PROTEIN TARGET",
+            "n_measurements": 826,
+            "target_uniprot": "",
+            "target_organism": "",
+            "target_entrez_gene": ""
+          },
+          "exhibit_type": "direct",
+          "evidence_type": "in silico",
+          "evidence_fit_r2": null,
+          "evidence_source": "Predicted",
+          "efficacy_hillslope": null,
+          "efficacy_zeroactivity": null,
+          "efficacy_logac50_value": null,
+          "bioactivity_metadata_id": "bm03674204",
+          "evidence_fit_curveclass": "",
+          "efficacy_infiniteactivity": null
+        }
+      ]
+    },
+    {
+      "name": "trumpet chanterelle",
+      "id": "e10103",
+      "measurement_count": 1,
+      "measurements": [
+        {
+          "unit": "mmol/100g",
+          "assay": "FoodAtlasModel: RF_antioxidant_v1",
+          "value": 0.5188796930758847,
+          "outcome": "Unspecified",
+          "endpoint": "Activity",
+          "relation": "",
+          "assay_meta": {
+            "source": "FoodAtlasModel",
+            "description": "Predicted total antioxidant content (mmol/100 g) from a random-forest regression model trained on PTFI reference-food chemical concentrations restricted to 103 PubChem-CID features shared with the FoodAtlas chemical matrix.",
+            "target_name": "NON-PROTEIN TARGET",
+            "n_measurements": 826,
+            "target_uniprot": "",
+            "target_organism": "",
+            "target_entrez_gene": ""
+          },
+          "exhibit_type": "direct",
+          "evidence_type": "in silico",
+          "evidence_fit_r2": null,
+          "evidence_source": "Predicted",
+          "efficacy_hillslope": null,
+          "efficacy_zeroactivity": null,
+          "efficacy_logac50_value": null,
+          "bioactivity_metadata_id": "bm03674205",
+          "evidence_fit_curveclass": "",
+          "efficacy_infiniteactivity": null
+        }
+      ]
+    },
+    {
+      "name": "bearded tooth mushroom",
+      "id": "e10104",
+      "measurement_count": 1,
+      "measurements": [
+        {
+          "unit": "mmol/100g",
+          "assay": "FoodAtlasModel: RF_antioxidant_v1",
+          "value": 0.5188796930758847,
+          "outcome": "Unspecified",
+          "endpoint": "Activity",
+          "relation": "",
+          "assay_meta": {
+            "source": "FoodAtlasModel",
+            "description": "Predicted total antioxidant content (mmol/100 g) from a random-forest regression model trained on PTFI reference-food chemical concentrations restricted to 103 PubChem-CID features shared with the FoodAtlas chemical matrix.",
+            "target_name": "NON-PROTEIN TARGET",
+            "n_measurements": 826,
+            "target_uniprot": "",
+            "target_organism": "",
+            "target_entrez_gene": ""
+          },
+          "exhibit_type": "direct",
+          "evidence_type": "in silico",
+          "evidence_fit_r2": null,
+          "evidence_source": "Predicted",
+          "efficacy_hillslope": null,
+          "efficacy_zeroactivity": null,
+          "efficacy_logac50_value": null,
+          "bioactivity_metadata_id": "bm03674206",
+          "evidence_fit_curveclass": "",
+          "efficacy_infiniteactivity": null
+        }
+      ]
+    },
+    {
+      "name": "mustard greens",
+      "id": "e1011",
+      "measurement_count": 1,
+      "measurements": [
+        {
+          "unit": "mmol/100g",
+          "assay": "FoodAtlasModel: RF_antioxidant_v1",
+          "value": 0.5188796930758847,
+          "outcome": "Unspecified",
+          "endpoint": "Activity",
+          "relation": "",
+          "assay_meta": {
+            "source": "FoodAtlasModel",
+            "description": "Predicted total antioxidant content (mmol/100 g) from a random-forest regression model trained on PTFI reference-food chemical concentrations restricted to 103 PubChem-CID features shared with the FoodAtlas chemical matrix.",
+            "target_name": "NON-PROTEIN TARGET",
+            "n_measurements": 826,
+            "target_uniprot": "",
+            "target_organism": "",
+            "target_entrez_gene": ""
+          },
+          "exhibit_type": "direct",
+          "evidence_type": "in silico",
+          "evidence_fit_r2": null,
+          "evidence_source": "Predicted",
+          "efficacy_hillslope": null,
+          "efficacy_zeroactivity": null,
+          "efficacy_logac50_value": null,
+          "bioactivity_metadata_id": "bm03674207",
+          "evidence_fit_curveclass": "",
+          "efficacy_infiniteactivity": null
+        }
+      ]
+    },
+    {
+      "name": "navy bean",
+      "id": "e1012",
+      "measurement_count": 1,
+      "measurements": [
+        {
+          "unit": "mmol/100g",
+          "assay": "FoodAtlasModel: RF_antioxidant_v1",
+          "value": 0.5188796930758847,
+          "outcome": "Unspecified",
+          "endpoint": "Activity",
+          "relation": "",
+          "assay_meta": {
+            "source": "FoodAtlasModel",
+            "description": "Predicted total antioxidant content (mmol/100 g) from a random-forest regression model trained on PTFI reference-food chemical concentrations restricted to 103 PubChem-CID features shared with the FoodAtlas chemical matrix.",
+            "target_name": "NON-PROTEIN TARGET",
+            "n_measurements": 826,
+            "target_uniprot": "",
+            "target_organism": "",
+            "target_entrez_gene": ""
+          },
+          "exhibit_type": "direct",
+          "evidence_type": "in silico",
+          "evidence_fit_r2": null,
+          "evidence_source": "Predicted",
+          "efficacy_hillslope": null,
+          "efficacy_zeroactivity": null,
+          "efficacy_logac50_value": null,
+          "bioactivity_metadata_id": "bm03674208",
+          "evidence_fit_curveclass": "",
+          "efficacy_infiniteactivity": null
+        }
+      ]
+    },
+    {
+      "name": "seed oil",
+      "id": "e10144",
+      "measurement_count": 1,
+      "measurements": [
+        {
+          "unit": "mmol/100g",
+          "assay": "FoodAtlasModel: RF_antioxidant_v1",
+          "value": 0.5188796930758847,
+          "outcome": "Unspecified",
+          "endpoint": "Activity",
+          "relation": "",
+          "assay_meta": {
+            "source": "FoodAtlasModel",
+            "description": "Predicted total antioxidant content (mmol/100 g) from a random-forest regression model trained on PTFI reference-food chemical concentrations restricted to 103 PubChem-CID features shared with the FoodAtlas chemical matrix.",
+            "target_name": "NON-PROTEIN TARGET",
+            "n_measurements": 826,
+            "target_uniprot": "",
+            "target_organism": "",
+            "target_entrez_gene": ""
+          },
+          "exhibit_type": "direct",
+          "evidence_type": "in silico",
+          "evidence_fit_r2": null,
+          "evidence_source": "Predicted",
+          "efficacy_hillslope": null,
+          "efficacy_zeroactivity": null,
+          "efficacy_logac50_value": null,
+          "bioactivity_metadata_id": "bm03674209",
+          "evidence_fit_curveclass": "",
+          "efficacy_infiniteactivity": null
+        }
+      ]
+    },
+    {
+      "name": "Aequipecten opercularis",
+      "id": "e10189",
+      "measurement_count": 1,
+      "measurements": [
+        {
+          "unit": "mmol/100g",
+          "assay": "FoodAtlasModel: RF_antioxidant_v1",
+          "value": 0.5188796930758847,
+          "outcome": "Unspecified",
+          "endpoint": "Activity",
+          "relation": "",
+          "assay_meta": {
+            "source": "FoodAtlasModel",
+            "description": "Predicted total antioxidant content (mmol/100 g) from a random-forest regression model trained on PTFI reference-food chemical concentrations restricted to 103 PubChem-CID features shared with the FoodAtlas chemical matrix.",
+            "target_name": "NON-PROTEIN TARGET",
+            "n_measurements": 826,
+            "target_uniprot": "",
+            "target_organism": "",
+            "target_entrez_gene": ""
+          },
+          "exhibit_type": "direct",
+          "evidence_type": "in silico",
+          "evidence_fit_r2": null,
+          "evidence_source": "Predicted",
+          "efficacy_hillslope": null,
+          "efficacy_zeroactivity": null,
+          "efficacy_logac50_value": null,
+          "bioactivity_metadata_id": "bm03674210",
+          "evidence_fit_curveclass": "",
+          "efficacy_infiniteactivity": null
+        }
+      ]
+    },
+    {
+      "name": "Mercenaria campechiensis",
+      "id": "e10191",
+      "measurement_count": 1,
+      "measurements": [
+        {
+          "unit": "mmol/100g",
+          "assay": "FoodAtlasModel: RF_antioxidant_v1",
+          "value": 0.5188796930758847,
+          "outcome": "Unspecified",
+          "endpoint": "Activity",
+          "relation": "",
+          "assay_meta": {
+            "source": "FoodAtlasModel",
+            "description": "Predicted total antioxidant content (mmol/100 g) from a random-forest regression model trained on PTFI reference-food chemical concentrations restricted to 103 PubChem-CID features shared with the FoodAtlas chemical matrix.",
+            "target_name": "NON-PROTEIN TARGET",
+            "n_measurements": 826,
+            "target_uniprot": "",
+            "target_organism": "",
+            "target_entrez_gene": ""
+          },
+          "exhibit_type": "direct",
+          "evidence_type": "in silico",
+          "evidence_fit_r2": null,
+          "evidence_source": "Predicted",
+          "efficacy_hillslope": null,
+          "efficacy_zeroactivity": null,
+          "efficacy_logac50_value": null,
+          "bioactivity_metadata_id": "bm03674211",
+          "evidence_fit_curveclass": "",
+          "efficacy_infiniteactivity": null
+        }
+      ]
+    },
+    {
+      "name": "scallion food product",
+      "id": "e1020",
+      "measurement_count": 1,
+      "measurements": [
+        {
+          "unit": "mmol/100g",
+          "assay": "FoodAtlasModel: RF_antioxidant_v1",
+          "value": 0.5188796930758847,
+          "outcome": "Unspecified",
+          "endpoint": "Activity",
+          "relation": "",
+          "assay_meta": {
+            "source": "FoodAtlasModel",
+            "description": "Predicted total antioxidant content (mmol/100 g) from a random-forest regression model trained on PTFI reference-food chemical concentrations restricted to 103 PubChem-CID features shared with the FoodAtlas chemical matrix.",
+            "target_name": "NON-PROTEIN TARGET",
+            "n_measurements": 826,
+            "target_uniprot": "",
+            "target_organism": "",
+            "target_entrez_gene": ""
+          },
+          "exhibit_type": "direct",
+          "evidence_type": "in silico",
+          "evidence_fit_r2": null,
+          "evidence_source": "Predicted",
+          "efficacy_hillslope": null,
+          "efficacy_zeroactivity": null,
+          "efficacy_logac50_value": null,
+          "bioactivity_metadata_id": "bm03674212",
+          "evidence_fit_curveclass": "",
+          "efficacy_infiniteactivity": null
+        }
+      ]
+    },
+    {
+      "name": "Chlamys islandica",
+      "id": "e10203",
+      "measurement_count": 1,
+      "measurements": [
+        {
+          "unit": "mmol/100g",
+          "assay": "FoodAtlasModel: RF_antioxidant_v1",
+          "value": 0.5188796930758847,
+          "outcome": "Unspecified",
+          "endpoint": "Activity",
+          "relation": "",
+          "assay_meta": {
+            "source": "FoodAtlasModel",
+            "description": "Predicted total antioxidant content (mmol/100 g) from a random-forest regression model trained on PTFI reference-food chemical concentrations restricted to 103 PubChem-CID features shared with the FoodAtlas chemical matrix.",
+            "target_name": "NON-PROTEIN TARGET",
+            "n_measurements": 826,
+            "target_uniprot": "",
+            "target_organism": "",
+            "target_entrez_gene": ""
+          },
+          "exhibit_type": "direct",
+          "evidence_type": "in silico",
+          "evidence_fit_r2": null,
+          "evidence_source": "Predicted",
+          "efficacy_hillslope": null,
+          "efficacy_zeroactivity": null,
+          "efficacy_logac50_value": null,
+          "bioactivity_metadata_id": "bm03674213",
+          "evidence_fit_curveclass": "",
+          "efficacy_infiniteactivity": null
+        }
+      ]
+    },
+    {
+      "name": "Allium cepa var. aggregatum",
+      "id": "e10204",
+      "measurement_count": 1,
+      "measurements": [
+        {
+          "unit": "mmol/100g",
+          "assay": "FoodAtlasModel: RF_antioxidant_v1",
+          "value": 0.5188796930758847,
+          "outcome": "Unspecified",
+          "endpoint": "Activity",
+          "relation": "",
+          "assay_meta": {
+            "source": "FoodAtlasModel",
+            "description": "Predicted total antioxidant content (mmol/100 g) from a random-forest regression model trained on PTFI reference-food chemical concentrations restricted to 103 PubChem-CID features shared with the FoodAtlas chemical matrix.",
+            "target_name": "NON-PROTEIN TARGET",
+            "n_measurements": 826,
+            "target_uniprot": "",
+            "target_organism": "",
+            "target_entrez_gene": ""
+          },
+          "exhibit_type": "direct",
+          "evidence_type": "in silico",
+          "evidence_fit_r2": null,
+          "evidence_source": "Predicted",
+          "efficacy_hillslope": null,
+          "efficacy_zeroactivity": null,
+          "efficacy_logac50_value": null,
+          "bioactivity_metadata_id": "bm03674214",
+          "evidence_fit_curveclass": "",
+          "efficacy_infiniteactivity": null
+        }
+      ]
+    },
+    {
+      "name": "Mytilus galloprovincialis",
+      "id": "e10205",
+      "measurement_count": 1,
+      "measurements": [
+        {
+          "unit": "mmol/100g",
+          "assay": "FoodAtlasModel: RF_antioxidant_v1",
+          "value": 0.5188796930758847,
+          "outcome": "Unspecified",
+          "endpoint": "Activity",
+          "relation": "",
+          "assay_meta": {
+            "source": "FoodAtlasModel",
+            "description": "Predicted total antioxidant content (mmol/100 g) from a random-forest regression model trained on PTFI reference-food chemical concentrations restricted to 103 PubChem-CID features shared with the FoodAtlas chemical matrix.",
+            "target_name": "NON-PROTEIN TARGET",
+            "n_measurements": 826,
+            "target_uniprot": "",
+            "target_organism": "",
+            "target_entrez_gene": ""
+          },
+          "exhibit_type": "direct",
+          "evidence_type": "in silico",
+          "evidence_fit_r2": null,
+          "evidence_source": "Predicted",
+          "efficacy_hillslope": null,
+          "efficacy_zeroactivity": null,
+          "efficacy_logac50_value": null,
+          "bioactivity_metadata_id": "bm03674215",
+          "evidence_fit_curveclass": "",
+          "efficacy_infiniteactivity": null
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "row_count": 972,
+    "_note": "sample: first 25 of 972 records (row_count is the true total)"
+  }
+}

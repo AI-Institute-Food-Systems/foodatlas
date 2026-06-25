@@ -145,3 +145,9 @@ class TestLoadVersion:
         _write_yml(tmp_path, "llm_plausibility", "v1", bad)
         with pytest.raises(ValidationError):
             load_version("llm_plausibility", "v1", base_dir=tmp_path)
+
+    def test_non_mapping_root_rejected(self, tmp_path):
+        # YAML root that parses to a list (or anything not a dict) is invalid.
+        _write_yml(tmp_path, "llm_plausibility", "v1", "- just_a_list_item\n")
+        with pytest.raises(ValueError, match="did not parse to a mapping"):
+            load_version("llm_plausibility", "v1", base_dir=tmp_path)

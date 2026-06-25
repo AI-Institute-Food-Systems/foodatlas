@@ -6,6 +6,11 @@ import logging
 from typing import TYPE_CHECKING
 
 from ...utils.timing import log_duration
+from .bioactivity import (
+    merge_bioactivity_ontology,
+    merge_chemical_bioactivity,
+    merge_food_bioactivity,
+)
 from .chemical_chemical import (
     merge_chemical_ontology,
     merge_chemical_ontology_cdno,
@@ -52,4 +57,10 @@ def build_triplets(
         merge_ctd_triplets(kg, sources)
     with log_duration("DMD food-chemical triplets", logger):
         merge_dmd_triplets(kg, sources)
+    with log_duration("Bioactivity hierarchy triplets", logger):
+        merge_bioactivity_ontology(kg, sources)
+    with log_duration("Food-bioactivity triplets", logger):
+        merge_food_bioactivity(kg, sources)
+    with log_duration("Chemical-bioactivity triplets", logger):
+        merge_chemical_bioactivity(kg, sources)
     logger.info("Triplet build complete.")

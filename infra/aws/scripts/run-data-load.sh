@@ -13,6 +13,8 @@ cd "$(dirname "$0")"
 # shellcheck source=_lib.sh
 source ./_lib.sh
 
+DRY_RUN=""
+if [[ "${1:-}" == "--dry-run" ]]; then DRY_RUN=1; shift; fi
 REQUESTED_VERSION="${1:-}"
 
 BUCKET=$(aws cloudformation describe-stacks \
@@ -49,4 +51,10 @@ if ! aws s3 ls "$PARQUET_DIR" --region "$REGION" >/dev/null 2>&1; then
 fi
 
 COMMAND_JSON="[\"python\",\"main.py\",\"load\",\"--parquet-dir\",\"$PARQUET_DIR\"]"
-run_jobs_task "$COMMAND_JSON" "data load from $PARQUET_DIR"
+if [[ -n "$DRY_RUN" ]]; then
+    echo "[dry-run] would launch Fargate jobs task (NOT launched):"
+    echo "[dry-run]   loads:   $PARQUET_DIR"
+    echo "[dry-run]   command: $COMMAND_JSON"
+else
+    run_jobs_task "$COMMAND_JSON" "data load from $PARQUET_DIR"
+fi

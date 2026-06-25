@@ -59,6 +59,18 @@ const SearchBar = () => {
     setAutocompleteTerm(searchTerm);
   }, [searchTerm, setAutocompleteTerm]);
 
+  // The search bar is opt-in: only the landing page and /results host it. On
+  // every route change, hide it unless we land on one of those routes. Without
+  // this, browser back/forward leaves a stale `isVisible=true` from a prior
+  // landing/results mount and the search bar overlays entity pages.
+  useEffect(() => {
+    const hostsSearch = pathname === "/" || pathname.startsWith("/results");
+    if (!hostsSearch && isVisible) {
+      setIsVisible(false);
+      setIsFocused(false);
+    }
+  }, [pathname, isVisible, setIsVisible, setIsFocused]);
+
   useEffect(() => {
     if (isFocused) return;
 

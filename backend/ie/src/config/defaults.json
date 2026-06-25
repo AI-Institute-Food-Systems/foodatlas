@@ -1,6 +1,6 @@
 {
   "date": "",
-  "model": "gpt-5.2",
+  "model": "gpt-5.5",
   "bioc_pmc_dir": "/mnt/data/shared/BioC-PMC",
   "bioc_pmc_dl_dir": "/mnt/data/shared/BioC-PMC_download",
   "biobert_model_dir": "/mnt/data/shared/biobert_binary_prod",
@@ -15,15 +15,15 @@
     "biobert_filter": {
       "sentence_col": "sentence",
       "chunk_size": 10000,
-      "batch_size": 64
+      "batch_size": 512
     },
     "aggregate": {
       "threshold": 0.99,
       "reference_dir": "outputs/extraction"
     },
     "extraction": {
-      "system_prompt": "src/pipeline/extraction/prompts/system/v1.txt",
-      "user_prompt": "src/pipeline/extraction/prompts/user/v1.txt",
+      "system_prompt": "src/pipeline/extraction/prompts/system/v2.txt",
+      "user_prompt": "src/pipeline/extraction/prompts/user/v2.txt",
       "max_new_tokens": 512,
       "temperature": 0.0
     },

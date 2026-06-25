@@ -47,14 +47,16 @@ describe("getMetaData", () => {
     expect(result).toEqual(entity);
   });
 
-  it("throws when the API responds with a non-ok status", async () => {
+  it("returns null when the API responds with a non-ok status", async () => {
+    // Staging is flaky; getMetaData swallows fetch failures and returns
+    // null so generateMetadata() can fall back to notFound() instead of
+    // throwing a 500 on the user's browser. See feedback-graceful-api-failures.
     vi.spyOn(globalThis, "fetch").mockResolvedValue({
       ok: false,
       json: async () => ({}),
     } as unknown as Response);
 
-    await expect(getMetaData("tomato", "food")).rejects.toThrow(
-      "Failed to fetch metadata for food tomato"
-    );
+    const result = await getMetaData("tomato", "food");
+    expect(result).toBeNull();
   });
 });

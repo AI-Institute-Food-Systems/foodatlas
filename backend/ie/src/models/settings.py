@@ -30,7 +30,10 @@ def _load_defaults() -> dict[str, Any]:
 class SearchConfig(BaseModel):
     save_every: int = 10
     query_uid_results: str = "outputs/search/{date}/query_uid_results.tsv"
-    filtered_sentences: str = "outputs/search/{date}/retrieved_sentences/result_{i}.tsv"
+    filtered_sentences: str = "outputs/retrieval/{date}/result_{i}.tsv"
+    track1_mesh_food_terms: str = "data/search_track_1_mesh_food_terms.txt"
+    track1_mesh_chemical_classes: str = "data/search_track_1_mesh_chemical_classes.txt"
+    track2_food_terms: str = "data/search_track_2_food_terms.txt"
 
 
 class BiobertFilterConfig(BaseModel):

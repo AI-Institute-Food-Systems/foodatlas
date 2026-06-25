@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Listbox,
   ListboxButton,
@@ -15,6 +15,7 @@ import {
 } from "@headlessui/react";
 import {
   MdCheck,
+  MdClose,
   MdDescription,
   MdErrorOutline,
   MdKeyboardArrowDown,
@@ -25,11 +26,9 @@ import {
 import { twMerge } from "tailwind-merge";
 
 import Button from "@/components/basic/Button";
-import Card from "@/components/basic/Card";
 import Link from "@/components/basic/Link";
 import Pagination from "@/components/basic/Pagination";
 import LoadingCard from "@/components/basic/LoadingCard";
-import Heading from "@/components/basic/Heading";
 import { AmbiguityBadge } from "@/components/basic/Ambiguity";
 import { TrustBadge } from "@/components/basic/TrustBadge";
 import FoodCompositionEvidenceModal, {
@@ -88,12 +87,28 @@ interface FoodCompositionSectionProps {
 const FoodCompositionSection = ({
   commonName,
 }: FoodCompositionSectionProps) => {
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const [data, setData] = useState<FoodCompositionData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
   const { getTablePaginations, setTablePaginations } = usePaginations();
   const { currentPage } = getTablePaginations("food-composition-table");
+  // Highlight a single row when the user arrived from a chemical page link
+  // (`?highlight=`). The backend resolves the page containing the chemical
+  // and reports it as metadata.highlight_page; we navigate pagination there
+  // on the first response, then clear `findChemical` so subsequent paging
+  // doesn't keep snapping back. Highlight dismisses on any click.
+  const initialHighlight = (searchParams.get("highlight") ?? "").toLowerCase();
+  const [highlightName, setHighlightName] = useState(initialHighlight);
+  const [findChemical, setFindChemical] = useState(initialHighlight);
+  const [isDismissing, setIsDismissing] = useState(false);
+  const [overlayRect, setOverlayRect] = useState<
+    { top: number; height: number } | null
+  >(null);
+  const highlightRowRef = useRef<HTMLTableRowElement | null>(null);
+  const tableWrapperRef = useRef<HTMLDivElement | null>(null);
   const [numberOfPages, setNumberOfPages] = useState(-1);
   const [numberOfRows, setNumberOfRows] = useState(-1);
   const [searchTerm, setSearchTerm] = useState(
@@ -172,8 +187,23 @@ const FoodCompositionSection = ({
           sort,
           showAllConcentrations,
           activeClsFilter,
-          showLowTrust ? "show_all" : "default"
+          showLowTrust ? "show_all" : "default",
+          findChemical
         );
+        // When find_chemical resolves, snap pagination to the served page
+        // and stop forcing the find so the user can paginate freely after.
+        const resolvedPage: number | null =
+          result.metadata?.highlight_page ?? null;
+        if (findChemical && resolvedPage && resolvedPage !== currentPage) {
+          setTablePaginations(
+            "food-composition-table",
+            resolvedPage,
+            20
+          );
+        }
+        if (findChemical) {
+          setFindChemical("");
+        }
         // client-side filter: only keep rows with evidence from selected sources
         const filteredData = (
           result.data as FoodCompositionData[]
@@ -208,7 +238,102 @@ const FoodCompositionSection = ({
     showLowTrust,
     classificationFilter,
     classificationCounts,
+    findChemical,
+    setTablePaginations,
   ]);
+
+  // Once the highlighted row is rendered, (1) measure it relative to the
+  // table wrapper so the overlay rectangle can be positioned over it, and
+  // (2) ease-scroll it into view. The overlay is an absolutely-positioned
+  // sibling of the table — never inset into the row — so the row keeps its
+  // natural size and the border can't visually shrink anything. Recomputes
+  // on resize. Dismiss-on-anywhere-click runs a fade-out before clearing.
+  useEffect(() => {
+    if (!highlightName) {
+      setOverlayRect(null);
+      return;
+    }
+    const measure = () => {
+      const row = highlightRowRef.current;
+      const wrap = tableWrapperRef.current;
+      if (!row || !wrap) return;
+      const r = row.getBoundingClientRect();
+      const w = wrap.getBoundingClientRect();
+      setOverlayRect({
+        top: r.top - w.top + wrap.scrollTop,
+        height: r.height,
+      });
+    };
+    measure();
+
+    let rafId = 0;
+    if (highlightRowRef.current) {
+      const rect = highlightRowRef.current.getBoundingClientRect();
+      const target =
+        rect.top + window.scrollY - window.innerHeight / 2 + rect.height / 2;
+      const start = window.scrollY;
+      const distance = target - start;
+      const duration = 900;
+      const ease = (t: number) =>
+        t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+      const t0 = performance.now();
+      const step = (now: number) => {
+        const t = Math.min(1, (now - t0) / duration);
+        window.scrollTo(0, start + distance * ease(t));
+        if (t < 1) rafId = window.requestAnimationFrame(step);
+      };
+      rafId = window.requestAnimationFrame(step);
+    }
+
+    const onResize = () => measure();
+    window.addEventListener("resize", onResize);
+
+    // Dismiss on any user interaction — click, keypress, touch, wheel, or
+    // a real (user-driven) scroll. Listener registration is delayed past the
+    // RAF-scroll duration so the programmatic scroll doesn't self-dismiss.
+    const dismissEvents: (keyof WindowEventMap)[] = [
+      "mousedown",
+      "click",
+      "keydown",
+      "touchstart",
+      "wheel",
+      "scroll",
+    ];
+    let dismissed = false;
+    const handleInteraction = () => {
+      if (dismissed) return;
+      dismissed = true;
+      dismissEvents.forEach((e) =>
+        window.removeEventListener(e, handleInteraction)
+      );
+      setIsDismissing(true);
+      window.setTimeout(() => {
+        setHighlightName("");
+        setIsDismissing(false);
+        const params = new URLSearchParams(searchParams.toString());
+        if (params.has("highlight")) {
+          params.delete("highlight");
+          const qs = params.toString();
+          router.replace(qs ? `${pathname}?${qs}` : pathname, {
+            scroll: false,
+          });
+        }
+      }, 450);
+    };
+    const id = window.setTimeout(() => {
+      dismissEvents.forEach((e) =>
+        window.addEventListener(e, handleInteraction, { passive: true })
+      );
+    }, 1100);
+    return () => {
+      window.clearTimeout(id);
+      window.cancelAnimationFrame(rafId);
+      window.removeEventListener("resize", onResize);
+      dismissEvents.forEach((e) =>
+        window.removeEventListener(e, handleInteraction)
+      );
+    };
+  }, [highlightName, data, pathname, router, searchParams]);
 
   // handle source filter change
   const handleFilterChange = (sources: string[]) => {
@@ -284,6 +409,11 @@ const FoodCompositionSection = ({
     });
   };
 
+  const handleSearchClear = () => {
+    setSearchTerm("");
+    setTablePaginations("food-composition-table", 1, 20);
+  };
+
   // handle sort column click
   const handleSortClick = (sortName: string) => {
     setSort((prevSort: { column: string; direction: string }) => {
@@ -315,52 +445,59 @@ const FoodCompositionSection = ({
   // number of placeholder rows to make up for the total of 20 rows
   const placeholderRowsCount = data ? 20 - data?.length : 20;
 
+
   return (
     <>
       <div id="composition" className="flex flex-col gap-7 scroll-mt-8">
-        <Heading type="h2" variant="boxed">
-          Full Chemical Composition
-        </Heading>
-        <Card>
           {/* table controls */}
           <div className="w-full flex flex-col lg:flex-row justify-between">
             {/* search */}
             <div className="relative flex items-center">
               <MdSearch className="absolute left-2.5 w-5 h-5 text-light-400" />
               <input
-                className="pl-9 w-full lg:w-72 h-9 text-sm rounded-lg border border-light-50/5 bg-light-900 focus:bg-light-400/20 hover:bg-light-400/20 text-light-100 placeholder-light-400 transition duration-100 ease-in-out outline-light-50/60"
+                className="pl-9 pr-9 w-full lg:w-72 h-9 text-sm rounded-lg border border-light-50/5 bg-light-900 focus:bg-light-400/20 hover:bg-light-400/20 text-light-100 placeholder-light-400 transition duration-100 ease-in-out outline-light-50/60"
                 type="text"
                 placeholder="Search for a chemical"
                 value={searchTerm}
                 onChange={handleSearch}
               />
+              {searchTerm && (
+                <button
+                  type="button"
+                  aria-label="Clear search"
+                  onClick={handleSearchClear}
+                  className="absolute right-2 flex items-center justify-center w-5 h-5 rounded-full text-light-400 hover:text-light-100 hover:bg-light-700 transition-colors"
+                >
+                  <MdClose className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
-            {/* switch and filters */}
-            <div className="mt-5 lg:mt-0 flex gap-4 lg:gap-10 justify-between flex-col md:flex-row">
+            {/* switch and filters — compact track + shorter label copy */}
+            <div className="mt-4 lg:mt-0 flex gap-3 lg:gap-6 justify-between flex-col md:flex-row md:items-center">
               {/* switch to remove n/a concentrations */}
-              <div className="flex gap-3 items-center justify-between">
-                <span className="uppercase text-xs text-light-400 md:max-w-[10rem] lg:text-right">
-                  show chemicals without concentration data
+              <div className="flex gap-2 items-center justify-between">
+                <span className="uppercase text-[10px] tracking-wider text-light-400 md:max-w-[8rem] lg:text-right leading-tight">
+                  include without concentration
                 </span>
                 <Switch
                   checked={showAllConcentrations}
                   onChange={handleConcentrationSwitchChange}
-                  className="group inline-flex h-6 w-11 items-center rounded-full bg-light-700 data-[checked]:bg-accent-600 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 flex-shrink-0"
+                  className="group inline-flex h-4 w-8 items-center rounded-full bg-light-700 data-[checked]:bg-accent-600 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 flex-shrink-0 transition-colors"
                 >
-                  <span className="size-4 translate-x-1 rounded-full bg-white transition group-data-[checked]:translate-x-6" />
+                  <span className="size-3 translate-x-0.5 rounded-full bg-white transition group-data-[checked]:translate-x-[1.125rem]" />
                 </Switch>
               </div>
               {/* switch to surface low-trust data points */}
-              <div className="flex gap-3 items-center justify-between">
-                <span className="uppercase text-xs text-light-400 md:max-w-[10rem] lg:text-right">
-                  show low trustworthiness data points
+              <div className="flex gap-2 items-center justify-between">
+                <span className="uppercase text-[10px] tracking-wider text-light-400 md:max-w-[8rem] lg:text-right leading-tight">
+                  include low-trust points
                 </span>
                 <Switch
                   checked={showLowTrust}
                   onChange={handleLowTrustSwitchChange}
-                  className="group inline-flex h-6 w-11 items-center rounded-full bg-light-700 data-[checked]:bg-accent-600 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 flex-shrink-0"
+                  className="group inline-flex h-4 w-8 items-center rounded-full bg-light-700 data-[checked]:bg-accent-600 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 flex-shrink-0 transition-colors"
                 >
-                  <span className="size-4 translate-x-1 rounded-full bg-white transition group-data-[checked]:translate-x-6" />
+                  <span className="size-3 translate-x-0.5 rounded-full bg-white transition group-data-[checked]:translate-x-[1.125rem]" />
                 </Switch>
               </div>
               {/* source filter */}
@@ -422,23 +559,30 @@ const FoodCompositionSection = ({
               </div>
             </div>
           </div>
-          {/* # chemicals indicator */}
-          <div className="mt-6">
-            {isLoading ? (
-              <LoadingCard className="h-5 w-36" />
-            ) : (
-              <div className="text-sm text-neutral-400">{`Found ${numberOfRows} chemical${
-                numberOfRows === 1 ? "" : "s"
-              }`}</div>
-            )}
-          </div>
           {/* table */}
-          <div className="mt-3 overflow-x-auto">
+          <div
+            ref={tableWrapperRef}
+            className="mt-3 overflow-x-auto relative"
+          >
+            {highlightName && overlayRect && (
+              <div
+                aria-hidden
+                className={
+                  isDismissing
+                    ? "row-highlight-overlay is-dismissing"
+                    : "row-highlight-overlay"
+                }
+                style={{
+                  top: overlayRect.top - 3,
+                  height: overlayRect.height + 6,
+                }}
+              />
+            )}
             <table className="w-full table-fixed">
               <colgroup>
-                <col className="w-[30%]" />
-                <col className="w-[25%]" />
-                <col className="w-[25%]" />
+                <col className="w-[28%]" />
+                <col className="w-[15%]" />
+                <col className="w-[37%]" />
                 <col className="w-[20%]" />
               </colgroup>
               <thead className="text-light-400 text-left">
@@ -447,7 +591,7 @@ const FoodCompositionSection = ({
                   {TABLE_HEADERS.map((header, index) => (
                     <th
                       key={index}
-                      className={`h-12 border-b border-light-700 leading-none break-all md:break-normal py-3 ${
+                      className={`h-9 border-b border-light-700 leading-none break-all md:break-normal py-1.5 ${
                         index === 0
                           ? "pr-4"
                           : index === TABLE_HEADERS.length - 1
@@ -599,16 +743,16 @@ const FoodCompositionSection = ({
                   ))}
                 </tr>
               </thead>
-              <tbody className="font-light">
+              <tbody className="text-sm font-light">
                 {isLoading ? (
                   // loading skeleton
                   Array.from({ length: 20 }, (_, index) => (
                     <tr key={index}>
                       <td
-                        className="w-full py-3"
+                        className="w-full py-1.5"
                         colSpan={TABLE_HEADERS.length}
                       >
-                        <div className="h-12 flex items-center">
+                        <div className="h-9 flex items-center">
                           <LoadingCard className="h-5" />
                         </div>
                       </td>
@@ -625,11 +769,19 @@ const FoodCompositionSection = ({
                     </td>
                   </tr>
                 ) : data.length > 0 ? (
-                  data.map((row) => (
-                    <tr key={row.id}>
+                  data.map((row) => {
+                    const isHighlighted =
+                      !!highlightName &&
+                      (row.name.toLowerCase() === highlightName ||
+                        (row.id ?? "").toLowerCase() === highlightName);
+                    return (
+                    <tr
+                      key={row.id}
+                      ref={isHighlighted ? highlightRowRef : null}
+                    >
                       {/* name */}
-                      <td className="py-3 pr-4">
-                        <div className="flex min-h-12 capitalize items-center gap-2">
+                      <td className="py-1.5 pr-4">
+                        <div className="flex min-h-9 capitalize items-center gap-2">
                           <Link
                             href={`/chemical/${encodeURIComponent(
                               encodeSpace(row.name)
@@ -655,24 +807,69 @@ const FoodCompositionSection = ({
                         </div>
                       </td>
                       {/* classification */}
-                      <td className="py-3 px-4">
-                        <div className="flex min-h-12 capitalize items-center">
+                      <td className="py-1.5 px-4">
+                        <div className="flex min-h-9 capitalize items-center">
                           {row.chemical_classification.length > 0
                             ? row.chemical_classification.join(", ")
                             : "—"}
                         </div>
                       </td>
-                      {/* median concentration */}
-                      <td className="py-3 px-4">
-                        <div className="flex min-h-12 items-center justify-end">
-                          {formatConcentrationValueAlt(
-                            row.median_concentration?.value
-                          )}
+                      {/* median concentration — bar + value + % of 100g by
+                       * mass (mg/100g → divide by 1000). Mirrors nutrition. */}
+                      <td className="py-1.5 px-4">
+                        <div className="flex min-h-9 items-center justify-end gap-3">
+                          {(() => {
+                            const v = row.median_concentration?.value;
+                            if (v === null || v === undefined) {
+                              return (
+                                <span className="text-light-600">—</span>
+                              );
+                            }
+                            const unit = row.median_concentration?.unit;
+                            const isMgPer100g =
+                              !!unit &&
+                              unit.replace(/\s+/g, "").toLowerCase() ===
+                                "mg/100g";
+                            const pct = isMgPer100g ? v / 1000 : null;
+                            const barPct =
+                              pct === null
+                                ? 0
+                                : Math.max(2, Math.min(100, pct));
+                            const fmtPct =
+                              pct === null
+                                ? ""
+                                : pct >= 10
+                                ? `${pct.toFixed(0)}%`
+                                : pct >= 1
+                                ? `${pct.toFixed(1)}%`
+                                : `${pct.toFixed(2)}%`;
+                            return (
+                              <>
+                                <span
+                                  aria-hidden
+                                  className="relative h-1.5 w-32 shrink-0 rounded-full bg-light-800/70 overflow-hidden"
+                                >
+                                  {pct !== null && (
+                                    <span
+                                      className="absolute inset-y-0 left-0 rounded-full bg-accent-600/80"
+                                      style={{ width: `${barPct}%` }}
+                                    />
+                                  )}
+                                </span>
+                                <span className="font-mono text-xs text-light-200 whitespace-nowrap tabular-nums text-right min-w-[5rem]">
+                                  {formatConcentrationValueAlt(v)}
+                                </span>
+                                <span className="font-mono text-xs text-light-500 whitespace-nowrap tabular-nums text-right min-w-[3.5rem]">
+                                  {fmtPct}
+                                </span>
+                              </>
+                            );
+                          })()}
                         </div>
                       </td>
                       {/* evidence */}
-                      <td className="py-3 pl-4">
-                        <div className="flex min-h-12 capitalize items-center justify-end">
+                      <td className="py-1.5 pl-4">
+                        <div className="flex min-h-9 capitalize items-center justify-end">
                           <Button
                             className="border-light-500 text-light-500 w-36"
                             variant="outlined"
@@ -688,7 +885,8 @@ const FoodCompositionSection = ({
                         </div>
                       </td>
                     </tr>
-                  ))
+                    );
+                  })
                 ) : (
                   // no rows
                   <tr>
@@ -704,8 +902,8 @@ const FoodCompositionSection = ({
                   !isLoading &&
                   Array.from({ length: placeholderRowsCount }, (_, index) => (
                     <tr key={index}>
-                      <td className="py-3" colSpan={TABLE_HEADERS.length}>
-                        <div className="h-12" />
+                      <td className="py-1.5" colSpan={TABLE_HEADERS.length}>
+                        <div className="h-9" />
                       </td>
                     </tr>
                   ))}
@@ -722,7 +920,6 @@ const FoodCompositionSection = ({
               />
             </div>
           )}
-        </Card>
       </div>
       {/* evidence modal */}
       <Portal>

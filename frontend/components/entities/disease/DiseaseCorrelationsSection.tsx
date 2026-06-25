@@ -1,4 +1,3 @@
-import Card from "@/components/basic/Card";
 import CorrelationTable from "@/components/entities/CorrelationTable";
 import Heading from "@/components/basic/Heading";
 import InfoBanner from "@/components/basic/InfoBanner";
@@ -13,9 +12,6 @@ const DiseaseCorrelationsSection = ({
 }: DiseaseCorrelationsSectionProps) => {
   return (
     <div className="flex flex-col gap-7">
-      <Heading type="h2" variant="boxed">
-        Health Impacts
-      </Heading>
       <InfoBanner
         description={
           <div>
@@ -39,7 +35,7 @@ const DiseaseCorrelationsSection = ({
           <div>
             <Heading
               type="h3"
-              className="text-light-300 font-mono text-base font-normal"
+              className="text-light-300 font-mono text-sm font-normal"
             >
               Improves
             </Heading>
@@ -49,21 +45,19 @@ const DiseaseCorrelationsSection = ({
             </p>
           </div>
           {/* positive correlations */}
-          <Card>
-            <CorrelationTable
-              commonName={commonName}
-              tableLocation={"disease"}
-              correlationType={"positive"}
-              headers={[{ label: "Chemical" }, { label: "Publication (PMID)" }]}
-            />
-          </Card>
+          <CorrelationTable
+            commonName={commonName}
+            tableLocation={"disease"}
+            correlationType={"positive"}
+            headers={[{ label: "Chemical" }, { label: "Publication (PMID)" }]}
+          />
         </div>
         <div className="flex flex-col gap-4">
           {/* heading */}
           <div>
             <Heading
               type="h3"
-              className="text-light-300 font-mono text-base font-normal"
+              className="text-light-300 font-mono text-sm font-normal"
             >
               Worsens
             </Heading>
@@ -73,14 +67,12 @@ const DiseaseCorrelationsSection = ({
             </p>
           </div>
           {/* negative correlations */}
-          <Card>
-            <CorrelationTable
-              commonName={commonName}
-              tableLocation={"disease"}
-              correlationType={"negative"}
-              headers={[{ label: "Chemical" }, { label: "Publication (PMID)" }]}
-            />
-          </Card>
+          <CorrelationTable
+            commonName={commonName}
+            tableLocation={"disease"}
+            correlationType={"negative"}
+            headers={[{ label: "Chemical" }, { label: "Publication (PMID)" }]}
+          />
         </div>
       </div>
     </div>

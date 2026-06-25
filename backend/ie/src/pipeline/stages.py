@@ -6,10 +6,10 @@ from enum import Enum
 class IEStage(Enum):
     """Ordered IE pipeline stages."""
 
-    CORPUS = 0
     SEARCH = 1
-    FILTERING = 2
-    EXTRACTION = 3
+    RETRIEVAL = 2
+    FILTERING = 3
+    EXTRACTION = 4
 
 
 ALL_STAGES: list[IEStage] = sorted(IEStage, key=lambda s: s.value)

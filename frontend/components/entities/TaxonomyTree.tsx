@@ -4,6 +4,7 @@ import { useState } from "react";
 import { TaxonomyNode } from "@/types";
 import { encodeSpace } from "@/utils/utils";
 import Button from "@/components/basic/Button";
+import Modal from "@/components/basic/Modal";
 
 type TreeNode = {
   node: TaxonomyNode;
@@ -75,7 +76,7 @@ function TreeBranch({
     <div
       className={
         depth > 0
-          ? `ml-4 border-l pl-3 ${
+          ? `ml-1.5 border-l pl-2 ${
               isLast ? "border-transparent" : "border-light-50/25"
             }`
           : ""
@@ -84,7 +85,7 @@ function TreeBranch({
       <div
         className={`relative py-0.5 text-sm ${
           depth > 0
-            ? `before:content-[''] before:absolute before:top-0 before:left-[-13px] before:w-[13px] before:h-[50%] before:border-b before:border-light-50/25 ${
+            ? `before:content-[''] before:absolute before:top-0 before:left-[-9px] before:w-[9px] before:h-[50%] before:border-b before:border-light-50/25 ${
                 isLast ? "before:border-l" : ""
               }`
             : ""
@@ -127,15 +128,16 @@ const TaxonomyTree = ({
 }: TaxonomyTreeProps) => {
   const totalPaths = trees.reduce((sum, t) => sum + countPaths(t), 0);
   const collapsible = totalPaths > 1;
-  const [expanded, setExpanded] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const displayTrees =
-    expanded || !collapsible ? trees : [primaryPath(trees[0])];
+  // Sidebar always shows just the primary path (the leftmost root-to-leaf
+  // chain); the full DAG opens in a modal so the sidebar stays narrow.
+  const previewTrees = collapsible ? [primaryPath(trees[0])] : trees;
 
   return (
     <div>
       <div>
-        {displayTrees.map((tree, i) => (
+        {previewTrees.map((tree, i) => (
           <TreeBranch
             key={`root-${i}`}
             tree={tree}
@@ -143,7 +145,7 @@ const TaxonomyTree = ({
             entityType={entityType}
             colorClass={colorClass}
             depth={0}
-            isLast={i === displayTrees.length - 1}
+            isLast={i === previewTrees.length - 1}
           />
         ))}
       </div>
@@ -153,13 +155,32 @@ const TaxonomyTree = ({
             variant="outlined"
             size="xs"
             className="rounded-full"
-            onClick={() => setExpanded(!expanded)}
+            onClick={() => setIsModalOpen(true)}
           >
-            {expanded
-              ? "Collapse"
-              : `+ ${totalPaths - 1} more path${totalPaths - 1 > 1 ? "s" : ""}`}
+            Show full tree
           </Button>
         </div>
+      )}
+      {collapsible && (
+        <Modal
+          title="Taxonomy"
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+        >
+          <div className="mt-2 max-h-[70vh] overflow-y-auto pr-2">
+            {trees.map((tree, i) => (
+              <TreeBranch
+                key={`full-root-${i}`}
+                tree={tree}
+                entityId={entityId}
+                entityType={entityType}
+                colorClass={colorClass}
+                depth={0}
+                isLast={i === trees.length - 1}
+              />
+            ))}
+          </div>
+        </Modal>
       )}
     </div>
   );
