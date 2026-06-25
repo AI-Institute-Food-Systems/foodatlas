@@ -172,7 +172,8 @@ async def get_chemicals(
         bind_value=common_name,
         select_cols=(
             "chemical_name AS name, chemical_foodatlas_id AS id, "
-            "measurement_count, active_count, inactive_count, measurements"
+            "measurement_count, active_count, inactive_count, "
+            "unspecified_count, inconclusive_count, measurements"
         ),
         search_col="chemical_name",
         search=search,
@@ -234,7 +235,8 @@ async def get_chemical_bioactivities(
         bind_value=common_name,
         select_cols=(
             "bioactivity_name AS name, bioactivity_foodatlas_id AS id, "
-            "measurement_count, active_count, inactive_count, measurements"
+            "measurement_count, active_count, inactive_count, "
+            "unspecified_count, inconclusive_count, measurements"
         ),
         search_col="bioactivity_name",
         search=search,

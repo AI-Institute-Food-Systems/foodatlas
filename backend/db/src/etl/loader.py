@@ -77,6 +77,7 @@ def load_kg(conn: Connection, parquet_dir: Path) -> None:
     evidence_df = parquet_reader.read_evidence(kg_dir)
     attestations_df = parquet_reader.read_attestations(kg_dir)
     attestations_bioactivity_df = parquet_reader.read_attestations_bioactivity(kg_dir)
+    bioassays_df = parquet_reader.read_bioassays(kg_dir)
 
     # 2. Recreate schema from ORM models
     _recreate_schema(conn)
@@ -188,6 +189,29 @@ def load_kg(conn: Connection, parquet_dir: Path) -> None:
                 "evidence_type",
                 "evidence_fit_r2",
                 "evidence_fit_curveclass",
+            ],
+        )
+
+    # Bioassay dimension — the assay-level metadata joined onto measurements by
+    # source_assay_id. Present only alongside the bioactivity measurements.
+    if bioassays_df is not None:
+        logger.info("Inserting bioassays (%d rows)...", len(bioassays_df))
+        bulk_copy(
+            conn,
+            "base_bioassays",
+            bioassays_df,
+            [
+                "source_assay_id",
+                "source",
+                "n_measurements",
+                "assay_description",
+                "target_id",
+                "target_name",
+                "target_organism",
+                "target_uniprot",
+                "target_entrez_gene",
+                "bioactivity_ids",
+                "last_modified",
             ],
         )
     conn.commit()

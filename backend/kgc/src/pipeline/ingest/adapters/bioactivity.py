@@ -82,11 +82,12 @@ class BioactivityAdapter:
         progress(total, total)
 
         measurements = _build_measurements(bio_dir / "bioactivity_metadata.csv")
+        bioassays = _build_bioassays(bio_dir / "bioassay_metadata.csv")
         disease = _build_disease(bio_dir / "disease_bioactivity_triplets.csv")
         targets = _build_disease_targets(bio_dir / "bioactivity_disease_metadata.csv")
 
         files = _write_outputs(
-            output_dir, nodes, edges, xrefs, measurements, disease, targets
+            output_dir, nodes, edges, xrefs, measurements, bioassays, disease, targets
         )
 
         manifest = SourceManifest(
@@ -213,6 +214,18 @@ def _build_measurements(path: Path) -> pd.DataFrame:
     return df.rename(columns=_MEASUREMENT_RENAME)
 
 
+def _build_bioassays(path: Path) -> pd.DataFrame:
+    """Assay-level metadata passthrough (one row per source_assay_id).
+
+    The assay dimension joined onto each measurement by source_assay_id; carries
+    description + target (name/organism/UniProt/Entrez) moved out of the
+    measurement table.
+    """
+    df = pd.read_csv(path, low_memory=False)
+    df["bioactivity_ids"] = df["bioactivity_ids"].apply(_parse_json_list)
+    return df
+
+
 def _build_disease(path: Path) -> pd.DataFrame:
     """Disease↔assay bridge passthrough (Phase-2 input)."""
     df = pd.read_csv(path)
@@ -236,6 +249,7 @@ def _write_outputs(
     edges: pd.DataFrame,
     xrefs: pd.DataFrame,
     measurements: pd.DataFrame,
+    bioassays: pd.DataFrame,
     disease: pd.DataFrame,
     targets: pd.DataFrame,
 ) -> list[str]:
@@ -245,6 +259,7 @@ def _write_outputs(
         "edges": serialize_raw_attrs(edges),
         "xrefs": xrefs,
         "measurements": measurements,
+        "bioassays": bioassays,
         "disease": disease,
         "disease_targets": targets,
     }

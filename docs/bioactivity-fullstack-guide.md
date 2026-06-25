@@ -239,8 +239,7 @@ curl -s "http://localhost:8000/bioactivity/metadata?common_name=antioxidant" | p
 { "data": [ /* records */ ], "metadata": { "row_count": 0 } }
 ```
 
-Records use **`name`** and **`id`** (the FoodAtlas id). `potency_summary` is a **list** of
-`{ "endpoint", "unit", "median", "n" }`.
+Records use **`name`** and **`id`** (the FoodAtlas id).
 
 ### Try it / regenerate examples
 [`./query-bioactivity-api.sh`](query-bioactivity-api.sh) calls all five endpoints and saves
@@ -256,42 +255,153 @@ API_URL=http://localhost:8000 API_KEY=dev ./query-bioactivity-api.sh --chemical 
 
 ### Endpoint reference
 
-| Endpoint | Returns | Example query → rows |
-|---|---|---|
-| `GET /bioactivity/metadata` | one concept: hierarchy + counts | antioxidant → 1 |
-| `GET /bioactivity/foods` | foods that exhibit it | antioxidant → 972 |
-| `GET /bioactivity/chemicals` | chemicals measured for it | antioxidant → 11,109 |
-| `GET /chemical/bioactivities` | a chemical's bioactivities + measurements | quercetin → 17 |
-| `GET /food/bioactivities` | a food's bioactivities | onion → 2 |
+All five take one query param `?common_name=<term>` and return the standard envelope.
+There are really only **3 materialized views** behind the five endpoints — `/bioactivity/chemicals`
+and `/chemical/bioactivities` are the same view (`mv_chemical_bioactivity`) read from opposite
+sides; likewise `/bioactivity/foods` and `/food/bioactivities` share `mv_food_bioactivity`. So
+`name`/`id` flip meaning depending on which side you query from.
 
-**Concept** (`/bioactivity/metadata?common_name=antioxidant`):
-```json
+| Endpoint | Returns | Example query → rows | View |
+|---|---|---|---|
+| `GET /bioactivity/metadata` | one concept: hierarchy + counts | antioxidant → 1 | `mv_bioactivity_entities` |
+| `GET /bioactivity/chemicals` | chemicals measured for a bioactivity | antioxidant → 11,109 | `mv_chemical_bioactivity` |
+| `GET /bioactivity/foods` | foods that exhibit a bioactivity | antioxidant → 972 | `mv_food_bioactivity` |
+| `GET /chemical/bioactivities` | a chemical's bioactivities + measurements | quercetin → 17 | `mv_chemical_bioactivity` |
+| `GET /food/bioactivities` | a food's bioactivities | onion → 2 | `mv_food_bioactivity` |
+
+**The nested `measurements` shape** (built in `materializer_bioactivity.py::_aggregate`):
+`measurements` is an array **capped at 25** per pair. Each item carries the **full measurement
+record — all 16 columns** of `base_attestations_bioactivity`, plus a nested **`assay_meta`**
+object joined from `base_bioassays` by `assay` (= `source_assay_id`). Both tables' origins are in
+§7.1.
+
+```jsonc
+{
+  "bioactivity_metadata_id": "bm00526244",   // the bm… id (PK in base_attestations_bioactivity)
+  "exhibit_type": "direct",
+  "assay": "AID: 588856",                     // ← source_assay_id (also the assay_meta join key)
+  "outcome": "Inactive",                      // ← reported_activity_outcome
+  "endpoint": "Potency",                      // ← evidence_endpoint_type
+  "relation": "",                             // ← evidence_relation: comparator on value (>, <, =, "")
+  "value": 35.4813,                           // ← potency_value (float | null)
+  "unit": "MICROMOLAR",                        // ← potency_unit
+  "efficacy_zeroactivity": 2.0887,            // Hill-curve fit params (float | null)
+  "efficacy_infiniteactivity": -74.5265,
+  "efficacy_logac50_value": -4.45,
+  "efficacy_hillslope": 4.9549,
+  "evidence_source": "Experimental",          // Experimental | Predicted | …
+  "evidence_type": "adme/tox",                // in vitro | in vivo | in silico | …
+  "evidence_fit_r2": 0.8684,                  // curve-fit R² (float | null)
+  "evidence_fit_curveclass": "Single point of activity",
+  "assay_meta": {                             // ← joined from base_bioassays; null if assay unknown
+    "source": "PubChem",                      //   PubChem | ChEMBL | FoodAtlasModel
+    "description": "qHTS for Inhibitors of TGF-b: Cytotox Counterscreen",
+    "target_name": "",                        //   target protein/gene (may be empty)
+    "target_organism": "",
+    "target_uniprot": "",                     //   "UniProt: P08684" form
+    "target_entrez_gene": "NCBIGene: 4088",   //   CTD join key (Phase-2 disease)
+    "n_measurements": 2602                     //   total measurements in this assay (across all compounds)
+  }
+}
+```
+
+The five short keys `assay` / `outcome` / `endpoint` / `value` / `unit` are friendly aliases of
+the underlying columns; the rest keep their `base_attestations_bioactivity` names verbatim.
+`assay_meta` is the same for every measurement that shares an `assay`, and is `null` when the
+assay isn't in `base_bioassays`. Target fields are sparsely populated (≈95% have a target name,
+≈51% an organism); for model-predicted food links `source` is `"FoodAtlasModel"` and the target
+fields are empty.
+Notes: `value` and the four `efficacy_*` / `evidence_fit_r2` are float-or-`null`; **read `value`
+together with `relation`** (a row can mean "IC50 **>** 100 µM"). Units are **not** normalized
+(mixed `MICROMOLAR` / `nM` / `""`). For **model-predicted food** links the experimental fields are
+empty (`evidence_source: "Predicted"`, `evidence_type: "in silico"`, `efficacy_*: null`). Each item
+is one assay — there is **no cross-assay rollup** (see below).
+
+> ⚠️ **No `potency_summary`.** An earlier version returned a `potency_summary` array of
+> `{ endpoint, unit, median, n }`. It was removed: the values pooled into each median come from
+> entirely different assays (for quercetin × anticancer, 130 IC50/µM values span 130 distinct
+> assays with a 1,800× spread), so the median was not a meaningful potency. Use the per-assay
+> `measurements` array (capped sample) or query `base_attestations_bioactivity` for the complete
+> per-assay detail. If you need an at-a-glance figure, compute it client-side **per assay**, not
+> across assays.
+
+**Outcome counts (chemical-side only).** Each measurement carries a literal
+`reported_activity_outcome` (verbatim from `bioactivity_metadata.csv`); the chemical view tallies
+the four meaningful values into `active_count`, `inactive_count`, `unspecified_count`, and
+`inconclusive_count`.
+
+> ⚠️ **The four counts do not sum to `measurement_count`.** A tiny tail of other outcome
+> values (`None`, `Probe` — ~15 rows across the whole dataset) is counted in none of them, so
+> `active + inactive + unspecified + inconclusive` may be ≤ `measurement_count`. Never derive one
+> count as `measurement_count − others`; read the field you want. E.g. quercetin × anticancer:
+> 755 total = 83 active + 261 inactive + 326 unspecified + 85 inconclusive.
+
+> ⚠️ **Asymmetry to handle in the UI:** chemical-side responses (`/bioactivity/chemicals`,
+> `/chemical/bioactivities`) carry all four `*_count` fields; food-side responses
+> (`/bioactivity/foods`, `/food/bioactivities`) do **not** (food links are model predictions,
+> e.g. `FoodAtlasModel: RF_antioxidant_v1`). A shared "bioactivity card" component must treat
+> those four fields as optional.
+
+**1. Concept** — `/bioactivity/metadata?common_name=antioxidant` → 0 or 1 record:
+```jsonc
 { "data": [{
   "common_name": "antioxidant", "id": "e227382",
-  "synonyms": ["antioxidant", "anti-oxidant", "…"],
+  "synonyms": ["antioxidant", "anti-oxidant", "antioxidant activity", "…"],
   "description": "Bioactivity refers to the ability of substances to inhibit … oxidation …",
   "external_ids": { "bioactivity_concept": ["E300002"] },
-  "parents": [], "children": [],
+  "parents": [], "children": [],          // {foodatlas_id, common_name} from the r2 hierarchy
   "n_foods": 972, "n_chemicals": 11109
 }], "metadata": { "row_count": 1 } }
 ```
 
-**Chemical → bioactivities** (`/chemical/bioactivities?common_name=quercetin`):
-```json
+**2. Bioactivity → chemicals** — `/bioactivity/chemicals?common_name=antioxidant` → 11,109 rows
+(ordered `active_count DESC, measurement_count DESC`). `name`/`id` = the **chemical**:
+```jsonc
+{ "data": [{
+  "name": "quercetin", "id": "e60502",
+  "measurement_count": 232, "active_count": 67, "inactive_count": 3,
+  "unspecified_count": 161, "inconclusive_count": 1,
+  "measurements": [ /* ≤25 full measurement records — 16 fields each, shape shown above */ ]
+}, /* …11,108 more… */ ], "metadata": { "row_count": 11109 } }
+```
+
+**3. Bioactivity → foods** — `/bioactivity/foods?common_name=antioxidant` → 972 rows
+(ordered `measurement_count DESC`). No potency/active fields. `name`/`id` = the **food**:
+```jsonc
+{ "data": [{
+  "name": "onion", "id": "e9305", "measurement_count": 1,
+  "measurements": [{ "bioactivity_metadata_id": "bm03675136", "exhibit_type": "direct",
+    "assay": "FoodAtlasModel: RF_antioxidant_v1", "outcome": "Unspecified",
+    "endpoint": "Activity", "relation": "", "value": 0.5189, "unit": "mmol/100g",
+    "efficacy_zeroactivity": null, "efficacy_infiniteactivity": null,
+    "efficacy_logac50_value": null, "efficacy_hillslope": null,
+    "evidence_source": "Predicted", "evidence_type": "in silico",
+    "evidence_fit_r2": null, "evidence_fit_curveclass": "" }]
+}, /* … */ ], "metadata": { "row_count": 972 } }
+```
+
+**4. Chemical → bioactivities** — `/chemical/bioactivities?common_name=quercetin` → 17 rows.
+Same shape as #2, but `name`/`id` = the **bioactivity**:
+```jsonc
 { "data": [{
   "name": "anticancer", "id": "e227383",
   "measurement_count": 755, "active_count": 83, "inactive_count": 261,
-  "potency_summary": [{ "endpoint": "IC50", "unit": "MICROMOLAR", "median": 17.175, "n": 130 }],
-  "measurements": [{ "assay": "AID: 364", "outcome": "Active", "endpoint": "AC50",
-                     "value": 0.035, "unit": "MICROMOLAR" }]
-}], "metadata": { "row_count": 17 } }
+  "unspecified_count": 326, "inconclusive_count": 85,
+  "measurements": [ /* ≤25 full measurement records — 16 fields each, shape shown above */ ]
+}, /* …16 more… */ ], "metadata": { "row_count": 17 } }
 ```
-> `measurements` is a capped representative sample for display. `value` is `null` for
-> non-potency outcomes (e.g. Inactive). Units are **not** normalized — expect mixed
-> `MICROMOLAR` / `nM` / `""`; treat `(endpoint, unit)` as the grouping key.
 
-**Food → bioactivities** (`/food/bioactivities?common_name=onion`) and
-**concept → foods/chemicals** follow the same envelope; see the example JSON files for full shapes.
+**5. Food → bioactivities** — `/food/bioactivities?common_name=onion` → 2 rows.
+Same shape as #3 (no potency/active fields); `name`/`id` = the **bioactivity**:
+```jsonc
+{ "data": [
+  { "name": "antioxidant",  "id": "e227382", "measurement_count": 1, "measurements": [ /* … */ ] },
+  { "name": "antidiabetic", "id": "e227384", "measurement_count": 1, "measurements": [ /* … */ ] }
+], "metadata": { "row_count": 2 } }
+```
+
+The files in [`bioactivity-api-examples/`](bioactivity-api-examples/) hold the full, real
+responses for all five (regenerate them with `query-bioactivity-api.sh`, above).
 
 ### Auth & CORS (summary)
 - Bearer key required on staging/prod (`API_DEBUG=False`); skipped locally (`API_DEBUG=True`).
@@ -309,12 +419,72 @@ serializes it. So the SQL + the view + the ETL *are* the contract:
 |---|---|---|
 | envelope, field names, which columns, ordering | `backend/api/src/repositories/bioactivity.py` | API redeploy (§8.1) |
 | add/remove a column on a view | `backend/db/src/models/views.py` | ETL reload (§8.2) |
-| structure of `potency_summary` / `measurements` items | `backend/db/src/etl/materializer_bioactivity.py` | ETL reload (§8.2) |
+| structure of `measurements` items, or what's aggregated | `backend/db/src/etl/materializer_bioactivity.py` | ETL reload (§8.2) |
 | endpoint path / params / new endpoint | `backend/api/src/routes/{bioactivity,chemical,food}.py` | API redeploy (§8.1) |
 
 - The `name`/`id` field names come from SQL aliases (e.g. `chemical_name AS name`) in the repository.
 - The `{data, metadata:{row_count}}` envelope is built in each repository function.
-- The nested `measurements`/`potency_summary` item shapes are built in `materializer_bioactivity.py::_aggregate`.
+- The nested `measurements` item shape is built in `materializer_bioactivity.py::_aggregate`.
+
+### 7.1 Data provenance — RDS tables ← KG parquet ← source CSVs
+
+Where does the data physically come from? The chain is
+**source CSV** (`backend/kgc/data/Bioactivity/`) → **KGC pipeline** → **KG parquet**
+(`backend/kgc/outputs/kg/`) → **RDS base table** → **materialized view**. The DB has
+**5 bioactivity base tables** and **3 views**:
+
+| RDS object | Built in DB by | KG parquet | Source CSV(s) in `data/Bioactivity/` |
+|---|---|---|---|
+| `base_entities` (rows `entity_type='bioactivity'`) | `loader.py` → `read_entities` | `entities.parquet` | `bioactivity_entities.csv` (21 concepts) |
+| `base_relationships` (r5 `exhibits`, r6 `measured`, r2 `is_a`) | `loader.py` → `read_relationships` | `relationships.parquet` | *static relationship defs — not a bioactivity CSV* |
+| `base_triplets` (r5 / r6 / r2 rows) | `loader.py` → `read_triplets` | `triplets.parquet` | `food_bioactivity_triplets.csv` (r5), `chemical_bioactivity_triplets.csv` (r6), `bioactivity_entities.csv` `parent_label_ids` (r2) |
+| `base_attestations_bioactivity` (per-`bm…` measurement detail) | `loader.py` → `read_attestations_bioactivity` | `attestations_bioactivity.parquet` | **`bioactivity_metadata.csv`** (~3.7M rows, pruned to referenced `bm…` ids) |
+| `base_bioassays` (per-`source_assay_id` assay/target metadata) | `loader.py` → `read_bioassays` | `bioassays.parquet` | **`bioassay_metadata.csv`** (~448k assays, pruned to referenced assays) |
+| `mv_chemical_bioactivity` | `materializer_bioactivity.py` → `materialize_chemical_bioactivity` | — | `chemical_bioactivity_triplets.csv` **+** `bioactivity_metadata.csv` **+** `bioassay_metadata.csv` (`assay_meta`) |
+| `mv_food_bioactivity` | `materializer_bioactivity.py` → `materialize_food_bioactivity` | — | `food_bioactivity_triplets.csv` **+** `bioactivity_metadata.csv` **+** `bioassay_metadata.csv` (`assay_meta`) |
+| `mv_bioactivity_entities` | `materializer_bioactivity.py` → `materialize_bioactivity_entities` | — | `bioactivity_entities.csv` (+ r5/r6 triplet CSVs for the `n_foods`/`n_chemicals` counts) |
+
+**Why a `_triplets.csv` lands in *two* tables.** A row in `chemical_bioactivity_triplets.csv`
+is `(CID, bioactivity_id, bioactivity_metadata_ids=[bm1, bm2, …])`. The KGC adapter
+(`backend/kgc/src/pipeline/ingest/adapters/bioactivity.py`) splits it:
+- the **link** `chemical → measured → bioactivity` becomes an **r6 edge** in `base_triplets`,
+  carrying its `bm…` ids as `attestation_ids`;
+- the **measurement payload** for those `bm…` ids (potency, unit, outcome, assay) comes from
+  `bioactivity_metadata.csv` → `base_attestations_bioactivity`.
+
+The materializer then **re-joins** them (`base_triplets.attestation_ids` ⟶
+`base_attestations_bioactivity.bioactivity_metadata_id`) and enriches each displayed measurement
+with its assay's metadata (`base_attestations_bioactivity.source_assay_id` ⟶
+`base_bioassays.source_assay_id`) to build each view:
+
+```
+chemical_bioactivity_triplets.csv ─┐ (r6 links + bm-id lists)
+                                   ├─► mv_chemical_bioactivity
+bioactivity_metadata.csv ──────────┤ (potency / outcome / assay detail)
+bioassay_metadata.csv ─────────────┘ (assay_meta: description + target, by source_assay_id)
+
+food_bioactivity_triplets.csv ─────┐ (r5 links + bm-id lists)
+                                   ├─► mv_food_bioactivity
+bioactivity_metadata.csv ──────────┤ (model-prediction "measurements")
+bioassay_metadata.csv ─────────────┘ (assay_meta: model description, by source_assay_id)
+
+bioactivity_entities.csv ──────────► base_entities ──┐
+   (parent_label_ids → r2 hierarchy) ─► base_triplets ├─► mv_bioactivity_entities
+```
+
+**A third file feeds the measurement views: the assay dimension.** Each measurement's
+`source_assay_id` is the join key into `bioassay_metadata.csv` → `base_bioassays` (a normalized
+one-row-per-assay table, ~448k assays pruned to the ~294k referenced). The materializer attaches
+that row as the `assay_meta` object on each of the ≤25 displayed measurements. Storing assay
+description/target **once** (not duplicated across every measurement) is why it's a separate table
+rather than extra columns on `base_attestations_bioactivity`. `base_bioassays` is also queryable
+standalone (indexed on `target_entrez_gene`/`target_uniprot`) for a future assay endpoint and the
+Phase-2 disease join.
+
+**Phase-2 files that map to nothing yet.** `disease_bioactivity_triplets.csv` and
+`bioactivity_disease_metadata.csv` are ingested to `bioactivity_disease.parquet` /
+`bioactivity_disease_targets.parquet` but are **inert** — no triplets, no base table, no
+view. They're staged for the disease phase (§10).
 
 ---
 

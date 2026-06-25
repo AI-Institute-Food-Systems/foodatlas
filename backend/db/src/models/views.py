@@ -202,7 +202,8 @@ class MVChemicalBioactivity(Base):
     measurement_count: Mapped[int] = mapped_column(Integer, server_default="0")
     active_count: Mapped[int] = mapped_column(Integer, server_default="0")
     inactive_count: Mapped[int] = mapped_column(Integer, server_default="0")
-    potency_summary: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    unspecified_count: Mapped[int] = mapped_column(Integer, server_default="0")
+    inconclusive_count: Mapped[int] = mapped_column(Integer, server_default="0")
     measurements: Mapped[list] = mapped_column(JSONB, server_default="[]")
 
     __table_args__ = (
