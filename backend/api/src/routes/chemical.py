@@ -50,6 +50,13 @@ async def chemical_correlation(
 @router.get("/bioactivities")
 async def chemical_bioactivities(
     common_name: str = Query(...),
+    page: int = Query(1, ge=1),
+    search: str = Query(""),
+    sort_by: str = Query("measurement_count"),
+    sort_dir: str = Query("desc"),
     db: AsyncSession = Depends(get_db),
 ):
-    return await bioactivity.get_chemical_bioactivities(db, common_name)
+    return await bioactivity.get_chemical_bioactivities(
+        db, common_name, page=page, search=search,
+        sort_by=sort_by, sort_dir=sort_dir,
+    )
