@@ -8,11 +8,11 @@ from __future__ import annotations
 
 import os
 import sys
-from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import pandas as pd
-
+import pytest
 from src.pipeline.extraction.gemma.runner import (
     _CONDA_ENV_BIN,
     _PARAGRAPH_MARKER,
@@ -22,6 +22,9 @@ from src.pipeline.extraction.gemma.runner import (
     _load_system_instructions,
     _parse_args,
 )
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class TestLoadSystemInstructions:
@@ -63,8 +66,6 @@ class TestAggregate:
         assert df["sentence"].tolist() == ["s1", "s2"]
 
     def test_raises_when_no_chunks(self, tmp_path: Path) -> None:
-        import pytest
-
         with pytest.raises(FileNotFoundError):
             _aggregate(tmp_path)
 

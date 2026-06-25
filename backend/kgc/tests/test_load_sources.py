@@ -3,17 +3,18 @@ artifact discovery, and skipping sources that have no matching files."""
 
 from __future__ import annotations
 
-from pathlib import Path
+import logging
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 import pandas as pd
-
 from src.pipeline.load_sources import load_sources
 
+if TYPE_CHECKING:
+    from pathlib import Path
 
-def _write_source(
-    ingest_dir: Path, source_id: str, kinds: list[str]
-) -> None:
+
+def _write_source(ingest_dir: Path, source_id: str, kinds: list[str]) -> None:
     """Create a source dir with the given parquet kinds (nodes/edges/xrefs)."""
     source_dir = ingest_dir / source_id
     source_dir.mkdir(parents=True, exist_ok=True)
@@ -39,12 +40,8 @@ def test_partial_artifacts_loaded(tmp_path: Path) -> None:
     assert list(result["mesh"].keys()) == ["nodes"]
 
 
-def test_missing_source_dir_logged_and_skipped(
-    tmp_path: Path, caplog: object
-) -> None:
+def test_missing_source_dir_logged_and_skipped(tmp_path: Path, caplog: object) -> None:
     """No directory at all for a source => logged warning, not in result."""
-    import logging
-
     settings = SimpleNamespace(ingest_dir=tmp_path)
     # Only write one of the ten known sources
     _write_source(tmp_path, "chebi", ["nodes"])
@@ -53,9 +50,16 @@ def test_missing_source_dir_logged_and_skipped(
     assert "chebi" in result
     # All others were absent
     other_sources = [
-        s for s in ("foodon", "cdno", "ctd", "mesh", "pubchem", "flavordb",
-                    "fdc", "dmd", "bioactivity")
-    ]
+            "foodon",
+            "cdno",
+            "ctd",
+            "mesh",
+            "pubchem",
+            "flavordb",
+            "fdc",
+            "dmd",
+            "bioactivity",
+        ]
     for s in other_sources:
         assert s not in result
 

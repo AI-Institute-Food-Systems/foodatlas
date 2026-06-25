@@ -8,8 +8,6 @@ from pathlib import Path
 
 import pandas as pd
 
-from ...utils.snapshots import latest_snapshot
-
 logger = logging.getLogger(__name__)
 
 

@@ -8,7 +8,6 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pandas as pd
-
 from src.pipeline.triplets.bioactivity.builders import (
     merge_bioactivity_ontology,
     merge_chemical_bioactivity,
@@ -125,8 +124,15 @@ def test_merge_returns_early_when_source_missing() -> None:
 
 def test_merge_returns_early_when_no_matching_edge_type() -> None:
     edges = pd.DataFrame(
-        [{"edge_type": "is_a", "head_native_id": "B1", "tail_native_id": "B0",
-          "source_id": "bioactivity", "raw_attrs": {}}]
+        [
+            {
+                "edge_type": "is_a",
+                "head_native_id": "B1",
+                "tail_native_id": "B0",
+                "source_id": "bioactivity",
+                "raw_attrs": {},
+            }
+        ]
     )
     kg = _make_kg(_ENTITIES)
     merge_food_bioactivity(kg, {"bioactivity": {"edges": edges}})

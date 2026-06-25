@@ -7,7 +7,6 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pandas as pd
-
 from src.pipeline.enrichment.flavor import apply_flavor_descriptions
 
 
@@ -80,9 +79,7 @@ def test_unmatched_cid_skipped() -> None:
     ents = _entities()
     kg = _kg(ents)
     # Node has CID that doesn't map to any chemical entity
-    nodes = pd.DataFrame(
-        [{"native_id": "9999", "raw_attrs": {"flavors": ["bitter"]}}]
-    )
+    nodes = pd.DataFrame([{"native_id": "9999", "raw_attrs": {"flavors": ["bitter"]}}])
     apply_flavor_descriptions(kg, {"flavordb": {"nodes": nodes}})
     # Nothing written
     assert ents.at["CHEM1", "attributes"] == {}
@@ -91,8 +88,6 @@ def test_unmatched_cid_skipped() -> None:
 def test_non_dict_raw_attrs_skipped() -> None:
     ents = _entities()
     kg = _kg(ents)
-    nodes = pd.DataFrame(
-        [{"native_id": "100", "raw_attrs": "not-a-dict"}]
-    )
+    nodes = pd.DataFrame([{"native_id": "100", "raw_attrs": "not-a-dict"}])
     apply_flavor_descriptions(kg, {"flavordb": {"nodes": nodes}})
     assert ents.at["CHEM1", "attributes"] == {}

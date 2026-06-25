@@ -7,12 +7,11 @@ from __future__ import annotations
 
 import json
 import logging
-from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 
 import pytest
 import requests
-
 from src.pipeline.search.bioc_fetch import (
     FetchResult,
     _cleanup_stray_tmp,
@@ -21,6 +20,9 @@ from src.pipeline.search.bioc_fetch import (
     _make_session,
     fetch_missing,
 )
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class _FakeResp:
@@ -126,8 +128,10 @@ class TestHelpers:
         logger = logging.getLogger("test_emit_progress")
         with caplog.at_level(logging.INFO, logger=logger.name):
             _emit_progress(logger, result, total=20, elapsed=2.0, tag="progress")
-        assert any("ok=10" in rec.message and "cached=5" in rec.message
-                   for rec in caplog.records)
+        assert any(
+            "ok=10" in rec.message and "cached=5" in rec.message
+            for rec in caplog.records
+        )
 
 
 class TestFetchMissing:
@@ -146,7 +150,9 @@ class TestFetchMissing:
         assert result.cached == 1
         assert result.fetched == 0
 
-    def test_log_path_creates_progress_file(self, out_dir: Path, tmp_path: Path) -> None:
+    def test_log_path_creates_progress_file(
+        self, out_dir: Path, tmp_path: Path
+    ) -> None:
         # Pre-seed so no network is touched
         (out_dir / "PMC200.xml").write_text("{}")
         log_path = tmp_path / "logs" / "progress.log"

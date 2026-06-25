@@ -7,7 +7,6 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pandas as pd
-
 from src.pipeline.triplets.chemical_chemical.chebi import merge_chemical_ontology
 from src.pipeline.triplets.disease_disease.ctd import merge_disease_ontology
 from src.pipeline.triplets.food_food.foodon import merge_food_ontology

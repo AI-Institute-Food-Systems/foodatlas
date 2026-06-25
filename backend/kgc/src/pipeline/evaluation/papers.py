@@ -102,7 +102,7 @@ def _fetch(pmcid: str) -> dict | None:
     url = _BIOC_URL.format(pmcid=pmcid)
     try:
         # nosec B310 — url scheme is fixed by _BIOC_URL template (https://… NCBI)
-        with urllib.request.urlopen(url, timeout=30) as resp:  # noqa: S310
+        with urllib.request.urlopen(url, timeout=30) as resp:
             data: dict = json.loads(resp.read().decode("utf-8"))
             return data
     except Exception:

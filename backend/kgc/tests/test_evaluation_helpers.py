@@ -4,12 +4,15 @@ accounting (Usage), prompt formatting, and the papers I/O edge."""
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 from src.pipeline.evaluation.cost import Usage, usage_from_response
 from src.pipeline.evaluation.prompts import format_pairs
 from src.pipeline.newsletter.papers import PaperMeta, fetch_paper_meta
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class TestUsage:
@@ -71,7 +74,9 @@ class TestFormatPairs:
         assert format_pairs([]) == "(none)"
 
     def test_numbered_with_concentration(self) -> None:
-        out = format_pairs([("tomato", "lycopene", "5 mg/g"), ("apple", "quercetin", "")])
+        out = format_pairs(
+            [("tomato", "lycopene", "5 mg/g"), ("apple", "quercetin", "")]
+        )
         assert "1. tomato -> lycopene @ 5 mg/g" in out
         assert "2. apple -> quercetin\n" in out + "\n"
         # Second line has no @ when concentration absent

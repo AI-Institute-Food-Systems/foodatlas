@@ -4,11 +4,10 @@ end-to-end ingest with a small synthetic CSV fixture set."""
 from __future__ import annotations
 
 import json
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pandas as pd
 import pytest
-
 from src.pipeline.ingest.adapters.bioactivity import (
     SOURCE_ID,
     BioactivityAdapter,
@@ -19,6 +18,9 @@ from src.pipeline.ingest.adapters.bioactivity import (
     _parse_comma_list,
     _parse_json_list,
 )
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class TestParsers:
@@ -138,12 +140,22 @@ class TestAdapterEndToEnd:
             ]
         ).to_csv(bio / "bioactivity_entities.csv", index=False)
         pd.DataFrame(
-            [{"foodatlas_id": "F1", "bioactivity_id": "B1",
-              "bioactivity_metadata_ids": '["bm1"]'}]
+            [
+                {
+                    "foodatlas_id": "F1",
+                    "bioactivity_id": "B1",
+                    "bioactivity_metadata_ids": '["bm1"]',
+                }
+            ]
         ).to_csv(bio / "food_bioactivity_triplets.csv", index=False)
         pd.DataFrame(
-            [{"CID": "123", "bioactivity_id": "B1",
-              "bioactivity_metadata_ids": '["bm1"]'}]
+            [
+                {
+                    "CID": "123",
+                    "bioactivity_id": "B1",
+                    "bioactivity_metadata_ids": '["bm1"]',
+                }
+            ]
         ).to_csv(bio / "chemical_bioactivity_triplets.csv", index=False)
         pd.DataFrame(
             [
@@ -184,9 +196,14 @@ class TestAdapterEndToEnd:
             ]
         ).to_csv(bio / "bioassay_metadata.csv", index=False)
         pd.DataFrame(
-            [{"foodatlas_id": "D1", "bioactivity_id": "B1",
-              "relationship": '["treats"]',
-              "bioactivity_disease_metadata_id": '["dm1"]'}]
+            [
+                {
+                    "foodatlas_id": "D1",
+                    "bioactivity_id": "B1",
+                    "relationship": '["treats"]',
+                    "bioactivity_disease_metadata_id": '["dm1"]',
+                }
+            ]
         ).to_csv(bio / "disease_bioactivity_triplets.csv", index=False)
         pd.DataFrame(
             [{"bioactivity_disease_metadata_id": "dm1", "target_ids": '["T1"]'}]
@@ -216,9 +233,7 @@ class TestAdapterEndToEnd:
         # Manifest written (file is named "{source_id}_manifest.json")
         assert (out_dir / f"{SOURCE_ID}_manifest.json").exists()
 
-    def test_progress_callback_called(
-        self, raw_dir: Path, tmp_path: Path
-    ) -> None:
+    def test_progress_callback_called(self, raw_dir: Path, tmp_path: Path) -> None:
         calls: list[tuple[int, int]] = []
 
         def progress(done: int, total: int) -> None:
@@ -228,18 +243,14 @@ class TestAdapterEndToEnd:
         assert (0, calls[0][1]) in calls  # start
         assert calls[-1][0] == calls[-1][1]  # ends at total
 
-    def test_measurement_columns_renamed(
-        self, raw_dir: Path, tmp_path: Path
-    ) -> None:
+    def test_measurement_columns_renamed(self, raw_dir: Path, tmp_path: Path) -> None:
         out_dir = tmp_path / "out"
         BioactivityAdapter().ingest(raw_dir, out_dir)
         measurements = pd.read_parquet(out_dir / "bioactivity_measurements.parquet")
         assert "potency_value" in measurements.columns
         assert "evidence_value_potency_value" not in measurements.columns
 
-    def test_bioassay_ids_decoded_to_list(
-        self, raw_dir: Path, tmp_path: Path
-    ) -> None:
+    def test_bioassay_ids_decoded_to_list(self, raw_dir: Path, tmp_path: Path) -> None:
         out_dir = tmp_path / "out"
         BioactivityAdapter().ingest(raw_dir, out_dir)
         bioassays = pd.read_parquet(out_dir / "bioactivity_bioassays.parquet")

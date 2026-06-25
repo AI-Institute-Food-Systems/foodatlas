@@ -4,17 +4,19 @@ ingest parquet inputs and a minimal KnowledgeGraph."""
 
 from __future__ import annotations
 
-from pathlib import Path
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 
 import pandas as pd
 import pytest
-
 from src.pipeline.triplets.bioactivity.bioassays import promote_bioassays
 from src.pipeline.triplets.bioactivity.measurements import (
     promote_bioactivity_measurements,
 )
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @pytest.fixture
@@ -74,9 +76,7 @@ class TestPromoteBioassays:
         )
         pd.DataFrame(
             {"source_assay_id": ["A1", "A1"], "bioactivity_metadata_id": ["bm1", "bm2"]}
-        ).to_parquet(
-            settings.kg_dir / "attestations_bioactivity.parquet", index=False
-        )
+        ).to_parquet(settings.kg_dir / "attestations_bioactivity.parquet", index=False)
         promote_bioassays(settings)
         out = pd.read_parquet(settings.kg_dir / "bioassays.parquet")
         assert list(out["source_assay_id"]) == ["A1"]

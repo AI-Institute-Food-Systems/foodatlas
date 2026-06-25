@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import json
 import logging
-from pathlib import Path
-
-import pytest
+from typing import TYPE_CHECKING
 
 from src.utils.json_io import read_json, write_json
 from src.utils.timing import log_duration
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    import pytest
 
 
 class TestJsonIO:
@@ -31,13 +34,13 @@ class TestJsonIO:
 
 
 class TestLogDuration:
-    def test_logs_start_and_done(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_logs_start_and_done(self, caplog: pytest.LogCaptureFixture) -> None:
         logger = logging.getLogger("test_log_duration")
-        with caplog.at_level(logging.INFO, logger=logger.name):
-            with log_duration("step", logger):
-                pass
+        with (
+            caplog.at_level(logging.INFO, logger=logger.name),
+            log_duration("step", logger),
+        ):
+            pass
         msgs = [r.message for r in caplog.records]
         assert any("[START] step" in m for m in msgs)
         assert any("[DONE]" in m and "step" in m for m in msgs)
@@ -46,7 +49,9 @@ class TestLogDuration:
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
         # log=None branch
-        with caplog.at_level(logging.INFO, logger="src.utils.timing"):
-            with log_duration("auto"):
-                pass
+        with (
+            caplog.at_level(logging.INFO, logger="src.utils.timing"),
+            log_duration("auto"),
+        ):
+            pass
         assert any("auto" in r.message for r in caplog.records)
