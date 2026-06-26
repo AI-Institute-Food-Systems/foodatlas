@@ -13,9 +13,10 @@ import BioactivityTable, {
 
 interface Props {
   commonName: string;
+  anchorId?: string | null;
 }
 
-const FoodBioactivitiesSection = ({ commonName }: Props) => {
+const FoodBioactivitiesSection = ({ commonName, anchorId }: Props) => {
   const fetcher = useCallback(
     (params: BioactivityListParams) => getFoodBioactivities(commonName, params),
     [commonName]
@@ -60,6 +61,7 @@ const FoodBioactivitiesSection = ({ commonName }: Props) => {
         anchorLabel: commonName,
         headIsRow: false,
         relationship: "r5",
+        anchorId,
       }}
     />
   );

@@ -42,14 +42,16 @@ const BioactivityPage = async ({ params }: BioactivityPageProps) => {
   const commonName = decodeSpace(decodeURIComponent(slug));
   const entityType = "bioactivity" as const;
 
-  const [chemPayload, foodPayload] = await Promise.all([
+  const [chemPayload, foodPayload, metaPayload] = await Promise.all([
     getBioactivityChemicals(commonName).catch(() => null),
     getBioactivityFoods(commonName).catch(() => null),
+    getMetaData(commonName, entityType).catch(() => null),
   ]);
   const chemicalsCount =
     (chemPayload?.metadata?.row_count as number | undefined) ?? null;
   const foodsCount =
     (foodPayload?.metadata?.row_count as number | undefined) ?? null;
+  const anchorId = metaPayload?.id ?? null;
 
   return (
     <div>
@@ -64,13 +66,23 @@ const BioactivityPage = async ({ params }: BioactivityPageProps) => {
             id: "chemicals",
             label: "Chemicals Measured",
             count: chemicalsCount,
-            content: <BioactivityChemicalsSection commonName={commonName} />,
+            content: (
+              <BioactivityChemicalsSection
+                commonName={commonName}
+                anchorId={anchorId}
+              />
+            ),
           },
           {
             id: "foods",
             label: "Foods Exhibiting",
             count: foodsCount,
-            content: <BioactivityFoodsSection commonName={commonName} />,
+            content: (
+              <BioactivityFoodsSection
+                commonName={commonName}
+                anchorId={anchorId}
+              />
+            ),
           },
           {
             id: "overview",
