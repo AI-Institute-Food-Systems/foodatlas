@@ -1,8 +1,8 @@
 #!/bin/bash
-# Publish the local KGC pipeline output tree to S3 as an immutable, versioned
-# run. Uploads everything under backend/kgc/outputs/ — including kg/ (the
-# loadable parquet files), checkpoints/, diagnostics/, intermediate/, and the
-# per-source ingest/ folder.
+# Publish the loadable KGC outputs to S3 as an immutable, versioned run.
+# Uploads ONLY outputs/kg/ (loadable parquet files + CHANGELOG.md) and
+# outputs/ingest/ (per-source ingested data) — no newsletter, no _-prefixed
+# experimental dirs, no checkpoints/diagnostics/intermediate.
 #
 # Each invocation creates a new directory under s3://<bucket>/outputs/<UTC-ts>/
 # and updates s3://<bucket>/outputs/LATEST. A manifest.json is written at the
@@ -18,6 +18,8 @@ cd "$(dirname "$0")/.."
 source ./scripts/_lib.sh
 
 LOCAL_DIR="outputs"
+DRY_RUN=""
+[[ "${1:-}" == "--dry-run" ]] && DRY_RUN=1
 
 if [[ ! -d "$LOCAL_DIR" ]]; then
     echo "Error: $LOCAL_DIR does not exist. Run the KGC pipeline first." >&2
@@ -45,12 +47,24 @@ resolve_kgc_bucket
 VERSION=$(utc_timestamp)
 DEST="s3://$BUCKET/outputs/$VERSION/"
 
-echo "Uploading $LOCAL_DIR/ -> $DEST (excluding repo housekeeping)"
+echo "Uploading $LOCAL_DIR/{kg,ingest}/ -> $DEST${DRY_RUN:+  [DRY-RUN]}"
 aws s3 sync "$LOCAL_DIR/" "$DEST" \
     --region "$REGION" \
+    ${DRY_RUN:+--dryrun} \
+    --exclude "*" \
+    --include "kg/*" \
+    --include "ingest/*" \
     --exclude "*README.md" \
     --exclude "*.gitignore" \
     --exclude "*download.sh"
+
+if [[ -n "$DRY_RUN" ]]; then
+    echo
+    echo "[dry-run] would then write manifest.json, set outputs/LATEST -> $VERSION,"
+    echo "[dry-run] and snapshot outputs/kg/ -> data/PreviousFAKG/$VERSION"
+    echo "[dry-run] nothing uploaded."
+    exit 0
+fi
 
 # Build the manifest file referencing the data version that was current at
 # upload time. If no data has been published yet, data_version is null.

@@ -1,7 +1,6 @@
 "use client";
 
 import Heading from "@/components/basic/Heading";
-import Card from "@/components/basic/Card";
 import CorrelationTable from "@/components/entities/CorrelationTable";
 import InfoBanner from "@/components/basic/InfoBanner";
 import Link from "@/components/basic/Link";
@@ -15,9 +14,6 @@ const ChemicalCorrelationSection = ({
 }: ChemicalCorrelationSectionProps) => {
   return (
     <div className="flex flex-col gap-7">
-      <Heading type="h2" variant="boxed">
-        Health Impacts
-      </Heading>
       <InfoBanner
         description={
           <div>
@@ -41,7 +37,7 @@ const ChemicalCorrelationSection = ({
           <div>
             <Heading
               type="h3"
-              className="text-light-300 font-mono text-base font-medium"
+              className="text-light-300 font-mono text-sm font-medium"
             >
               Improves
             </Heading>
@@ -50,21 +46,19 @@ const ChemicalCorrelationSection = ({
               to either improve health outcomes or reduce the risk of onset.
             </p>
           </div>
-          <Card>
-            <CorrelationTable
-              commonName={commonName}
-              tableLocation={"chemical"}
-              headers={[{ label: "Chemical" }, { label: "Disease" }, { label: "Publication (PMID)" }]}
-              correlationType={"positive"}
-            />
-          </Card>
+          <CorrelationTable
+            commonName={commonName}
+            tableLocation={"chemical"}
+            headers={[{ label: "Chemical" }, { label: "Disease" }, { label: "Publication (PMID)" }]}
+            correlationType={"positive"}
+          />
         </div>
         {/* negative correlations */}
         <div className="flex flex-col gap-4">
           <div>
             <Heading
               type="h3"
-              className="text-light-300 font-mono text-base font-medium"
+              className="text-light-300 font-mono text-sm font-medium"
             >
               Worsens
             </Heading>
@@ -73,14 +67,12 @@ const ChemicalCorrelationSection = ({
               to either worsen health outcomes or increase the risk of onset.
             </p>
           </div>
-          <Card>
-            <CorrelationTable
-              commonName={commonName}
-              tableLocation={"chemical"}
-              headers={[{ label: "Chemical" }, { label: "Disease" }, { label: "Publication (PMID)" }]}
-              correlationType={"negative"}
-            />
-          </Card>
+          <CorrelationTable
+            commonName={commonName}
+            tableLocation={"chemical"}
+            headers={[{ label: "Chemical" }, { label: "Disease" }, { label: "Publication (PMID)" }]}
+            correlationType={"negative"}
+          />
         </div>
       </div>
     </div>

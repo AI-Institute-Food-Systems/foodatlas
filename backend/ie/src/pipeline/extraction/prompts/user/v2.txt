@@ -1,0 +1,28 @@
+Given a sentence, extract food-chemical relations as comma-separated values:
+food, food part, chemical, chemical concentration
+
+Rules:
+- Both food and chemical must be present; otherwise return nothing.
+- Food part and chemical concentration are optional — leave empty if not stated.
+- Output one extraction per line, comma-separated.
+- For empty optional fields, use a single space between commas (e.g., `garlic, , allicin, `).
+- Oil belongs in the food field, not food part.
+- Only extract directly stated facts. Skip speculative language ("may contain", "could play a role"), generic statements about a category, and review/discussion claims that don't report a specific food-chemical pairing.
+
+Example 1 — multiple chemicals with concentrations:
+Sentence: 'Total phenols and flavonoids in the olive leaf extract were 169.10 +/- 0.57 mg/g and 98.15 +/- 0.7 mg/g, respectively.'
+
+olive, leaf, phenols, 169.10 +/- 0.57 mg/g
+olive, leaf, flavonoids, 98.15 +/- 0.7 mg/g
+
+Example 2 — single chemical, no part or concentration stated:
+Sentence: 'Allium sativum contains allicin, a sulfur-containing compound responsible for its characteristic odor.'
+
+allium sativum, , allicin,
+
+Example 3 — speculative or generic; no extraction:
+Sentence: 'Many fruits may contain beneficial antioxidant compounds.'
+
+
+Now extract from this sentence:
+Sentence: '{sentence}'

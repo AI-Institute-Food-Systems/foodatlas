@@ -149,21 +149,28 @@ def test_run_search_integration(tmp_path, monkeypatch):
     monkeypatch.setattr("src.pipeline.search.runner.parse_query", lambda q: ["cocoa"])
     mock_search = MagicMock(return_value={})
     monkeypatch.setattr("src.pipeline.search.runner.search_queries", mock_search)
-    mock_retrieve = MagicMock()
-    monkeypatch.setattr("src.pipeline.search.runner.retrieve_sentences", mock_retrieve)
+    monkeypatch.setattr(
+        "src.pipeline.search.runner._unique_pmcids_from_tsv", lambda p: {"PMC1"}
+    )
+    monkeypatch.setattr(
+        "src.pipeline.search.runner._scan_cached_pmcids", lambda p: set()
+    )
+    mock_fetch = MagicMock(
+        return_value=MagicMock(fetched=1, cached=0, not_in_oa=[], errors=[])
+    )
+    monkeypatch.setattr("src.pipeline.search.runner.fetch_missing", mock_fetch)
 
     query_file = tmp_path / "query_uid.tsv"
-    filtered_file = tmp_path / "filtered_{i}.tsv"
+    bioc_dir = tmp_path / "bioc"
+    bioc_dir.mkdir()
 
     run_search(
         query="cocoa",
         query_uid_results_filepath=str(query_file),
-        filtered_sentences_filepath=str(filtered_file),
-        filepath_bioc_pmc="/tmp/bioc",
-        filepath_food_names="/tmp/foods.tsv",
+        filepath_bioc_pmc=str(bioc_dir),
         output_base_dir=str(tmp_path / "outputs"),
         current_date="2026_04_08",
     )
 
     mock_search.assert_called_once()
-    mock_retrieve.assert_called_once()
+    mock_fetch.assert_called_once()

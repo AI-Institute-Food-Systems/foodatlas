@@ -12,10 +12,12 @@ from .enrichment.classification import classify_chemicals
 from .enrichment.flavor import apply_flavor_descriptions
 from .enrichment.food_classification import classify_foods
 from .entities.runner import EntityRunner
+from .evaluation.runner import EvaluationRunner
 from .ie.runner import IERunner
 from .ingest.runner import IngestRunner
 from .knowledge_graph import KnowledgeGraph
 from .load_sources import load_sources
+from .newsletter.runner import NewsletterRunner
 from .stages import ALL_STAGES, PipelineStage
 from .triplets.runner import TripletRunner
 from .trust.runner import TrustRunner
@@ -93,6 +95,14 @@ class PipelineRunner:
         runner = TrustRunner(self._settings)
         runner.run()
 
+    def _run_evaluation(self) -> None:
+        runner = EvaluationRunner(self._settings)
+        runner.run()
+
+    def _run_newsletter(self) -> None:
+        runner = NewsletterRunner(self._settings)
+        runner.run()
+
 
 _STAGE_HANDLERS: dict[PipelineStage, Callable[[PipelineRunner], None]] = {
     PipelineStage.INGEST: PipelineRunner._run_ingest,
@@ -101,4 +111,6 @@ _STAGE_HANDLERS: dict[PipelineStage, Callable[[PipelineRunner], None]] = {
     PipelineStage.IE: PipelineRunner._run_ie,
     PipelineStage.ENRICHMENT: PipelineRunner._run_enrichment,
     PipelineStage.TRUST: PipelineRunner._run_trust,
+    PipelineStage.EVALUATION: PipelineRunner._run_evaluation,
+    PipelineStage.NEWSLETTER: PipelineRunner._run_newsletter,
 }

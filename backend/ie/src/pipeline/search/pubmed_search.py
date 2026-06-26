@@ -135,8 +135,12 @@ _rate_min_interval = 0.0
 _rate_last_call = 0.0
 
 
-_MAX_RETRIES = 3
-_RETRY_BACKOFF = 5.0
+# NCBI eutils returns transient HTTP 500s in bursts (independent of the API
+# key) that clear on an immediate retry. The rate limiter already paces calls
+# at ~9/s, so retry almost immediately and let it do the spacing — a large
+# backoff just adds dead time. Retry often, since the 500 rate can be high.
+_MAX_RETRIES = 10
+_RETRY_BACKOFF = 0.1
 
 
 def _init_rate_limiter(api_key: str | None) -> None:
@@ -146,8 +150,8 @@ def _init_rate_limiter(api_key: str | None) -> None:
     # Semaphore limits concurrent in-flight requests.
     # min_interval ensures spacing between requests.
     if api_key:
-        _rate_limiter = threading.Semaphore(4)
-        _rate_min_interval = 0.12
+        _rate_limiter = threading.Semaphore(6)
+        _rate_min_interval = 0.11
     else:
         _rate_limiter = threading.Semaphore(1)
         _rate_min_interval = 0.34
@@ -187,9 +191,12 @@ def _esearch(
             except Exception:
                 if attempt == _MAX_RETRIES - 1:
                     raise
-                wait = _RETRY_BACKOFF * (attempt + 1)
-                log.warning("NCBI request failed, retrying in %.0fs...", wait)
-                time.sleep(wait)
+        # Back off *outside* the rate limiter: a transient 500 on one worker
+        # must not pin a semaphore slot, or all 6 workers end up sleeping in
+        # lockstep and effective concurrency collapses to ~1.
+        wait = _RETRY_BACKOFF * (attempt + 1)
+        log.warning("NCBI request failed, retrying in %.1fs...", wait)
+        time.sleep(wait)
     msg = "Unreachable"
     raise RuntimeError(msg)
 
@@ -253,16 +260,22 @@ def _search_both_dbs(
     q: str,
     min_date: str | None,
 ) -> tuple[bool, list[tuple[str, str, list[str]]]]:
-    """Search pubmed and pmc for a query. Return (all_ok, results)."""
+    """Search pubmed and pmc concurrently for a query. Return (all_ok, results)."""
     results: list[tuple[str, str, list[str]]] = []
     succeeded = True
-    for db in ("pubmed", "pmc"):
-        try:
-            ids = _search_single_db(db, q, min_date)
-            results.append((q, db, ids))
-        except Exception:
-            log.exception("Exception while processing %s on %s", q, db)
-            succeeded = False
+    with ThreadPoolExecutor(max_workers=2) as db_pool:
+        futures = {
+            db_pool.submit(_search_single_db, db, q, min_date): db
+            for db in ("pubmed", "pmc")
+        }
+        for future in as_completed(futures):
+            db = futures[future]
+            try:
+                ids = future.result()
+                results.append((q, db, ids))
+            except Exception:
+                log.exception("Exception while processing %s on %s", q, db)
+                succeeded = False
     return succeeded, results
 
 
@@ -327,7 +340,7 @@ def search_queries(
     bar_thread = threading.Thread(target=_refresh_bar, daemon=True)
     bar_thread.start()
 
-    workers = 3 if api_key else 1
+    workers = 6 if api_key else 1
     try:
         with ThreadPoolExecutor(max_workers=workers) as pool:
             futures = {

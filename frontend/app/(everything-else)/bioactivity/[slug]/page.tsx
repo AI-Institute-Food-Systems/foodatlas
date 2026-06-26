@@ -1,0 +1,98 @@
+import { Metadata } from "next";
+import { notFound } from "next/navigation";
+import { Suspense } from "react";
+
+import BioactivityChemicalsSection from "@/components/entities/bioactivity/BioactivityChemicalsSection";
+import BioactivityFoodsSection from "@/components/entities/bioactivity/BioactivityFoodsSection";
+import HeaderSection from "@/components/entities/HeaderSection";
+import HeaderSectionSuspense from "@/components/entities/HeaderSectionSuspense";
+import EntityDetailLayout from "@/components/entities/EntityDetailLayout";
+import EntityOverviewPanel from "@/components/entities/EntityOverviewPanel";
+import EntityOverviewPanelSuspense from "@/components/entities/EntityOverviewPanelSuspense";
+import {
+  getBioactivityChemicals,
+  getBioactivityFoods,
+  getMetaData,
+} from "@/utils/fetching";
+import { decodeSpace, toTitleCase } from "@/utils/utils";
+
+interface BioactivityPageProps {
+  params: { slug: string };
+}
+
+export async function generateMetadata({
+  params,
+}: BioactivityPageProps): Promise<Metadata> {
+  const { slug } = params;
+  const commonName = decodeSpace(decodeURIComponent(slug));
+
+  const metaData = await getMetaData(commonName, "bioactivity");
+  if (!metaData) notFound();
+
+  return {
+    title: `${toTitleCase(metaData.common_name)} — Bioactivity Profile`,
+    description: `Chemical measurements and food sources for the ${toTitleCase(
+      metaData.common_name
+    )} bioactivity.`,
+  };
+}
+
+const BioactivityPage = async ({ params }: BioactivityPageProps) => {
+  const { slug } = params;
+  const commonName = decodeSpace(decodeURIComponent(slug));
+  const entityType = "bioactivity" as const;
+
+  const [chemPayload, foodPayload] = await Promise.all([
+    getBioactivityChemicals(commonName).catch(() => null),
+    getBioactivityFoods(commonName).catch(() => null),
+  ]);
+  const chemicalsCount =
+    (chemPayload?.metadata?.row_count as number | undefined) ?? null;
+  const foodsCount =
+    (foodPayload?.metadata?.row_count as number | undefined) ?? null;
+
+  return (
+    <div>
+      <Suspense fallback={<HeaderSectionSuspense entityType={entityType} />}>
+        <HeaderSection commonName={commonName} entityType={entityType} />
+      </Suspense>
+      <EntityDetailLayout
+        entityType={entityType}
+        defaultTabId="chemicals"
+        tabs={[
+          {
+            id: "chemicals",
+            label: "Chemicals Measured",
+            count: chemicalsCount,
+            content: <BioactivityChemicalsSection commonName={commonName} />,
+          },
+          {
+            id: "foods",
+            label: "Foods Exhibiting",
+            count: foodsCount,
+            content: <BioactivityFoodsSection commonName={commonName} />,
+          },
+          {
+            id: "overview",
+            label: "IDs & Metadata",
+            content: (
+              <Suspense
+                fallback={
+                  <EntityOverviewPanelSuspense entityType={entityType} />
+                }
+              >
+                <EntityOverviewPanel
+                  commonName={commonName}
+                  entityType={entityType}
+                />
+              </Suspense>
+            ),
+          },
+        ]}
+      />
+    </div>
+  );
+};
+
+BioactivityPage.displayName = "BioactivityPage";
+export default BioactivityPage;

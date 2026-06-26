@@ -84,20 +84,22 @@ class TestLoadKg:
         mock_search,
         fixtures_dir: Path,
     ):
-        """Verify bulk_copy is called 5 times (one per table)."""
+        """Verify bulk_copy is called for each table the loader writes."""
         _stub_reader(mock_reader)
         mock_bulk.return_value = 0
         conn = MagicMock()
 
         load_kg(conn, fixtures_dir)
 
-        assert mock_bulk.call_count == 5
+        assert mock_bulk.call_count == 7
         table_names = [c.args[1] for c in mock_bulk.call_args_list]
         assert "base_entities" in table_names
         assert "relationships" in table_names
         assert "base_triplets" in table_names
         assert "base_evidence" in table_names
         assert "base_attestations" in table_names
+        assert "base_attestations_bioactivity" in table_names
+        assert "base_bioassays" in table_names
 
     @patch("src.etl.loader.refresh_search")
     @patch("src.etl.loader.refresh_all")

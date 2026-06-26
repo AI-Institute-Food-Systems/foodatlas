@@ -15,7 +15,7 @@ const NavbarLink = ({
     <a
       className={`inline-flex items-center min-h-11 px-3 hover:underline underline-offset-8 text-light-50 font-medium hover:decoration-light-500 font-serif ${
         isActive ? "underline decoration-light-300" : ""
-      } ${isNavMenu ? "text-2xl" : "text-base lg:text-lg"}`}
+      } ${isNavMenu ? "text-xl" : "text-xs lg:text-sm"}`}
       href={href}
     >
       {label}
