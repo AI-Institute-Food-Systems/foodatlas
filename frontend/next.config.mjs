@@ -3,26 +3,33 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: false,
-  rewrites: async () => [
-    // Proxy umami through a first-party path so adblock pattern rules
-    // (||umami.*, /script.js, /api/send) don't match.
-    {
-      source: "/_a/script.js",
-      destination: "https://umami.aifs.ucdavis.edu/script.js",
-    },
-    {
-      source: "/_a/api/send",
-      destination: "https://umami.aifs.ucdavis.edu/api/send",
-    },
-    // Same-origin proxy to the API. Lets the browser call a HTTPS path on
+  rewrites: async () => {
+    const rewrites = [
+      // Proxy umami through a first-party path so adblock pattern rules
+      // (||umami.*, /script.js, /api/send) don't match.
+      {
+        source: "/_a/script.js",
+        destination: "https://umami.aifs.ucdavis.edu/script.js",
+      },
+      {
+        source: "/_a/api/send",
+        destination: "https://umami.aifs.ucdavis.edu/api/send",
+      },
+    ];
+    // Same-origin proxy to the API — lets the browser call a HTTPS path on
     // dev.foodatlas.ai even when the upstream ALB only serves HTTP (staging
-    // has no TLS cert yet). Resolved at build time — Vercel must have
-    // NEXT_PUBLIC_API_URL set when `next build` runs.
-    {
-      source: "/_proxy-api/:path*",
-      destination: `${process.env.NEXT_PUBLIC_API_URL}/:path*`,
-    },
-  ],
+    // has no TLS cert yet). Resolved at build time; only added when the env
+    // var exists so CI's bare `next build` (no NEXT_PUBLIC_API_URL set)
+    // doesn't fail validation on a literal "undefined/" destination.
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+    if (apiUrl) {
+      rewrites.push({
+        source: "/_proxy-api/:path*",
+        destination: `${apiUrl}/:path*`,
+      });
+    }
+    return rewrites;
+  },
   redirects: async () => [
     // old urls
     {
