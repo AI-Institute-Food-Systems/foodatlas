@@ -28,6 +28,8 @@ async def bioactivity_chemicals(
     search: str = Query(""),
     sort_by: str = Query("measurement_count"),
     sort_dir: str = Query("desc"),
+    filter_endpoint: str = Query(""),
+    filter_unit: str = Query(""),
     db: AsyncSession = Depends(get_db),
 ):
     return await bioactivity.get_chemicals(
@@ -37,6 +39,8 @@ async def bioactivity_chemicals(
         search=search,
         sort_by=sort_by,
         sort_dir=sort_dir,
+        filter_endpoint=filter_endpoint,
+        filter_unit=filter_unit,
     )
 
 
@@ -47,6 +51,8 @@ async def bioactivity_foods(
     search: str = Query(""),
     sort_by: str = Query("measurement_count"),
     sort_dir: str = Query("desc"),
+    filter_endpoint: str = Query(""),
+    filter_unit: str = Query(""),
     db: AsyncSession = Depends(get_db),
 ):
     return await bioactivity.get_foods(
@@ -56,7 +62,25 @@ async def bioactivity_foods(
         search=search,
         sort_by=sort_by,
         sort_dir=sort_dir,
+        filter_endpoint=filter_endpoint,
+        filter_unit=filter_unit,
     )
+
+
+@router.get("/endpoints")
+async def bioactivity_endpoint_options(
+    common_name: str = Query(...),
+    direction: str = Query(
+        ...,
+        description=(
+            "Pivot+relationship combo. One of: bioactivity-chemicals, "
+            "bioactivity-foods, chemical-bioactivities, food-bioactivities."
+        ),
+    ),
+    db: AsyncSession = Depends(get_db),
+):
+    """Distinct (endpoint, unit, count) tuples for the table's filter UI."""
+    return await bioactivity.get_endpoint_options(db, common_name, direction)
 
 
 @router.get("/measurements")

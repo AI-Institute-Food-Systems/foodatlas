@@ -48,13 +48,20 @@ _BIO_FOOD_SORT = {
 }
 _VALID_DIR = {"ASC", "DESC"}
 
+# Pseudo-column used when sorting by the row's top measurement value.
+# Resolves to a SQL expression in _paginated, not an actual MV column —
+# only valid when filter_endpoint + filter_unit are both supplied, since
+# raw values across endpoints/units aren't comparable.
+TOP_VALUE_SORT = "top_measurement_value"
+
 
 def _resolve_sort(
     sort_by: str, sort_dir: str, allowlist: dict[str, str], default: str
 ) -> tuple[str, str]:
-    col = allowlist.get(sort_by, default)
     direction = sort_dir.upper() if sort_dir.upper() in _VALID_DIR else "DESC"
-    return col, direction
+    if sort_by == TOP_VALUE_SORT:
+        return TOP_VALUE_SORT, direction
+    return allowlist.get(sort_by, default), direction
 
 
 def _top_measurement_by_value(measurements: list | None) -> dict | None:
@@ -120,18 +127,37 @@ async def _paginated(
     sort_dir: str,
     page: int,
     rows_per_page: int,
+    filter_endpoint: str = "",
+    filter_unit: str = "",
 ) -> dict[str, object]:
     """Shared paginated query against the bioactivity MVs.
 
     Counts and selects in two passes so total_pages reflects the filtered
     set. ``bind_value`` is the value bound to the WHERE filter on
     ``name_col`` (e.g. the bioactivity name or the chemical name).
+
+    When ``filter_endpoint`` and ``filter_unit`` are both set, the row set
+    is restricted to rows whose ``measurements`` JSON array contains at
+    least one item matching both, and the sort pseudo-column
+    ``TOP_VALUE_SORT`` resolves to ``MAX(value)`` across the matching
+    items. (Sorting on top value without a filter would compare raw
+    values across incomparable endpoint/unit combos, which is nonsense.)
     """
     params: dict = {"name": bind_value}
     where_parts = [f"{name_col} = :name"]
     if search:
         where_parts.append(f"{search_col} ILIKE :q")
         params["q"] = f"%{search}%"
+
+    has_filter = bool(filter_endpoint and filter_unit)
+    if has_filter:
+        where_parts.append(
+            "EXISTS (SELECT 1 FROM jsonb_array_elements(measurements) m"
+            " WHERE m->>'endpoint' = :ep AND m->>'unit' = :unit)"
+        )
+        params["ep"] = filter_endpoint
+        params["unit"] = filter_unit
+
     where = " AND ".join(where_parts)
 
     total_result = await session.execute(
@@ -140,12 +166,31 @@ async def _paginated(
     )
     total = int(total_result.scalar() or 0)
 
+    # When sorting by top value, materialise it as a SELECT-list
+    # expression and ORDER BY it. Falls back gracefully (returns 0 rows
+    # via NULLS LAST) when the row has no matching measurement.
+    order_expr = sort_col
+    extra_select = ""
+    if sort_col == TOP_VALUE_SORT:
+        if not has_filter:
+            # Without an endpoint+unit, top-value sort is undefined; fall
+            # back to measurement_count so the page still renders.
+            order_expr = "measurement_count"
+        else:
+            extra_select = (
+                ", (SELECT MAX((m->>'value')::NUMERIC)"
+                " FROM jsonb_array_elements(measurements) m"
+                " WHERE m->>'endpoint' = :ep AND m->>'unit' = :unit"
+                ") AS top_measurement_value"
+            )
+            order_expr = "top_measurement_value"
+
     offset = rows_per_page * (page - 1)
     rows_result = await session.execute(
         text(f"""
-            SELECT {select_cols}
+            SELECT {select_cols}{extra_select}
             FROM {mv} WHERE {where}
-            ORDER BY {sort_col} {sort_dir} NULLS LAST
+            ORDER BY {order_expr} {sort_dir} NULLS LAST
             OFFSET :offset ROWS FETCH FIRST :limit ROWS ONLY
         """),
         {**params, "offset": offset, "limit": rows_per_page},
@@ -165,6 +210,8 @@ async def get_chemicals(
     sort_by: str = "measurement_count",
     sort_dir: str = "desc",
     rows_per_page: int = ROWS_PER_PAGE_DEFAULT,
+    filter_endpoint: str = "",
+    filter_unit: str = "",
 ) -> dict[str, object]:
     """Chemicals measured for this bioactivity."""
     sort_col, direction = _resolve_sort(
@@ -186,6 +233,8 @@ async def get_chemicals(
         sort_dir=direction,
         page=page,
         rows_per_page=rows_per_page,
+        filter_endpoint=filter_endpoint,
+        filter_unit=filter_unit,
     )
 
 
@@ -197,6 +246,8 @@ async def get_foods(
     sort_by: str = "measurement_count",
     sort_dir: str = "desc",
     rows_per_page: int = ROWS_PER_PAGE_DEFAULT,
+    filter_endpoint: str = "",
+    filter_unit: str = "",
 ) -> dict[str, object]:
     """Foods that exhibit this bioactivity."""
     sort_col, direction = _resolve_sort(
@@ -217,6 +268,8 @@ async def get_foods(
         sort_dir=direction,
         page=page,
         rows_per_page=rows_per_page,
+        filter_endpoint=filter_endpoint,
+        filter_unit=filter_unit,
     )
 
 
@@ -228,6 +281,8 @@ async def get_chemical_bioactivities(
     sort_by: str = "measurement_count",
     sort_dir: str = "desc",
     rows_per_page: int = ROWS_PER_PAGE_DEFAULT,
+    filter_endpoint: str = "",
+    filter_unit: str = "",
 ) -> dict[str, object]:
     """A chemical's bioactivities."""
     sort_col, direction = _resolve_sort(
@@ -249,6 +304,8 @@ async def get_chemical_bioactivities(
         sort_dir=direction,
         page=page,
         rows_per_page=rows_per_page,
+        filter_endpoint=filter_endpoint,
+        filter_unit=filter_unit,
     )
 
 
@@ -260,6 +317,8 @@ async def get_food_bioactivities(
     sort_by: str = "measurement_count",
     sort_dir: str = "desc",
     rows_per_page: int = ROWS_PER_PAGE_DEFAULT,
+    filter_endpoint: str = "",
+    filter_unit: str = "",
 ) -> dict[str, object]:
     """A food's bioactivities."""
     sort_col, direction = _resolve_sort(
@@ -280,7 +339,74 @@ async def get_food_bioactivities(
         sort_dir=direction,
         page=page,
         rows_per_page=rows_per_page,
+        filter_endpoint=filter_endpoint,
+        filter_unit=filter_unit,
     )
+
+
+# ---------------------------------------------------------------------
+# Distinct (endpoint, unit) combos for one bioactivity ↔ {chemical|food}
+# direction — used by the table UI to populate filter chips. Counts come
+# from the bioactivity attestation store (no MV cap) so they reflect the
+# full set, not just the 25-row sample carried on each MV row.
+# ---------------------------------------------------------------------
+
+
+# direction → (relationship_id, pivot_side, pivot MV, pivot name column).
+# pivot_side is "head_id" or "tail_id" — the triplet column that holds
+# the pivot entity's id. The OPPOSITE side varies across rows (it's the
+# table-row entity), which is why the filter scopes only the pivot side.
+_DIRECTION_PIVOTS: dict[str, tuple[str, str, str]] = {
+    "bioactivity-chemicals": ("r6", "tail_id", "mv_bioactivity_entities"),
+    "bioactivity-foods": ("r5", "tail_id", "mv_bioactivity_entities"),
+    "chemical-bioactivities": ("r6", "head_id", "mv_chemical_entities"),
+    "food-bioactivities": ("r5", "head_id", "mv_food_entities"),
+}
+
+
+async def get_endpoint_options(
+    session: AsyncSession, common_name: str, direction: str
+) -> dict[str, object]:
+    """List distinct (endpoint, unit) combinations for the given pivot.
+
+    Used to populate the table's endpoint+unit filter chip row. Counts
+    are descending by occurrence so the UI can surface the most useful
+    chips first.
+    """
+    info = _DIRECTION_PIVOTS.get(direction)
+    if info is None:
+        return {"data": [], "metadata": {"row_count": 0}}
+    rel, pivot_side, mv = info
+
+    pivot_id = (
+        await session.execute(
+            text(f"SELECT foodatlas_id FROM {mv} WHERE common_name = :name"),
+            {"name": common_name},
+        )
+    ).scalar()
+    if not pivot_id:
+        return {"data": [], "metadata": {"row_count": 0}}
+
+    rows_result = await session.execute(
+        text(f"""
+            SELECT ba.evidence_endpoint_type AS endpoint,
+                   ba.potency_unit AS unit,
+                   COUNT(*) AS count
+            FROM base_triplets bt
+            CROSS JOIN LATERAL unnest(bt.attestation_ids) AS att(bm)
+            JOIN base_attestations_bioactivity ba
+              ON ba.bioactivity_metadata_id = att.bm
+            WHERE bt.relationship_id = :rel
+              AND bt.{pivot_side} = :pivot
+              AND ba.evidence_endpoint_type <> ''
+              AND ba.potency_unit <> ''
+            GROUP BY ba.evidence_endpoint_type, ba.potency_unit
+            ORDER BY COUNT(*) DESC
+        """),
+        {"rel": rel, "pivot": pivot_id},
+    )
+    data = [dict(r._mapping) for r in rows_result]
+    return {"data": data, "metadata": {"row_count": len(data)}}
 
 
 # ---------------------------------------------------------------------

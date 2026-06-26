@@ -105,6 +105,8 @@ async def food_bioactivities(
     search: str = Query(""),
     sort_by: str = Query("measurement_count"),
     sort_dir: str = Query("desc"),
+    filter_endpoint: str = Query(""),
+    filter_unit: str = Query(""),
     db: AsyncSession = Depends(get_db),
 ):
     return await bioactivity.get_food_bioactivities(
@@ -114,4 +116,6 @@ async def food_bioactivities(
         search=search,
         sort_by=sort_by,
         sort_dir=sort_dir,
+        filter_endpoint=filter_endpoint,
+        filter_unit=filter_unit,
     )
