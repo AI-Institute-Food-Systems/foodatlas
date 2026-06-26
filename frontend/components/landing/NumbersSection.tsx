@@ -145,16 +145,16 @@ const NumbersSection = () => {
                 label: "Chemicals",
               },
               {
-                icon: <DiseaseIcon width={40} height={40} color="#F4511E" />,
-                number: stats.diseases,
-                label: "Diseases",
-              },
-              {
                 icon: (
                   <BioactivityIcon width={40} height={40} color="#F4511E" />
                 ),
                 number: stats.bioactivities,
                 label: "Bioactivities",
+              },
+              {
+                icon: <DiseaseIcon width={40} height={40} color="#F4511E" />,
+                number: stats.diseases,
+                label: "Diseases",
               },
               {
                 icon: (

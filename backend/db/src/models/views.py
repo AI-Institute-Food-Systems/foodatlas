@@ -93,6 +93,11 @@ class MVFoodChemicalComposition(Base):
     __table_args__ = (
         Index("ix_mv_fcc_food_name", "food_name"),
         Index("ix_mv_fcc_chemical_name", "chemical_name"),
+        # Used by the n_foods correlated subquery on /bioactivity/chemicals
+        # and the join in /food/inferred-bioactivities. Without this the
+        # subquery sequentially scans the whole MV per output row — page
+        # loads went from 1.7s → 60s timeout sorting by n_foods.
+        Index("ix_mv_fcc_chemical_id", "chemical_foodatlas_id"),
     )
 
 
@@ -209,6 +214,9 @@ class MVChemicalBioactivity(Base):
     __table_args__ = (
         Index("ix_mv_cb_chemical", "chemical_name"),
         Index("ix_mv_cb_bioactivity", "bioactivity_name"),
+        # Used by the /food/inferred-bioactivities JOIN
+        # (mv_food_chemical_composition.chemical_foodatlas_id ↔ here).
+        Index("ix_mv_cb_chemical_id", "chemical_foodatlas_id"),
     )
 
 
