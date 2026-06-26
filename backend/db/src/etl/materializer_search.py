@@ -254,12 +254,7 @@ def _materialize_statistics(conn: Connection) -> None:
     # bioactivity measurement (each assay-level data point is an
     # association between a chemical/food and the bioactivity).
     associations = (
-        len(r1)
-        + len(scoped_r3r4)
-        + assoc_r2
-        + len(r5)
-        + len(r6)
-        + measurement_count
+        len(r1) + len(scoped_r3r4) + assoc_r2 + len(r5) + len(r6) + measurement_count
     )
 
     rows = [
