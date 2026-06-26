@@ -3,6 +3,7 @@ import useSWR from "swr";
 
 import { AutocompleteContext } from "@/context/autocompleteContext";
 import { usePaginations } from "@/context/paginationsContext";
+import { apiBase } from "@/utils/fetching";
 
 const fetcher = async (url: string) => {
   const response = await fetch(url, {
@@ -20,7 +21,7 @@ const useSearchAutocompleteOptions = () => {
   const { currentPage } = getTablePaginations("results-page");
 
   // base url
-  const baseUrl = `${process.env.NEXT_PUBLIC_API_URL}/metadata/search?`;
+  const baseUrl = `${apiBase()}/metadata/search?`;
 
   // full url
   const url =
