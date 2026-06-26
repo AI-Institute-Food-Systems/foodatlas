@@ -440,6 +440,8 @@ class TestStatsRepo:
             "diseases": 3,
             "publications": 4,
             "connections": 5,
+            "bioactivities": 0,
+            "bioactivity_measurements": 0,
         }
 
     @pytest.mark.asyncio
