@@ -5,6 +5,7 @@ import tempfile
 from pathlib import Path
 
 import click
+from sqlalchemy import text
 from src.config import DBSettings
 from src.engine import create_sync_engine
 from src.etl.loader import load_kg, load_trust_only, refresh_materialized_views
@@ -82,6 +83,88 @@ def refresh() -> None:
     engine = create_sync_engine(settings)
     with engine.connect() as conn:
         refresh_materialized_views(conn)
+    click.echo("Done.")
+
+
+# Ordered list of (description, sql) for the bioact-perf migration —
+# all idempotent, safe to re-run, no row mutations beyond UPDATEs from
+# already-present FCC data. Lives here (rather than in src/etl/) so the
+# whole migration is one screen and easy to audit.
+_BIOACT_PERF_MIGRATION: list[tuple[str, str]] = [
+    (
+        "add mv_chemical_bioactivity.n_foods column (default 0)",
+        "ALTER TABLE mv_chemical_bioactivity "
+        "ADD COLUMN IF NOT EXISTS n_foods INTEGER DEFAULT 0",
+    ),
+    (
+        "backfill n_foods from distinct foods in mv_food_chemical_composition",
+        "UPDATE mv_chemical_bioactivity cb "
+        "SET n_foods = COALESCE(nf.n_foods, 0) "
+        "FROM ("
+        "  SELECT chemical_foodatlas_id, "
+        "         COUNT(DISTINCT food_foodatlas_id) AS n_foods "
+        "  FROM mv_food_chemical_composition "
+        "  GROUP BY chemical_foodatlas_id"
+        ") nf "
+        "WHERE cb.chemical_foodatlas_id = nf.chemical_foodatlas_id",
+    ),
+    (
+        "index FCC(chemical_foodatlas_id) — speeds n_foods + inferred-bio join",
+        "CREATE INDEX IF NOT EXISTS ix_mv_fcc_chemical_id "
+        "ON mv_food_chemical_composition(chemical_foodatlas_id)",
+    ),
+    (
+        "index CB(chemical_foodatlas_id) — speeds inferred-bioactivities join",
+        "CREATE INDEX IF NOT EXISTS ix_mv_cb_chemical_id "
+        "ON mv_chemical_bioactivity(chemical_foodatlas_id)",
+    ),
+    (
+        "composite CB(bioactivity_name, measurement_count) — default sort",
+        "CREATE INDEX IF NOT EXISTS ix_mv_cb_bio_mcount "
+        "ON mv_chemical_bioactivity(bioactivity_name, measurement_count)",
+    ),
+    (
+        "composite CB(chemical_name, measurement_count) — chem-bio default sort",
+        "CREATE INDEX IF NOT EXISTS ix_mv_cb_chem_mcount "
+        "ON mv_chemical_bioactivity(chemical_name, measurement_count)",
+    ),
+    (
+        "composite CB(bioactivity_name, n_foods) — sort by # foods column",
+        "CREATE INDEX IF NOT EXISTS ix_mv_cb_bio_nfoods "
+        "ON mv_chemical_bioactivity(bioactivity_name, n_foods)",
+    ),
+    (
+        "composite FB(food_name, measurement_count) — /food/bioactivities sort",
+        "CREATE INDEX IF NOT EXISTS ix_mv_fb_food_mcount "
+        "ON mv_food_bioactivity(food_name, measurement_count)",
+    ),
+    (
+        "composite FB(bioactivity_name, measurement_count) — bio-foods sort",
+        "CREATE INDEX IF NOT EXISTS ix_mv_fb_bio_mcount "
+        "ON mv_food_bioactivity(bioactivity_name, measurement_count)",
+    ),
+]
+
+
+@cli.command("migrate-bioact-perf")
+def migrate_bioact_perf() -> None:
+    """One-shot migration: add n_foods column + bioactivity perf indexes.
+
+    Idempotent — uses ADD COLUMN IF NOT EXISTS and CREATE INDEX IF NOT
+    EXISTS throughout. Brings an already-loaded RDS to the schema the
+    PR introducing materialised n_foods + composite indexes expects,
+    without waiting for a full ``db load`` rebuild. Triggered via the
+    same Fargate task definition as ``db load`` — see
+    ``infra/aws/scripts/run-migration.sh``.
+    """
+    settings = DBSettings()
+    engine = create_sync_engine(settings)
+    logger = logging.getLogger("migrate-bioact-perf")
+    with engine.connect() as conn:
+        for description, sql in _BIOACT_PERF_MIGRATION:
+            logger.info(">>> %s", description)
+            conn.execute(text(sql))
+        conn.commit()
     click.echo("Done.")
 
 
