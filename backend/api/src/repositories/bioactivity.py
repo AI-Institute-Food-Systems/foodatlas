@@ -228,11 +228,12 @@ async def get_chemicals(
             "chemical_name AS name, chemical_foodatlas_id AS id, "
             "measurement_count, active_count, inactive_count, "
             "unspecified_count, inconclusive_count, measurements, "
-            # Correlated subquery: how many distinct foods contain this
-            # chemical. Counted once per row in the paginated output (20
-            # rows/page), keyed on chemical_foodatlas_id. Cheap with
-            # mv_food_chemical_composition's row count today; if it
-            # becomes a bottleneck, promote to a CTE.
+            # TODO(perf): switch to the materialised n_foods column once
+            # the next ETL run lands (model + materializer added the
+            # column in the same PR; column-access avoids the per-row
+            # subquery cost entirely). Until then, this correlated
+            # subquery is index-served by ix_mv_fcc_chemical_id and
+            # already fast enough.
             "(SELECT COUNT(DISTINCT food_foodatlas_id) "
             "FROM mv_food_chemical_composition "
             "WHERE chemical_foodatlas_id = "

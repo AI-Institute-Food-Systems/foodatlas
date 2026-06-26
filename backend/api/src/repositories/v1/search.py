@@ -69,6 +69,8 @@ _STAT_KEY_MAP = {
     "number of diseases": "diseases",
     "number of publications": "publications",
     "number of associations": "connections",
+    "number of bioactivities": "bioactivities",
+    "number of bioactivity measurements": "bioactivity_measurements",
 }
 
 
