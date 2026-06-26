@@ -10,15 +10,7 @@ from src.config import APISettings
 from src.dependencies import init_session_factory
 from src.public_keys import get_store, init_store
 from src.rate_limit import TokenBucketLimiter
-from src.routes import (
-    bioactivity,
-    chemical,
-    disease,
-    download,
-    food,
-    metadata,
-    resolve,
-)
+from src.routes import chemical, disease, download, food, metadata, resolve
 from src.routes import v1 as v1_routes
 
 PUBLIC_API_DESCRIPTION = """
@@ -100,7 +92,6 @@ def create_app(settings: APISettings | None = None) -> FastAPI:
     app.include_router(metadata.router)
     app.include_router(download.router)
     app.include_router(resolve.router)
-    app.include_router(bioactivity.router)
 
     # Public versioned API
     app.include_router(v1_routes.router)

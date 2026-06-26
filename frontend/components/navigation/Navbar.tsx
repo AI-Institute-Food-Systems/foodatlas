@@ -97,14 +97,14 @@ const Navbar = ({ className }: NavbarProps) => {
       )}
     >
       <div className="max-w-6xl mx-auto">
-        <div className="py-1.5 w-full h-11 sm:h-12 md:h-14 mx-auto flex justify-between items-center">
+        <div className="py-2 w-full h-14 sm:h-16 md:h-20 mx-auto flex justify-between items-center">
           <Button
-            className="relative flex-shrink-0 cursor-pointer min-h-9 min-w-9 p-1 m-0"
+            className="relative flex-shrink-0 cursor-pointer min-h-11 min-w-11 p-2 m-0"
             isIconOnly
             onClick={() => router.push("/")}
             aria-label="FoodAtlas home"
           >
-            <FoodAtlasIcon height={30} width={""} color={"#FFFBF7"} />
+            <FoodAtlasIcon height={45} width={""} color={"#FFFBF7"} />
           </Button>
           <div className="hidden md:flex md:gap-8 lg:gap-20">
             {NAV_ITEMS.map((navItem) => (
@@ -118,21 +118,30 @@ const Navbar = ({ className }: NavbarProps) => {
           </div>
           {/* search & menu button container */}
           <div className="md:hidden flex items-center">
+            {/* search button */}
+            {/* <Button
+              tabIndex={0}
+              isDisabled
+              isIconOnly
+              onClick={handleSearchButtonClick}
+            >
+              <MdSearch className="w-7 h-7" />
+            </Button> */}
             {/* menu button */}
             <div className="">
               <Button
-                className="min-h-9 min-w-9"
+                className="min-h-11 min-w-11"
                 onClick={handleNavButtonClick}
                 isIconOnly
                 aria-label="Open navigation menu"
               >
-                <MdMenu className="w-6 h-6" />
+                <MdMenu className="w-7 h-7" />
               </Button>
             </div>
           </div>
         </div>
         {isNavMenuOpen && (
-          <div className="h-screen mt-10 mx-3 flex flex-col gap-10">
+          <div className="h-screen mt-16 mx-3 flex flex-col gap-12">
             {NAV_ITEMS.map((navItem) => (
               <NavbarLink
                 key={navItem.href}

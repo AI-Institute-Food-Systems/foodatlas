@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 import { twMerge } from "tailwind-merge";
 
 const styles = {
-  normal: "text-3xl font-medium font-serif",
+  normal: "text-4xl font-medium font-serif",
   boxed:
     "w-fit h-fit bg-light-200 shadow-inner shadow-light-50 rounded-md px-2.5 py-0.5 text text-light-900 font-mono italic font-medium",
 };

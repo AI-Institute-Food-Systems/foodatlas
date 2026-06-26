@@ -10,8 +10,6 @@ class RelationshipType(StrEnum):
     IS_A = "r2"
     POSITIVELY_CORRELATES_WITH = "r3"
     NEGATIVELY_CORRELATES_WITH = "r4"
-    EXHIBITS = "r5"  # food → bioactivity
-    MEASURED = "r6"  # chemical → bioactivity
 
 
 class Relationship(BaseModel):

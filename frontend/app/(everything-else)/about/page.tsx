@@ -84,7 +84,7 @@ const About = () => {
         <SubHeading>
           Meet and connect with the team behind <i>FoodAtlas</i>
         </SubHeading>
-        <p className="mt-8 text-base leading-relaxed text-light-200">
+        <p className="mt-8 text-lg leading-loose text-light-200">
           <i>FoodAtlas</i> is an ongoing, USDA-NSF-funded research project
           dedicated to creating a comprehensive knowledge base where every piece
           of data is traceable back to its source. We use AI to survey the

@@ -55,56 +55,10 @@ class TrustStageConfig(BaseModel):
     batch_mode: bool = True
 
 
-class EvaluationStageConfig(BaseModel):
-    """Config for the EVALUATION stage (KG extraction-quality scoring).
-
-    Samples ``sample_size`` sentences from the KG's literature triples (any
-    attestation source matching ``source_filter``, pooled and deduped per
-    sentence) and has a Claude agent (``judge_model``) score each against its
-    paper. ``source_filter`` of ``["lit2kg:"]`` covers all literature-extracted
-    triples (gemma + claude + any future model); None / [] = every source.
-    """
-
-    source_filter: list[str] | None = ["lit2kg:"]
-    sample_size: int = 100
-    seed: int = 42
-    limit: int | None = None  # cap sentences actually judged (None = sample_size)
-    judge_model: str = "claude-opus-4-8"
-    max_workers: int = 6
-    bioc_cache_dir: str = "/mnt/data/shared/BioC-PMC"
-    fetch_missing_papers: bool = True
-
-
-class NewsletterStageConfig(BaseModel):
-    """Config for the NEWSLETTER stage (weekly KG-diff digest).
-
-    ``top_n`` foods are highlighted per angle; an LLM agent (``curate_model``)
-    cleans each highlight's chemical names (dedup synonyms, collapse lipid
-    classes, drop generics/artifacts) down to ``max_chemicals``. The "new in the
-    literature" cards show the ``paper_count`` papers that contributed the most
-    new associations, with titles read from the local BioC corpus.
-    """
-
-    top_n: int = 5
-    # Curate this many candidate foods per angle, then drop foods whose chemical
-    # list curates to empty and keep the top_n with real chemicals.
-    candidate_pool: int = 20
-    curate: bool = True
-    curate_model: str = "claude-opus-4-8"
-    max_chemicals: int = 5
-    max_workers: int = 5
-    # "New in the literature" paper cards.
-    paper_count: int = 5
-    paper_chips: int = 6
-    bioc_cache_dir: str = "/mnt/data/shared/BioC-PMC"
-
-
 class StagesConfig(BaseModel):
     data_cleaning: DataCleaningStageConfig = DataCleaningStageConfig()
     kg_init: KgInitStageConfig = KgInitStageConfig()
     trust: TrustStageConfig = TrustStageConfig()
-    evaluation: EvaluationStageConfig = EvaluationStageConfig()
-    newsletter: NewsletterStageConfig = NewsletterStageConfig()
 
 
 class PipelineConfig(BaseModel):

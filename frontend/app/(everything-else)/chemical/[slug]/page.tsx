@@ -3,17 +3,11 @@ import { Metadata } from "next";
 
 import ChemicalCompositionSection from "@/components/entities/chemical/ChemicalCompositionSection";
 import ChemicalCorrelationSection from "@/components/entities/chemical/ChemicalCorrelationSection";
-import ChemicalBioactivitiesSection from "@/components/entities/bioactivity/ChemicalBioactivitiesSection";
+import MetainformationSection from "@/components/entities/MetainformationSection";
 import HeaderSection from "@/components/entities/HeaderSection";
 import HeaderSectionSuspense from "@/components/entities/HeaderSectionSuspense";
-import EntityDetailLayout from "@/components/entities/EntityDetailLayout";
-import EntityOverviewPanel from "@/components/entities/EntityOverviewPanel";
-import EntityOverviewPanelSuspense from "@/components/entities/EntityOverviewPanelSuspense";
+import MetainformationSuspense from "@/components/entities/MetainformationSuspense";
 import ChemicalCompositionSectionSuspense from "@/components/entities/chemical/ChemicalCompositionSectionSuspense";
-import {
-  getChemicalBioactivities,
-  getChemicalCompositionData,
-} from "@/utils/fetching";
 import { decodeSpace, toTitleCase } from "@/utils/utils";
 
 interface ChemicalPageProps {
@@ -37,70 +31,32 @@ export async function generateMetadata({
 const ChemicalPage = async ({ params }: ChemicalPageProps) => {
   const { slug } = params;
   const commonName = decodeSpace(decodeURIComponent(slug));
-  const entityType = "chemical" as const;
-
-  // Parallel best-effort count fetches for the tab badges. Health Impacts
-  // count would require two paginated requests (positive + negative); we
-  // omit it for now (tab renders without a badge).
-  const [composition, bioPayload] = await Promise.all([
-    getChemicalCompositionData(commonName).catch(() => null),
-    getChemicalBioactivities(commonName).catch(() => null),
-  ]);
-  const compositionCount = composition
-    ? (composition.with_concentrations?.length ?? 0) +
-      (composition.without_concentrations?.length ?? 0)
-    : null;
-  const bioactivitiesCount =
-    (bioPayload?.metadata?.row_count as number | undefined) ?? null;
+  const entityType = "chemical";
 
   return (
     <div>
+      {/* header */}
       <Suspense fallback={<HeaderSectionSuspense entityType={entityType} />}>
         <HeaderSection commonName={commonName} entityType={entityType} />
       </Suspense>
-      <EntityDetailLayout
-        entityType={entityType}
-        defaultTabId="composition"
-        tabs={[
-          {
-            id: "composition",
-            label: "Foods Containing",
-            count: compositionCount,
-            content: (
-              <Suspense fallback={<ChemicalCompositionSectionSuspense />}>
-                <ChemicalCompositionSection commonName={commonName} />
-              </Suspense>
-            ),
-          },
-          {
-            id: "health",
-            label: "Health Impacts",
-            content: <ChemicalCorrelationSection commonName={commonName} />,
-          },
-          {
-            id: "bioactivities",
-            label: "Bioactivities",
-            count: bioactivitiesCount,
-            content: <ChemicalBioactivitiesSection commonName={commonName} />,
-          },
-          {
-            id: "overview",
-            label: "IDs & Metadata",
-            content: (
-              <Suspense
-                fallback={
-                  <EntityOverviewPanelSuspense entityType={entityType} />
-                }
-              >
-                <EntityOverviewPanel
-                  commonName={commonName}
-                  entityType={entityType}
-                />
-              </Suspense>
-            ),
-          },
-        ]}
-      />
+      {/* content */}
+      <div className="mt-12 flex flex-col gap-20">
+        {/* meta information */}
+        <Suspense
+          fallback={<MetainformationSuspense entityType={entityType} />}
+        >
+          <MetainformationSection
+            commonName={commonName}
+            entityType={entityType}
+          />
+        </Suspense>
+        {/* composition */}
+        <Suspense fallback={<ChemicalCompositionSectionSuspense />}>
+          <ChemicalCompositionSection commonName={commonName} />
+        </Suspense>
+        {/* correlation */}
+        <ChemicalCorrelationSection commonName={commonName} />
+      </div>
     </div>
   );
 };

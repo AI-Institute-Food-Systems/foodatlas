@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
-from ...models.entity import BioactivityEntity, DiseaseEntity, FoodEntity
+from ...models.entity import DiseaseEntity, FoodEntity
 
 if TYPE_CHECKING:
     from ...config.corrections import Corrections
@@ -209,52 +209,3 @@ def create_diseases_from_ctd(
     store._curr_eid = registry.next_eid
     _append_entities(store, rows)
     logger.info("Pass 1: %d disease entities from CTD.", len(rows))
-
-
-def create_bioactivity_entities(
-    sources: dict[str, dict[str, pd.DataFrame]],
-    store: EntityStore,
-    registry: EntityRegistry,
-) -> None:
-    """Create bioactivity-concept entities from the bioactivity nodes.
-
-    No LUT: bioactivity edges resolve by ``native_id`` (E300xxx), not by name.
-    The concept's MeSH/ChEBI ids are kept in ``attributes`` (display-only) so
-    they cannot collide with the chemical/disease resolution keys.
-    """
-    bioactivity = sources.get("bioactivity")
-    if bioactivity is None:
-        return
-    nodes = bioactivity["nodes"]
-
-    rows: list[dict] = []
-    seen_ids: set[str] = set()
-    for _, row in nodes.iterrows():
-        native = str(row["native_id"])
-        fa_ids = registry.resolve("bioactivity", native)
-        if not fa_ids:
-            fa_id = f"e{registry.next_eid}"
-            registry.register("bioactivity", native, fa_id)
-        else:
-            fa_id = fa_ids[0]
-        if fa_id in store._entities.index or fa_id in seen_ids:
-            continue
-        seen_ids.add(fa_id)
-
-        syns = _get_list(row, "synonyms")
-        attrs = row["raw_attrs"] if isinstance(row["raw_attrs"], dict) else {}
-        entity = BioactivityEntity(
-            foodatlas_id=fa_id,
-            common_name=str(row["name"]).lower(),
-            synonyms=[s.lower() for s in syns],
-            external_ids={"bioactivity_concept": [native]},
-            attributes={
-                "description": attrs.get("description", ""),
-                "external_database_ids": attrs.get("external_database_ids", []),
-            },
-        )
-        rows.append(entity.model_dump(by_alias=True))
-
-    store._curr_eid = registry.next_eid
-    _append_entities(store, rows)
-    logger.info("Pass 1: %d bioactivity entities.", len(rows))

@@ -22,7 +22,6 @@ from ..stores.schema import (
     REGISTRY_COLUMNS,
 )
 from ..utils.json_io import write_json
-from ..utils.snapshots import latest_snapshot
 
 
 def _build_default_relationships() -> list[dict[str, str]]:
@@ -31,56 +30,32 @@ def _build_default_relationships() -> list[dict[str, str]]:
     ]
 
 
-def _ensure_previous_kg_registry(entities_path: Path) -> Path:
-    """Return the registry next to *entities_path*, building it if absent.
-
-    A snapshot already carrying ``entity_registry.parquet`` is used as-is;
-    otherwise the registry is seeded from the sibling entities file.
-    """
-    prev_registry = entities_path.parent / FILE_REGISTRY
+def _ensure_previous_kg_registry(entities_tsv: Path) -> Path:
+    """Generate a registry in the previous KG folder if one doesn't exist."""
+    prev_registry = entities_tsv.parent / FILE_REGISTRY
     if prev_registry.exists():
         return prev_registry
     pd.DataFrame(columns=REGISTRY_COLUMNS).to_parquet(prev_registry, index=False)
     registry = EntityRegistry(prev_registry)
-    seed_registry(registry, entities_path)
+    seed_registry(registry, entities_tsv)
     registry.save()
     return prev_registry
-
-
-def _resolve_seed_registry(settings: KGCSettings) -> Path | None:
-    """Find the previous-KG registry to seed foodatlas_ids from.
-
-    Uses the explicit ``previous_kg_entities`` path when set; otherwise
-    auto-discovers the latest ``PreviousFAKG/`` snapshot. Returns None when
-    there is no previous KG (a fresh build seeds an empty registry).
-    """
-    explicit = settings.previous_kg_entities
-    if explicit:
-        return _ensure_previous_kg_registry(Path(explicit))
-
-    snapshot = latest_snapshot(settings.data_dir)
-    if snapshot is None:
-        return None
-    registry = snapshot / FILE_REGISTRY
-    if not registry.exists():
-        msg = f"Snapshot {snapshot} has no {FILE_REGISTRY}; cannot seed registry"
-        raise FileNotFoundError(msg)
-    return registry
 
 
 def ensure_registry_exists(settings: KGCSettings) -> None:
     """Seed ``entity_registry.parquet`` from the previous KG.
 
-    Always re-seeds so the registry is deterministic and not affected by
-    leftover state from prior runs.
+    Always re-seeds from the previous KG entities TSV so the registry
+    is deterministic and not affected by leftover state from prior runs.
     """
     kg_dir = Path(settings.kg_dir)
     kg_dir.mkdir(parents=True, exist_ok=True)
     path = kg_dir / FILE_REGISTRY
 
-    seed_registry_path = _resolve_seed_registry(settings)
-    if seed_registry_path is not None:
-        shutil.copy2(seed_registry_path, path)
+    prev_path = settings.previous_kg_entities
+    if prev_path:
+        prev_registry = _ensure_previous_kg_registry(Path(prev_path))
+        shutil.copy2(prev_registry, path)
     else:
         pd.DataFrame(columns=REGISTRY_COLUMNS).to_parquet(path, index=False)
 

@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.dependencies import get_db, verify_api_key
-from src.repositories import bioactivity, food, taxonomy
+from src.repositories import food, taxonomy
 
 if TYPE_CHECKING:
     from src.repositories.trust_filter import TrustMode
@@ -70,15 +70,6 @@ async def food_composition(
             "only low-trust extractions."
         ),
     ),
-    find_chemical: str = Query(
-        "",
-        description=(
-            "Locate a chemical by common name (case-insensitive) in the "
-            "unfiltered sorted list and serve the page containing it. The "
-            "served page overrides the `page` param when a match is found; "
-            "metadata.highlight_page reports the resolved page number."
-        ),
-    ),
     db: AsyncSession = Depends(get_db),
 ):
     show_all = show_all_rows.lower() != "false"
@@ -94,24 +85,4 @@ async def food_composition(
         show_all,
         filter_classification,
         trust=trust_mode,
-        find_chemical=find_chemical,
-    )
-
-
-@router.get("/bioactivities")
-async def food_bioactivities(
-    common_name: str = Query(...),
-    page: int = Query(1, ge=1),
-    search: str = Query(""),
-    sort_by: str = Query("measurement_count"),
-    sort_dir: str = Query("desc"),
-    db: AsyncSession = Depends(get_db),
-):
-    return await bioactivity.get_food_bioactivities(
-        db,
-        common_name,
-        page=page,
-        search=search,
-        sort_by=sort_by,
-        sort_dir=sort_dir,
     )

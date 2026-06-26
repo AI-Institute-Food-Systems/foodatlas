@@ -136,7 +136,6 @@ async def get_composition(
     filter_classification: str = "",
     rows_per_page: int = ROWS_PER_PAGE,
     trust: TrustMode = "default",
-    find_chemical: str = "",
 ) -> dict[str, object]:
     """Get paginated food chemical composition with filtering/sorting.
 
@@ -194,25 +193,6 @@ async def get_composition(
 
     total_rows = len(all_rows)
     total_pages = (total_rows + rows_per_page - 1) // rows_per_page if total_rows else 0
-
-    # If find_chemical is given, locate the row in the unfiltered sorted list
-    # and serve the page containing it. This overrides the requested page so
-    # the client can land directly on the right page without a second round
-    # trip. Match is case-insensitive against chemical_name; foodatlas_id is
-    # also accepted (passes through unchanged).
-    highlight_page: int | None = None
-    if find_chemical:
-        needle = find_chemical.lower()
-        for i, row in enumerate(all_rows):
-            name = str(row.get("chemical_name") or row.get("name") or "").lower()
-            fid = str(row.get("chemical_foodatlas_id") or row.get("id") or "").lower()
-            if needle in (name, fid):
-                highlight_page = i // rows_per_page + 1
-                break
-        if highlight_page is not None:
-            page = highlight_page
-            offset = rows_per_page * (page - 1)
-
     data = all_rows[offset : offset + rows_per_page]
 
     return {
@@ -224,7 +204,6 @@ async def get_composition(
             "current_page": page,
             "total_rows": total_rows,
             "total_pages": total_pages,
-            "highlight_page": highlight_page,
         },
     }
 

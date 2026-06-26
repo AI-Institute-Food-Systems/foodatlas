@@ -53,12 +53,8 @@ const SuggestionItem = ({
     }
   };
 
-  const hasCommonName = !!suggestion.common_name?.trim();
-  // The API currently returns an empty string when the scientific name
-  // isn't populated upstream (the KGC pipeline doesn't carry one for most
-  // rows on the current staging build). Treat "" the same as null so the
-  // column header doesn't render with no value beside it.
-  const hasScientificName = !!suggestion.scientific_name?.trim();
+  const hasCommonName = suggestion.common_name !== null;
+  const hasScientificName = suggestion.scientific_name !== null;
 
   const label = [
     hasCommonName ? suggestion.common_name : null,

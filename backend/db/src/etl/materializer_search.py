@@ -55,8 +55,6 @@ def _materialize_search_auto_complete(conn: Connection) -> None:
             (entities["entity_type"] == "disease")
             & entities["foodatlas_id"].isin(relevant_disease_ids)
         )
-        # Bioactivity concepts are a small curated set — always searchable.
-        | (entities["entity_type"] == "bioactivity")
     ]
 
     rows = []
@@ -125,10 +123,6 @@ def _load_assoc_counts(conn: Connection) -> dict[str, int]:
         " FROM mv_chemical_disease_correlation GROUP BY chemical_foodatlas_id",
         "SELECT disease_foodatlas_id AS fid, COUNT(*) AS n"
         " FROM mv_chemical_disease_correlation GROUP BY disease_foodatlas_id",
-        "SELECT bioactivity_foodatlas_id AS fid, COUNT(*) AS n"
-        " FROM mv_chemical_bioactivity GROUP BY bioactivity_foodatlas_id",
-        "SELECT bioactivity_foodatlas_id AS fid, COUNT(*) AS n"
-        " FROM mv_food_bioactivity GROUP BY bioactivity_foodatlas_id",
     )
     counts: dict[str, int] = {}
     for sql in queries:
@@ -237,22 +231,12 @@ def _materialize_statistics(conn: Connection) -> None:
     )
     publications = pubmed_pmcids + ctd_pmids
 
-    bioactivity_count = len(type_map.get("bioactivity", set()))
-    measurement_count = (
-        conn.execute(
-            text("SELECT COUNT(*) FROM base_attestations_bioactivity")
-        ).scalar()
-        or 0
-    )
-
     rows = [
         {"field": "number of foods", "count": len(food_ids)},
         {"field": "number of chemicals", "count": len(chem_ids)},
         {"field": "number of diseases", "count": len(disease_ids)},
         {"field": "number of associations", "count": associations},
         {"field": "number of publications", "count": publications},
-        {"field": "number of bioactivities", "count": bioactivity_count},
-        {"field": "number of bioactivity measurements", "count": measurement_count},
     ]
     df = pd.DataFrame(rows)
     bulk_copy(conn, "mv_metadata_statistics", df, ["field", "count"])

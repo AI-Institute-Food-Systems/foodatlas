@@ -97,10 +97,6 @@ def parse_response(response_str: str) -> list[list[str]]:
         if not stripped:
             continue
         parts = [p.strip() for p in stripped.split(",", 3)]
-        # The v3 (Gemma) prompt asks for CSV output with a `food,chemical,
-        # concentration` header; that header line is not an extraction.
-        if [p.lower() for p in parts[:3]] == ["food", "chemical", "concentration"]:
-            continue
         while len(parts) < 4:
             parts.append("")
         triplets.append(parts)
@@ -117,14 +113,8 @@ def tsv_to_json(input_path: str) -> None:
     for i, row in df.iterrows():
         raw_response = str(row["response"])
         triplets = parse_response(raw_response)
-        pmcid_raw = str(row["pmcid"])
-        pmcid_int = (
-            int(pmcid_raw.removeprefix("PMC"))
-            if pmcid_raw.startswith("PMC")
-            else int(pmcid_raw)
-        )
         entry: dict[str, object] = {
-            "pmcid": pmcid_int,
+            "pmcid": int(row["pmcid"]),
             "section": row.get("section", ""),
             "matched_query": row.get("matched_query", ""),
             "text": row["sentence"],

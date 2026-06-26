@@ -25,7 +25,6 @@ VERSION=""
 SUMMARY_FILE=""
 KGC_RUN=""
 RELEASE_DATE=""
-DRY_RUN=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -33,8 +32,6 @@ while [[ $# -gt 0 ]]; do
             KGC_RUN="$2"; shift 2 ;;
         --release-date)
             RELEASE_DATE="$2"; shift 2 ;;
-        --dry-run)
-            DRY_RUN=1; shift ;;
         --help|-h)
             sed -n '2,17p' "$0" | sed 's/^# *//'; exit 0 ;;
         --*)
@@ -82,32 +79,26 @@ for v in KGC_BUCKET DOWNLOADS_BUCKET; do
     fi
 done
 
-if [[ -n "$DRY_RUN" ]]; then
-    KGC_RUN="${KGC_RUN:-local-outputs}"
-    KGC_PREFIX="(local) outputs/kg"
-    echo "[dry-run] staging from local outputs/kg (kgc_run label: $KGC_RUN)"
-else
+if [[ -z "$KGC_RUN" ]]; then
+    KGC_RUN=$(aws s3 cp "s3://$KGC_BUCKET/outputs/LATEST" - --region "$REGION" 2>/dev/null || true)
     if [[ -z "$KGC_RUN" ]]; then
-        KGC_RUN=$(aws s3 cp "s3://$KGC_BUCKET/outputs/LATEST" - --region "$REGION" 2>/dev/null || true)
-        if [[ -z "$KGC_RUN" ]]; then
-            echo "Error: s3://$KGC_BUCKET/outputs/LATEST is missing or empty." >&2
-            echo "Pass --kgc-run <id> or run sync-outputs-to-s3.sh first." >&2
-            exit 1
-        fi
-        echo "Resolved KGC run from LATEST: $KGC_RUN"
+        echo "Error: s3://$KGC_BUCKET/outputs/LATEST is missing or empty." >&2
+        echo "Pass --kgc-run <id> or run sync-outputs-to-s3.sh first." >&2
+        exit 1
     fi
+    echo "Resolved KGC run from LATEST: $KGC_RUN"
+fi
 
-    KGC_PREFIX="s3://$KGC_BUCKET/outputs/$KGC_RUN/kg"
-    if ! aws s3 ls "$KGC_PREFIX/CHANGELOG.md" --region "$REGION" >/dev/null 2>&1; then
-        cat >&2 <<MISSING
+KGC_PREFIX="s3://$KGC_BUCKET/outputs/$KGC_RUN/kg"
+if ! aws s3 ls "$KGC_PREFIX/CHANGELOG.md" --region "$REGION" >/dev/null 2>&1; then
+    cat >&2 <<MISSING
 Error: $KGC_PREFIX/CHANGELOG.md does not exist.
 
 That KGC run was published before CHANGELOG.md became required.
 Backfill it (regenerate the changelog and upload to that run's kg/
 prefix) before publishing a public release from it.
 MISSING
-        exit 1
-    fi
+    exit 1
 fi
 
 BUNDLE_NAME="foodatlas-${VERSION}"
@@ -116,27 +107,16 @@ trap 'rm -rf "$TMP_DIR"' EXIT
 STAGE_DIR="$TMP_DIR/$BUNDLE_NAME"
 mkdir -p "$STAGE_DIR"
 
-if [[ -n "$DRY_RUN" ]]; then
-    echo "Staging from local outputs/kg/ ..."
-    for f in outputs/kg/*.parquet; do
-        [[ "$(basename "$f")" == "entity_registry.parquet" ]] && continue
-        cp "$f" "$STAGE_DIR/"
-    done
-    cp outputs/kg/CHANGELOG.md "$STAGE_DIR/" 2>/dev/null \
-        || echo "[dry-run] WARN: no local outputs/kg/CHANGELOG.md"
-else
-    echo "Downloading $KGC_PREFIX/ -> staging..."
-    aws s3 sync "$KGC_PREFIX/" "$STAGE_DIR/" \
-        --region "$REGION" \
-        --exclude "*" \
-        --include "*.parquet" \
-        --include "CHANGELOG.md" \
-        --exclude "entity_registry.parquet" \
-        --exclude "checkpoints/*" \
-        --exclude "diagnostics/*" \
-        --exclude "intermediate/*" \
-        --exclude "evaluation/*"
-fi
+echo "Downloading $KGC_PREFIX/ -> staging..."
+aws s3 sync "$KGC_PREFIX/" "$STAGE_DIR/" \
+    --region "$REGION" \
+    --exclude "*" \
+    --include "*.parquet" \
+    --include "CHANGELOG.md" \
+    --exclude "entity_registry.parquet" \
+    --exclude "checkpoints/*" \
+    --exclude "diagnostics/*" \
+    --exclude "intermediate/*"
 
 cp "$SUMMARY_FILE" "$STAGE_DIR/SUMMARY.md"
 
@@ -184,18 +164,6 @@ echo "  size:      $FILE_SIZE_HUMAN"
 echo "  kgc_run:   $KGC_RUN"
 echo "  to:        s3://$DOWNLOADS_BUCKET/bundles/${BUNDLE_NAME}/"
 echo
-
-if [[ -n "$DRY_RUN" ]]; then
-    echo "[dry-run] would upload:"
-    echo "[dry-run]   $(basename "$ZIP_PATH")  ->  s3://${DOWNLOADS_BUCKET}/${ZIP_KEY}"
-    echo "[dry-run]   SUMMARY.md              ->  s3://${DOWNLOADS_BUCKET}/${SUMMARY_KEY}"
-    echo "[dry-run] manifest entry for bundles/index.json:"
-    python3 -c "import json; print(json.dumps({'version':'$VERSION','release_date':'$RELEASE_DATE','file_size':'$FILE_SIZE_HUMAN','kgc_run':'$KGC_RUN','download_link':'${BASE_URL}/${ZIP_KEY}','summary_link':'${BASE_URL}/${SUMMARY_KEY}'}, indent=2))" | sed 's/^/[dry-run]   /'
-    echo "[dry-run] zip contents:"
-    unzip -l "$ZIP_PATH" | sed 's/^/[dry-run]   /'
-    echo "[dry-run] nothing uploaded."
-    exit 0
-fi
 
 aws s3 cp "$ZIP_PATH" "s3://${DOWNLOADS_BUCKET}/${ZIP_KEY}" --region "$REGION"
 aws s3 cp "$STAGE_DIR/SUMMARY.md" "s3://${DOWNLOADS_BUCKET}/${SUMMARY_KEY}" \

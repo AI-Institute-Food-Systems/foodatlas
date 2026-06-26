@@ -91,7 +91,6 @@ FOOD_COMP_SAMPLE = {
         "current_page": 1,
         "total_rows": 1,
         "total_pages": 1,
-        "highlight_page": None,
     },
 }
 

@@ -80,7 +80,7 @@ const Developers = () => {
         <SubHeading>
           Programmatic access to the <i>FoodAtlas</i> knowledge graph
         </SubHeading>
-        <p className="mt-10 text-base leading-relaxed text-light-200">
+        <p className="mt-10 text-lg leading-loose text-light-200">
           The public API exposes the same food–chemical–disease graph that
           powers this site, with stable resource-shaped responses suited for
           research scripts. The interactive OpenAPI reference lives at{" "}
@@ -97,7 +97,7 @@ const Developers = () => {
       </div>
       <div className="mt-8">
         <Card>
-          <p className="text-base font-light text-light-300">
+          <p className="text-lg font-light text-light-300">
             Keys are issued by hand to keep the door open without inviting
             abuse.{" "}
             <Link href="/contact?api-access" isExternal={false}>
@@ -107,7 +107,7 @@ const Developers = () => {
             you&apos;re building. You&apos;ll usually hear back within a few
             business days.
           </p>
-          <p className="mt-4 text-base font-light text-light-300">
+          <p className="mt-4 text-lg font-light text-light-300">
             Use is intended for academic and non-commercial research. Please
             cite <i>FoodAtlas</i> in any published work.
           </p>
@@ -122,25 +122,25 @@ const Developers = () => {
       <div className="mt-8">
         <Card>
           <div>
-            <Heading type="h3" className="font-mono italic text-light-300 text-sm font-medium">
+            <Heading type="h3" className="text-xl">
               Base URL
             </Heading>
             <div className="mt-2 flex flex-wrap items-center">
-              <p className="mr-3 text-base font-light text-light-300">
+              <p className="mr-3 text-lg font-light text-light-300">
                 All endpoints live under
               </p>
-              <Code>{API_BASE}</Code>
+              <Code size="text-[1rem]">{API_BASE}</Code>
             </div>
           </div>
           <div className="mt-6">
-            <Heading type="h3" className="font-mono italic text-light-300 text-sm font-medium">
+            <Heading type="h3" className="text-xl">
               Authentication
             </Heading>
-            <p className="mt-3 text-base font-light text-light-300">
-              Send your key in the <Code>Authorization</Code>{" "}
-              header with the <Code>Bearer</Code> scheme:
+            <p className="mt-3 text-lg font-light text-light-300">
+              Send your key in the <Code size="text-[1rem]">Authorization</Code>{" "}
+              header with the <Code size="text-[1rem]">Bearer</Code> scheme:
             </p>
-            <pre className="mt-4 overflow-x-auto rounded-md bg-light-1000 border-[1.5px] border-light-50/[0.08] p-4 text-[0.85rem] text-light-200 font-mono">
+            <pre className="mt-4 overflow-x-auto rounded bg-light-800 p-4 text-[0.95rem] text-light-100">
               <code>{CURL_EXAMPLE}</code>
             </pre>
           </div>
@@ -154,10 +154,10 @@ const Developers = () => {
       </div>
       <div className="mt-8 flex flex-col gap-6">
         <Card>
-          <Heading type="h3" className="font-mono italic text-light-300 text-sm font-medium">
+          <Heading type="h3" className="text-xl">
             Python
           </Heading>
-          <pre className="mt-4 overflow-x-auto rounded-md bg-light-1000 border-[1.5px] border-light-50/[0.08] p-4 text-[0.85rem] text-light-200 font-mono">
+          <pre className="mt-4 overflow-x-auto rounded bg-light-800 p-4 text-[0.95rem] text-light-100">
             <code>{PYTHON_EXAMPLE}</code>
           </pre>
         </Card>
@@ -170,55 +170,29 @@ const Developers = () => {
       </div>
       <div className="mt-8">
         <Card>
-          <p className="mb-4 text-base font-light text-light-300">
+          <p className="mb-4 text-lg font-light text-light-300">
             Full request/response schemas and an interactive console live at{" "}
             <Link href={`${API_BASE}/docs`}>{`${API_BASE}/docs`}</Link>. Pagination
             is offset-based:{" "}
-            <Code>?page=&page_size=</Code> (max 100).
+            <Code size="text-[1rem]">?page=&page_size=</Code> (max 100).
           </p>
           <div className="overflow-x-auto">
-            {/* Same chrome as the entity-page tables: h-9 header / py-1.5
-             * rows / text-sm body, mono cells for method+path. */}
-            <table className="w-full table-fixed">
-              <colgroup>
-                <col className="w-[12%]" />
-                <col className="w-[38%]" />
-                <col className="w-[50%]" />
-              </colgroup>
-              <thead className="text-light-400 text-left">
+            <table className="w-full text-left text-[0.95rem]">
+              <thead className="text-light-200">
                 <tr>
-                  {["Method", "Path", "Summary"].map((h, i) => (
-                    <th
-                      key={h}
-                      className={`h-9 border-b border-light-700 leading-none py-1.5 ${
-                        i === 0 ? "pr-4" : i === 2 ? "pl-4" : "px-4"
-                      } text-left`}
-                    >
-                      <span className="select-none uppercase text-xs font-medium">
-                        {h}
-                      </span>
-                    </th>
-                  ))}
+                  <th className="py-2 pr-4 font-mono">Method</th>
+                  <th className="py-2 pr-4 font-mono">Path</th>
+                  <th className="py-2 font-mono">Summary</th>
                 </tr>
               </thead>
-              <tbody className="text-sm font-light">
+              <tbody className="font-light text-light-300">
                 {ENDPOINTS.map((e) => (
-                  <tr key={`${e.method} ${e.path}`}>
-                    <td className="py-1.5 pr-4">
-                      <div className="flex min-h-9 items-center font-mono text-light-100">
-                        {e.method}
-                      </div>
+                  <tr key={`${e.method} ${e.path}`} className="border-t border-light-800">
+                    <td className="py-2 pr-4 font-mono text-light-100">{e.method}</td>
+                    <td className="py-2 pr-4 font-mono">
+                      <Code size="text-[0.9rem]">{e.path}</Code>
                     </td>
-                    <td className="py-1.5 px-4">
-                      <div className="flex min-h-9 items-center font-mono text-light-200 break-all">
-                        {e.path}
-                      </div>
-                    </td>
-                    <td className="py-1.5 pl-4">
-                      <div className="flex min-h-9 items-center text-light-300">
-                        {e.summary}
-                      </div>
-                    </td>
+                    <td className="py-2">{e.summary}</td>
                   </tr>
                 ))}
               </tbody>
@@ -234,18 +208,18 @@ const Developers = () => {
       </div>
       <div className="mt-8">
         <Card>
-          <p className="text-base font-light text-light-300">
-            Routes under <Code>/v1/</Code> follow a stable
+          <p className="text-lg font-light text-light-300">
+            Routes under <Code size="text-[1rem]">/v1/</Code> follow a stable
             contract. Breaking changes ship under a new prefix
-            (<Code>/v2/</Code>) — we will not change response
-            shapes within <Code>/v1/</Code>.
+            (<Code size="text-[1rem]">/v2/</Code>) — we will not change response
+            shapes within <Code size="text-[1rem]">/v1/</Code>.
           </p>
-          <p className="mt-4 text-base font-light text-light-300">
+          <p className="mt-4 text-lg font-light text-light-300">
             Bulk downloads of released data are available under{" "}
             <Link href="/food-composition-downloads" isExternal={false}>
               Downloads
             </Link>{" "}
-            and via <Code>/v1/bundles</Code>. Use those for
+            and via <Code size="text-[1rem]">/v1/bundles</Code>. Use those for
             corpus-scale work rather than scraping the API.
           </p>
         </Card>

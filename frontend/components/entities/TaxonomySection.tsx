@@ -1,4 +1,5 @@
 import Card from "@/components/basic/Card";
+import Heading from "@/components/basic/Heading";
 import TaxonomyTree from "@/components/entities/TaxonomyTree";
 import { getTaxonomyData } from "@/utils/fetching";
 import { TaxonomyEdge, TaxonomyNode } from "@/types";
@@ -7,11 +8,6 @@ import type { TreeNode } from "@/components/entities/TaxonomyTree";
 interface TaxonomySectionProps {
   commonName: string;
   entityType: string;
-  // "naked" drops the Card wrapper. When `naked` is true, `showLabel`
-  // controls whether the "Taxonomy" heading is included (variants that
-  // provide their own section labels should set `showLabel={false}`).
-  naked?: boolean;
-  showLabel?: boolean;
 }
 
 const ENTITY_COLOR: Record<string, string> = {
@@ -79,8 +75,6 @@ function buildTree(
 const TaxonomySection = async ({
   commonName,
   entityType,
-  naked = false,
-  showLabel = true,
 }: TaxonomySectionProps) => {
   let data;
   try {
@@ -98,43 +92,19 @@ const TaxonomySection = async ({
 
   const colorClass = ENTITY_COLOR[entityType] ?? "text-light-100";
 
-  const heading = (
-    <h4
-      className={
-        naked
-          ? "font-mono uppercase text-[10px] tracking-[0.2em] text-light-400"
-          : "font-mono italic text-light-400 text-xs"
-      }
-    >
-      Taxonomy
-    </h4>
-  );
-
-  const tree = (
-    <TaxonomyTree
-      trees={trees}
-      entityId={data.entity_id}
-      entityType={entityType}
-      colorClass={colorClass}
-    />
-  );
-
-  if (naked) {
-    if (!showLabel) {
-      return tree;
-    }
-    return (
-      <div className="flex flex-col">
-        {heading}
-        <div className="mt-2">{tree}</div>
-      </div>
-    );
-  }
-
   return (
     <Card>
-      {heading}
-      <div className="mt-3">{tree}</div>
+      <Heading type="h4" className="font-mono italic text-light-400 text-xs">
+        Taxonomy
+      </Heading>
+      <div className="mt-3">
+        <TaxonomyTree
+          trees={trees}
+          entityId={data.entity_id}
+          entityType={entityType}
+          colorClass={colorClass}
+        />
+      </div>
     </Card>
   );
 };

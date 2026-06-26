@@ -25,7 +25,6 @@ _SOURCE_IDS = [
     "flavordb",
     "fdc",
     "dmd",
-    "bioactivity",
 ]
 
 

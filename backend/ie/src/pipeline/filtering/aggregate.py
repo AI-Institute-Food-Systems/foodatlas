@@ -98,21 +98,17 @@ if __name__ == "__main__":
     parser.add_argument(
         "--input_dir",
         type=str,
-        default="outputs/filtering/sentence_filtering",
+        default="outputs/search/sentence_filtering",
     )
     parser.add_argument(
         "--aggregated_path",
         type=str,
-        default=(
-            "outputs/filtering/filtered_sentences/filtered_sentence_aggregated.tsv"
-        ),
+        default=("outputs/search/filtered_sentences/filtered_sentence_aggregated.tsv"),
     )
     parser.add_argument(
         "--ie_input_path",
         type=str,
-        default=(
-            "outputs/filtering/filtered_sentences/information_extraction_input.tsv"
-        ),
+        default=("outputs/search/filtered_sentences/information_extraction_input.tsv"),
     )
     parser.add_argument(
         "--reference_dir",

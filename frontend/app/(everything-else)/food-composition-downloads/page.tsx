@@ -48,7 +48,7 @@ const Downloads = async () => {
           database bundles below and explore <i>FoodAtlas</i> data on your
           machine
         </SubHeading>
-        <p className="mt-10 text-base leading-relaxed text-light-200">
+        <p className="mt-10 text-lg leading-relaxed text-light-200">
           Our extensive food composition database contains only evidence-based
           data that can be traced back to its source. As a USDA-NSF funded
           research project, the data is presented as a free resource under the{" "}

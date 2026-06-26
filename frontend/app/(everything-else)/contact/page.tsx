@@ -25,7 +25,7 @@ const Contact = ({ searchParams }: ContactPageProps) => {
         <div className="md:w-1/2">
           <Heading type="h1">Contact Us</Heading>
           <SubHeading>Get in touch with our team</SubHeading>
-          <p className="mt-8 text-base leading-relaxed text-light-200">
+          <p className="mt-8 text-lg leading-loose text-light-200">
             We love hearing from you! Whether you have a general question about
             our research, methods or data, please use the form to get in touch
             with us and we&apos;re happy to assist you. <br />

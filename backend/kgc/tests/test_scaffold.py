@@ -36,10 +36,9 @@ def kg_dir(tmp_path: Path) -> Path:
 
 
 @pytest.fixture()
-def settings(tmp_path: Path, kg_dir: Path) -> KGCSettings:
+def settings(kg_dir: Path) -> KGCSettings:
     return KGCSettings(
         kg_dir=str(kg_dir),
-        data_dir=str(tmp_path / "no_previous_kg"),  # no PreviousFAKG/ -> empty registry
         pipeline={"stages": {"kg_init": {"previous_kg_entities": ""}}},
     )
 
@@ -247,25 +246,6 @@ class TestEnsureRegistryExists:
         ensure_registry_exists(settings)
         df = pd.read_parquet(path)
         assert len(df) == 0
-
-    def test_auto_discovers_latest_snapshot(self, kg_dir: Path, tmp_path: Path) -> None:
-        """With no explicit path, seed from the latest PreviousFAKG snapshot."""
-        data_dir = tmp_path / "data"
-        for name, fid in (("20260101T000000Z", "e1"), ("20260601T000000Z", "e2")):
-            snapshot = data_dir / "PreviousFAKG" / name
-            snapshot.mkdir(parents=True)
-            pd.DataFrame(
-                [{"source": "foodon", "native_id": name, "foodatlas_id": fid}]
-            ).to_parquet(snapshot / FILE_REGISTRY, index=False)
-
-        settings = KGCSettings(
-            kg_dir=str(kg_dir),
-            data_dir=str(data_dir),
-            pipeline={"stages": {"kg_init": {"previous_kg_entities": ""}}},
-        )
-        ensure_registry_exists(settings)
-        df = pd.read_parquet(kg_dir / FILE_REGISTRY)
-        assert df.iloc[0]["foodatlas_id"] == "e2"  # newest snapshot wins
 
     def test_entity_files_do_not_touch_registry(
         self, settings: KGCSettings, kg_dir: Path

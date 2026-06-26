@@ -7,6 +7,7 @@ const ConcentrationCompositionPlot = dynamic(
   { ssr: false }
 );
 import { getChemicalCompositionData, getMetaData } from "@/utils/fetching";
+import { capitalizeFirstLetter } from "@/utils/utils";
 
 interface ChemicalCompositionSectionProps {
   commonName: string;
@@ -20,13 +21,16 @@ const ChemicalCompositionSection = async ({
 
   return (
     <div className="flex flex-col gap-7">
+      <Heading type="h2" variant="boxed">
+        {`Foods containing ${capitalizeFirstLetter(metaData?.common_name ?? "")}`}
+      </Heading>
       <div className="flex flex-col gap-7">
         {/* with concentration section */}
         <div className="flex flex-col gap-4">
           <div>
             <Heading
               type="h3"
-              className="text-light-300 font-mono text-sm font-medium"
+              className="text-light-300 font-mono text-base font-medium"
             >
               Known Concentration Value
             </Heading>
@@ -44,7 +48,7 @@ const ChemicalCompositionSection = async ({
           <div>
             <Heading
               type="h3"
-              className="text-light-300 font-mono text-sm font-medium"
+              className="text-light-300 font-mono text-base font-medium"
             >
               Unknown Concentration Value
             </Heading>

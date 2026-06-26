@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING, Any
 
 from tqdm import tqdm
 
-from .adapters.bioactivity import BioactivityAdapter
 from .adapters.cdno import CDNOAdapter
 from .adapters.chebi import ChEBIAdapter
 from .adapters.ctd import CTDAdapter
@@ -38,7 +37,6 @@ ALL_ADAPTERS: list[type] = [
     FlavorDBAdapter,
     FDCAdapter,
     DMDAdapter,
-    BioactivityAdapter,
 ]
 
 

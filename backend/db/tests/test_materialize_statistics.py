@@ -75,8 +75,8 @@ class TestMaterializeStatistics:
     @patch("src.etl.materializer_search.pd.read_sql", side_effect=_mock_read_sql)
     def test_publications_sums_pmcid_and_pmid(self, _mock_sql, mock_copy):
         conn = MagicMock()
-        # pmcid count, ctd pmid count, bioactivity measurement count
-        conn.execute.return_value.scalar.side_effect = [10, 5, 0]
+        # First scalar call = pmcid count, second = ctd pmid count
+        conn.execute.return_value.scalar.side_effect = [10, 5]
         _materialize_statistics(conn)
 
         df = mock_copy.call_args[0][2]
@@ -99,13 +99,10 @@ class TestMaterializeStatistics:
         conn.execute.return_value.scalar.return_value = 0
         _materialize_statistics(conn)
 
-        # Three scalar queries now: pmcid count + ctd pmid count +
-        # bioactivity measurement count (added with the bioassay dimension).
-        assert conn.execute.call_count == 3
+        assert conn.execute.call_count == 2
         calls = [str(c.args[0]) for c in conn.execute.call_args_list]
         assert any("pmcid" in c for c in calls)
         assert any("pmid" in c for c in calls)
-        assert any("base_attestations_bioactivity" in c for c in calls)
 
     @patch("src.etl.materializer_search.bulk_copy")
     @patch("src.etl.materializer_search.pd.read_sql", side_effect=_mock_read_sql)

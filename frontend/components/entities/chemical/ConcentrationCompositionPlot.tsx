@@ -27,6 +27,7 @@ import {
   ValueType,
   NameType,
 } from "recharts/types/component/DefaultTooltipContent";
+import Card from "@/components/basic/Card";
 import EntitySiblingIcon from "@/components/basic/EntitySiblingIcon";
 import { AmbiguitySibling } from "@/types/Metadata";
 import { encodeSpace, formatConcentrationValueAlt } from "@/utils/utils";
@@ -184,11 +185,11 @@ const ConcentrationCompositionPlot = ({ data, chemicalName }: DotPlotProps) => {
   const graph = useMemo(() => {
     // handle bar click
     const handleClick = (commonName: string) => {
-      const qs = chemicalName
-        ? `?highlight=${encodeURIComponent(chemicalName)}#composition`
+      const search = chemicalName
+        ? `?search=${encodeURIComponent(chemicalName)}#composition`
         : "";
       router.push(
-        `/food/${encodeURIComponent(encodeSpace(commonName))}${qs}`
+        `/food/${encodeURIComponent(encodeSpace(commonName))}${search}`
       );
     };
 
@@ -245,11 +246,13 @@ const ConcentrationCompositionPlot = ({ data, chemicalName }: DotPlotProps) => {
   }, [chartHeight, sortedData, router, chemicalName]);
 
   return (
-    <div>
+    <Card>
       {data && data.length > 0 ? (
         <div className="flex flex-col gap-5">
-          {/* sort control */}
-          <div className="flex justify-end items-center">
+          {/* label & sort container */}
+          <div className="flex justify-between items-center">
+            <span className="text-light-400">Found {data.length} foods</span>
+            {/* sort */}
             <div className="self-end flex items-center gap-10">
               <div className="flex items-center gap-2 text-light-300 text-sm/6">
                 <span>sort names</span>
@@ -306,7 +309,7 @@ const ConcentrationCompositionPlot = ({ data, chemicalName }: DotPlotProps) => {
           <MdInfoOutline /> No foods found
         </div>
       )}
-    </div>
+    </Card>
   );
 };
 

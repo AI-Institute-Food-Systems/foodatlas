@@ -2,7 +2,6 @@ import Badge from "@/components/basic/Badge";
 import FoodIcon from "@/components/icons/FoodIcon";
 import ChemicalIcon from "@/components/icons/ChemicalIcon";
 import DiseaseIcon from "@/components/icons/DiseaseIcon";
-import BioactivityIcon from "@/components/icons/BioactivityIcon";
 import LoadingCard from "@/components/basic/LoadingCard";
 
 const colorScheme = {
@@ -10,19 +9,16 @@ const colorScheme = {
   chemical: "text-cyan-600 border-cyan-600 bg-cyan-600/10 shadow-cyan-600/50",
   disease:
     "text-purple-500 border-purple-500 bg-purple-500/10 shadow-purple-500/50",
-  bioactivity:
-    "text-emerald-500 border-emerald-500 bg-emerald-500/10 shadow-emerald-500/50",
 };
 
 const icon = {
   food: <FoodIcon color="#d97706" />,
   chemical: <ChemicalIcon color="#0891b2" />,
   disease: <DiseaseIcon color="#a855f7" />,
-  bioactivity: <BioactivityIcon color="#10b981" />,
 };
 
 interface HeaderSectionSuspenseProps {
-  entityType: "food" | "chemical" | "disease" | "bioactivity";
+  entityType: "food" | "chemical" | "disease";
 }
 
 const HeaderSectionSuspense = async ({
@@ -30,7 +26,8 @@ const HeaderSectionSuspense = async ({
 }: HeaderSectionSuspenseProps) => {
   return (
     <div>
-      <div className="relative flex items-center gap-x-4 gap-y-2 flex-wrap pr-16 md:pr-24">
+      {/* badge & id */}
+      <div className="flex items-center gap-3">
         <Badge
           color={colorScheme[entityType]}
           leftIcon={icon[entityType]}
@@ -38,10 +35,13 @@ const HeaderSectionSuspense = async ({
         >
           {entityType}
         </Badge>
-        <LoadingCard className="h-9 md:h-10 w-56" />
-        <span className="absolute right-0 top-1/2 -translate-y-1/2">
-          <LoadingCard className="w-14 h-3" />
+        <div className="border-l h-6 border-light-400" />
+        <span className="flex items-center gap-2 font-mono font-medium italic text-sm text-light-300">
+          FoodAtlas <LoadingCard className="w-16 h-6" />
         </span>
+      </div>
+      <div className="mt-5">
+        <LoadingCard className="h-[3.9rem] w-56" />
       </div>
     </div>
   );

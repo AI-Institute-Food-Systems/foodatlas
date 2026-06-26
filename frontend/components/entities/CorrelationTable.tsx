@@ -80,7 +80,7 @@ const CorrelationTable = ({
                 {headers.map((header, index) => (
                   <th
                     key={index}
-                    className={`h-9 border-b border-light-700 leading-none break-all md:break-normal py-1.5 ${
+                    className={`h-12 border-b border-light-700 leading-none break-all md:break-normal py-3 ${
                       index === 0
                         ? "pr-4"
                         : index === headers.length - 1
@@ -98,13 +98,13 @@ const CorrelationTable = ({
               </tr>
             </thead>
             {/* table body */}
-            <tbody className="text-sm font-light">
+            <tbody className="font-light">
               {isLoading ? (
                 // loading skeleton
                 Array.from({ length: 10 }, (_, index) => (
                   <tr key={index}>
-                    <td className="w-full py-1.5" colSpan={headers.length}>
-                      <div className="h-9 flex items-center">
+                    <td className="w-full py-3" colSpan={headers.length}>
+                      <div className="h-12 flex items-center">
                         <LoadingCard className="h-5" />
                       </div>
                     </td>
@@ -126,8 +126,8 @@ const CorrelationTable = ({
                   <tr key={`${row.id}-${rowIdx}`}>
                     {/* source chemical (chemical page only) */}
                     {tableLocation === "chemical" && (
-                      <td className="py-1.5 pr-4">
-                        <div className="flex gap-2.5 min-h-9 capitalize items-center">
+                      <td className="py-3 pr-4">
+                        <div className="flex gap-2.5 min-h-12 capitalize items-center">
                           {correlationType === "negative" ? (
                             <div className="w-[1.2rem] h-[1.2rem] flex justify-center items-center rounded-full border-[1.5px] border-red-600 text-red-600 bg-red-600/10 shadow-red-800/50 shadow-[inset_0_2px_8px_rgba(0,0,0,0.4)] md:shadow-inset_0_2px_8px_rgba(0,0,0,0.6) font-bold">
                               <MdRemove />
@@ -148,8 +148,8 @@ const CorrelationTable = ({
                       </td>
                     )}
                     {/* entity name */}
-                    <td className="py-1.5 pr-4">
-                      <div className="flex gap-2.5 min-h-9 capitalize items-center">
+                    <td className="py-3 pr-4">
+                      <div className="flex gap-2.5 min-h-12 capitalize items-center">
                         {tableLocation !== "chemical" && (
                           correlationType === "negative" ? (
                             <div className="w-[1.2rem] h-[1.2rem] flex justify-center items-center rounded-full border-[1.5px] border-red-600 text-red-600 bg-red-600/10 shadow-red-800/50 shadow-[inset_0_2px_8px_rgba(0,0,0,0.4)] md:shadow-inset_0_2px_8px_rgba(0,0,0,0.6) font-bold">
@@ -181,9 +181,9 @@ const CorrelationTable = ({
                       </div>
                     </td>
                     {/* evidence */}
-                    <td className="py-1.5 pl-4">
+                    <td className="py-3 pl-4">
                       {
-                        <div className="flex min-h-9 capitalize items-center justify-end">
+                        <div className="flex min-h-12 capitalize items-center justify-end">
                           <div className="flex gap-2 justify-end items-center flex-nowrap">
                             {row.evidences.slice(0, 3).map((evidence) => (
                               <Link

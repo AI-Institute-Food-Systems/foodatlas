@@ -10,7 +10,6 @@ import DiseaseIcon from "@/components/icons/DiseaseIcon";
 import PublicationIcon from "@/components/icons/PublicationIcon";
 import ConnectionIcon from "@/components/icons/ConnectionIcon";
 import Heading from "@/components/basic/Heading";
-import { apiBase } from "@/utils/fetching";
 
 const NumbersSection = () => {
   const [isShowing, setIsShowing] = useState(false);
@@ -53,7 +52,7 @@ const NumbersSection = () => {
       setIsLoading(true);
       try {
         const response = await fetch(
-          `${apiBase()}/metadata/statistics`,
+          `${process.env.NEXT_PUBLIC_API_URL}/metadata/statistics`,
           {
             headers: {
               Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
