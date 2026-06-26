@@ -123,10 +123,10 @@ const FoodInferredBioactivitiesSection = ({ commonName }: Props) => {
           Inferred via composition
         </span>
         <p className="font-serif italic text-light-400 text-sm">
-          Bioactivities of the chemicals found in {commonName} — i.e., the
-          chemical was measured against the bioactivity directly, and the
-          chemical occurs in this food. Concentration is the food-level
-          median.
+          Bioactivities of chemicals found in {commonName}. The chemical
+          was measured against the activity directly — {commonName} itself
+          was not the test material. Concentration is the food-level
+          median of that chemical.
         </p>
       </div>
 
