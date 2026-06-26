@@ -272,6 +272,12 @@ export type BioactivityListParams = {
   search?: string;
   sortBy?: string;
   sortDir?: "asc" | "desc";
+  // When both are set, the API restricts rows to those with at least
+  // one measurement matching the endpoint+unit, and `sort_by =
+  // "top_measurement_value"` becomes meaningful (sorts by max value
+  // across matching measurements).
+  filterEndpoint?: string;
+  filterUnit?: string;
 };
 
 const buildBioactivityQuery = (params?: BioactivityListParams): string => {
@@ -280,6 +286,8 @@ const buildBioactivityQuery = (params?: BioactivityListParams): string => {
   if (params?.search) p.set("search", params.search);
   if (params?.sortBy) p.set("sort_by", params.sortBy);
   if (params?.sortDir) p.set("sort_dir", params.sortDir);
+  if (params?.filterEndpoint) p.set("filter_endpoint", params.filterEndpoint);
+  if (params?.filterUnit) p.set("filter_unit", params.filterUnit);
   const qs = p.toString();
   return qs ? `&${qs}` : "";
 };
@@ -397,6 +405,43 @@ export async function getBioactivityMeasurements(
     return await res.json();
   } catch {
     return null;
+  }
+}
+
+// Direction selector for the bioactivity table — one per table-page combo.
+export type BioactivityDirection =
+  | "bioactivity-chemicals"
+  | "bioactivity-foods"
+  | "chemical-bioactivities"
+  | "food-bioactivities";
+
+// Distinct (endpoint, unit, count) tuples for the table's filter chips.
+// Returns [] on any fetch failure so the table can render without chips.
+export async function getBioactivityEndpointOptions(
+  commonName: string,
+  direction: BioactivityDirection
+): Promise<{ endpoint: string; unit: string; count: number }[]> {
+  try {
+    const res = await fetch(
+      `${apiBase()}/bioactivity/endpoints?common_name=${encodeURIComponent(
+        commonName
+      )}&direction=${direction}`,
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
+        },
+        next: { revalidate: 86400 },
+      }
+    );
+    if (!res.ok) return [];
+    const payload = await res.json();
+    return (payload?.data ?? []) as {
+      endpoint: string;
+      unit: string;
+      count: number;
+    }[];
+  } catch {
+    return [];
   }
 }
 

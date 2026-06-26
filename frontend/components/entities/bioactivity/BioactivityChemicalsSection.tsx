@@ -8,6 +8,7 @@ import type { BioactivityChemicalRow } from "@/types";
 import BioactivityTable, {
   NameLinkCell,
   NumberCell,
+  TOP_MEASUREMENT_SORT_KEY,
   TopMeasurementCell,
   ViewAssaysCell,
   type SortableColumn,
@@ -56,10 +57,11 @@ const BioactivityChemicalsSection = ({ commonName, anchorId }: Props) => {
         ),
       },
       {
-        key: "top",
+        key: TOP_MEASUREMENT_SORT_KEY,
         label: "Top measurement",
         align: "right",
         width: "w-[28%]",
+        sortable: true,
         render: (row) => <TopMeasurementCell row={row} />,
       },
       {
@@ -76,6 +78,8 @@ const BioactivityChemicalsSection = ({ commonName, anchorId }: Props) => {
   return (
     <BioactivityTable
       tableId={`bioactivity-chemicals-${commonName}`}
+      direction="bioactivity-chemicals"
+      pivotName={commonName}
       fetcher={fetcher}
       columns={columns}
       searchPlaceholder="Search chemicals"

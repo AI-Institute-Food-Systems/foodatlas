@@ -16,6 +16,7 @@ import {
   MdSearch,
   MdUnfoldMore,
 } from "react-icons/md";
+import { twMerge } from "tailwind-merge";
 
 import Link from "@/components/basic/Link";
 import LoadingCard from "@/components/basic/LoadingCard";
@@ -24,8 +25,10 @@ import BioactivityMeasurementsModal from "@/components/entities/bioactivity/Bioa
 import { formatTopMeasurement, topMeasurementOf } from "@/components/entities/bioactivity/format";
 import { usePaginations } from "@/context/paginationsContext";
 import { encodeSpace } from "@/utils/utils";
-import type {
-  BioactivityListParams,
+import {
+  getBioactivityEndpointOptions,
+  type BioactivityDirection,
+  type BioactivityListParams,
 } from "@/utils/fetching";
 import type {
   BioactivityChemicalRow,
@@ -54,9 +57,20 @@ export type SortableColumn = {
   render: (row: BioactivityRow, ctx: ColumnContext) => ReactNode;
 };
 
+// Sort-by value that the API understands as "max value across matching
+// measurements" — only meaningful when an endpoint+unit filter is set.
+const TOP_VALUE_SORT_KEY = "top_measurement_value";
+
 interface Props {
   // Stable identifier for pagination context — e.g. "food-bioact-foodId".
   tableId: string;
+  // Pivot+direction combo used to fetch the endpoint-filter chip options.
+  // Optional — when absent, the chip row is hidden (table behaves as
+  // before). Must match the route the fetcher hits.
+  direction?: BioactivityDirection;
+  // The pivot entity's common_name, used by getBioactivityEndpointOptions
+  // to look up the bioactivity_id (or chem/food id) in the right MV.
+  pivotName?: string;
   // Server-side fetcher; the table passes page/search/sort/sortDir.
   fetcher: (
     params: BioactivityListParams
@@ -98,6 +112,8 @@ interface Props {
 
 const BioactivityTable = ({
   tableId,
+  direction,
+  pivotName,
   fetcher,
   columns,
   defaultSortBy = "measurement_count",
@@ -114,6 +130,30 @@ const BioactivityTable = ({
     by: defaultSortBy,
     dir: defaultSortDir,
   });
+  // Filter chip selection. Empty string = "All" (no filter). Both must
+  // be set together for the backend to honour the filter; pairing them
+  // here keeps the wire format consistent.
+  const [filter, setFilter] = useState<{ endpoint: string; unit: string }>({
+    endpoint: "",
+    unit: "",
+  });
+  const filterActive = Boolean(filter.endpoint && filter.unit);
+  // Chip options: distinct (endpoint, unit, count) tuples for this
+  // direction+pivot, fetched once per page load.
+  const [filterOptions, setFilterOptions] = useState<
+    { endpoint: string; unit: string; count: number }[]
+  >([]);
+  useEffect(() => {
+    if (!direction || !pivotName) return;
+    let cancelled = false;
+    (async () => {
+      const opts = await getBioactivityEndpointOptions(pivotName, direction);
+      if (!cancelled) setFilterOptions(opts);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [direction, pivotName]);
 
   const [rows, setRows] = useState<BioactivityRow[]>([]);
   const [totalPages, setTotalPages] = useState(0);
@@ -132,6 +172,8 @@ const BioactivityTable = ({
         search: searchTerm,
         sortBy: sort.by,
         sortDir: sort.dir,
+        filterEndpoint: filter.endpoint || undefined,
+        filterUnit: filter.unit || undefined,
       });
       if (cancelled) return;
       setRows(payload?.data ?? []);
@@ -141,7 +183,7 @@ const BioactivityTable = ({
     return () => {
       cancelled = true;
     };
-  }, [fetcher, currentPage, searchTerm, sort]);
+  }, [fetcher, currentPage, searchTerm, sort, filter]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value.toLowerCase());
@@ -151,13 +193,26 @@ const BioactivityTable = ({
     setSearchTerm("");
     setTablePaginations(tableId, 1, 20);
   };
+  // Top-measurement sort is only meaningful when a unit filter is set
+  // (raw values across units are incomparable). For that header, clicks
+  // toggle direction but require the filter to be active.
   const handleSortClick = (key: string) => {
+    if (key === TOP_VALUE_SORT_KEY && !filterActive) return;
     setTablePaginations(tableId, 1, 20);
     setSort((prev) =>
       prev.by === key
         ? { by: key, dir: prev.dir === "asc" ? "desc" : "asc" }
         : { by: key, dir: "desc" }
     );
+  };
+  const handleFilterChange = (endpoint: string, unit: string) => {
+    setFilter({ endpoint, unit });
+    setTablePaginations(tableId, 1, 20);
+    // When clearing the filter, also drop the top-value sort if it was
+    // active — it's not meaningful without a filter.
+    if (!endpoint && !unit && sort.by === TOP_VALUE_SORT_KEY) {
+      setSort({ by: defaultSortBy, dir: defaultSortDir });
+    }
   };
 
   const colSpan = columns.length;
@@ -166,8 +221,8 @@ const BioactivityTable = ({
 
   return (
     <div className="flex flex-col gap-7">
-      {/* toolbar — same shape as the composition table's search row */}
-      <div className="w-full">
+      {/* toolbar — search + endpoint:unit chip row */}
+      <div className="w-full flex flex-col gap-3">
         <div className="relative flex items-center">
           <MdSearch className="absolute left-2.5 w-5 h-5 text-light-400" />
           <input
@@ -188,6 +243,31 @@ const BioactivityTable = ({
             </button>
           )}
         </div>
+        {filterOptions.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[10px] uppercase tracking-wider text-light-500 mr-1">
+              Endpoint · unit
+            </span>
+            <EndpointChip
+              label="All"
+              active={!filterActive}
+              onClick={() => handleFilterChange("", "")}
+            />
+            {filterOptions.map((opt) => {
+              const active =
+                filter.endpoint === opt.endpoint && filter.unit === opt.unit;
+              return (
+                <EndpointChip
+                  key={`${opt.endpoint}|${opt.unit}`}
+                  label={`${opt.endpoint} · ${opt.unit}`}
+                  count={opt.count}
+                  active={active}
+                  onClick={() => handleFilterChange(opt.endpoint, opt.unit)}
+                />
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <div className="overflow-x-auto">
@@ -217,6 +297,11 @@ const BioactivityTable = ({
                       active={sort.by === c.key}
                       dir={sort.dir}
                       onClick={() => handleSortClick(c.key)}
+                      disabledHint={
+                        c.key === TOP_VALUE_SORT_KEY && !filterActive
+                          ? "Pick an endpoint · unit chip to sort by potency"
+                          : undefined
+                      }
                     />
                   ) : (
                     <span className="select-none uppercase text-xs font-medium">
@@ -332,19 +417,27 @@ const SortableHeader = ({
   active,
   dir,
   onClick,
+  disabledHint,
 }: {
   label: string;
   align?: "left" | "right";
   active: boolean;
   dir: SortDir;
   onClick: () => void;
+  // Tooltip + cursor when the column can't be sorted in the current
+  // state (e.g. cross-unit top-value sort with no filter selected).
+  disabledHint?: string;
 }) => (
   <button
     type="button"
     onClick={onClick}
-    className={`group flex items-center gap-1 ${
-      align === "right" ? "justify-end ml-auto" : ""
-    } cursor-pointer focus:outline-none`}
+    disabled={Boolean(disabledHint)}
+    title={disabledHint}
+    className={twMerge(
+      "group flex items-center gap-1 cursor-pointer focus:outline-none",
+      align === "right" && "justify-end ml-auto",
+      disabledHint && "cursor-not-allowed opacity-60"
+    )}
   >
     <span
       className={`select-none uppercase text-xs font-medium transition duration-300 ease-in-out ${
@@ -364,6 +457,47 @@ const SortableHeader = ({
     )}
   </button>
 );
+
+const EndpointChip = ({
+  label,
+  count,
+  active,
+  onClick,
+}: {
+  label: string;
+  count?: number;
+  active: boolean;
+  onClick: () => void;
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    aria-pressed={active}
+    className={twMerge(
+      "inline-flex items-baseline gap-1 px-2.5 py-0.5 rounded-full border-[1.5px] font-mono italic text-xs transition-colors",
+      active
+        ? "bg-light-200 text-light-900 border-light-200 font-semibold"
+        : "bg-transparent border-light-700/60 text-light-400 hover:text-light-100 hover:border-light-500"
+    )}
+  >
+    <span>{label}</span>
+    {typeof count === "number" && (
+      <span
+        className={twMerge(
+          "not-italic font-mono text-[10px] tabular-nums",
+          active ? "text-light-700" : "text-light-500"
+        )}
+      >
+        {count.toLocaleString()}
+      </span>
+    )}
+  </button>
+);
+
+// Sort key recognised by the API as "sort by max value across
+// measurements that match filter_endpoint + filter_unit". Exported so
+// section column specs can use it as the Top Measurement sortable key.
+export const TOP_MEASUREMENT_SORT_KEY = TOP_VALUE_SORT_KEY;
 
 // Shared cell renderers used by sections (re-exported so each section's
 // column spec stays terse).

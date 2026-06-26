@@ -12,6 +12,9 @@ vi.mock("@/utils/fetching", () => ({
   getBioactivityFoods: vi.fn(),
   getChemicalBioactivities: vi.fn(),
   getFoodBioactivities: vi.fn(),
+  // BioactivityTable calls this on mount to populate the endpoint·unit
+  // filter chips; stub it so the mock graph is complete.
+  getBioactivityEndpointOptions: vi.fn().mockResolvedValue([]),
 }));
 
 // next/navigation isn't mounted in the vitest jsdom env; Button uses
