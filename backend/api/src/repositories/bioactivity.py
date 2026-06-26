@@ -555,9 +555,7 @@ async def get_measurements(
     )
     # HOTFIX 2026-06-26 — clean dirty endpoint/unit values before
     # enrichment + return. See _bioact_hotfix.py for rules + removal.
-    rows = _bioact_hotfix.clean_measurements(
-        [dict(r._mapping) for r in rows_result]
-    )
+    rows = _bioact_hotfix.clean_measurements([dict(r._mapping) for r in rows_result])
 
     # Assay metadata is best-effort enrichment — base_bioassays may not exist
     # in environments that haven't yet migrated. Log and continue so the
