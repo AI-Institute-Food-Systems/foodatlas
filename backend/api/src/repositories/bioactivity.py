@@ -41,7 +41,6 @@ _BIO_CHEM_SORT = {
     "measurement_count": "measurement_count",
     "active_count": "active_count",
     "inactive_count": "inactive_count",
-    # Correlated subquery alias — see get_chemicals.select_cols.
     "n_foods": "n_foods",
 }
 _FOOD_BIO_SORT = {
@@ -236,16 +235,7 @@ async def get_chemicals(
             "chemical_name AS name, chemical_foodatlas_id AS id, "
             "measurement_count, active_count, inactive_count, "
             "unspecified_count, inconclusive_count, measurements, "
-            # TODO(perf): switch to the materialised n_foods column once
-            # the next ETL run lands (model + materializer added the
-            # column in the same PR; column-access avoids the per-row
-            # subquery cost entirely). Until then, this correlated
-            # subquery is index-served by ix_mv_fcc_chemical_id and
-            # already fast enough.
-            "(SELECT COUNT(DISTINCT food_foodatlas_id) "
-            "FROM mv_food_chemical_composition "
-            "WHERE chemical_foodatlas_id = "
-            "mv_chemical_bioactivity.chemical_foodatlas_id) AS n_foods"
+            "n_foods"
         ),
         search_col="chemical_name",
         search=search,
