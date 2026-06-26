@@ -18,6 +18,10 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+# HOTFIX 2026-06-26 — REMOVE WHEN upstream endpoint/unit cleanup lands.
+# See _bioact_hotfix.py docstring for the rules + removal checklist.
+from src.repositories import _bioact_hotfix
+
 logger = logging.getLogger(__name__)
 
 ROWS_PER_PAGE_DEFAULT = 20
@@ -85,6 +89,10 @@ def _top_measurement_by_value(measurements: list | None) -> dict | None:
 
 def _attach_top_measurement(data: list[dict]) -> list[dict]:
     for row in data:
+        # HOTFIX 2026-06-26 — clean dirty endpoint/unit values in the
+        # inline measurements sample before downstream consumers see
+        # them. See _bioact_hotfix.py for the rules + removal note.
+        row["measurements"] = _bioact_hotfix.clean_measurements(row.get("measurements"))
         row["top_measurement"] = _top_measurement_by_value(row.get("measurements"))
     return data
 
@@ -498,7 +506,11 @@ async def get_endpoint_options(
         """),
         {"rel": rel, "pivot": pivot_id},
     )
-    data = [dict(r._mapping) for r in rows_result]
+    # HOTFIX 2026-06-26 — drop leaked-assay/outcome endpoints and fold
+    # unit aliases before exposing the chip list. See _bioact_hotfix.py.
+    data = _bioact_hotfix.clean_endpoint_options(
+        [dict(r._mapping) for r in rows_result]
+    )
     return {"data": data, "metadata": {"row_count": len(data)}}
 
 
@@ -541,7 +553,11 @@ async def get_measurements(
         """),
         {"rel": relationship, "head": head_id, "tail": tail_id},
     )
-    rows = [dict(r._mapping) for r in rows_result]
+    # HOTFIX 2026-06-26 — clean dirty endpoint/unit values before
+    # enrichment + return. See _bioact_hotfix.py for rules + removal.
+    rows = _bioact_hotfix.clean_measurements(
+        [dict(r._mapping) for r in rows_result]
+    )
 
     # Assay metadata is best-effort enrichment — base_bioassays may not exist
     # in environments that haven't yet migrated. Log and continue so the
