@@ -354,24 +354,27 @@ const MeasurementsTable = ({
   return (
     <table className="w-full table-fixed">
       <colgroup>
-        <col className="w-[28%]" />
-        <col className="w-[16%]" />
+        <col className="w-[26%]" />
+        <col className="w-[14%]" />
+        <col className="w-[10%]" />
         <col className="w-[12%]" />
-        <col className="w-[22%]" />
-        <col className="w-[22%]" />
+        <col className="w-[20%]" />
+        <col className="w-[18%]" />
       </colgroup>
       <thead className="text-light-400 text-left">
         <tr>
-          {["Assay", "Endpoint", "Outcome", "Value", "Curve"].map((h) => (
-            <th
-              key={h}
-              className="h-9 border-b border-light-700 leading-none py-1.5 px-2 first:pl-0 last:pr-0"
-            >
-              <span className="select-none uppercase text-xs font-medium">
-                {h}
-              </span>
-            </th>
-          ))}
+          {["Assay", "Endpoint", "Outcome", "Source", "Value", "Curve"].map(
+            (h) => (
+              <th
+                key={h}
+                className="h-9 border-b border-light-700 leading-none py-1.5 px-2 first:pl-0 last:pr-0"
+              >
+                <span className="select-none uppercase text-xs font-medium">
+                  {h}
+                </span>
+              </th>
+            )
+          )}
         </tr>
       </thead>
       <tbody className="text-sm font-light">
@@ -390,6 +393,9 @@ const MeasurementsTable = ({
             </td>
             <td className="py-1.5 px-2 align-top">
               <OutcomeBadge outcome={m.outcome} />
+            </td>
+            <td className="py-1.5 px-2 align-top">
+              <SourceBadge source={m.evidence_source} />
             </td>
             <td className="py-1.5 px-2 align-top font-mono text-xs text-light-200 tabular-nums text-right">
               {m.value === null || m.value === undefined ? (
@@ -413,7 +419,7 @@ const MeasurementsTable = ({
         ))}
         {Array.from({ length: padCount }).map((_, i) => (
           <tr key={`pad-${i}`}>
-            <td className="py-1.5 pr-2" colSpan={5}>
+            <td className="py-1.5 pr-2" colSpan={6}>
               {skeleton ? (
                 <LoadingCard className="h-5" />
               ) : (
@@ -424,6 +430,32 @@ const MeasurementsTable = ({
         ))}
       </tbody>
     </table>
+  );
+};
+
+// Distinguishes Experimental measurements from Predicted / computational
+// ones — the staging snapshot is all Experimental today but the field is
+// in base_attestations_bioactivity and will populate once Predicted rows
+// land. Stays mute (em-dash) for blank/unknown values.
+const SourceBadge = ({
+  source,
+}: {
+  source: string | null | undefined;
+}) => {
+  if (!source) return <span className="text-light-600">—</span>;
+  const lc = source.toLowerCase();
+  const tone = lc.startsWith("exp")
+    ? "border-light-700/60 bg-light-900/40 text-light-300"
+    : lc.startsWith("pred") || lc.startsWith("comp")
+      ? "border-amber-500/40 bg-amber-500/10 text-amber-200"
+      : "border-light-700/60 bg-light-900/40 text-light-400";
+  return (
+    <span
+      className={`inline-block capitalize text-[10px] leading-tight px-2 py-0.5 rounded-full border ${tone}`}
+      title={source}
+    >
+      {source}
+    </span>
   );
 };
 

@@ -32,7 +32,7 @@ const BioactivityChemicalsSection = ({ commonName, anchorId }: Props) => {
         key: "name",
         label: "Chemical",
         align: "left",
-        width: "w-[28%]",
+        width: "w-[24%]",
         sortable: true,
         render: (row) => <NameLinkCell row={row} hrefPrefix="/chemical/" />,
       },
@@ -40,7 +40,7 @@ const BioactivityChemicalsSection = ({ commonName, anchorId }: Props) => {
         key: "active_count",
         label: "Active",
         align: "right",
-        width: "w-[14%]",
+        width: "w-[10%]",
         sortable: true,
         render: (row) => (
           <NumberCell value={(row as BioactivityChemicalRow).active_count} />
@@ -50,10 +50,20 @@ const BioactivityChemicalsSection = ({ commonName, anchorId }: Props) => {
         key: "inactive_count",
         label: "Inactive",
         align: "right",
-        width: "w-[14%]",
+        width: "w-[10%]",
         sortable: true,
         render: (row) => (
           <NumberCell value={(row as BioactivityChemicalRow).inactive_count} />
+        ),
+      },
+      {
+        key: "n_foods",
+        label: "# Foods",
+        align: "right",
+        width: "w-[12%]",
+        sortable: true,
+        render: (row) => (
+          <NumberCell value={(row as BioactivityChemicalRow).n_foods ?? 0} />
         ),
       },
       {

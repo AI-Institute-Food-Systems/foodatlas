@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import FoodCompositionTab from "@/components/entities/food/FoodCompositionTab";
 import FoodBioactivitiesSection from "@/components/entities/bioactivity/FoodBioactivitiesSection";
+import FoodInferredBioactivitiesSection from "@/components/entities/bioactivity/FoodInferredBioactivitiesSection";
 import HeaderSection from "@/components/entities/HeaderSection";
 import HeaderSectionSuspense from "@/components/entities/HeaderSectionSuspense";
 import EntityDetailLayout from "@/components/entities/EntityDetailLayout";
@@ -104,10 +105,14 @@ const FoodPage = async ({ params }: FoodPageProps) => {
             label: "Bioactivities",
             count: bioactivitiesCount,
             content: (
-              <FoodBioactivitiesSection
-                commonName={commonName}
-                anchorId={anchorId}
-              />
+              <div className="flex flex-col gap-12">
+                <FoodBioactivitiesSection
+                  commonName={commonName}
+                  anchorId={anchorId}
+                />
+                <div className="border-t-2 border-double border-light-700/60" />
+                <FoodInferredBioactivitiesSection commonName={commonName} />
+              </div>
             ),
           },
           {

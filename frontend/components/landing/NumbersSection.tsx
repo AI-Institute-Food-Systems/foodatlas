@@ -9,6 +9,7 @@ import ChemicalIcon from "@/components/icons/ChemicalIcon";
 import DiseaseIcon from "@/components/icons/DiseaseIcon";
 import PublicationIcon from "@/components/icons/PublicationIcon";
 import ConnectionIcon from "@/components/icons/ConnectionIcon";
+import BioactivityIcon from "@/components/icons/BioactivityIcon";
 import Heading from "@/components/basic/Heading";
 import { apiBase } from "@/utils/fetching";
 
@@ -19,6 +20,7 @@ const NumbersSection = () => {
     foods: 0,
     chemicals: 0,
     diseases: 0,
+    bioactivities: 0,
     publications: 0,
   });
   const [isLoading, setIsLoading] = useState(false);
@@ -87,6 +89,7 @@ const NumbersSection = () => {
           foods: stats.foods || 0,
           chemicals: stats.chemicals || 0,
           diseases: stats.diseases || 0,
+          bioactivities: stats.bioactivities || 0,
           publications: stats.publications || 0,
         });
         setIsLoading(false);
@@ -100,9 +103,10 @@ const NumbersSection = () => {
 
   const delays = [
     "delay-0",
-    "delay-[250ms]",
-    "delay-[500ms]",
-    "delay-[750ms]",
+    "delay-[200ms]",
+    "delay-[400ms]",
+    "delay-[600ms]",
+    "delay-[800ms]",
     "delay-[1000ms]",
   ];
 
@@ -121,10 +125,9 @@ const NumbersSection = () => {
             </Heading>
           </div>
           <div
-            className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-5 gap-4 lg:gap-4 mt-20 min-h-60 w-full"
+            className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 lg:gap-4 mt-20 min-h-60 w-full"
             ref={containerRef}
           >
-            {/* replace with # of associations */}
             {[
               {
                 icon: <ConnectionIcon width={40} height={40} color="#F4511E" />,
@@ -140,6 +143,13 @@ const NumbersSection = () => {
                 icon: <ChemicalIcon width={40} height={40} color="#F4511E" />,
                 number: stats.chemicals,
                 label: "Chemicals",
+              },
+              {
+                icon: (
+                  <BioactivityIcon width={40} height={40} color="#F4511E" />
+                ),
+                number: stats.bioactivities,
+                label: "Bioactivities",
               },
               {
                 icon: <DiseaseIcon width={40} height={40} color="#F4511E" />,

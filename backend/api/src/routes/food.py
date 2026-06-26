@@ -119,3 +119,29 @@ async def food_bioactivities(
         filter_endpoint=filter_endpoint,
         filter_unit=filter_unit,
     )
+
+
+@router.get("/inferred-bioactivities")
+async def food_inferred_bioactivities(
+    common_name: str = Query(...),
+    page: int = Query(1, ge=1),
+    search: str = Query(""),
+    sort_by: str = Query("concentration"),
+    sort_dir: str = Query("desc"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Bioactivities inferred via the food's chemical composition.
+
+    Joins mv_food_chemical_composition x mv_chemical_bioactivity on
+    chemical_foodatlas_id. One row per (chemical, bioactivity) pair —
+    the chemical's food-level concentration is included so the UI can
+    surface "how much is in it" alongside the inferred bioactivity.
+    """
+    return await bioactivity.get_food_inferred_bioactivities(
+        db,
+        common_name,
+        page=page,
+        search=search,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
+    )

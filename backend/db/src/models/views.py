@@ -93,6 +93,11 @@ class MVFoodChemicalComposition(Base):
     __table_args__ = (
         Index("ix_mv_fcc_food_name", "food_name"),
         Index("ix_mv_fcc_chemical_name", "chemical_name"),
+        # Used by the n_foods correlated subquery on /bioactivity/chemicals
+        # and the join in /food/inferred-bioactivities. Without this the
+        # subquery sequentially scans the whole MV per output row — page
+        # loads went from 1.7s → 60s timeout sorting by n_foods.
+        Index("ix_mv_fcc_chemical_id", "chemical_foodatlas_id"),
     )
 
 
@@ -204,11 +209,39 @@ class MVChemicalBioactivity(Base):
     inactive_count: Mapped[int] = mapped_column(Integer, server_default="0")
     unspecified_count: Mapped[int] = mapped_column(Integer, server_default="0")
     inconclusive_count: Mapped[int] = mapped_column(Integer, server_default="0")
+    # Distinct foods containing this chemical, computed at MV build time
+    # from mv_food_chemical_composition. Surfaced server-side so the
+    # /bioactivity/chemicals table can sort by it in O(log n) instead of
+    # the O(n*log n) correlated-subquery approach.
+    n_foods: Mapped[int] = mapped_column(Integer, server_default="0")
     measurements: Mapped[list] = mapped_column(JSONB, server_default="[]")
 
     __table_args__ = (
         Index("ix_mv_cb_chemical", "chemical_name"),
         Index("ix_mv_cb_bioactivity", "bioactivity_name"),
+        Index("ix_mv_cb_chemical_id", "chemical_foodatlas_id"),
+        # Composite indexes that serve the most common (filter, sort)
+        # combos directly — WHERE bioactivity_name = X ORDER BY
+        # measurement_count DESC LIMIT 20 returns from the index without
+        # a separate sort pass over the 11k+ matching rows.
+        Index(
+            "ix_mv_cb_bio_mcount",
+            "bioactivity_name",
+            "measurement_count",
+            postgresql_using="btree",
+        ),
+        Index(
+            "ix_mv_cb_chem_mcount",
+            "chemical_name",
+            "measurement_count",
+            postgresql_using="btree",
+        ),
+        Index(
+            "ix_mv_cb_bio_nfoods",
+            "bioactivity_name",
+            "n_foods",
+            postgresql_using="btree",
+        ),
     )
 
 
@@ -231,4 +264,17 @@ class MVFoodBioactivity(Base):
     __table_args__ = (
         Index("ix_mv_fb_food", "food_name"),
         Index("ix_mv_fb_bioactivity", "bioactivity_name"),
+        # Composite indexes for default-sort patterns on the foods table.
+        Index(
+            "ix_mv_fb_food_mcount",
+            "food_name",
+            "measurement_count",
+            postgresql_using="btree",
+        ),
+        Index(
+            "ix_mv_fb_bio_mcount",
+            "bioactivity_name",
+            "measurement_count",
+            postgresql_using="btree",
+        ),
     )
