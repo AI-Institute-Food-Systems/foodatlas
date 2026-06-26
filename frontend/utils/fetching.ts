@@ -1,5 +1,15 @@
 import { MacroAndMicroData, Metadata, TaxonomyData } from "@/types";
 
+// API base URL. On the server we hit the upstream ALB directly (it may be
+// HTTP — that's fine server-side). On the client we route through a
+// same-origin rewrite (/_proxy-api → ALB; configured in next.config.mjs)
+// so the browser never makes a mixed-content request when the page is
+// served over HTTPS.
+export const apiBase = (): string =>
+  typeof window === "undefined"
+    ? (process.env.NEXT_PUBLIC_API_URL ?? "")
+    : "/_proxy-api";
+
 // The /bioactivity/metadata endpoint returns external_ids in a flat
 // shape ({key: ["id1", ...]}) while every other entity endpoint returns
 // the structured shape ({key: {display_name, ids: [{id, url}]}}).
@@ -38,9 +48,7 @@ export async function getMetaData(
   // is flaky enough that throwing here turned every blip into a hard error.
   try {
     const res = await fetch(
-      `${
-        process.env.NEXT_PUBLIC_API_URL
-      }/${entityType}/metadata?common_name=${encodeURIComponent(commonName)}`,
+      `${apiBase()}/${entityType}/metadata?common_name=${encodeURIComponent(commonName)}`,
       {
         headers: {
           Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
@@ -67,9 +75,7 @@ export async function getTaxonomyData(
   entityType: string
 ): Promise<TaxonomyData> {
   const res = await fetch(
-    `${
-      process.env.NEXT_PUBLIC_API_URL
-    }/${entityType}/taxonomy?common_name=${encodeURIComponent(commonName)}`,
+    `${apiBase()}/${entityType}/taxonomy?common_name=${encodeURIComponent(commonName)}`,
     {
       headers: {
         Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
@@ -94,9 +100,7 @@ export async function getFoodMacroAndMicroData(
   commonName: string
 ): Promise<MacroAndMicroData> {
   const response = await fetch(
-    `${
-      process.env.NEXT_PUBLIC_API_URL
-    }/food/profile?common_name=${encodeURIComponent(commonName)}`,
+    `${apiBase()}/food/profile?common_name=${encodeURIComponent(commonName)}`,
     {
       headers: {
         Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
@@ -144,9 +148,7 @@ export async function getFoodCompositionData(
     ? `&find_chemical=${encodeURIComponent(findChemical)}`
     : "";
   const response = await fetch(
-    `${
-      process.env.NEXT_PUBLIC_API_URL
-    }/food/composition?common_name=${encodeURIComponent(
+    `${apiBase()}/food/composition?common_name=${encodeURIComponent(
       commonName
     )}&page=${currentPage}&filter_source=${sourceFilters.join(
       "%2B"
@@ -173,9 +175,7 @@ export async function getFoodCompositionData(
 // fetch food composition counts (classification + source counts in one call)
 export async function getFoodCompositionCounts(commonName: string) {
   const response = await fetch(
-    `${
-      process.env.NEXT_PUBLIC_API_URL
-    }/food/composition/counts?common_name=${encodeURIComponent(commonName)}`,
+    `${apiBase()}/food/composition/counts?common_name=${encodeURIComponent(commonName)}`,
     {
       headers: {
         Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
@@ -200,9 +200,7 @@ export async function getFoodCompositionCounts(commonName: string) {
 // fetch chemical composition data, i.e. the foods containing it
 export async function getChemicalCompositionData(commonName: string) {
   const res = await fetch(
-    `${
-      process.env.NEXT_PUBLIC_API_URL
-    }/chemical/composition?common_name=${encodeURIComponent(commonName)}`,
+    `${apiBase()}/chemical/composition?common_name=${encodeURIComponent(commonName)}`,
     {
       headers: {
         Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
@@ -229,9 +227,7 @@ export async function getDiseaseData(
   tableLocation: string,
   correlationType: "positive" | "negative"
 ) {
-  const url = `${
-    process.env.NEXT_PUBLIC_API_URL
-  }/${tableLocation}/correlation?common_name=${encodeURIComponent(
+  const url = `${apiBase()}/${tableLocation}/correlation?common_name=${encodeURIComponent(
     commonName
   )}&page=${currentPage}&relation=${correlationType}`;
   const response = await fetch(url, {
@@ -252,7 +248,7 @@ export async function getDiseaseData(
 
 // fetch db bundle download entries
 export async function getDownloadEntries() {
-  const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/download`, {
+  const response = await fetch(`${apiBase()}/download`, {
     headers: {
       Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
     },
@@ -300,7 +296,7 @@ const bioactivityListFetch = async (
   // "An error occurred fetching data". See feedback-graceful-api-failures.
   try {
     const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}${path}?common_name=${encodeURIComponent(
+      `${apiBase()}${path}?common_name=${encodeURIComponent(
         commonName
       )}${buildBioactivityQuery(params)}`,
       {
@@ -386,7 +382,7 @@ export async function getBioactivityMeasurements(
 ) {
   try {
     const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/bioactivity/measurements?head_id=${encodeURIComponent(
+      `${apiBase()}/bioactivity/measurements?head_id=${encodeURIComponent(
         headId
       )}&tail_id=${encodeURIComponent(tailId)}&relationship=${relationship}`,
       {
