@@ -64,6 +64,10 @@ export type BioactivityChemicalRow = {
   inactive_count: number;
   measurements: BioactivityMeasurement[];
   top_measurement: BioactivityTopMeasurement | null;
+  // # of distinct foods containing this chemical. Only populated by
+  // /bioactivity/chemicals (server-side correlated subquery); undefined
+  // on the chemical-bioactivities direction where it's not relevant.
+  n_foods?: number;
 };
 
 export type BioactivityFoodRow = {

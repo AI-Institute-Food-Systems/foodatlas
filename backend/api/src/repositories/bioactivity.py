@@ -37,6 +37,8 @@ _BIO_CHEM_SORT = {
     "measurement_count": "measurement_count",
     "active_count": "active_count",
     "inactive_count": "inactive_count",
+    # Correlated subquery alias — see get_chemicals.select_cols.
+    "n_foods": "n_foods",
 }
 _FOOD_BIO_SORT = {
     "name": "food_name",
@@ -225,7 +227,16 @@ async def get_chemicals(
         select_cols=(
             "chemical_name AS name, chemical_foodatlas_id AS id, "
             "measurement_count, active_count, inactive_count, "
-            "unspecified_count, inconclusive_count, measurements"
+            "unspecified_count, inconclusive_count, measurements, "
+            # Correlated subquery: how many distinct foods contain this
+            # chemical. Counted once per row in the paginated output (20
+            # rows/page), keyed on chemical_foodatlas_id. Cheap with
+            # mv_food_chemical_composition's row count today; if it
+            # becomes a bottleneck, promote to a CTE.
+            "(SELECT COUNT(DISTINCT food_foodatlas_id) "
+            "FROM mv_food_chemical_composition "
+            "WHERE chemical_foodatlas_id = "
+            "mv_chemical_bioactivity.chemical_foodatlas_id) AS n_foods"
         ),
         search_col="chemical_name",
         search=search,
@@ -342,6 +353,87 @@ async def get_food_bioactivities(
         filter_endpoint=filter_endpoint,
         filter_unit=filter_unit,
     )
+
+
+# ---------------------------------------------------------------------
+# Food → chemical → bioactivity (transitive inference)
+# ---------------------------------------------------------------------
+# Each row is one (chemical-in-food x bioactivity-of-chemical) pair --
+# the chemical comes from mv_food_chemical_composition (carries the
+# food-level concentration), the bioactivity counts/sample come from
+# mv_chemical_bioactivity (the same source the direct chemical table
+# uses). This is presented under the direct food→bioactivity table as
+# "implied by the food's chemistry".
+
+_INFERRED_SORT = {
+    "bioactivity": "cb.bioactivity_name",
+    "chemical": "fcc.chemical_name",
+    "concentration": "(fcc.median_concentration->>'value')::NUMERIC",
+    "measurement_count": "cb.measurement_count",
+    "active_count": "cb.active_count",
+    "inactive_count": "cb.inactive_count",
+}
+
+
+async def get_food_inferred_bioactivities(
+    session: AsyncSession,
+    common_name: str,
+    page: int = 1,
+    search: str = "",
+    sort_by: str = "concentration",
+    sort_dir: str = "desc",
+    rows_per_page: int = ROWS_PER_PAGE_DEFAULT,
+) -> dict[str, object]:
+    """Bioactivities of the chemicals found in this food (transitive)."""
+    sort_col = _INFERRED_SORT.get(sort_by, _INFERRED_SORT["concentration"])
+    direction = sort_dir.upper() if sort_dir.upper() in _VALID_DIR else "DESC"
+
+    params: dict = {"name": common_name}
+    where_parts = ["fcc.food_name = :name"]
+    if search:
+        where_parts.append(
+            "(cb.bioactivity_name ILIKE :q OR fcc.chemical_name ILIKE :q)"
+        )
+        params["q"] = f"%{search}%"
+    where = " AND ".join(where_parts)
+
+    total_result = await session.execute(
+        text(f"""
+            SELECT COUNT(*)
+            FROM mv_food_chemical_composition fcc
+            JOIN mv_chemical_bioactivity cb
+              ON cb.chemical_foodatlas_id = fcc.chemical_foodatlas_id
+            WHERE {where}
+        """),
+        params,
+    )
+    total = int(total_result.scalar() or 0)
+
+    offset = rows_per_page * (page - 1)
+    rows_result = await session.execute(
+        text(f"""
+            SELECT
+              cb.bioactivity_name AS bioactivity,
+              cb.bioactivity_foodatlas_id AS bioactivity_id,
+              fcc.chemical_name AS chemical,
+              fcc.chemical_foodatlas_id AS chemical_id,
+              fcc.median_concentration,
+              cb.measurement_count, cb.active_count, cb.inactive_count,
+              cb.measurements
+            FROM mv_food_chemical_composition fcc
+            JOIN mv_chemical_bioactivity cb
+              ON cb.chemical_foodatlas_id = fcc.chemical_foodatlas_id
+            WHERE {where}
+            ORDER BY {sort_col} {direction} NULLS LAST
+            OFFSET :offset ROWS FETCH FIRST :limit ROWS ONLY
+        """),
+        {**params, "offset": offset, "limit": rows_per_page},
+    )
+    data = _attach_top_measurement([dict(r._mapping) for r in rows_result])
+    return {
+        "data": data,
+        "metadata": _build_meta(total, page, rows_per_page, len(data)),
+    }
 
 
 # ---------------------------------------------------------------------
