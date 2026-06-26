@@ -86,11 +86,58 @@ def refresh() -> None:
     click.echo("Done.")
 
 
-# Ordered list of (description, sql) for the bioact-perf migration —
-# all idempotent, safe to re-run, no row mutations beyond UPDATEs from
-# already-present FCC data. Lives here (rather than in src/etl/) so the
-# whole migration is one screen and easy to audit.
+# Ordered list of (description, sql) for the bioact-perf migration.
+#
+# Ordering matters for concurrency safety against a live API:
+#   1. SET lock_timeout — fail fast if we can't get a lock, instead of
+#      starving in the queue (a queued ALTER blocks every subsequent
+#      reader behind it, degrading the API for the whole wait).
+#   2. CREATE INDEX CONCURRENTLY for the read-side indexes — these take
+#      only ShareUpdateExclusiveLock, so concurrent SELECT/UPDATE on the
+#      MVs is unaffected. Restores ~all of the missing sort/join perf
+#      even if the ALTER stage below later fails.
+#   3. ALTER + UPDATE + the n_foods-dependent composite index last —
+#      these need heavier locks (AccessExclusive for ALTER) and depend
+#      on the new column. If lock_timeout fires here, indexes from (2)
+#      have already shipped and the migration can be re-run off-hours.
+#
+# All statements are idempotent (IF NOT EXISTS / re-runnable UPDATE) so
+# re-running after a partial failure is safe.
 _BIOACT_PERF_MIGRATION: list[tuple[str, str]] = [
+    (
+        "session: fail any blocked DDL after 30s instead of starving",
+        "SET lock_timeout = '30s'",
+    ),
+    (
+        "FCC(chemical_foodatlas_id) — speeds n_foods + inferred-bio join",
+        "CREATE INDEX CONCURRENTLY IF NOT EXISTS ix_mv_fcc_chemical_id "
+        "ON mv_food_chemical_composition(chemical_foodatlas_id)",
+    ),
+    (
+        "CB(chemical_foodatlas_id) — speeds inferred-bioactivities join",
+        "CREATE INDEX CONCURRENTLY IF NOT EXISTS ix_mv_cb_chemical_id "
+        "ON mv_chemical_bioactivity(chemical_foodatlas_id)",
+    ),
+    (
+        "composite CB(bioactivity_name, measurement_count) — default sort",
+        "CREATE INDEX CONCURRENTLY IF NOT EXISTS ix_mv_cb_bio_mcount "
+        "ON mv_chemical_bioactivity(bioactivity_name, measurement_count)",
+    ),
+    (
+        "composite CB(chemical_name, measurement_count) — chem-bio default sort",
+        "CREATE INDEX CONCURRENTLY IF NOT EXISTS ix_mv_cb_chem_mcount "
+        "ON mv_chemical_bioactivity(chemical_name, measurement_count)",
+    ),
+    (
+        "composite FB(food_name, measurement_count) — /food/bioactivities sort",
+        "CREATE INDEX CONCURRENTLY IF NOT EXISTS ix_mv_fb_food_mcount "
+        "ON mv_food_bioactivity(food_name, measurement_count)",
+    ),
+    (
+        "composite FB(bioactivity_name, measurement_count) — bio-foods sort",
+        "CREATE INDEX CONCURRENTLY IF NOT EXISTS ix_mv_fb_bio_mcount "
+        "ON mv_food_bioactivity(bioactivity_name, measurement_count)",
+    ),
     (
         "add mv_chemical_bioactivity.n_foods column (default 0)",
         "ALTER TABLE mv_chemical_bioactivity "
@@ -109,39 +156,9 @@ _BIOACT_PERF_MIGRATION: list[tuple[str, str]] = [
         "WHERE cb.chemical_foodatlas_id = nf.chemical_foodatlas_id",
     ),
     (
-        "index FCC(chemical_foodatlas_id) — speeds n_foods + inferred-bio join",
-        "CREATE INDEX IF NOT EXISTS ix_mv_fcc_chemical_id "
-        "ON mv_food_chemical_composition(chemical_foodatlas_id)",
-    ),
-    (
-        "index CB(chemical_foodatlas_id) — speeds inferred-bioactivities join",
-        "CREATE INDEX IF NOT EXISTS ix_mv_cb_chemical_id "
-        "ON mv_chemical_bioactivity(chemical_foodatlas_id)",
-    ),
-    (
-        "composite CB(bioactivity_name, measurement_count) — default sort",
-        "CREATE INDEX IF NOT EXISTS ix_mv_cb_bio_mcount "
-        "ON mv_chemical_bioactivity(bioactivity_name, measurement_count)",
-    ),
-    (
-        "composite CB(chemical_name, measurement_count) — chem-bio default sort",
-        "CREATE INDEX IF NOT EXISTS ix_mv_cb_chem_mcount "
-        "ON mv_chemical_bioactivity(chemical_name, measurement_count)",
-    ),
-    (
         "composite CB(bioactivity_name, n_foods) — sort by # foods column",
-        "CREATE INDEX IF NOT EXISTS ix_mv_cb_bio_nfoods "
+        "CREATE INDEX CONCURRENTLY IF NOT EXISTS ix_mv_cb_bio_nfoods "
         "ON mv_chemical_bioactivity(bioactivity_name, n_foods)",
-    ),
-    (
-        "composite FB(food_name, measurement_count) — /food/bioactivities sort",
-        "CREATE INDEX IF NOT EXISTS ix_mv_fb_food_mcount "
-        "ON mv_food_bioactivity(food_name, measurement_count)",
-    ),
-    (
-        "composite FB(bioactivity_name, measurement_count) — bio-foods sort",
-        "CREATE INDEX IF NOT EXISTS ix_mv_fb_bio_mcount "
-        "ON mv_food_bioactivity(bioactivity_name, measurement_count)",
     ),
 ]
 
@@ -150,21 +167,25 @@ _BIOACT_PERF_MIGRATION: list[tuple[str, str]] = [
 def migrate_bioact_perf() -> None:
     """One-shot migration: add n_foods column + bioactivity perf indexes.
 
-    Idempotent — uses ADD COLUMN IF NOT EXISTS and CREATE INDEX IF NOT
-    EXISTS throughout. Brings an already-loaded RDS to the schema the
-    PR introducing materialised n_foods + composite indexes expects,
-    without waiting for a full ``db load`` rebuild. Triggered via the
-    same Fargate task definition as ``db load`` — see
+    Idempotent — uses ADD COLUMN IF NOT EXISTS and CREATE INDEX
+    CONCURRENTLY IF NOT EXISTS throughout. Brings an already-loaded RDS
+    to the schema the PR introducing materialised n_foods + composite
+    indexes expects, without waiting for a full ``db load`` rebuild.
+    Triggered via the same Fargate task definition as ``db load`` — see
     ``infra/aws/scripts/run-migration.sh``.
+
+    AUTOCOMMIT is required because CREATE INDEX CONCURRENTLY refuses to
+    run inside an explicit transaction. It also means each statement
+    commits independently, so a later failure (e.g. ALTER hitting
+    ``lock_timeout``) doesn't roll back the indexes that already shipped.
     """
     settings = DBSettings()
     engine = create_sync_engine(settings)
     logger = logging.getLogger("migrate-bioact-perf")
-    with engine.connect() as conn:
+    with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
         for description, sql in _BIOACT_PERF_MIGRATION:
             logger.info(">>> %s", description)
             conn.execute(text(sql))
-        conn.commit()
     click.echo("Done.")
 
 
