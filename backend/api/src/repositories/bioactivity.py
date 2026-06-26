@@ -345,6 +345,87 @@ async def get_food_bioactivities(
 
 
 # ---------------------------------------------------------------------
+# Food → chemical → bioactivity (transitive inference)
+# ---------------------------------------------------------------------
+# Each row is one (chemical-in-food x bioactivity-of-chemical) pair --
+# the chemical comes from mv_food_chemical_composition (carries the
+# food-level concentration), the bioactivity counts/sample come from
+# mv_chemical_bioactivity (the same source the direct chemical table
+# uses). This is presented under the direct food→bioactivity table as
+# "implied by the food's chemistry".
+
+_INFERRED_SORT = {
+    "bioactivity": "cb.bioactivity_name",
+    "chemical": "fcc.chemical_name",
+    "concentration": "(fcc.median_concentration->>'value')::NUMERIC",
+    "measurement_count": "cb.measurement_count",
+    "active_count": "cb.active_count",
+    "inactive_count": "cb.inactive_count",
+}
+
+
+async def get_food_inferred_bioactivities(
+    session: AsyncSession,
+    common_name: str,
+    page: int = 1,
+    search: str = "",
+    sort_by: str = "concentration",
+    sort_dir: str = "desc",
+    rows_per_page: int = ROWS_PER_PAGE_DEFAULT,
+) -> dict[str, object]:
+    """Bioactivities of the chemicals found in this food (transitive)."""
+    sort_col = _INFERRED_SORT.get(sort_by, _INFERRED_SORT["concentration"])
+    direction = sort_dir.upper() if sort_dir.upper() in _VALID_DIR else "DESC"
+
+    params: dict = {"name": common_name}
+    where_parts = ["fcc.food_name = :name"]
+    if search:
+        where_parts.append(
+            "(cb.bioactivity_name ILIKE :q OR fcc.chemical_name ILIKE :q)"
+        )
+        params["q"] = f"%{search}%"
+    where = " AND ".join(where_parts)
+
+    total_result = await session.execute(
+        text(f"""
+            SELECT COUNT(*)
+            FROM mv_food_chemical_composition fcc
+            JOIN mv_chemical_bioactivity cb
+              ON cb.chemical_foodatlas_id = fcc.chemical_foodatlas_id
+            WHERE {where}
+        """),
+        params,
+    )
+    total = int(total_result.scalar() or 0)
+
+    offset = rows_per_page * (page - 1)
+    rows_result = await session.execute(
+        text(f"""
+            SELECT
+              cb.bioactivity_name AS bioactivity,
+              cb.bioactivity_foodatlas_id AS bioactivity_id,
+              fcc.chemical_name AS chemical,
+              fcc.chemical_foodatlas_id AS chemical_id,
+              fcc.median_concentration,
+              cb.measurement_count, cb.active_count, cb.inactive_count,
+              cb.measurements
+            FROM mv_food_chemical_composition fcc
+            JOIN mv_chemical_bioactivity cb
+              ON cb.chemical_foodatlas_id = fcc.chemical_foodatlas_id
+            WHERE {where}
+            ORDER BY {sort_col} {direction} NULLS LAST
+            OFFSET :offset ROWS FETCH FIRST :limit ROWS ONLY
+        """),
+        {**params, "offset": offset, "limit": rows_per_page},
+    )
+    data = _attach_top_measurement([dict(r._mapping) for r in rows_result])
+    return {
+        "data": data,
+        "metadata": _build_meta(total, page, rows_per_page, len(data)),
+    }
+
+
+# ---------------------------------------------------------------------
 # Distinct (endpoint, unit) combos for one bioactivity ↔ {chemical|food}
 # direction — used by the table UI to populate filter chips. Counts come
 # from the bioactivity attestation store (no MV cap) so they reflect the
