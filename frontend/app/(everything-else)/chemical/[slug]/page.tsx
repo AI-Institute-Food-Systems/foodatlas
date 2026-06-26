@@ -53,7 +53,7 @@ const ChemicalPage = async ({ params }: ChemicalPageProps) => {
       (composition.without_concentrations?.length ?? 0)
     : null;
   const bioactivitiesCount =
-    (bioPayload?.metadata?.row_count as number | undefined) ?? null;
+    (bioPayload?.metadata?.total_rows as number | undefined) ?? null;
   const anchorId = metaPayload?.id ?? null;
 
   return (

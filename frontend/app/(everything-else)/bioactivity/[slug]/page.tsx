@@ -48,9 +48,9 @@ const BioactivityPage = async ({ params }: BioactivityPageProps) => {
     getMetaData(commonName, entityType).catch(() => null),
   ]);
   const chemicalsCount =
-    (chemPayload?.metadata?.row_count as number | undefined) ?? null;
+    (chemPayload?.metadata?.total_rows as number | undefined) ?? null;
   const foodsCount =
-    (foodPayload?.metadata?.row_count as number | undefined) ?? null;
+    (foodPayload?.metadata?.total_rows as number | undefined) ?? null;
   const anchorId = metaPayload?.id ?? null;
 
   return (

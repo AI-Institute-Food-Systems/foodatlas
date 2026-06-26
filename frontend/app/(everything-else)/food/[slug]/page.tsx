@@ -75,7 +75,7 @@ const FoodPage = async ({ params }: FoodPageProps) => {
         .map(([key, items]) => ({ key, count: items.length }))
     : [];
   const bioactivitiesCount =
-    (bioPayload?.metadata?.row_count as number | undefined) ?? null;
+    (bioPayload?.metadata?.total_rows as number | undefined) ?? null;
 
   return (
     <div>
