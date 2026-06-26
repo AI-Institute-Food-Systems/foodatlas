@@ -87,6 +87,12 @@ interface Props {
     anchorLabel: string;
     headIsRow: boolean;
     relationship: "r5" | "r6";
+    // Anchor entity's foodatlas_id, when known. Combined with the
+    // selected row's id, the modal lazy-fetches the full measurement set
+    // from /bioactivity/measurements (which carries Hill-fit fields for
+    // the dose-response sparkline). When absent, modal falls back to the
+    // row's MV-nested sample only.
+    anchorId?: string | null;
   };
 }
 
@@ -275,6 +281,10 @@ const BioactivityTable = ({
         }
         initialMeasurements={selected?.measurements ?? []}
         expectedCount={selected?.measurement_count}
+        anchorId={modalConfig.anchorId}
+        selectedId={selected?.id}
+        relationship={modalConfig.relationship}
+        headIsRow={modalConfig.headIsRow}
       />
     </div>
   );

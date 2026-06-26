@@ -2,6 +2,7 @@
 
 import { Dialog, DialogPanel } from "@headlessui/react";
 import { MdClose } from "react-icons/md";
+import { twMerge } from "tailwind-merge";
 
 import Heading from "@/components/basic/Heading";
 import Button from "@/components/basic/Button";
@@ -12,6 +13,13 @@ interface ModalProps {
   description?: React.ReactNode;
   isOpen: boolean;
   onClose: () => void;
+  // When true, the dialog panel takes a fixed viewport-bounded height and
+  // its children stack as a flex column. The `children` area scrolls
+  // internally (flex-1 overflow-y-auto); the optional `footer` pins to
+  // the bottom. Use this when content height varies with pagination/state
+  // and you don't want the dialog re-centering on every page change.
+  fullHeight?: boolean;
+  footer?: React.ReactNode;
 }
 
 const Modal = ({
@@ -20,6 +28,8 @@ const Modal = ({
   children,
   title,
   description,
+  fullHeight,
+  footer,
 }: ModalProps) => {
   // Headless UI Dialog handles scroll locking internally.
   // scrollbar-gutter: stable on <html> (globals.css) reserves scrollbar
@@ -38,9 +48,14 @@ const Modal = ({
       <div className="fixed inset-0 overflow-y-auto md:p-12">
         {/* center content */}
         <div className="flex min-h-full items-center justify-center">
-          <DialogPanel className="w-full max-w-5xl md:rounded-xl border border-light-50/5 bg-light-950 backdrop-blur-2xl shadow-inner shadow-light-700/20 p-5 md:p-7">
+          <DialogPanel
+            className={twMerge(
+              "w-full max-w-5xl md:rounded-xl border border-light-50/5 bg-light-950 backdrop-blur-2xl shadow-inner shadow-light-700/20 p-5 md:p-7",
+              fullHeight && "flex flex-col h-[min(85vh,800px)]"
+            )}
+          >
             {/* modal header */}
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center shrink-0">
               <Heading className="capitalize" type="h3" variant="boxed">
                 {title}
               </Heading>
@@ -55,10 +70,17 @@ const Modal = ({
             </div>
             {/* (optional) modal description */}
             {description && (
-              <div className="my-3 text-light-400">{description}</div>
+              <div className="my-3 text-light-400 shrink-0">{description}</div>
             )}
             {/* modal content */}
-            <div className="mt-5">{children}</div>
+            <div
+              className={twMerge(
+                fullHeight ? "mt-5 flex-1 min-h-0 flex flex-col" : "mt-5"
+              )}
+            >
+              {children}
+            </div>
+            {footer && <div className="mt-4 shrink-0">{footer}</div>}
           </DialogPanel>
         </div>
       </div>

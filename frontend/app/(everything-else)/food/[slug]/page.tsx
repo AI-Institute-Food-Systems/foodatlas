@@ -48,7 +48,7 @@ const FoodPage = async ({ params }: FoodPageProps) => {
   // Composition uses the same call as the table (default filters: all sources,
   // include unmeasured, no search) so the badge matches "Found N chemicals".
   // Counts from /food/composition/counts double-count multi-class chemicals.
-  const [compPayload, nutritionData, bioPayload] = await Promise.all([
+  const [compPayload, nutritionData, bioPayload, metaPayload] = await Promise.all([
     getFoodCompositionData(
       commonName,
       1,
@@ -61,7 +61,9 @@ const FoodPage = async ({ params }: FoodPageProps) => {
     ).catch(() => null),
     getFoodMacroAndMicroData(commonName).catch(() => null),
     getFoodBioactivities(commonName).catch(() => null),
+    getMetaData(commonName, entityType).catch(() => null),
   ]);
+  const anchorId = metaPayload?.id ?? null;
   const compositionCount =
     (compPayload?.metadata?.total_rows as number | undefined) ?? null;
   const nutritionCount = nutritionData
@@ -73,7 +75,7 @@ const FoodPage = async ({ params }: FoodPageProps) => {
         .map(([key, items]) => ({ key, count: items.length }))
     : [];
   const bioactivitiesCount =
-    (bioPayload?.metadata?.row_count as number | undefined) ?? null;
+    (bioPayload?.metadata?.total_rows as number | undefined) ?? null;
 
   return (
     <div>
@@ -101,7 +103,12 @@ const FoodPage = async ({ params }: FoodPageProps) => {
             id: "bioactivities",
             label: "Bioactivities",
             count: bioactivitiesCount,
-            content: <FoodBioactivitiesSection commonName={commonName} />,
+            content: (
+              <FoodBioactivitiesSection
+                commonName={commonName}
+                anchorId={anchorId}
+              />
+            ),
           },
           {
             id: "overview",

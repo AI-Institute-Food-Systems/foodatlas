@@ -13,6 +13,7 @@ import ChemicalCompositionSectionSuspense from "@/components/entities/chemical/C
 import {
   getChemicalBioactivities,
   getChemicalCompositionData,
+  getMetaData,
 } from "@/utils/fetching";
 import { decodeSpace, toTitleCase } from "@/utils/utils";
 
@@ -42,16 +43,18 @@ const ChemicalPage = async ({ params }: ChemicalPageProps) => {
   // Parallel best-effort count fetches for the tab badges. Health Impacts
   // count would require two paginated requests (positive + negative); we
   // omit it for now (tab renders without a badge).
-  const [composition, bioPayload] = await Promise.all([
+  const [composition, bioPayload, metaPayload] = await Promise.all([
     getChemicalCompositionData(commonName).catch(() => null),
     getChemicalBioactivities(commonName).catch(() => null),
+    getMetaData(commonName, entityType).catch(() => null),
   ]);
   const compositionCount = composition
     ? (composition.with_concentrations?.length ?? 0) +
       (composition.without_concentrations?.length ?? 0)
     : null;
   const bioactivitiesCount =
-    (bioPayload?.metadata?.row_count as number | undefined) ?? null;
+    (bioPayload?.metadata?.total_rows as number | undefined) ?? null;
+  const anchorId = metaPayload?.id ?? null;
 
   return (
     <div>
@@ -81,7 +84,12 @@ const ChemicalPage = async ({ params }: ChemicalPageProps) => {
             id: "bioactivities",
             label: "Bioactivities",
             count: bioactivitiesCount,
-            content: <ChemicalBioactivitiesSection commonName={commonName} />,
+            content: (
+              <ChemicalBioactivitiesSection
+                commonName={commonName}
+                anchorId={anchorId}
+              />
+            ),
           },
           {
             id: "overview",
