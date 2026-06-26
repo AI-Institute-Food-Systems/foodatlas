@@ -37,6 +37,8 @@ _BIO_CHEM_SORT = {
     "measurement_count": "measurement_count",
     "active_count": "active_count",
     "inactive_count": "inactive_count",
+    # Correlated subquery alias — see get_chemicals.select_cols.
+    "n_foods": "n_foods",
 }
 _FOOD_BIO_SORT = {
     "name": "food_name",
@@ -225,7 +227,16 @@ async def get_chemicals(
         select_cols=(
             "chemical_name AS name, chemical_foodatlas_id AS id, "
             "measurement_count, active_count, inactive_count, "
-            "unspecified_count, inconclusive_count, measurements"
+            "unspecified_count, inconclusive_count, measurements, "
+            # Correlated subquery: how many distinct foods contain this
+            # chemical. Counted once per row in the paginated output (20
+            # rows/page), keyed on chemical_foodatlas_id. Cheap with
+            # mv_food_chemical_composition's row count today; if it
+            # becomes a bottleneck, promote to a CTE.
+            "(SELECT COUNT(DISTINCT food_foodatlas_id) "
+            "FROM mv_food_chemical_composition "
+            "WHERE chemical_foodatlas_id = "
+            "mv_chemical_bioactivity.chemical_foodatlas_id) AS n_foods"
         ),
         search_col="chemical_name",
         search=search,
