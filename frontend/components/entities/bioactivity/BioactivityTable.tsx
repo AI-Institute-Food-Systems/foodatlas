@@ -25,10 +25,9 @@ import BioactivityMeasurementsModal from "@/components/entities/bioactivity/Bioa
 import { formatTopMeasurement, topMeasurementOf } from "@/components/entities/bioactivity/format";
 import { usePaginations } from "@/context/paginationsContext";
 import { encodeSpace } from "@/utils/utils";
-import {
-  getBioactivityEndpointOptions,
-  type BioactivityDirection,
-  type BioactivityListParams,
+import type {
+  BioactivityDirection,
+  BioactivityListParams,
 } from "@/utils/fetching";
 import type {
   BioactivityChemicalRow,
@@ -130,30 +129,18 @@ const BioactivityTable = ({
     by: defaultSortBy,
     dir: defaultSortDir,
   });
-  // Filter chip selection. Empty string = "All" (no filter). Both must
-  // be set together for the backend to honour the filter; pairing them
-  // here keeps the wire format consistent.
-  const [filter, setFilter] = useState<{ endpoint: string; unit: string }>({
+  // Filter selection. UI removed 2026-06-26 pending upstream data
+  // cleanup — kept here so URL state (?filter_endpoint=&filter_unit=)
+  // still works and re-enabling the UI is a one-block restoration.
+  const [filter] = useState<{ endpoint: string; unit: string }>({
     endpoint: "",
     unit: "",
   });
   const filterActive = Boolean(filter.endpoint && filter.unit);
-  // Chip options: distinct (endpoint, unit, count) tuples for this
-  // direction+pivot, fetched once per page load.
-  const [filterOptions, setFilterOptions] = useState<
-    { endpoint: string; unit: string; count: number }[]
-  >([]);
-  useEffect(() => {
-    if (!direction || !pivotName) return;
-    let cancelled = false;
-    (async () => {
-      const opts = await getBioactivityEndpointOptions(pivotName, direction);
-      if (!cancelled) setFilterOptions(opts);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [direction, pivotName]);
+  // direction + pivotName props are kept for the re-enabled-UI case,
+  // referenced here so the linter doesn't complain.
+  void direction;
+  void pivotName;
 
   const [rows, setRows] = useState<BioactivityRow[]>([]);
   const [totalPages, setTotalPages] = useState(0);
@@ -205,15 +192,6 @@ const BioactivityTable = ({
         : { by: key, dir: "desc" }
     );
   };
-  const handleFilterChange = (endpoint: string, unit: string) => {
-    setFilter({ endpoint, unit });
-    setTablePaginations(tableId, 1, 20);
-    // When clearing the filter, also drop the top-value sort if it was
-    // active — it's not meaningful without a filter.
-    if (!endpoint && !unit && sort.by === TOP_VALUE_SORT_KEY) {
-      setSort({ by: defaultSortBy, dir: defaultSortDir });
-    }
-  };
 
   const colSpan = columns.length;
   const showingPaginator = totalPages > 1 || isLoading;
@@ -243,31 +221,13 @@ const BioactivityTable = ({
             </button>
           )}
         </div>
-        {filterOptions.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[10px] uppercase tracking-wider text-light-500 mr-1">
-              Endpoint · unit
-            </span>
-            <EndpointChip
-              label="All"
-              active={!filterActive}
-              onClick={() => handleFilterChange("", "")}
-            />
-            {filterOptions.map((opt) => {
-              const active =
-                filter.endpoint === opt.endpoint && filter.unit === opt.unit;
-              return (
-                <EndpointChip
-                  key={`${opt.endpoint}|${opt.unit}`}
-                  label={`${opt.endpoint} · ${opt.unit}`}
-                  count={opt.count}
-                  active={active}
-                  onClick={() => handleFilterChange(opt.endpoint, opt.unit)}
-                />
-              );
-            })}
-          </div>
-        )}
+        {/* Endpoint·unit chip UI temporarily removed 2026-06-26 — upstream
+         * data has 250+ distinct (endpoint, unit) combos with heavy noise
+         * (unit-punctuation aliases, leaked assay names, outcome metrics
+         * stored as endpoints). Re-enable once Kaichi normalises the
+         * upstream — see memory: bioactivity-endpoint-unit-cleanup. The
+         * backend filter params + sort key are still wired, so URL state
+         * (?filter_endpoint=&filter_unit=) continues to work. */}
       </div>
 
       <div className="overflow-x-auto">
@@ -299,7 +259,7 @@ const BioactivityTable = ({
                       onClick={() => handleSortClick(c.key)}
                       disabledHint={
                         c.key === TOP_VALUE_SORT_KEY && !filterActive
-                          ? "Pick an endpoint · unit chip to sort by potency"
+                          ? "Top measurement sort temporarily disabled — endpoint·unit filter UI is being re-engineered."
                           : undefined
                       }
                     />
@@ -458,41 +418,8 @@ const SortableHeader = ({
   </button>
 );
 
-const EndpointChip = ({
-  label,
-  count,
-  active,
-  onClick,
-}: {
-  label: string;
-  count?: number;
-  active: boolean;
-  onClick: () => void;
-}) => (
-  <button
-    type="button"
-    onClick={onClick}
-    aria-pressed={active}
-    className={twMerge(
-      "inline-flex items-baseline gap-1 px-2.5 py-0.5 rounded-full border-[1.5px] font-mono italic text-xs transition-colors",
-      active
-        ? "bg-light-200 text-light-900 border-light-200 font-semibold"
-        : "bg-transparent border-light-700/60 text-light-400 hover:text-light-100 hover:border-light-500"
-    )}
-  >
-    <span>{label}</span>
-    {typeof count === "number" && (
-      <span
-        className={twMerge(
-          "not-italic font-mono text-[10px] tabular-nums",
-          active ? "text-light-700" : "text-light-500"
-        )}
-      >
-        {count.toLocaleString()}
-      </span>
-    )}
-  </button>
-);
+// NOTE: EndpointChip helper removed alongside the chip UI on
+// 2026-06-26 — restore from git history when re-enabling the filter.
 
 // Sort key recognised by the API as "sort by max value across
 // measurements that match filter_endpoint + filter_unit". Exported so
