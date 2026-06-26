@@ -7,8 +7,13 @@
 // Falls back to `initialMeasurements` (the row's MV-capped sample) when
 // the fetch fails or anchor/row ids aren't both provided.
 //
-// Includes client-side search (assay + endpoint), outcome filter, and
-// 20-row pagination so a pair with hundreds of assays is browsable.
+// Layout is fixed-height (Modal fullHeight) with three stable zones:
+// header (title + toolbar), scrollable rows area, pinned footer
+// (pagination). Toolbar / pagination / row slots are ALWAYS rendered —
+// when loading, the same shell holds skeleton rows; when on the last
+// page or after filtering, placeholder rows pad up to PAGE_SIZE so the
+// table doesn't shrink. Net result: the modal opens at its final size
+// and stays there — buttons don't migrate, dialog doesn't recenter.
 
 "use client";
 
@@ -113,8 +118,8 @@ const BioactivityMeasurementsModal = ({
     setCurrentPage(1);
   }, [isOpen, selectedId]);
 
-  // Only show the outcome chip for outcomes that actually occur in this
-  // pair's rows — most pairs only have one or two distinct outcomes.
+  // Outcomes computed from the FULL row set (not filtered) so the chip
+  // row doesn't reflow when filters apply.
   const availableOutcomes = useMemo<OutcomeFilter[]>(() => {
     const present = new Set<string>();
     rows.forEach((r) => {
@@ -150,7 +155,8 @@ const BioactivityMeasurementsModal = ({
     return filtered.slice(start, start + PAGE_SIZE);
   }, [filtered, currentPage]);
 
-  // Defer rendering the table by one paint so the modal opens snappily.
+  // Defer the table commit by one paint so the modal animation opens
+  // snappily even when the row count is large.
   const [isContentReady, setIsContentReady] = useState(false);
   useEffect(() => {
     if (!isOpen) {
@@ -170,11 +176,15 @@ const BioactivityMeasurementsModal = ({
   const showingFewerThanTotal =
     fullRows == null && expectedCount != null && rows.length < expectedCount;
 
+  const placeholderCount = Math.max(0, PAGE_SIZE - visible.length);
+  const showEmptyState = !showSkeleton && filtered.length === 0;
+
   return (
     <Modal
       title={`Assay measurements · ${headLabel} × ${tailLabel}`}
       isOpen={isOpen}
       onClose={onClose}
+      fullHeight
       description={
         <span className="font-mono italic text-xs text-light-400 capitalize">
           {totalKnown.toLocaleString()} measurement
@@ -191,16 +201,68 @@ const BioactivityMeasurementsModal = ({
           )}
         </span>
       }
+      footer={
+        <div
+          className={twMerge(
+            "max-w-xl w-full mx-auto flex items-center justify-between transition-opacity",
+            totalPages > 1 ? "opacity-100" : "opacity-0 pointer-events-none"
+          )}
+          aria-hidden={totalPages <= 1}
+        >
+          <Button
+            isIconOnly
+            isSquared
+            isDisabled={showSkeleton || currentPage === 1}
+            onClick={() => setCurrentPage(1)}
+            aria-label="First page"
+          >
+            <MdKeyboardDoubleArrowLeft />
+          </Button>
+          <Button
+            isIconOnly
+            isSquared
+            isDisabled={showSkeleton || currentPage === 1}
+            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            aria-label="Previous page"
+          >
+            <MdKeyboardArrowLeft />
+          </Button>
+          <span className="w-40 text-center text-sm text-light-300">
+            Page {currentPage} of {totalPages}
+          </span>
+          <Button
+            isIconOnly
+            isSquared
+            isDisabled={showSkeleton || currentPage === totalPages}
+            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+            aria-label="Next page"
+          >
+            <MdKeyboardArrowRight />
+          </Button>
+          <Button
+            isIconOnly
+            isSquared
+            isDisabled={showSkeleton || currentPage === totalPages}
+            onClick={() => setCurrentPage(totalPages)}
+            aria-label="Last page"
+          >
+            <MdKeyboardDoubleArrowRight />
+          </Button>
+        </div>
+      }
     >
-      {/* toolbar */}
-      <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      {/* Toolbar — ALWAYS rendered (even on skeleton) so its presence
+       * isn't a layout-shift trigger. Outcome chips render based on the
+       * full row set so they don't pop in/out as filters change. */}
+      <div className="mb-4 shrink-0 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="relative flex items-center">
           <MdSearch className="absolute left-2.5 w-5 h-5 text-light-400" />
           <input
-            className="pl-9 pr-9 w-full lg:w-72 h-9 text-sm rounded-lg border border-light-50/5 bg-light-900 focus:bg-light-400/20 hover:bg-light-400/20 text-light-100 placeholder-light-400 transition duration-100 ease-in-out outline-light-50/60"
+            className="pl-9 pr-9 w-full lg:w-72 h-9 text-sm rounded-lg border border-light-50/5 bg-light-900 focus:bg-light-400/20 hover:bg-light-400/20 text-light-100 placeholder-light-400 transition duration-100 ease-in-out outline-light-50/60 disabled:opacity-60"
             type="text"
             placeholder="Search assay or endpoint"
             value={searchTerm}
+            disabled={showSkeleton}
             onChange={(e) => {
               setSearchTerm(e.target.value);
               setCurrentPage(1);
@@ -220,21 +282,25 @@ const BioactivityMeasurementsModal = ({
             </button>
           )}
         </div>
-        {availableOutcomes.length > 1 && (
-          <div className="flex flex-wrap gap-1.5">
-            {availableOutcomes.map((opt) => {
+        {/* Outcome filter row — reserved with a min-height so the row
+         * doesn't appear/disappear based on whether multiple outcomes
+         * are present. */}
+        <div className="min-h-[2rem] flex flex-wrap items-center gap-1.5">
+          {availableOutcomes.length > 1 &&
+            availableOutcomes.map((opt) => {
               const active = outcomeFilter === opt;
               return (
                 <button
                   key={opt}
                   type="button"
+                  disabled={showSkeleton}
                   onClick={() => {
                     setOutcomeFilter(opt);
                     setCurrentPage(1);
                   }}
                   aria-pressed={active}
                   className={twMerge(
-                    "px-3 py-1 rounded-full border-[1.5px] font-mono italic text-xs capitalize transition-colors",
+                    "px-3 py-1 rounded-full border-[1.5px] font-mono italic text-xs capitalize transition-colors disabled:opacity-60",
                     active
                       ? "bg-light-200 text-light-900 border-light-200 font-semibold"
                       : "bg-transparent border-light-700/60 text-light-400 hover:text-light-100 hover:border-light-500"
@@ -244,166 +310,122 @@ const BioactivityMeasurementsModal = ({
                 </button>
               );
             })}
-          </div>
-        )}
+        </div>
       </div>
 
-      <div className="max-h-[70vh] overflow-y-auto">
-        {showSkeleton ? (
-          <MeasurementsSkeleton rowCount={Math.min(rows.length || 6, 8)} />
-        ) : visible.length === 0 ? (
-          <div className="h-32 flex items-center justify-center text-light-300 gap-2 text-sm">
-            <MdInfoOutline />{" "}
+      {/* Scroll area — flex-1 so it absorbs the dialog's free space.
+       * Inside: the table always renders PAGE_SIZE row slots (data +
+       * empty padders), and an empty-state OVERLAY appears on top when
+       * the filtered set is empty, so the row scaffolding doesn't
+       * collapse. */}
+      <div className="flex-1 min-h-0 overflow-y-auto relative">
+        <MeasurementsTable
+          rows={visible}
+          placeholderCount={placeholderCount}
+          skeleton={showSkeleton}
+        />
+        {showEmptyState && (
+          <div className="absolute inset-0 flex items-center justify-center bg-light-950/80 text-light-300 gap-2 text-sm pointer-events-none">
+            <MdInfoOutline />
             {rows.length === 0
               ? "No measurements recorded for this pair"
               : "No measurements match the current filters"}
           </div>
-        ) : (
-          <MeasurementsTable rows={visible} />
         )}
       </div>
-
-      {totalPages > 1 && (
-        <div className="mt-6 max-w-xl w-full mx-auto flex items-center justify-between">
-          <Button
-            isIconOnly
-            isSquared
-            isDisabled={currentPage === 1}
-            onClick={() => setCurrentPage(1)}
-            aria-label="First page"
-          >
-            <MdKeyboardDoubleArrowLeft />
-          </Button>
-          <Button
-            isIconOnly
-            isSquared
-            isDisabled={currentPage === 1}
-            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-            aria-label="Previous page"
-          >
-            <MdKeyboardArrowLeft />
-          </Button>
-          <span className="w-40 text-center text-sm text-light-300">
-            Page {currentPage} of {totalPages}
-          </span>
-          <Button
-            isIconOnly
-            isSquared
-            isDisabled={currentPage === totalPages}
-            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-            aria-label="Next page"
-          >
-            <MdKeyboardArrowRight />
-          </Button>
-          <Button
-            isIconOnly
-            isSquared
-            isDisabled={currentPage === totalPages}
-            onClick={() => setCurrentPage(totalPages)}
-            aria-label="Last page"
-          >
-            <MdKeyboardDoubleArrowRight />
-          </Button>
-        </div>
-      )}
     </Modal>
   );
 };
 
-const MeasurementsSkeleton = ({ rowCount }: { rowCount: number }) => (
-  <table className="w-full table-fixed">
-    <colgroup>
-      <col className="w-[28%]" />
-      <col className="w-[16%]" />
-      <col className="w-[12%]" />
-      <col className="w-[22%]" />
-      <col className="w-[22%]" />
-    </colgroup>
-    <thead className="text-light-400 text-left">
-      <tr>
-        {["Assay", "Endpoint", "Outcome", "Value", "Curve"].map((h) => (
-          <th
-            key={h}
-            className="h-9 border-b border-light-700 leading-none py-1.5 px-2 first:pl-0 last:pr-0"
-          >
-            <span className="select-none uppercase text-xs font-medium">{h}</span>
-          </th>
-        ))}
-      </tr>
-    </thead>
-    <tbody>
-      {Array.from({ length: rowCount }).map((_, i) => (
-        <tr key={i}>
-          <td className="py-1.5 pr-2" colSpan={5}>
-            <LoadingCard className="h-5" />
-          </td>
-        </tr>
-      ))}
-    </tbody>
-  </table>
-);
-
-const MeasurementsTable = ({ rows }: { rows: ModalRow[] }) => (
-  <table className="w-full table-fixed">
-    <colgroup>
-      <col className="w-[28%]" />
-      <col className="w-[16%]" />
-      <col className="w-[12%]" />
-      <col className="w-[22%]" />
-      <col className="w-[22%]" />
-    </colgroup>
-    <thead className="text-light-400 text-left">
-      <tr>
-        {["Assay", "Endpoint", "Outcome", "Value", "Curve"].map((h) => (
-          <th
-            key={h}
-            className="h-9 border-b border-light-700 leading-none py-1.5 px-2 first:pl-0 last:pr-0"
-          >
-            <span className="select-none uppercase text-xs font-medium">{h}</span>
-          </th>
-        ))}
-      </tr>
-    </thead>
-    <tbody className="text-sm font-light">
-      {rows.map((m, i) => (
-        <tr key={`${m.assay ?? "row"}-${i}`}>
-          <td className="py-1.5 pr-2 align-top">
-            <div
-              className="font-mono text-xs text-light-200 truncate"
-              title={m.assay ?? undefined}
+const MeasurementsTable = ({
+  rows,
+  placeholderCount,
+  skeleton,
+}: {
+  rows: ModalRow[];
+  placeholderCount: number;
+  skeleton: boolean;
+}) => {
+  // When in skeleton mode we draw PAGE_SIZE shimmer rows; otherwise we
+  // draw the real rows and pad up to PAGE_SIZE with empty <tr>s so the
+  // last-page case doesn't shrink the table height.
+  const dataRows = skeleton ? [] : rows;
+  const padCount = skeleton ? PAGE_SIZE : placeholderCount;
+  return (
+    <table className="w-full table-fixed">
+      <colgroup>
+        <col className="w-[28%]" />
+        <col className="w-[16%]" />
+        <col className="w-[12%]" />
+        <col className="w-[22%]" />
+        <col className="w-[22%]" />
+      </colgroup>
+      <thead className="text-light-400 text-left">
+        <tr>
+          {["Assay", "Endpoint", "Outcome", "Value", "Curve"].map((h) => (
+            <th
+              key={h}
+              className="h-9 border-b border-light-700 leading-none py-1.5 px-2 first:pl-0 last:pr-0"
             >
-              {m.assay ?? "—"}
-            </div>
-          </td>
-          <td className="py-1.5 px-2 align-top text-light-200">
-            {m.endpoint || "—"}
-          </td>
-          <td className="py-1.5 px-2 align-top">
-            <OutcomeBadge outcome={m.outcome} />
-          </td>
-          <td className="py-1.5 px-2 align-top font-mono text-xs text-light-200 tabular-nums text-right">
-            {m.value === null || m.value === undefined ? (
-              <span className="text-light-600">—</span>
-            ) : (
-              <>
-                {formatNumberShort(m.value)}{" "}
-                <span className="text-light-500">{m.unit || ""}</span>
-              </>
-            )}
-          </td>
-          <td className="py-1.5 pl-2 align-top text-light-300">
-            <HillCurveSparkline
-              zero={m.efficacy_zeroactivity}
-              infinite={m.efficacy_infiniteactivity}
-              logAC50={m.efficacy_logac50_value}
-              slope={m.efficacy_hillslope}
-            />
-          </td>
+              <span className="select-none uppercase text-xs font-medium">
+                {h}
+              </span>
+            </th>
+          ))}
         </tr>
-      ))}
-    </tbody>
-  </table>
-);
+      </thead>
+      <tbody className="text-sm font-light">
+        {dataRows.map((m, i) => (
+          <tr key={`${m.assay ?? "row"}-${i}`}>
+            <td className="py-1.5 pr-2 align-top">
+              <div
+                className="font-mono text-xs text-light-200 truncate"
+                title={m.assay ?? undefined}
+              >
+                {m.assay ?? "—"}
+              </div>
+            </td>
+            <td className="py-1.5 px-2 align-top text-light-200">
+              {m.endpoint || "—"}
+            </td>
+            <td className="py-1.5 px-2 align-top">
+              <OutcomeBadge outcome={m.outcome} />
+            </td>
+            <td className="py-1.5 px-2 align-top font-mono text-xs text-light-200 tabular-nums text-right">
+              {m.value === null || m.value === undefined ? (
+                <span className="text-light-600">—</span>
+              ) : (
+                <>
+                  {formatNumberShort(m.value)}{" "}
+                  <span className="text-light-500">{m.unit || ""}</span>
+                </>
+              )}
+            </td>
+            <td className="py-1.5 pl-2 align-top text-light-300">
+              <HillCurveSparkline
+                zero={m.efficacy_zeroactivity}
+                infinite={m.efficacy_infiniteactivity}
+                logAC50={m.efficacy_logac50_value}
+                slope={m.efficacy_hillslope}
+              />
+            </td>
+          </tr>
+        ))}
+        {Array.from({ length: padCount }).map((_, i) => (
+          <tr key={`pad-${i}`}>
+            <td className="py-1.5 pr-2" colSpan={5}>
+              {skeleton ? (
+                <LoadingCard className="h-5" />
+              ) : (
+                <div className="h-5" />
+              )}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+};
 
 const OutcomeBadge = ({ outcome }: { outcome: string | null | undefined }) => {
   if (!outcome) return <span className="text-light-600">—</span>;
