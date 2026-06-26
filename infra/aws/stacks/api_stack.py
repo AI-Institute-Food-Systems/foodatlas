@@ -38,6 +38,7 @@ from aws_cdk import aws_ecr as ecr
 from aws_cdk import aws_ecs as ecs
 from aws_cdk import aws_ecs_patterns as ecs_patterns
 from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+from aws_cdk import aws_iam as iam
 from aws_cdk import aws_logs as logs
 from aws_cdk import aws_rds as rds
 from aws_cdk import aws_s3 as s3
@@ -178,6 +179,21 @@ class ApiStack(cdk.Stack):
         # via boto3 so we cannot inject the value once at task start.
         public_keys_secret.grant_read(task_definition.task_role)
 
+        # Permissions required for ECS exec (see ApiService construction
+        # below for the EnableExecuteCommand override). Without these,
+        # `aws ecs execute-command` returns "TargetNotConnected".
+        task_definition.task_role.add_to_principal_policy(
+            iam.PolicyStatement(
+                actions=[
+                    "ssmmessages:CreateControlChannel",
+                    "ssmmessages:CreateDataChannel",
+                    "ssmmessages:OpenControlChannel",
+                    "ssmmessages:OpenDataChannel",
+                ],
+                resources=["*"],
+            )
+        )
+
         cert_arn = self.node.try_get_context("api_cert_arn")
         service_kwargs: dict[str, Any] = {
             "cluster": self.cluster,
@@ -212,6 +228,17 @@ class ApiStack(cdk.Stack):
             self,
             "ApiService",
             **service_kwargs,
+        )
+
+        # ECS exec on the underlying FargateService so ops can
+        # `aws ecs execute-command` into a running task — no SSH bastion,
+        # no RDS port-forward setup. The API container already has DB
+        # creds + VPC reach, so ad-hoc SQL becomes a `python -c` away.
+        # Session traffic is IAM-gated and SSM-logged. CDK auto-wires
+        # the ssmmessages:* perms onto the task role when this is on.
+        # Set via L1 escape hatch because the pattern doesn't expose it.
+        self.service.service.node.default_child.add_property_override(  # type: ignore[union-attr]
+            "EnableExecuteCommand", True
         )
 
         self.service.target_group.configure_health_check(
