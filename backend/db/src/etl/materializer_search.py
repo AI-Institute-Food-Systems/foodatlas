@@ -195,6 +195,10 @@ def _materialize_statistics(conn: Connection) -> None:
     r1 = triplets[triplets["relationship_id"] == "r1"]
     r2 = triplets[triplets["relationship_id"] == "r2"]
     r3r4 = triplets[triplets["relationship_id"].isin(["r3", "r4"])]
+    # Bioactivity association edges: r5 (food EXHIBITS bioactivity),
+    # r6 (chemical MEASURED bioactivity). Each row is one entity pair.
+    r5 = triplets[triplets["relationship_id"] == "r5"]
+    r6 = triplets[triplets["relationship_id"] == "r6"]
 
     food_ids = set(r1["head_id"])
     chem_ids = set(r1["tail_id"])
@@ -207,7 +211,6 @@ def _materialize_statistics(conn: Connection) -> None:
         + _count_scoped_r2(r2, chem_ids, type_map.get("chemical", set()))
         + _count_scoped_r2(r2, disease_ids, type_map.get("disease", set()))
     )
-    associations = len(r1) + len(scoped_r3r4) + assoc_r2
 
     pubmed_pmcids = (
         conn.execute(
@@ -243,6 +246,20 @@ def _materialize_statistics(conn: Connection) -> None:
             text("SELECT COUNT(*) FROM base_attestations_bioactivity")
         ).scalar()
         or 0
+    )
+
+    # Associations = every empirical evidence row in the graph: the four
+    # entity-pair relationships (food↔chem, chem↔disease, food/chem↔
+    # bioactivity), the IS_A ontology edges, AND every individual
+    # bioactivity measurement (each assay-level data point is an
+    # association between a chemical/food and the bioactivity).
+    associations = (
+        len(r1)
+        + len(scoped_r3r4)
+        + assoc_r2
+        + len(r5)
+        + len(r6)
+        + measurement_count
     )
 
     rows = [

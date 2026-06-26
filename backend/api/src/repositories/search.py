@@ -73,6 +73,8 @@ async def get_statistics(session: AsyncSession) -> dict[str, object]:
         "number of diseases": "diseases",
         "number of publications": "publications",
         "number of associations": "connections",
+        "number of bioactivities": "bioactivities",
+        "number of bioactivity measurements": "bioactivity_measurements",
     }
     statistics = {}
     for row in rows:
