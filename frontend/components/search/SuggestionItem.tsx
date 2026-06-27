@@ -3,6 +3,7 @@
 import { useContext } from "react";
 import { useRouter } from "next/navigation";
 
+import BioactivityIcon from "@/components/icons/BioactivityIcon";
 import ChemicalIcon from "@/components/icons/ChemicalIcon";
 import DiseaseIcon from "@/components/icons/DiseaseIcon";
 import FoodIcon from "@/components/icons/FoodIcon";
@@ -14,6 +15,7 @@ const icon = {
   food: <FoodIcon color="#d97706" />,
   chemical: <ChemicalIcon color="#0891b2" />,
   disease: <DiseaseIcon color="#9333ea" />,
+  bioactivity: <BioactivityIcon color="#10b981" />,
 };
 
 interface SuggestionItemProps {
