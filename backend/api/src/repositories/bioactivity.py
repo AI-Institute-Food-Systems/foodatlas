@@ -86,13 +86,23 @@ def _top_measurement_by_value(measurements: list | None) -> dict | None:
     return top
 
 
-def _attach_top_measurement(data: list[dict]) -> list[dict]:
+def _attach_top_measurement(data: list[dict], evidence_type: str = "") -> list[dict]:
     for row in data:
         # HOTFIX 2026-06-26 — clean dirty endpoint/unit values in the
         # inline measurements sample before downstream consumers see
         # them. See _bioact_hotfix.py for the rules + removal note.
-        row["measurements"] = _bioact_hotfix.clean_measurements(row.get("measurements"))
-        row["top_measurement"] = _top_measurement_by_value(row.get("measurements"))
+        cleaned = _bioact_hotfix.clean_measurements(row.get("measurements"))
+        # When the user has an evidence-type filter active, narrow the
+        # sample so the per-row top_measurement (and modal preview)
+        # reflect the filtered set rather than the union. Row presence
+        # itself is already filtered in the SQL via EXISTS, so this is
+        # purely display.
+        if evidence_type:
+            cleaned = [
+                m for m in cleaned if (m.get("evidence_type") or "") == evidence_type
+            ]
+        row["measurements"] = cleaned
+        row["top_measurement"] = _top_measurement_by_value(cleaned)
     return data
 
 
@@ -138,6 +148,7 @@ async def _paginated(
     rows_per_page: int,
     filter_endpoint: str = "",
     filter_unit: str = "",
+    filter_evidence_type: str = "",
 ) -> dict[str, object]:
     """Shared paginated query against the bioactivity MVs.
 
@@ -166,6 +177,18 @@ async def _paginated(
         )
         params["ep"] = filter_endpoint
         params["unit"] = filter_unit
+
+    # Independent of the endpoint·unit filter. Row presence is filtered
+    # at the SQL level (EXISTS) so pagination + total_pages reflect the
+    # filtered set; the per-row `measurements` sample is also narrowed
+    # in `_attach_top_measurement` so the displayed top_measurement
+    # matches the filter state.
+    if filter_evidence_type:
+        where_parts.append(
+            "EXISTS (SELECT 1 FROM jsonb_array_elements(measurements) m"
+            " WHERE m->>'evidence_type' = :et)"
+        )
+        params["et"] = filter_evidence_type
 
     where = " AND ".join(where_parts)
 
@@ -204,7 +227,10 @@ async def _paginated(
         """),
         {**params, "offset": offset, "limit": rows_per_page},
     )
-    data = _attach_top_measurement([dict(r._mapping) for r in rows_result])
+    data = _attach_top_measurement(
+        [dict(r._mapping) for r in rows_result],
+        evidence_type=filter_evidence_type,
+    )
     return {
         "data": data,
         "metadata": _build_meta(total, page, rows_per_page, len(data)),
@@ -221,6 +247,7 @@ async def get_chemicals(
     rows_per_page: int = ROWS_PER_PAGE_DEFAULT,
     filter_endpoint: str = "",
     filter_unit: str = "",
+    filter_evidence_type: str = "",
 ) -> dict[str, object]:
     """Chemicals measured for this bioactivity."""
     sort_col, direction = _resolve_sort(
@@ -245,6 +272,7 @@ async def get_chemicals(
         rows_per_page=rows_per_page,
         filter_endpoint=filter_endpoint,
         filter_unit=filter_unit,
+        filter_evidence_type=filter_evidence_type,
     )
 
 
@@ -258,6 +286,7 @@ async def get_foods(
     rows_per_page: int = ROWS_PER_PAGE_DEFAULT,
     filter_endpoint: str = "",
     filter_unit: str = "",
+    filter_evidence_type: str = "",
 ) -> dict[str, object]:
     """Foods that exhibit this bioactivity."""
     sort_col, direction = _resolve_sort(
@@ -280,6 +309,7 @@ async def get_foods(
         rows_per_page=rows_per_page,
         filter_endpoint=filter_endpoint,
         filter_unit=filter_unit,
+        filter_evidence_type=filter_evidence_type,
     )
 
 
@@ -293,6 +323,7 @@ async def get_chemical_bioactivities(
     rows_per_page: int = ROWS_PER_PAGE_DEFAULT,
     filter_endpoint: str = "",
     filter_unit: str = "",
+    filter_evidence_type: str = "",
 ) -> dict[str, object]:
     """A chemical's bioactivities."""
     sort_col, direction = _resolve_sort(
@@ -316,6 +347,7 @@ async def get_chemical_bioactivities(
         rows_per_page=rows_per_page,
         filter_endpoint=filter_endpoint,
         filter_unit=filter_unit,
+        filter_evidence_type=filter_evidence_type,
     )
 
 
@@ -329,6 +361,7 @@ async def get_food_bioactivities(
     rows_per_page: int = ROWS_PER_PAGE_DEFAULT,
     filter_endpoint: str = "",
     filter_unit: str = "",
+    filter_evidence_type: str = "",
 ) -> dict[str, object]:
     """A food's bioactivities."""
     sort_col, direction = _resolve_sort(
@@ -351,6 +384,7 @@ async def get_food_bioactivities(
         rows_per_page=rows_per_page,
         filter_endpoint=filter_endpoint,
         filter_unit=filter_unit,
+        filter_evidence_type=filter_evidence_type,
     )
 
 
