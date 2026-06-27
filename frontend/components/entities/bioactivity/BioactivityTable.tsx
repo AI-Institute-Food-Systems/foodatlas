@@ -25,10 +25,9 @@ import BioactivityMeasurementsModal from "@/components/entities/bioactivity/Bioa
 import { formatTopMeasurement, topMeasurementOf } from "@/components/entities/bioactivity/format";
 import { usePaginations } from "@/context/paginationsContext";
 import { encodeSpace } from "@/utils/utils";
-import {
-  getBioactivityEndpointOptions,
-  type BioactivityDirection,
-  type BioactivityListParams,
+import type {
+  BioactivityDirection,
+  BioactivityListParams,
 } from "@/utils/fetching";
 import type {
   BioactivityChemicalRow,
@@ -130,30 +129,25 @@ const BioactivityTable = ({
     by: defaultSortBy,
     dir: defaultSortDir,
   });
-  // Filter chip selection. Empty string = "All" (no filter). Both must
-  // be set together for the backend to honour the filter; pairing them
-  // here keeps the wire format consistent.
-  const [filter, setFilter] = useState<{ endpoint: string; unit: string }>({
+  // Endpoint·unit filter retained as backend-only state so URL
+  // (?filter_endpoint=&filter_unit=) keeps working; the UI was retired
+  // because the upstream surfaces 250+ noisy combos — see memory
+  // `bioactivity-endpoint-unit-cleanup`. Re-enable the chip row once
+  // Kaichi normalises the upstream.
+  const [filter] = useState<{ endpoint: string; unit: string }>({
     endpoint: "",
     unit: "",
   });
   const filterActive = Boolean(filter.endpoint && filter.unit);
-  // Chip options: distinct (endpoint, unit, count) tuples for this
-  // direction+pivot, fetched once per page load.
-  const [filterOptions, setFilterOptions] = useState<
-    { endpoint: string; unit: string; count: number }[]
-  >([]);
-  useEffect(() => {
-    if (!direction || !pivotName) return;
-    let cancelled = false;
-    (async () => {
-      const opts = await getBioactivityEndpointOptions(pivotName, direction);
-      if (!cancelled) setFilterOptions(opts);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [direction, pivotName]);
+  // Evidence-type filter — empty string = "All" (no filter). Hardcoded
+  // options because there are only ~2 ("in vitro", "in vivo") and the
+  // API has no /bioactivity/evidence-types endpoint. If a value is
+  // absent from the data the chip just yields 0 rows.
+  const [evidenceFilter, setEvidenceFilter] = useState<string>("");
+  // direction + pivotName retained for the re-enabled endpoint·unit
+  // chip case; referenced so the linter doesn't complain.
+  void direction;
+  void pivotName;
 
   const [rows, setRows] = useState<BioactivityRow[]>([]);
   const [totalPages, setTotalPages] = useState(0);
@@ -174,6 +168,7 @@ const BioactivityTable = ({
         sortDir: sort.dir,
         filterEndpoint: filter.endpoint || undefined,
         filterUnit: filter.unit || undefined,
+        filterEvidenceType: evidenceFilter || undefined,
       });
       if (cancelled) return;
       setRows(payload?.data ?? []);
@@ -183,7 +178,7 @@ const BioactivityTable = ({
     return () => {
       cancelled = true;
     };
-  }, [fetcher, currentPage, searchTerm, sort, filter]);
+  }, [fetcher, currentPage, searchTerm, sort, filter, evidenceFilter]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value.toLowerCase());
@@ -205,14 +200,9 @@ const BioactivityTable = ({
         : { by: key, dir: "desc" }
     );
   };
-  const handleFilterChange = (endpoint: string, unit: string) => {
-    setFilter({ endpoint, unit });
+  const handleEvidenceFilter = (value: string) => {
+    setEvidenceFilter(value);
     setTablePaginations(tableId, 1, 20);
-    // When clearing the filter, also drop the top-value sort if it was
-    // active — it's not meaningful without a filter.
-    if (!endpoint && !unit && sort.by === TOP_VALUE_SORT_KEY) {
-      setSort({ by: defaultSortBy, dir: defaultSortDir });
-    }
   };
 
   const colSpan = columns.length;
@@ -243,31 +233,26 @@ const BioactivityTable = ({
             </button>
           )}
         </div>
-        {filterOptions.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[10px] uppercase tracking-wider text-light-500 mr-1">
-              Endpoint · unit
-            </span>
-            <EndpointChip
-              label="All"
-              active={!filterActive}
-              onClick={() => handleFilterChange("", "")}
-            />
-            {filterOptions.map((opt) => {
-              const active =
-                filter.endpoint === opt.endpoint && filter.unit === opt.unit;
-              return (
-                <EndpointChip
-                  key={`${opt.endpoint}|${opt.unit}`}
-                  label={`${opt.endpoint} · ${opt.unit}`}
-                  count={opt.count}
-                  active={active}
-                  onClick={() => handleFilterChange(opt.endpoint, opt.unit)}
-                />
-              );
-            })}
-          </div>
-        )}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[10px] uppercase tracking-wider text-light-500 mr-1">
+            Evidence
+          </span>
+          <EvidenceChip
+            label="All"
+            active={!evidenceFilter}
+            onClick={() => handleEvidenceFilter("")}
+          />
+          <EvidenceChip
+            label="in vitro"
+            active={evidenceFilter === "in vitro"}
+            onClick={() => handleEvidenceFilter("in vitro")}
+          />
+          <EvidenceChip
+            label="in vivo"
+            active={evidenceFilter === "in vivo"}
+            onClick={() => handleEvidenceFilter("in vivo")}
+          />
+        </div>
       </div>
 
       <div className="overflow-x-auto">
@@ -458,14 +443,15 @@ const SortableHeader = ({
   </button>
 );
 
-const EndpointChip = ({
+// Toolbar chip used for the evidence-type filter (in vitro / in vivo).
+// Same shape as the retired endpoint·unit chip — cream-on-dark when
+// active, hollow when not, matching the apothecary palette.
+const EvidenceChip = ({
   label,
-  count,
   active,
   onClick,
 }: {
   label: string;
-  count?: number;
   active: boolean;
   onClick: () => void;
 }) => (
@@ -480,17 +466,7 @@ const EndpointChip = ({
         : "bg-transparent border-light-700/60 text-light-400 hover:text-light-100 hover:border-light-500"
     )}
   >
-    <span>{label}</span>
-    {typeof count === "number" && (
-      <span
-        className={twMerge(
-          "not-italic font-mono text-[10px] tabular-nums",
-          active ? "text-light-700" : "text-light-500"
-        )}
-      >
-        {count.toLocaleString()}
-      </span>
-    )}
+    {label}
   </button>
 );
 
@@ -528,34 +504,6 @@ export const TopMeasurementCell = ({ row }: { row: BioactivityRow }) => (
   </span>
 );
 
-// Distinct evidence_type values across the row's cached measurements
-// sample, rendered as small chips. "in vitro" / "in vivo" — answers
-// the "what kind of evidence backs this association?" question at a
-// glance. The sample is capped (~10), so a row that mixes both types
-// at the long tail may only show one chip; acceptable approximation.
-export const EvidenceTypeCell = ({ row }: { row: BioactivityRow }) => {
-  const ms = row.measurements ?? [];
-  const types = Array.from(
-    new Set(
-      ms
-        .map((m) => (m as { evidence_type?: string | null }).evidence_type)
-        .filter((t): t is string => Boolean(t)),
-    ),
-  );
-  if (types.length === 0) return <span className="text-light-600">—</span>;
-  return (
-    <div className="flex justify-end gap-1.5 flex-wrap">
-      {types.map((t) => (
-        <span
-          key={t}
-          className="font-mono italic text-xs px-2 py-0.5 rounded-full border border-light-700/60 text-light-300 whitespace-nowrap"
-        >
-          {t.toLowerCase()}
-        </span>
-      ))}
-    </div>
-  );
-};
 
 export const ViewAssaysCell = ({
   row,

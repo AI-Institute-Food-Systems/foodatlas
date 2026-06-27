@@ -30,6 +30,7 @@ async def bioactivity_chemicals(
     sort_dir: str = Query("desc"),
     filter_endpoint: str = Query(""),
     filter_unit: str = Query(""),
+    filter_evidence_type: str = Query(""),
     db: AsyncSession = Depends(get_db),
 ):
     return await bioactivity.get_chemicals(
@@ -41,6 +42,7 @@ async def bioactivity_chemicals(
         sort_dir=sort_dir,
         filter_endpoint=filter_endpoint,
         filter_unit=filter_unit,
+        filter_evidence_type=filter_evidence_type,
     )
 
 
@@ -53,6 +55,7 @@ async def bioactivity_foods(
     sort_dir: str = Query("desc"),
     filter_endpoint: str = Query(""),
     filter_unit: str = Query(""),
+    filter_evidence_type: str = Query(""),
     db: AsyncSession = Depends(get_db),
 ):
     return await bioactivity.get_foods(
@@ -64,6 +67,7 @@ async def bioactivity_foods(
         sort_dir=sort_dir,
         filter_endpoint=filter_endpoint,
         filter_unit=filter_unit,
+        filter_evidence_type=filter_evidence_type,
     )
 
 
