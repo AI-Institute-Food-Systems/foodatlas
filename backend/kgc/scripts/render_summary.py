@@ -51,8 +51,7 @@ def main() -> int:
         else None
     )
     sentence = render_summary(payload, metrics)
-    output = args.output or Path("release_notes") / f"SUMMARY-{args.version}.md"
-    output.parent.mkdir(parents=True, exist_ok=True)
+    output = args.output or Path(f"SUMMARY-{args.version}.md")
     output.write_text(sentence + "\n", encoding="utf-8")
     print(f"Summary written to {output}")
     return 0
@@ -71,10 +70,7 @@ def parse_arguments() -> argparse.Namespace:
         help="Evaluation metrics JSON (precision/recall/F1); skipped if absent.",
     )
     parser.add_argument(
-        "--output",
-        type=Path,
-        default=None,
-        help="Default: release_notes/SUMMARY-<version>.md",
+        "--output", type=Path, default=None, help="Default: SUMMARY-<version>.md"
     )
     return parser.parse_args()
 
