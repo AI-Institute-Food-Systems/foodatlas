@@ -17,6 +17,9 @@ export type BioactivityMeasurement = {
   value: number | null;
   unit: string | null;
   assay: string | null;
+  // Optional — present in the materialised sample ("in vitro" / "in vivo");
+  // surfaced as a per-row chip in the list tables.
+  evidence_type?: string | null;
 };
 
 // Full measurement payload from /bioactivity/measurements — all 16 cols

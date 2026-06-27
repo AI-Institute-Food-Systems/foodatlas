@@ -6,10 +6,9 @@ import { getBioactivityChemicals } from "@/utils/fetching";
 import type { BioactivityListParams } from "@/utils/fetching";
 import type { BioactivityChemicalRow } from "@/types";
 import BioactivityTable, {
+  EvidenceTypeCell,
   NameLinkCell,
   NumberCell,
-  TOP_MEASUREMENT_SORT_KEY,
-  TopMeasurementCell,
   ViewAssaysCell,
   type SortableColumn,
 } from "@/components/entities/bioactivity/BioactivityTable";
@@ -32,7 +31,7 @@ const BioactivityChemicalsSection = ({ commonName, anchorId }: Props) => {
         key: "name",
         label: "Chemical",
         align: "left",
-        width: "w-[24%]",
+        width: "w-[30%]",
         sortable: true,
         render: (row) => <NameLinkCell row={row} hrefPrefix="/chemical/" />,
       },
@@ -67,18 +66,17 @@ const BioactivityChemicalsSection = ({ commonName, anchorId }: Props) => {
         ),
       },
       {
-        key: TOP_MEASUREMENT_SORT_KEY,
-        label: "Top measurement",
+        key: "evidence_type",
+        label: "Evidence",
         align: "right",
-        width: "w-[28%]",
-        sortable: true,
-        render: (row) => <TopMeasurementCell row={row} />,
+        width: "w-[18%]",
+        render: (row) => <EvidenceTypeCell row={row} />,
       },
       {
         key: "assays",
         label: "Assays",
         align: "right",
-        width: "w-[16%]",
+        width: "w-[20%]",
         render: (row, ctx) => <ViewAssaysCell row={row} ctx={ctx} />,
       },
     ],
