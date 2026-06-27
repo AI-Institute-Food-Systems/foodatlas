@@ -278,6 +278,11 @@ export type BioactivityListParams = {
   // across matching measurements).
   filterEndpoint?: string;
   filterUnit?: string;
+  // Narrows rows to those whose `measurements` sample contains at least
+  // one entry with the given `evidence_type`. Per-row top_measurement
+  // is also recomputed from the filtered sample, so it reflects the
+  // active filter.
+  filterEvidenceType?: string;
 };
 
 const buildBioactivityQuery = (params?: BioactivityListParams): string => {
@@ -288,6 +293,8 @@ const buildBioactivityQuery = (params?: BioactivityListParams): string => {
   if (params?.sortDir) p.set("sort_dir", params.sortDir);
   if (params?.filterEndpoint) p.set("filter_endpoint", params.filterEndpoint);
   if (params?.filterUnit) p.set("filter_unit", params.filterUnit);
+  if (params?.filterEvidenceType)
+    p.set("filter_evidence_type", params.filterEvidenceType);
   const qs = p.toString();
   return qs ? `&${qs}` : "";
 };
