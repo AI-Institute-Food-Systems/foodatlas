@@ -9,14 +9,23 @@ function formatNumber(value: number | null | undefined): string {
   return value.toLocaleString(undefined, { maximumSignificantDigits: 3 });
 }
 
+// Render a unit only when it's a real one. The API's hotfix layer
+// (`_bioact_hotfix.py`) replaces empty/garbage units with the literal
+// "None" so downstream can distinguish "explicitly no unit" from
+// missing/dirty data — at display time that just looks like noise.
+// Remove this filter when the upstream cleanup lands and the hotfix
+// is removed (see memory `bioact-hotfix-removal`).
+export function displayUnit(unit: string | null | undefined): string {
+  return unit && unit !== "None" ? ` ${unit}` : "";
+}
+
 export function formatTopPotency(
   summary: BioactivityPotencySummary[] | null | undefined
 ): string {
   if (!summary || summary.length === 0) return "—";
   const top = [...summary].sort((a, b) => b.n - a.n)[0];
   const median = formatNumber(top.median);
-  const unit = top.unit ? ` ${top.unit}` : "";
-  return `${top.endpoint ?? "?"}: ${median}${unit} (n=${top.n})`;
+  return `${top.endpoint ?? "?"}: ${median}${displayUnit(top.unit)} (n=${top.n})`;
 }
 
 // "Headline" measurement surfaced in the bioactivity tables. Backend picks
@@ -28,8 +37,9 @@ export function formatTopMeasurement(
 ): string {
   if (!top || top.value === null || top.value === undefined) return "—";
   const value = formatNumber(top.value);
-  const unit = top.unit ? ` ${top.unit}` : "";
-  return top.endpoint ? `${top.endpoint}: ${value}${unit}` : `${value}${unit}`;
+  return top.endpoint
+    ? `${top.endpoint}: ${value}${displayUnit(top.unit)}`
+    : `${value}${displayUnit(top.unit)}`;
 }
 
 // Pulls top_measurement from a row — prefers the backend-computed field,
@@ -64,6 +74,5 @@ export function formatFoodMeasurement(
 ): string {
   if (!m) return "—";
   if (m.value === null || m.value === undefined) return m.outcome ?? "—";
-  const unit = m.unit ? ` ${m.unit}` : "";
-  return `${formatNumber(m.value)}${unit}`;
+  return `${formatNumber(m.value)}${displayUnit(m.unit)}`;
 }
