@@ -5,9 +5,8 @@ import { useCallback, useMemo } from "react";
 import { getBioactivityFoods } from "@/utils/fetching";
 import type { BioactivityListParams } from "@/utils/fetching";
 import BioactivityTable, {
+  EvidenceTypeCell,
   NameLinkCell,
-  TOP_MEASUREMENT_SORT_KEY,
-  TopMeasurementCell,
   ViewAssaysCell,
   type SortableColumn,
 } from "@/components/entities/bioactivity/BioactivityTable";
@@ -34,18 +33,17 @@ const BioactivityFoodsSection = ({ commonName, anchorId }: Props) => {
         render: (row) => <NameLinkCell row={row} hrefPrefix="/food/" />,
       },
       {
-        key: TOP_MEASUREMENT_SORT_KEY,
-        label: "Top measurement",
+        key: "evidence_type",
+        label: "Evidence",
         align: "right",
-        width: "w-[35%]",
-        sortable: true,
-        render: (row) => <TopMeasurementCell row={row} />,
+        width: "w-[30%]",
+        render: (row) => <EvidenceTypeCell row={row} />,
       },
       {
         key: "assays",
         label: "Assays",
         align: "right",
-        width: "w-[25%]",
+        width: "w-[30%]",
         render: (row, ctx) => <ViewAssaysCell row={row} ctx={ctx} />,
       },
     ],

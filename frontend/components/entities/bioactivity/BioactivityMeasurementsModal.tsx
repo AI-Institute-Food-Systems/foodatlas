@@ -403,7 +403,9 @@ const MeasurementsTable = ({
               ) : (
                 <>
                   {formatNumberShort(m.value)}{" "}
-                  <span className="text-light-500">{m.unit || ""}</span>
+                  <span className="text-light-500">
+                    {m.unit && m.unit !== "None" ? m.unit : ""}
+                  </span>
                 </>
               )}
             </td>

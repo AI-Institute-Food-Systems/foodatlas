@@ -528,6 +528,35 @@ export const TopMeasurementCell = ({ row }: { row: BioactivityRow }) => (
   </span>
 );
 
+// Distinct evidence_type values across the row's cached measurements
+// sample, rendered as small chips. "in vitro" / "in vivo" — answers
+// the "what kind of evidence backs this association?" question at a
+// glance. The sample is capped (~10), so a row that mixes both types
+// at the long tail may only show one chip; acceptable approximation.
+export const EvidenceTypeCell = ({ row }: { row: BioactivityRow }) => {
+  const ms = row.measurements ?? [];
+  const types = Array.from(
+    new Set(
+      ms
+        .map((m) => (m as { evidence_type?: string | null }).evidence_type)
+        .filter((t): t is string => Boolean(t)),
+    ),
+  );
+  if (types.length === 0) return <span className="text-light-600">—</span>;
+  return (
+    <div className="flex justify-end gap-1.5 flex-wrap">
+      {types.map((t) => (
+        <span
+          key={t}
+          className="font-mono italic text-xs px-2 py-0.5 rounded-full border border-light-700/60 text-light-300 whitespace-nowrap"
+        >
+          {t.toLowerCase()}
+        </span>
+      ))}
+    </div>
+  );
+};
+
 export const ViewAssaysCell = ({
   row,
   ctx,

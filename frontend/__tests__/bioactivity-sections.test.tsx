@@ -46,14 +46,15 @@ const chemicalRow: BioactivityChemicalRow = {
   measurement_count: 755,
   active_count: 83,
   inactive_count: 261,
-  top_measurement: { endpoint: "IC50", value: 17.175, unit: "MICROMOLAR" },
+  top_measurement: { endpoint: "IC50", value: 17.175, unit: "uM" },
   measurements: [
     {
       endpoint: "IC50",
       outcome: "Active",
       value: 17.175,
-      unit: "MICROMOLAR",
+      unit: "uM",
       assay: "AID: 364",
+      evidence_type: "in vitro",
     },
   ],
 };
@@ -70,6 +71,7 @@ const foodRow: BioactivityFoodRow = {
       value: 0.519,
       unit: "mmol/100g",
       assay: "FoodAtlasModel: RF_antioxidant_v1",
+      evidence_type: "in vivo",
     },
   ],
 };
@@ -86,31 +88,32 @@ describe("BioactivityChemicalsSection", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders rows with active/inactive counts and top measurement", async () => {
+  it("renders rows with active/inactive counts and evidence chip", async () => {
     vi.mocked(getBioactivityChemicals).mockResolvedValueOnce({
       data: [chemicalRow],
       metadata: { row_count: 1 },
     });
     renderWithPagination(<BioactivityChemicalsSection commonName="antioxidant" />);
     expect(await screen.findByText(/quercetin/i)).toBeInTheDocument();
-    // Total count moved into the "View N assays" button; standalone count
-    // column was removed in the apothecary redesign.
+    // Total count moved into the "View N assays" button; standalone
+    // count column was removed in the apothecary redesign.
     expect(screen.getByText(/View 755 assays/)).toBeInTheDocument();
     expect(screen.getByText("83")).toBeInTheDocument();
     expect(screen.getByText("261")).toBeInTheDocument();
-    expect(screen.getByText(/IC50: 17\.2 MICROMOLAR/)).toBeInTheDocument();
+    // Endpoint·unit column replaced with an in-vitro / in-vivo chip.
+    expect(screen.getByText(/in vitro/i)).toBeInTheDocument();
   });
 });
 
 describe("BioactivityFoodsSection", () => {
-  it("renders top measurement value + View assays button", async () => {
+  it("renders name + evidence chip + View assays button", async () => {
     vi.mocked(getBioactivityFoods).mockResolvedValueOnce({
       data: [foodRow],
       metadata: { row_count: 1 },
     });
     renderWithPagination(<BioactivityFoodsSection commonName="antioxidant" />);
     expect(await screen.findByText(/snail/i)).toBeInTheDocument();
-    expect(screen.getByText(/Activity: 0\.519 mmol\/100g/)).toBeInTheDocument();
+    expect(screen.getByText(/in vivo/i)).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /view 1 assay/i })
     ).toBeInTheDocument();
@@ -130,7 +133,7 @@ describe("ChemicalBioactivitiesSection", () => {
 });
 
 describe("FoodBioactivitiesSection", () => {
-  it("links bioactivities and shows top measurement", async () => {
+  it("links bioactivities and shows evidence chip", async () => {
     vi.mocked(getFoodBioactivities).mockResolvedValueOnce({
       data: [{ ...foodRow, name: "antioxidant", id: "bio1" }],
       metadata: { row_count: 1 },
@@ -139,6 +142,6 @@ describe("FoodBioactivitiesSection", () => {
     expect(
       await screen.findByRole("link", { name: /antioxidant/i })
     ).toBeInTheDocument();
-    expect(screen.getByText(/Activity: 0\.519 mmol\/100g/)).toBeInTheDocument();
+    expect(screen.getByText(/in vivo/i)).toBeInTheDocument();
   });
 });
