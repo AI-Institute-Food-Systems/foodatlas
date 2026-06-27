@@ -413,6 +413,7 @@ const MeasurementsTable = ({
                 infinite={m.efficacy_infiniteactivity}
                 logAC50={m.efficacy_logac50_value}
                 slope={m.efficacy_hillslope}
+                unit={m.unit}
               />
             </td>
           </tr>
