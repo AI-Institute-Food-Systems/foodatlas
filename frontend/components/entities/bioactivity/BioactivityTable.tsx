@@ -139,11 +139,6 @@ const BioactivityTable = ({
     unit: "",
   });
   const filterActive = Boolean(filter.endpoint && filter.unit);
-  // Evidence-type filter — empty string = "All" (no filter). Hardcoded
-  // options because there are only ~2 ("in vitro", "in vivo") and the
-  // API has no /bioactivity/evidence-types endpoint. If a value is
-  // absent from the data the chip just yields 0 rows.
-  const [evidenceFilter, setEvidenceFilter] = useState<string>("");
   // direction + pivotName retained for the re-enabled endpoint·unit
   // chip case; referenced so the linter doesn't complain.
   void direction;
@@ -168,7 +163,6 @@ const BioactivityTable = ({
         sortDir: sort.dir,
         filterEndpoint: filter.endpoint || undefined,
         filterUnit: filter.unit || undefined,
-        filterEvidenceType: evidenceFilter || undefined,
       });
       if (cancelled) return;
       setRows(payload?.data ?? []);
@@ -178,7 +172,7 @@ const BioactivityTable = ({
     return () => {
       cancelled = true;
     };
-  }, [fetcher, currentPage, searchTerm, sort, filter, evidenceFilter]);
+  }, [fetcher, currentPage, searchTerm, sort, filter]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value.toLowerCase());
@@ -200,11 +194,6 @@ const BioactivityTable = ({
         : { by: key, dir: "desc" }
     );
   };
-  const handleEvidenceFilter = (value: string) => {
-    setEvidenceFilter(value);
-    setTablePaginations(tableId, 1, 20);
-  };
-
   const colSpan = columns.length;
   const showingPaginator = totalPages > 1 || isLoading;
   const showEmpty = !isLoading && rows.length === 0;
@@ -233,26 +222,11 @@ const BioactivityTable = ({
             </button>
           )}
         </div>
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-[10px] uppercase tracking-wider text-light-500 mr-1">
-            Evidence
-          </span>
-          <EvidenceChip
-            label="All"
-            active={!evidenceFilter}
-            onClick={() => handleEvidenceFilter("")}
-          />
-          <EvidenceChip
-            label="in vitro"
-            active={evidenceFilter === "in vitro"}
-            onClick={() => handleEvidenceFilter("in vitro")}
-          />
-          <EvidenceChip
-            label="in vivo"
-            active={evidenceFilter === "in vivo"}
-            onClick={() => handleEvidenceFilter("in vivo")}
-          />
-        </div>
+        {/* Evidence-type chip UI removed 2026-06-27 — backend
+         * `filter_evidence_type` param + URL state still work so a
+         * power user can set ?filter_evidence_type=in+vitro directly.
+         * Restore the chip row when revisiting the filter UX (see
+         * memory `monday-evidence-filter-ui`). */}
       </div>
 
       <div className="overflow-x-auto">
@@ -440,33 +414,6 @@ const SortableHeader = ({
     ) : (
       <MdUnfoldMore className="text-light-400 group-hover:text-light-100 flex-shrink-0" />
     )}
-  </button>
-);
-
-// Toolbar chip used for the evidence-type filter (in vitro / in vivo).
-// Same shape as the retired endpoint·unit chip — cream-on-dark when
-// active, hollow when not, matching the apothecary palette.
-const EvidenceChip = ({
-  label,
-  active,
-  onClick,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}) => (
-  <button
-    type="button"
-    onClick={onClick}
-    aria-pressed={active}
-    className={twMerge(
-      "inline-flex items-baseline gap-1 px-2.5 py-0.5 rounded-full border-[1.5px] font-mono italic text-xs transition-colors",
-      active
-        ? "bg-light-200 text-light-900 border-light-200 font-semibold"
-        : "bg-transparent border-light-700/60 text-light-400 hover:text-light-100 hover:border-light-500"
-    )}
-  >
-    {label}
   </button>
 );
 
