@@ -111,24 +111,39 @@ def _materialize_search_auto_complete(conn: Connection) -> None:
 
 
 def _load_assoc_counts(conn: Connection) -> dict[str, int]:
-    """Sum entity row counts across composition and correlation MVs.
+    """Sum entity row counts across composition, correlation, and bioactivity MVs.
 
-    Each MV uses type-specific ID columns (food_/chemical_/disease_foodatlas_id)
-    so adding all four groupings never cross-contaminates entity types.
+    Each MV uses type-specific ID columns (food_/chemical_/disease_/
+    bioactivity_foodatlas_id) so adding all groupings never cross-contaminates
+    entity types.
+
+    Previously foods and chemicals were missing their bioactivity-edge counts:
+    a food like tomato didn't get credit for the bioactivity measurements from
+    mv_food_bioactivity, and a chemical like quercetin didn't get credit for its
+    rows in mv_chemical_bioactivity. The two new queries at the bottom close
+    that gap so autocomplete association counts reflect the full graph.
     """
     queries = (
+        # Composition: food ↔ chemical
         "SELECT food_foodatlas_id AS fid, COUNT(*) AS n"
         " FROM mv_food_chemical_composition GROUP BY food_foodatlas_id",
         "SELECT chemical_foodatlas_id AS fid, COUNT(*) AS n"
         " FROM mv_food_chemical_composition GROUP BY chemical_foodatlas_id",
+        # Correlation: chemical ↔ disease
         "SELECT chemical_foodatlas_id AS fid, COUNT(*) AS n"
         " FROM mv_chemical_disease_correlation GROUP BY chemical_foodatlas_id",
         "SELECT disease_foodatlas_id AS fid, COUNT(*) AS n"
         " FROM mv_chemical_disease_correlation GROUP BY disease_foodatlas_id",
+        # Bioactivity — bioactivity entity side (was already present)
         "SELECT bioactivity_foodatlas_id AS fid, COUNT(*) AS n"
         " FROM mv_chemical_bioactivity GROUP BY bioactivity_foodatlas_id",
         "SELECT bioactivity_foodatlas_id AS fid, COUNT(*) AS n"
         " FROM mv_food_bioactivity GROUP BY bioactivity_foodatlas_id",
+        # Bioactivity — food and chemical sides (previously missing)
+        "SELECT food_foodatlas_id AS fid, COUNT(*) AS n"
+        " FROM mv_food_bioactivity GROUP BY food_foodatlas_id",
+        "SELECT chemical_foodatlas_id AS fid, COUNT(*) AS n"
+        " FROM mv_chemical_bioactivity GROUP BY chemical_foodatlas_id",
     )
     counts: dict[str, int] = {}
     for sql in queries:
