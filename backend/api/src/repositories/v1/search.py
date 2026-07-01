@@ -67,6 +67,8 @@ _STAT_KEY_MAP = {
     "number of foods": "foods",
     "number of chemicals": "chemicals",
     "number of diseases": "diseases",
+    "number of bioactivities": "bioactivities",
+    "number of bioactivity measurements": "bioactivity_measurements",
     "number of publications": "publications",
     "number of associations": "connections",
     "number of bioactivities": "bioactivities",

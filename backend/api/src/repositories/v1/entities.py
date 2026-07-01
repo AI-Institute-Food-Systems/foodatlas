@@ -1,10 +1,10 @@
-"""Flat entity queries for /v1/ (food, chemical, disease).
+"""Flat entity queries for /v1/ (food, chemical, disease, bioactivity).
 
 Reuses the existing materialised views (``mv_food_entities``,
-``mv_chemical_entities``, ``mv_disease_entities``) but returns the columns
-flat — no UI fields like ``ambiguity_siblings``, no external-id reformatting.
-External IDs are returned as-is from the source data so consumers can map
-them however they like.
+``mv_chemical_entities``, ``mv_disease_entities``, ``mv_bioactivity_entities``)
+but returns the columns flat — no UI fields like ``ambiguity_siblings``, no
+external-id reformatting. External IDs are returned as-is from the source
+data so consumers can map them however they like.
 """
 
 from __future__ import annotations
@@ -22,6 +22,7 @@ _ENTITY_TABLE: dict[str, str] = {
     "food": "mv_food_entities",
     "chemical": "mv_chemical_entities",
     "disease": "mv_disease_entities",
+    "bioactivity": "mv_bioactivity_entities",
 }
 
 _ENTITY_SELECT: dict[str, str] = {
@@ -35,6 +36,10 @@ _ENTITY_SELECT: dict[str, str] = {
     ),
     "disease": (
         "foodatlas_id AS id, common_name, scientific_name, synonyms, external_ids"
+    ),
+    "bioactivity": (
+        "foodatlas_id AS id, common_name, synonyms, external_ids, "
+        "description, parents, children, n_foods, n_chemicals"
     ),
 }
 

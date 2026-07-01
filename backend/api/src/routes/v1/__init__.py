@@ -7,6 +7,7 @@ from src.rate_limit import enforce_rate_limit
 
 from . import (
     attestations,
+    bioactivities,
     bundles,
     chemicals,
     diseases,
@@ -24,6 +25,7 @@ router = APIRouter(
 router.include_router(foods.router)
 router.include_router(chemicals.router)
 router.include_router(diseases.router)
+router.include_router(bioactivities.router)
 router.include_router(triplets.router)
 router.include_router(attestations.router)
 router.include_router(search.router)

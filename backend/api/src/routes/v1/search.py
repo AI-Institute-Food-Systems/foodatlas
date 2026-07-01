@@ -10,7 +10,7 @@ from src.repositories.v1.serializers import ListResponse, SearchHit
 
 router = APIRouter(prefix="/search")
 
-_VALID_TYPES = {"", "food", "chemical", "disease"}
+_VALID_TYPES = {"", "food", "chemical", "disease", "bioactivity"}
 
 
 @router.get(
@@ -20,7 +20,9 @@ _VALID_TYPES = {"", "food", "chemical", "disease"}
 )
 async def search(
     q: str = Query(..., min_length=1, description="Search term"),
-    entity_type: str = Query("", description="Filter to food|chemical|disease"),
+    entity_type: str = Query(
+        "", description="Filter to food|chemical|disease|bioactivity"
+    ),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
@@ -28,7 +30,7 @@ async def search(
     if entity_type not in _VALID_TYPES:
         raise HTTPException(
             status_code=422,
-            detail="entity_type must be one of food, chemical, disease",
+            detail="entity_type must be one of food, chemical, disease, bioactivity",
         )
     size = clamp_page_size(page_size)
     rows, total = await search_repo.search(
