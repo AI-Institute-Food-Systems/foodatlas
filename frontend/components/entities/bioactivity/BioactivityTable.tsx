@@ -799,28 +799,6 @@ export const ViewAssaysCell = ({
   </button>
 );
 
-// Compact numeric assay count that doubles as the modal opener. Same
-// affordance as ViewAssaysCell but takes less horizontal room — the
-// column is now a sortable numeric column that just happens to be
-// clickable. Uses <button> so the whole cell stays in the tab order.
-export const AssayCountCell = ({
-  row,
-  ctx,
-}: {
-  row: BioactivityRow;
-  ctx: ColumnContext;
-}) => (
-  <button
-    type="button"
-    onClick={ctx.openModal}
-    disabled={row.measurement_count === 0}
-    className="font-mono text-xs tabular-nums text-light-200 hover:text-light-100 underline-offset-4 hover:underline disabled:no-underline disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-    aria-label={`View ${row.measurement_count} assays`}
-  >
-    {row.measurement_count.toLocaleString()}
-  </button>
-);
-
 // Chemical classification (["flavonoid", "polyphenol"] → "flavonoid,
 // polyphenol"). Trims to the first entry + "N more" once we have more
 // than two so the column stays narrow. Silent em-dash for empty/null
