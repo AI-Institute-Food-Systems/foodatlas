@@ -14,10 +14,12 @@ import {
   MdKeyboardArrowDown,
   MdKeyboardArrowUp,
   MdSearch,
+  MdTune,
   MdUnfoldMore,
 } from "react-icons/md";
 import { twMerge } from "tailwind-merge";
 
+import Card from "@/components/basic/Card";
 import Link from "@/components/basic/Link";
 import LoadingCard from "@/components/basic/LoadingCard";
 import Pagination from "@/components/basic/Pagination";
@@ -125,6 +127,7 @@ const BioactivityTable = ({
   const { currentPage } = getTablePaginations(tableId);
 
   const [searchTerm, setSearchTerm] = useState("");
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [sort, setSort] = useState<{ by: string; dir: SortDir }>({
     by: defaultSortBy,
     dir: defaultSortDir,
@@ -198,37 +201,62 @@ const BioactivityTable = ({
   const showingPaginator = totalPages > 1 || isLoading;
   const showEmpty = !isLoading && rows.length === 0;
 
+  // Sidebar filter panel — mirrors composition's structure so the two
+  // pages read as one design system. Currently just search; unit filter
+  // TODO once the endpoint options API is confirmed clean upstream (see
+  // memory `bioactivity-endpoint-unit-cleanup`).
+  const filterPanel = (
+    <div className="flex flex-col gap-5">
+      <div className="relative flex items-center">
+        <MdSearch className="absolute left-2 w-4 h-4 text-light-400" />
+        <input
+          className="pl-8 pr-8 w-full h-8 text-xs rounded-md border border-light-700/60 bg-light-900/60 focus:bg-light-900 focus:border-light-500 hover:border-light-500 text-light-100 placeholder-light-500 transition-colors duration-100 ease-in-out outline-none"
+          type="text"
+          placeholder="Search…"
+          aria-label={searchPlaceholder}
+          value={searchTerm}
+          onChange={handleSearchChange}
+        />
+        {searchTerm && (
+          <button
+            type="button"
+            aria-label="Clear search"
+            onClick={handleSearchClear}
+            className="absolute right-2 flex items-center justify-center w-4 h-4 rounded-full text-light-400 hover:text-light-100 hover:bg-light-700 transition-colors"
+          >
+            <MdClose className="w-3 h-3" />
+          </button>
+        )}
+      </div>
+      {/* Evidence-type chip UI removed 2026-06-27; unit filter to be
+       * added once upstream endpoint options are confirmed clean (see
+       * memory bioactivity-endpoint-unit-cleanup). */}
+    </div>
+  );
+
   return (
-    <div className="flex flex-col gap-7">
-      {/* toolbar — search + endpoint:unit chip row */}
-      <div className="w-full flex flex-col gap-3">
-        <div className="relative flex items-center">
-          <MdSearch className="absolute left-2.5 w-5 h-5 text-light-400" />
-          <input
-            className="pl-9 pr-9 w-full lg:w-72 h-9 text-sm rounded-lg border border-light-50/5 bg-light-900 focus:bg-light-400/20 hover:bg-light-400/20 text-light-100 placeholder-light-400 transition duration-100 ease-in-out outline-light-50/60"
-            type="text"
-            placeholder={searchPlaceholder}
-            value={searchTerm}
-            onChange={handleSearchChange}
-          />
-          {searchTerm && (
-            <button
-              type="button"
-              aria-label="Clear search"
-              onClick={handleSearchClear}
-              className="absolute right-2 flex items-center justify-center w-5 h-5 rounded-full text-light-400 hover:text-light-100 hover:bg-light-700 transition-colors"
-            >
-              <MdClose className="w-3.5 h-3.5" />
-            </button>
-          )}
+    <div className="relative">
+      {/* Desktop sidebar — same geometry as FoodCompositionSection so
+       * the two pages have matching chrome. */}
+      <aside className="hidden min-[1440px]:block absolute right-full mr-10 -top-[18px] bottom-0 w-48">
+        <div className="sticky top-4">
+          <Card>{filterPanel}</Card>
         </div>
-        {/* Evidence-type chip UI removed 2026-06-27 — backend
-         * `filter_evidence_type` param + URL state still work so a
-         * power user can set ?filter_evidence_type=in+vitro directly.
-         * Restore the chip row when revisiting the filter UX (see
-         * memory `monday-evidence-filter-ui`). */}
+      </aside>
+
+      {/* Sub-1440 trigger + drawer. */}
+      <div className="min-[1440px]:hidden mb-4 flex justify-end">
+        <button
+          type="button"
+          onClick={() => setMobileFiltersOpen(true)}
+          className="inline-flex items-center gap-2 rounded-md border border-light-700/60 bg-light-900/60 px-3 py-1.5 text-xs font-mono italic text-light-300 hover:text-light-100 hover:border-light-500 transition-colors"
+        >
+          <MdTune className="w-4 h-4" />
+          Filters
+        </button>
       </div>
 
+      <div className="flex flex-col gap-7">
       <div className="overflow-x-auto">
         <table className="w-full table-fixed">
           <colgroup>
@@ -311,6 +339,39 @@ const BioactivityTable = ({
             numberOfPages={totalPages}
             isLoading={isLoading}
           />
+        </div>
+      )}
+      </div>
+
+      {mobileFiltersOpen && (
+        <div
+          className="fixed inset-0 z-50 min-[1440px]:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Filters"
+        >
+          <button
+            type="button"
+            aria-label="Close filters"
+            onClick={() => setMobileFiltersOpen(false)}
+            className="absolute inset-0 bg-black/60 cursor-default"
+          />
+          <aside className="absolute right-0 top-0 h-full w-[85vw] max-w-sm bg-light-950 border-l border-light-700/50 overflow-y-auto flex flex-col gap-4 p-4">
+            <div className="flex items-center justify-between">
+              <span className="font-mono italic text-sm text-light-300">
+                Filters
+              </span>
+              <button
+                type="button"
+                aria-label="Close filters"
+                onClick={() => setMobileFiltersOpen(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-light-400 hover:text-light-100 hover:bg-light-800 transition-colors"
+              >
+                <MdClose className="w-4 h-4" />
+              </button>
+            </div>
+            {filterPanel}
+          </aside>
         </div>
       )}
 
