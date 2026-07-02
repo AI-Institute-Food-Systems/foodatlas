@@ -86,7 +86,21 @@ def _top_measurement_by_value(measurements: list | None) -> dict | None:
     return top
 
 
-def _attach_top_measurement(data: list[dict], evidence_type: str = "") -> list[dict]:
+def _source_kind_of(measurement: dict) -> str:
+    """Classify a single measurement as experimental / predicted / ''."""
+    src = (measurement.get("evidence_source") or "").lower()
+    if src.startswith("exp"):
+        return "experimental"
+    if src.startswith("pred") or src.startswith("comp"):
+        return "predicted"
+    return ""
+
+
+def _attach_top_measurement(
+    data: list[dict],
+    evidence_type: str = "",
+    source_kind: str = "",
+) -> list[dict]:
     for row in data:
         # HOTFIX 2026-06-26 — clean dirty endpoint/unit values in the
         # inline measurements sample before downstream consumers see
@@ -101,6 +115,15 @@ def _attach_top_measurement(data: list[dict], evidence_type: str = "") -> list[d
             cleaned = [
                 m for m in cleaned if (m.get("evidence_type") or "") == evidence_type
             ]
+        # Same treatment for the single-select Assay Source filter:
+        # keep only measurements matching the selected kind so the
+        # displayed "N assays" (and top_measurement, and the modal
+        # preview) reflect that subset. Also rewrite the row's
+        # measurement_count so the "Assays (experimental)" column
+        # renders the filtered number instead of the total.
+        if source_kind in ("experimental", "predicted"):
+            cleaned = [m for m in cleaned if _source_kind_of(m) == source_kind]
+            row["measurement_count"] = len(cleaned)
         row["measurements"] = cleaned
         row["top_measurement"] = _top_measurement_by_value(cleaned)
     return data
@@ -182,34 +205,31 @@ def _apply_source_kind_filter(
     filter_source_kind: str,
     measurements_col: str,
 ) -> None:
-    """Row classification per evidence_source values in the capped sample.
+    """Single-select provenance filter.
 
-    "experimental" = only exp*, "predicted" = only pred*/comp*, "mixed" =
-    both present. A row can only match one, so OR-ing three across the
-    multi-select is safe.
+    ``"experimental"`` keeps rows with AT LEAST ONE experimental
+    measurement (source LIKE 'exp%'); ``"predicted"`` keeps rows with
+    at least one predicted/computational measurement
+    (source LIKE 'pred%'/'comp%'). Any other value — most importantly
+    ``"both"`` and the empty string (the frontend default) — is a
+    no-op, i.e. no filter applied.
+
+    Row exclusion at the SQL level is by EXISTS over the capped
+    measurements sample; the per-row count returned to the UI is
+    narrowed to the same subset in ``_attach_top_measurement`` so the
+    "Assays (experimental)" column reads consistently.
     """
-    if not filter_source_kind:
-        return
-    kinds = [k for k in filter_source_kind.split("+") if k]
-    if not kinds:
-        return
-    exp_expr = (
-        f"EXISTS (SELECT 1 FROM jsonb_array_elements({measurements_col}) m"
-        " WHERE lower(m->>'evidence_source') LIKE 'exp%')"
-    )
-    pred_expr = (
-        f"EXISTS (SELECT 1 FROM jsonb_array_elements({measurements_col}) m"
-        " WHERE lower(m->>'evidence_source') LIKE 'pred%'"
-        " OR lower(m->>'evidence_source') LIKE 'comp%')"
-    )
-    kind_to_clause = {
-        "experimental": f"({exp_expr} AND NOT {pred_expr})",
-        "predicted": f"({pred_expr} AND NOT {exp_expr})",
-        "mixed": f"({exp_expr} AND {pred_expr})",
-    }
-    clauses = [kind_to_clause[k] for k in kinds if k in kind_to_clause]
-    if clauses:
-        where_parts.append("(" + " OR ".join(clauses) + ")")
+    if filter_source_kind == "experimental":
+        where_parts.append(
+            f"EXISTS (SELECT 1 FROM jsonb_array_elements({measurements_col}) m"
+            " WHERE lower(m->>'evidence_source') LIKE 'exp%')"
+        )
+    elif filter_source_kind == "predicted":
+        where_parts.append(
+            f"EXISTS (SELECT 1 FROM jsonb_array_elements({measurements_col}) m"
+            " WHERE lower(m->>'evidence_source') LIKE 'pred%'"
+            " OR lower(m->>'evidence_source') LIKE 'comp%')"
+        )
 
 
 async def _paginated(
@@ -304,6 +324,7 @@ async def _paginated(
     data = _attach_top_measurement(
         [dict(r._mapping) for r in rows_result],
         evidence_type=filter_evidence_type,
+        source_kind=filter_source_kind,
     )
     return {
         "data": data,
@@ -578,7 +599,10 @@ async def get_food_inferred_bioactivities(
         """),
         {**params, "offset": offset, "limit": rows_per_page},
     )
-    data = _attach_top_measurement([dict(r._mapping) for r in rows_result])
+    data = _attach_top_measurement(
+        [dict(r._mapping) for r in rows_result],
+        source_kind=filter_source_kind,
+    )
     return {
         "data": data,
         "metadata": _build_meta(total, page, rows_per_page, len(data)),

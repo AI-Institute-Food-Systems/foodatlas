@@ -161,7 +161,11 @@ const BioactivityTable = ({
     { unit: string; count: number }[]
   >([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [selectedSourceKinds, setSelectedSourceKinds] = useState<string[]>([]);
+  // Single-select Assay Source filter. Value is one of:
+  //   "" — "both" (no filter, default)
+  //   "experimental"
+  //   "predicted"
+  const [selectedSourceKind, setSelectedSourceKind] = useState<string>("");
   const filterActive = Boolean(filter.endpoint && filter.unit);
   const unitFilterParam = selectedUnits.join("+");
   const categoryFilterParam = selectedCategories.join("+");
@@ -171,9 +175,7 @@ const BioactivityTable = ({
   const effectiveSearchTerm =
     externalSearch !== undefined ? externalSearch : searchTerm;
   const effectiveSourceKindParam =
-    externalSourceKind !== undefined
-      ? externalSourceKind
-      : selectedSourceKinds.join("+");
+    externalSourceKind !== undefined ? externalSourceKind : selectedSourceKind;
   const effectiveUnitParam =
     externalUnit !== undefined
       ? externalUnit
@@ -260,23 +262,18 @@ const BioactivityTable = ({
     setSelectedCategories([]);
   };
 
-  // Row-level measurement provenance. Kinds are fixed, not derived —
-  // the backend does the exp/pred/mixed classification against the
-  // per-row measurements sample.
-  const SOURCE_KINDS = [
+  // Single-select Assay Source. "both" (key="") is the default = no
+  // filter; the other two narrow rows to those with ≥1 measurement of
+  // the chosen kind (backend classifies against the capped
+  // measurements sample by evidence_source prefix).
+  const SOURCE_KINDS: { key: string; label: string }[] = [
+    { key: "", label: "both" },
     { key: "experimental", label: "experimental" },
     { key: "predicted", label: "predicted" },
-    { key: "mixed", label: "mixed" },
   ];
-  const toggleSourceKind = (kind: string) => {
+  const chooseSourceKind = (kind: string) => {
     setTablePaginations(tableId, 1, 20);
-    setSelectedSourceKinds((prev) =>
-      prev.includes(kind) ? prev.filter((k) => k !== kind) : [...prev, kind]
-    );
-  };
-  const clearSourceKinds = () => {
-    setTablePaginations(tableId, 1, 20);
-    setSelectedSourceKinds([]);
+    setSelectedSourceKind(kind);
   };
 
   const [selected, setSelected] = useState<BioactivityRow | null>(null);
@@ -451,25 +448,20 @@ const BioactivityTable = ({
       <div className="flex flex-col gap-1.5">
         <div className="flex items-baseline justify-between gap-2">
           <span className="font-mono italic text-[11px] uppercase tracking-wider text-light-400 min-w-[3.5rem]">
-            Source
+            Assay Source
           </span>
-          {selectedSourceKinds.length > 0 && (
-            <button
-              type="button"
-              onClick={clearSourceKinds}
-              className="text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
-            >
-              clear
-            </button>
-          )}
         </div>
-        <div className="flex flex-col -mx-1">
+        <div
+          className="flex flex-col -mx-1"
+          role="radiogroup"
+          aria-label="Assay Source"
+        >
           {SOURCE_KINDS.map(({ key, label }) => (
             <SourceKindRow
-              key={key}
+              key={label}
               label={label}
-              selected={selectedSourceKinds.includes(key)}
-              onClick={() => toggleSourceKind(key)}
+              selected={selectedSourceKind === key}
+              onClick={() => chooseSourceKind(key)}
             />
           ))}
         </div>
@@ -531,37 +523,48 @@ const BioactivityTable = ({
           </colgroup>
           <thead className="text-light-400 text-left">
             <tr>
-              {columns.map((c, idx) => (
-                <th
-                  key={c.key}
-                  className={`h-9 border-b border-light-700 leading-none break-all md:break-normal py-1.5 ${
-                    idx === 0
-                      ? "pr-4"
-                      : idx === columns.length - 1
-                      ? "pl-4"
-                      : "px-4"
-                  } ${c.align === "right" ? "text-right" : "text-left"}`}
-                >
-                  {c.sortable ? (
-                    <SortableHeader
-                      label={c.label}
-                      align={c.align}
-                      active={sort.by === c.key}
-                      dir={sort.dir}
-                      onClick={() => handleSortClick(c.key)}
-                      disabledHint={
-                        c.key === TOP_VALUE_SORT_KEY && !filterActive
-                          ? "Pick an endpoint · unit chip to sort by potency"
-                          : undefined
-                      }
-                    />
-                  ) : (
-                    <span className="select-none uppercase text-xs font-medium">
-                      {c.label}
-                    </span>
-                  )}
-                </th>
-              ))}
+              {columns.map((c, idx) => {
+                // The Assays column gets a "(experimental)" /
+                // "(predicted)" suffix when a source kind filter is
+                // active, so readers know the count reflects only
+                // that subset. Applies whether the column is sortable
+                // (bioactivity's chemicals table) or not (all others).
+                const label =
+                  c.label === "Assays" && effectiveSourceKindParam
+                    ? `Assays (${effectiveSourceKindParam})`
+                    : c.label;
+                return (
+                  <th
+                    key={c.key}
+                    className={`h-9 border-b border-light-700 leading-none break-all md:break-normal py-1.5 ${
+                      idx === 0
+                        ? "pr-4"
+                        : idx === columns.length - 1
+                        ? "pl-4"
+                        : "px-4"
+                    } ${c.align === "right" ? "text-right" : "text-left"}`}
+                  >
+                    {c.sortable ? (
+                      <SortableHeader
+                        label={label}
+                        align={c.align}
+                        active={sort.by === c.key}
+                        dir={sort.dir}
+                        onClick={() => handleSortClick(c.key)}
+                        disabledHint={
+                          c.key === TOP_VALUE_SORT_KEY && !filterActive
+                            ? "Pick an endpoint · unit chip to sort by potency"
+                            : undefined
+                        }
+                      />
+                    ) : (
+                      <span className="select-none uppercase text-xs font-medium">
+                        {label}
+                      </span>
+                    )}
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody className="text-sm font-light">
@@ -909,8 +912,9 @@ const SourceKindRow = ({
 }) => (
   <button
     type="button"
+    role="radio"
+    aria-checked={selected}
     onClick={onClick}
-    aria-pressed={selected}
     className={twMerge(
       "group w-full flex items-center gap-2 pl-1 pr-2 py-1 rounded transition-colors text-left",
       selected
@@ -921,13 +925,15 @@ const SourceKindRow = ({
     <span
       aria-hidden
       className={twMerge(
-        "w-3.5 h-3.5 rounded-[3px] border flex-shrink-0 flex items-center justify-center transition-colors",
+        "w-3.5 h-3.5 rounded-full border flex-shrink-0 flex items-center justify-center transition-colors",
         selected
-          ? "border-accent-600 bg-accent-600/20 text-accent-600"
+          ? "border-accent-600 bg-accent-600/20"
           : "border-light-700 group-hover:border-light-500"
       )}
     >
-      {selected && <MdCheck className="w-3 h-3" />}
+      {selected && (
+        <span className="w-1.5 h-1.5 rounded-full bg-accent-600" aria-hidden />
+      )}
     </span>
     <span className="font-mono italic text-xs capitalize flex-1">{label}</span>
   </button>
