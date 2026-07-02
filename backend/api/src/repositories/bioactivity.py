@@ -133,6 +133,85 @@ async def get_metadata(session: AsyncSession, common_name: str) -> dict[str, obj
     return {"data": data, "metadata": {"row_count": len(data)}}
 
 
+def _apply_endpoint_unit_filter(
+    where_parts: list[str],
+    params: dict,
+    filter_endpoint: str,
+    filter_unit: str,
+    has_pair: bool,
+    measurements_col: str = "measurements",
+) -> None:
+    """Endpoint+unit strict pair OR unit-only multi-select."""
+    if has_pair:
+        where_parts.append(
+            f"EXISTS (SELECT 1 FROM jsonb_array_elements({measurements_col}) m"
+            " WHERE m->>'endpoint' = :ep AND m->>'unit' = :unit)"
+        )
+        params["ep"] = filter_endpoint
+        params["unit"] = filter_unit
+        return
+    if not filter_unit:
+        return
+    units = [u for u in filter_unit.split("+") if u]
+    if not units:
+        return
+    where_parts.append(
+        f"EXISTS (SELECT 1 FROM jsonb_array_elements({measurements_col}) m"
+        " WHERE m->>'unit' = ANY(:units))"
+    )
+    params["units"] = units
+
+
+def _apply_evidence_type_filter(
+    where_parts: list[str],
+    params: dict,
+    filter_evidence_type: str,
+    measurements_col: str = "measurements",
+) -> None:
+    if not filter_evidence_type:
+        return
+    where_parts.append(
+        f"EXISTS (SELECT 1 FROM jsonb_array_elements({measurements_col}) m"
+        " WHERE m->>'evidence_type' = :et)"
+    )
+    params["et"] = filter_evidence_type
+
+
+def _apply_source_kind_filter(
+    where_parts: list[str],
+    filter_source_kind: str,
+    measurements_col: str,
+) -> None:
+    """Row classification per evidence_source values in the capped sample.
+
+    "experimental" = only exp*, "predicted" = only pred*/comp*, "mixed" =
+    both present. A row can only match one, so OR-ing three across the
+    multi-select is safe.
+    """
+    if not filter_source_kind:
+        return
+    kinds = [k for k in filter_source_kind.split("+") if k]
+    if not kinds:
+        return
+    exp_expr = (
+        f"EXISTS (SELECT 1 FROM jsonb_array_elements({measurements_col}) m"
+        " WHERE lower(m->>'evidence_source') LIKE 'exp%')"
+    )
+    pred_expr = (
+        f"EXISTS (SELECT 1 FROM jsonb_array_elements({measurements_col}) m"
+        " WHERE lower(m->>'evidence_source') LIKE 'pred%'"
+        " OR lower(m->>'evidence_source') LIKE 'comp%')"
+    )
+    kind_to_clause = {
+        "experimental": f"({exp_expr} AND NOT {pred_expr})",
+        "predicted": f"({pred_expr} AND NOT {exp_expr})",
+        "mixed": f"({exp_expr} AND {pred_expr})",
+    }
+    clauses = [kind_to_clause[k] for k in kinds if k in kind_to_clause]
+    if clauses:
+        where_parts.append("(" + " OR ".join(clauses) + ")")
+
+
 async def _paginated(
     session: AsyncSession,
     *,
@@ -173,69 +252,15 @@ async def _paginated(
         params["q"] = f"%{search}%"
 
     has_filter = bool(filter_endpoint and filter_unit)
-    if has_filter:
-        where_parts.append(
-            "EXISTS (SELECT 1 FROM jsonb_array_elements(measurements) m"
-            " WHERE m->>'endpoint' = :ep AND m->>'unit' = :unit)"
-        )
-        params["ep"] = filter_endpoint
-        params["unit"] = filter_unit
-    elif filter_unit:
-        # Unit-only multi-select filter (frontend sidebar). Accepts a
-        # single unit or a '+'-separated list; row survives if ANY of
-        # its measurements matches ANY selected unit.
-        units = [u for u in filter_unit.split("+") if u]
-        if units:
-            where_parts.append(
-                "EXISTS (SELECT 1 FROM jsonb_array_elements(measurements) m"
-                " WHERE m->>'unit' = ANY(:units))"
-            )
-            params["units"] = units
-
-    # Independent of the endpoint·unit filter. Row presence is filtered
-    # at the SQL level (EXISTS) so pagination + total_pages reflect the
-    # filtered set; the per-row `measurements` sample is also narrowed
-    # in `_attach_top_measurement` so the displayed top_measurement
-    # matches the filter state.
-    if filter_evidence_type:
-        where_parts.append(
-            "EXISTS (SELECT 1 FROM jsonb_array_elements(measurements) m"
-            " WHERE m->>'evidence_type' = :et)"
-        )
-        params["et"] = filter_evidence_type
-
-    if filter_source_kind:
-        kinds = [k for k in filter_source_kind.split("+") if k]
-        clauses: list[str] = []
-        # Rows classified per evidence_source values in the capped
-        # measurements sample: "experimental" when everything starts
-        # with `exp`, "predicted" when everything starts with `pred` or
-        # `comp`, "mixed" when both are present. A row can only match
-        # one of these three, so OR-ing them together is safe for the
-        # multi-select case.
-        exp_expr = (
-            "EXISTS (SELECT 1 FROM jsonb_array_elements(measurements) m"
-            " WHERE lower(m->>'evidence_source') LIKE 'exp%')"
-        )
-        pred_expr = (
-            "EXISTS (SELECT 1 FROM jsonb_array_elements(measurements) m"
-            " WHERE lower(m->>'evidence_source') LIKE 'pred%'"
-            " OR lower(m->>'evidence_source') LIKE 'comp%')"
-        )
-        for kind in kinds:
-            if kind == "experimental":
-                clauses.append(f"({exp_expr} AND NOT {pred_expr})")
-            elif kind == "predicted":
-                clauses.append(f"({pred_expr} AND NOT {exp_expr})")
-            elif kind == "mixed":
-                clauses.append(f"({exp_expr} AND {pred_expr})")
-        if clauses:
-            where_parts.append("(" + " OR ".join(clauses) + ")")
-
+    _apply_endpoint_unit_filter(
+        where_parts, params, filter_endpoint, filter_unit, has_filter
+    )
+    _apply_evidence_type_filter(where_parts, params, filter_evidence_type)
+    _apply_source_kind_filter(
+        where_parts, filter_source_kind, "measurements"
+    )
     # Caller-supplied additional WHERE clauses (e.g., the Chemical
-    # Category filter injected by get_chemicals). Kept opt-in so it
-    # only fires when the calling MV actually supports the columns
-    # referenced in the clause.
+    # Category filter injected by get_chemicals).
     if extra_where:
         where_parts.extend(extra_where)
     if extra_params:
@@ -512,35 +537,15 @@ async def get_food_inferred_bioactivities(
             "(cb.bioactivity_name ILIKE :q OR fcc.chemical_name ILIKE :q)"
         )
         params["q"] = f"%{search}%"
-    if filter_source_kind:
-        kinds = [k for k in filter_source_kind.split("+") if k]
-        clauses: list[str] = []
-        exp_expr = (
-            "EXISTS (SELECT 1 FROM jsonb_array_elements(cb.measurements) m"
-            " WHERE lower(m->>'evidence_source') LIKE 'exp%')"
-        )
-        pred_expr = (
-            "EXISTS (SELECT 1 FROM jsonb_array_elements(cb.measurements) m"
-            " WHERE lower(m->>'evidence_source') LIKE 'pred%'"
-            " OR lower(m->>'evidence_source') LIKE 'comp%')"
-        )
-        for kind in kinds:
-            if kind == "experimental":
-                clauses.append(f"({exp_expr} AND NOT {pred_expr})")
-            elif kind == "predicted":
-                clauses.append(f"({pred_expr} AND NOT {exp_expr})")
-            elif kind == "mixed":
-                clauses.append(f"({exp_expr} AND {pred_expr})")
-        if clauses:
-            where_parts.append("(" + " OR ".join(clauses) + ")")
-    if filter_unit:
-        units = [u for u in filter_unit.split("+") if u]
-        if units:
-            where_parts.append(
-                "EXISTS (SELECT 1 FROM jsonb_array_elements(cb.measurements) m"
-                " WHERE m->>'unit' = ANY(:units))"
-            )
-            params["units"] = units
+    _apply_source_kind_filter(where_parts, filter_source_kind, "cb.measurements")
+    _apply_endpoint_unit_filter(
+        where_parts,
+        params,
+        filter_endpoint="",
+        filter_unit=filter_unit,
+        has_pair=False,
+        measurements_col="cb.measurements",
+    )
     where = " AND ".join(where_parts)
 
     total_result = await session.execute(
