@@ -82,12 +82,9 @@ const BioactivityChemicalsSection = ({ commonName, anchorId }: Props) => {
         key: TOP_MEASUREMENT_SORT_KEY,
         label: "Top measurement",
         align: "right",
-        width: "w-[22%]",
+        width: "w-[20%]",
         render: (row) => <TopMeasurementCell row={row} />,
       },
-      // Assays column: sortable by measurement_count, and each cell is
-      // the same "View N assays →" pill used across every bioactivity
-      // section so the affordance reads consistently.
       {
         key: "measurement_count",
         label: "Assays",

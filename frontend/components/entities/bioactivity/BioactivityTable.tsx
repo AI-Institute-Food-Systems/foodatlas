@@ -149,13 +149,6 @@ const BioactivityTable = ({
     by: defaultSortBy,
     dir: defaultSortDir,
   });
-  // Endpoint·unit chip UI is still retired, but the sidebar now offers
-  // a UNIT-only multi-select (grouped by count) that maps to the same
-  // `filter_unit` backend param. Endpoint stays URL-only.
-  const [filter] = useState<{ endpoint: string; unit: string }>({
-    endpoint: "",
-    unit: "",
-  });
   const [selectedUnits, setSelectedUnits] = useState<string[]>([]);
   const [showAllUnits, setShowAllUnits] = useState(false);
   const [unitOptions, setUnitOptions] = useState<
@@ -167,7 +160,6 @@ const BioactivityTable = ({
   //   "experimental"
   //   "predicted"
   const [selectedSourceKind, setSelectedSourceKind] = useState<string>("");
-  const filterActive = Boolean(filter.endpoint && filter.unit);
   const unitFilterParam = selectedUnits.join("+");
   const categoryFilterParam = selectedCategories.join("+");
   // External overrides win when present so a parent (e.g. the food
@@ -178,9 +170,7 @@ const BioactivityTable = ({
   const effectiveSourceKindParam =
     externalSourceKind !== undefined ? externalSourceKind : selectedSourceKind;
   const effectiveUnitParam =
-    externalUnit !== undefined
-      ? externalUnit
-      : unitFilterParam || filter.unit || "";
+    externalUnit !== undefined ? externalUnit : unitFilterParam;
 
   // Fetch the endpoint options once per (direction, pivotName). We
   // aggregate to distinct UNITS + summed counts across endpoints, then
@@ -295,7 +285,6 @@ const BioactivityTable = ({
         search: effectiveSearchTerm,
         sortBy: sort.by,
         sortDir: sort.dir,
-        filterEndpoint: filter.endpoint || undefined,
         filterUnit: effectiveUnitParam || undefined,
         filterCategory: categoryFilterParam || undefined,
         filterSourceKind: effectiveSourceKindParam || undefined,
@@ -314,7 +303,6 @@ const BioactivityTable = ({
     currentPage,
     effectiveSearchTerm,
     sort,
-    filter,
     effectiveUnitParam,
     categoryFilterParam,
     effectiveSourceKindParam,
@@ -328,11 +316,7 @@ const BioactivityTable = ({
     setSearchTerm("");
     setTablePaginations(tableId, 1, 20);
   };
-  // Top-measurement sort is only meaningful when a unit filter is set
-  // (raw values across units are incomparable). For that header, clicks
-  // toggle direction but require the filter to be active.
   const handleSortClick = (key: string) => {
-    if (key === TOP_VALUE_SORT_KEY && !filterActive) return;
     setTablePaginations(tableId, 1, 20);
     setSort((prev) =>
       prev.by === key
@@ -484,10 +468,6 @@ const BioactivityTable = ({
     </div>
   );
 
-  // Source is always available (backend classifies rows regardless);
-  // so the drawer / sidebar Filters entry point is always relevant.
-  const hasNonSearchFilters = true;
-
   return (
     <div className="relative">
       {/* Desktop sidebar — same geometry as FoodCompositionSection so
@@ -502,21 +482,18 @@ const BioactivityTable = ({
       )}
 
       {/* Sub-1440 row: search visible on the left; Filters button on
-       * the right (hidden when there are no non-search filters to
-       * surface). */}
+       * the right. */}
       {!hideChrome && (
         <div className="min-[1440px]:hidden mb-4 flex items-center gap-3">
           <div className="flex-1 min-w-0 max-w-xs">{searchInput}</div>
-          {hasNonSearchFilters && (
-            <button
-              type="button"
-              onClick={() => setMobileFiltersOpen(true)}
-              className="inline-flex items-center gap-2 rounded-md border border-light-700/60 bg-light-900/60 px-3 py-1.5 text-xs font-mono italic text-light-300 hover:text-light-100 hover:border-light-500 transition-colors"
-            >
-              <MdTune className="w-4 h-4" />
-              Filters
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => setMobileFiltersOpen(true)}
+            className="inline-flex items-center gap-2 rounded-md border border-light-700/60 bg-light-900/60 px-3 py-1.5 text-xs font-mono italic text-light-300 hover:text-light-100 hover:border-light-500 transition-colors"
+          >
+            <MdTune className="w-4 h-4" />
+            Filters
+          </button>
         </div>
       )}
 
@@ -566,11 +543,6 @@ const BioactivityTable = ({
                         active={sort.by === c.key}
                         dir={sort.dir}
                         onClick={() => handleSortClick(c.key)}
-                        disabledHint={
-                          c.key === TOP_VALUE_SORT_KEY && !filterActive
-                            ? "Pick an endpoint · unit chip to sort by potency"
-                            : undefined
-                        }
                       />
                     ) : (
                       <span className="select-none uppercase text-xs font-medium">
@@ -721,26 +693,19 @@ const SortableHeader = ({
   active,
   dir,
   onClick,
-  disabledHint,
 }: {
   label: string;
   align?: "left" | "right";
   active: boolean;
   dir: SortDir;
   onClick: () => void;
-  // Tooltip + cursor when the column can't be sorted in the current
-  // state (e.g. cross-unit top-value sort with no filter selected).
-  disabledHint?: string;
 }) => (
   <button
     type="button"
     onClick={onClick}
-    disabled={Boolean(disabledHint)}
-    title={disabledHint}
     className={twMerge(
       "group flex items-center gap-1 cursor-pointer focus:outline-none",
       align === "right" && "justify-end ml-auto",
-      disabledHint && "cursor-not-allowed opacity-60"
     )}
   >
     <span
