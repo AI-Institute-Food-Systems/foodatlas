@@ -6,12 +6,12 @@ import { getBioactivityChemicals } from "@/utils/fetching";
 import type { BioactivityListParams } from "@/utils/fetching";
 import type { BioactivityChemicalRow } from "@/types";
 import BioactivityTable, {
-  AssayCountCell,
   CategoryCell,
   NameLinkCell,
   NumberCell,
   TOP_MEASUREMENT_SORT_KEY,
   TopMeasurementCell,
+  ViewAssaysCell,
   type SortableColumn,
 } from "@/components/entities/bioactivity/BioactivityTable";
 
@@ -86,15 +86,16 @@ const BioactivityChemicalsSection = ({ commonName, anchorId }: Props) => {
         sortable: true,
         render: (row) => <TopMeasurementCell row={row} />,
       },
-      // The former "Assays" View-button column becomes a sortable
-      // measurement_count cell that doubles as the modal opener.
+      // Assays column: sortable by measurement_count, and each cell is
+      // the same "View N assays →" pill used across every bioactivity
+      // section so the affordance reads consistently.
       {
         key: "measurement_count",
         label: "Assays",
         align: "right",
-        width: "w-[12%]",
+        width: "w-[14%]",
         sortable: true,
-        render: (row, ctx) => <AssayCountCell row={row} ctx={ctx} />,
+        render: (row, ctx) => <ViewAssaysCell row={row} ctx={ctx} />,
       },
     ],
     []
