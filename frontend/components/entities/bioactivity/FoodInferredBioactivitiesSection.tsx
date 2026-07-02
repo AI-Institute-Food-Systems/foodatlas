@@ -61,6 +61,7 @@ interface Props {
   // override the internal state that would otherwise be uncontrolled.
   externalSearch?: string;
   externalSourceKind?: string;
+  externalUnit?: string;
   hideChrome?: boolean;
 }
 
@@ -70,6 +71,7 @@ const FoodInferredBioactivitiesSection = ({
   commonName,
   externalSearch,
   externalSourceKind,
+  externalUnit,
   hideChrome = false,
 }: Props) => {
   const tableId = `${TABLE_ID_PREFIX}-${commonName}`;
@@ -80,6 +82,7 @@ const FoodInferredBioactivitiesSection = ({
   const effectiveSearchTerm =
     externalSearch !== undefined ? externalSearch : searchTerm;
   const effectiveSourceKind = externalSourceKind ?? "";
+  const effectiveUnit = externalUnit ?? "";
   const [sort, setSort] = useState<{ by: string; dir: SortDir }>({
     by: "concentration",
     dir: "desc",
@@ -100,6 +103,7 @@ const FoodInferredBioactivitiesSection = ({
         sortBy: sort.by,
         sortDir: sort.dir,
         filterSourceKind: effectiveSourceKind || undefined,
+        filterUnit: effectiveUnit || undefined,
       });
       if (cancelled) return;
       setRows((payload?.data as InferredRow[] | undefined) ?? []);
@@ -114,6 +118,7 @@ const FoodInferredBioactivitiesSection = ({
     currentPage,
     effectiveSearchTerm,
     effectiveSourceKind,
+    effectiveUnit,
     sort,
   ]);
 

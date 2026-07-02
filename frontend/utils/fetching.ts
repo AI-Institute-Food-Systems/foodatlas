@@ -443,11 +443,15 @@ export async function getBioactivityMeasurements(
 }
 
 // Direction selector for the bioactivity table — one per table-page combo.
+// "food-inferred-bioactivities" is a virtual direction used by the food
+// page's shared sidebar to surface units from ALL chemicals present in
+// the food (not just the direct food-level measurements).
 export type BioactivityDirection =
   | "bioactivity-chemicals"
   | "bioactivity-foods"
   | "chemical-bioactivities"
-  | "food-bioactivities";
+  | "food-bioactivities"
+  | "food-inferred-bioactivities";
 
 // Distinct (endpoint, unit, count) tuples for the table's filter chips.
 // Returns [] on any fetch failure so the table can render without chips.

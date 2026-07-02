@@ -42,21 +42,24 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
   const sourceKindParam = selectedSourceKinds.join("+");
   const unitParam = selectedUnits.join("+");
 
-  // Aggregated unit list for the direct-measurements table's direction.
-  // Inferred rows don't have unit variance surfaced through the
-  // endpoint-options API so they only respect the unit filter as a
-  // pass-through if we plumb it there — for now the unit filter is
-  // meaningful for the direct table.
+  // Aggregated unit list across BOTH tables — direct (food-level
+  // measurements, usually just "mmol/100g") + inferred (all measurements
+  // for every chemical present in this food, so IC50 uM/nM, MIC ug/mL,
+  // etc). Fetches both directions and merges counts so the sidebar
+  // surfaces the full spectrum of units the user might filter by.
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const opts = await getBioactivityEndpointOptions(
-        commonName,
-        "food-bioactivities"
-      );
+      const [direct, inferred] = await Promise.all([
+        getBioactivityEndpointOptions(commonName, "food-bioactivities"),
+        getBioactivityEndpointOptions(
+          commonName,
+          "food-inferred-bioactivities"
+        ),
+      ]);
       if (cancelled) return;
       const totals = new Map<string, number>();
-      for (const o of opts) {
+      for (const o of [...direct, ...inferred]) {
         const u = (o.unit ?? "").trim();
         if (!u) continue;
         totals.set(u, (totals.get(u) ?? 0) + (o.count ?? 0));
@@ -290,6 +293,7 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
         commonName={commonName}
         externalSearch={searchTerm}
         externalSourceKind={sourceKindParam}
+        externalUnit={unitParam}
         hideChrome
       />
 

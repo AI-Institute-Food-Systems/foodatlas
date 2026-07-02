@@ -499,6 +499,7 @@ async def get_food_inferred_bioactivities(
     sort_dir: str = "desc",
     rows_per_page: int = ROWS_PER_PAGE_DEFAULT,
     filter_source_kind: str = "",
+    filter_unit: str = "",
 ) -> dict[str, object]:
     """Bioactivities of the chemicals found in this food (transitive)."""
     sort_col = _INFERRED_SORT.get(sort_by, _INFERRED_SORT["concentration"])
@@ -532,6 +533,14 @@ async def get_food_inferred_bioactivities(
                 clauses.append(f"({exp_expr} AND {pred_expr})")
         if clauses:
             where_parts.append("(" + " OR ".join(clauses) + ")")
+    if filter_unit:
+        units = [u for u in filter_unit.split("+") if u]
+        if units:
+            where_parts.append(
+                "EXISTS (SELECT 1 FROM jsonb_array_elements(cb.measurements) m"
+                " WHERE m->>'unit' = ANY(:units))"
+            )
+            params["units"] = units
     where = " AND ".join(where_parts)
 
     total_result = await session.execute(
@@ -601,7 +610,39 @@ async def get_endpoint_options(
     Used to populate the table's endpoint+unit filter chip row. Counts
     are descending by occurrence so the UI can surface the most useful
     chips first.
+
+    Special direction: "food-inferred-bioactivities" — walks the food's
+    chemistry (mv_food_chemical_composition) and surfaces the units from
+    every chemical's measurements. Used by the food page's shared
+    bioactivities sidebar so its unit list isn't limited to the direct
+    (food-level) measurements alone.
     """
+    if direction == "food-inferred-bioactivities":
+        rows_result = await session.execute(
+            text("""
+                SELECT ba.evidence_endpoint_type AS endpoint,
+                       ba.potency_unit AS unit,
+                       COUNT(*) AS count
+                FROM mv_food_chemical_composition fcc
+                JOIN base_triplets bt
+                  ON bt.head_id = fcc.chemical_foodatlas_id
+                 AND bt.relationship_id = 'r6'
+                CROSS JOIN LATERAL unnest(bt.attestation_ids) AS att(bm)
+                JOIN base_attestations_bioactivity ba
+                  ON ba.bioactivity_metadata_id = att.bm
+                WHERE fcc.food_name = :name
+                  AND ba.evidence_endpoint_type <> ''
+                  AND ba.potency_unit <> ''
+                GROUP BY ba.evidence_endpoint_type, ba.potency_unit
+                ORDER BY COUNT(*) DESC
+            """),
+            {"name": common_name},
+        )
+        data = _bioact_hotfix.clean_endpoint_options(
+            [dict(r._mapping) for r in rows_result]
+        )
+        return {"data": data, "metadata": {"row_count": len(data)}}
+
     info = _DIRECTION_PIVOTS.get(direction)
     if info is None:
         return {"data": [], "metadata": {"row_count": 0}}
