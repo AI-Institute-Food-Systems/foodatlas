@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Tab, TabGroup, TabList, TabPanel, TabPanels } from "@headlessui/react";
 import { twMerge } from "tailwind-merge";
@@ -34,13 +34,33 @@ const EntityTabs = ({ tabs, defaultTabId }: Props) => {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const requestedId = searchParams.get("tab") ?? defaultTabId;
-  const idx = tabs.findIndex((t) => t.id === requestedId);
-  const selectedIndex = idx >= 0 ? idx : 0;
+  // Derive initial index from URL, then hold local state so the tab
+  // switches immediately on click. Previously this was derived from
+  // useSearchParams on every render, but `router.replace` doesn't
+  // reliably update useSearchParams synchronously inside Headless UI's
+  // controlled TabGroup — the tab would visually "revert" and the user
+  // had to click twice. Local state avoids the round-trip.
+  const urlId = searchParams.get("tab") ?? defaultTabId;
+  const urlIdx = tabs.findIndex((t) => t.id === urlId);
+  const [selectedIndex, setSelectedIndex] = useState(
+    urlIdx >= 0 ? urlIdx : 0,
+  );
+
+  // Keep local state in sync when the URL changes from OUTSIDE this
+  // component (e.g. browser back/forward, deep link).
+  useEffect(() => {
+    if (urlIdx >= 0 && urlIdx !== selectedIndex) {
+      setSelectedIndex(urlIdx);
+    }
+    // We intentionally don't depend on selectedIndex — that would flip
+    // the tab back if the URL update lags the click.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlIdx]);
 
   const handleChange = (next: number) => {
     const id = tabs[next]?.id;
     if (!id) return;
+    setSelectedIndex(next);
     const params = new URLSearchParams(searchParams.toString());
     params.set("tab", id);
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });

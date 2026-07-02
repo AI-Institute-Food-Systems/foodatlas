@@ -3,7 +3,12 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from src.repositories.food import get_composition, get_metadata, get_profile
+from src.repositories.food import (
+    _resort_after_filter,
+    get_composition,
+    get_metadata,
+    get_profile,
+)
 
 
 def _make_row(**kwargs: object) -> MagicMock:
@@ -151,3 +156,35 @@ class TestFoodGetComposition:
 
         result = await get_composition(session, "apple", filter_source="fdc+dmd")
         assert result["metadata"]["total_pages"] == 0
+
+
+class TestResortAfterFilter:
+    def test_evidence_count_desc(self) -> None:
+        rows = [
+            {"name": "a", "fdc_evidences": [1, 2], "foodatlas_evidences": [3]},
+            {
+                "name": "b",
+                "fdc_evidences": [1],
+                "foodatlas_evidences": [2, 3],
+                "dmd_evidences": [4],
+            },
+            {"name": "c", "fdc_evidences": []},
+        ]
+        out = _resort_after_filter(rows, "evidence_count", "DESC")
+        assert [r["name"] for r in out] == ["b", "a", "c"]
+
+    def test_evidence_count_asc(self) -> None:
+        rows = [
+            {"name": "a", "fdc_evidences": [1, 2]},
+            {"name": "b", "fdc_evidences": [1]},
+        ]
+        out = _resort_after_filter(rows, "evidence_count", "ASC")
+        assert [r["name"] for r in out] == ["b", "a"]
+
+    def test_null_evidences_treated_as_empty(self) -> None:
+        rows = [
+            {"name": "a", "fdc_evidences": None, "foodatlas_evidences": None},
+            {"name": "b", "fdc_evidences": [1]},
+        ]
+        out = _resort_after_filter(rows, "evidence_count", "DESC")
+        assert [r["name"] for r in out] == ["b", "a"]
