@@ -53,7 +53,6 @@ const FoodBioactivitiesSection = ({
         label: "Top measurement",
         align: "right",
         width: "w-[35%]",
-        sortable: true,
         render: (row) => <TopMeasurementCell row={row} />,
       },
       {
