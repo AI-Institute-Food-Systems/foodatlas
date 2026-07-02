@@ -710,6 +710,35 @@ async def get_endpoint_options(
     return {"data": data, "metadata": {"row_count": len(data)}}
 
 
+async def get_category_options(
+    session: AsyncSession, common_name: str
+) -> dict[str, object]:
+    """Global chemical-classification counts for the bioactivity-chemicals
+    direction — so the sidebar's Category filter can show counts across
+    ALL matching chemicals, not just the ones on the current page.
+
+    Only meaningful when the pivot is a bioactivity and rows are chemicals
+    (mv_chemical_bioactivity); other directions have no per-row
+    classification. Returns an empty list for those.
+    """
+    rows_result = await session.execute(
+        text("""
+            SELECT category, COUNT(*) AS count
+            FROM mv_chemical_bioactivity mv
+            JOIN mv_chemical_entities ce
+              ON ce.foodatlas_id = mv.chemical_foodatlas_id
+            CROSS JOIN LATERAL UNNEST(ce.chemical_classification) AS category
+            WHERE mv.bioactivity_name = :name
+              AND category <> ''
+            GROUP BY category
+            ORDER BY COUNT(*) DESC
+        """),
+        {"name": common_name},
+    )
+    data = [dict(r._mapping) for r in rows_result]
+    return {"data": data, "metadata": {"row_count": len(data)}}
+
+
 # ---------------------------------------------------------------------
 # Unbounded measurements endpoint (no MV cap)
 # ---------------------------------------------------------------------

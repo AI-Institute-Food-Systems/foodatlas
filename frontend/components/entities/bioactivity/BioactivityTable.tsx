@@ -7,7 +7,7 @@
 
 "use client";
 
-import { ReactNode, useEffect, useMemo, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import {
   MdCheck,
   MdClose,
@@ -29,6 +29,7 @@ import { formatTopMeasurement, topMeasurementOf } from "@/components/entities/bi
 import { usePaginations } from "@/context/paginationsContext";
 import { encodeSpace } from "@/utils/utils";
 import {
+  getBioactivityCategoryOptions,
   getBioactivityEndpointOptions,
   type BioactivityDirection,
   type BioactivityListParams,
@@ -230,24 +231,28 @@ const BioactivityTable = ({
   const [totalPages, setTotalPages] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Chemical Category options — derived from the current page's rows.
-  // Uses a stable memo so filtering by a category that's not on the
-  // current page still resolves server-side (we send the raw category
-  // string; the sidebar just surfaces what the user has already seen).
-  const categoryOptions = useMemo(() => {
-    const totals = new Map<string, number>();
-    for (const r of rows) {
-      const cats = (r as BioactivityChemicalRow).chemical_classification;
-      if (!Array.isArray(cats)) continue;
-      for (const c of cats) {
-        if (!c) continue;
-        totals.set(c, (totals.get(c) ?? 0) + 1);
-      }
+  // Chemical Category options come from a dedicated endpoint that
+  // aggregates classifications across ALL matching chemicals for the
+  // pivot bioactivity — so counts reflect the full result set, not just
+  // the current page. Only meaningful for the bioactivity-chemicals
+  // direction; other directions get []).
+  const [categoryOptions, setCategoryOptions] = useState<
+    { category: string; count: number }[]
+  >([]);
+  useEffect(() => {
+    if (direction !== "bioactivity-chemicals" || !pivotName) {
+      setCategoryOptions([]);
+      return;
     }
-    return Array.from(totals.entries())
-      .map(([category, count]) => ({ category, count }))
-      .sort((a, b) => b.count - a.count);
-  }, [rows]);
+    let cancelled = false;
+    (async () => {
+      const opts = await getBioactivityCategoryOptions(pivotName);
+      if (!cancelled) setCategoryOptions(opts);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [direction, pivotName]);
 
   const toggleCategory = (category: string) => {
     setTablePaginations(tableId, 1, 20);

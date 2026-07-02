@@ -93,6 +93,19 @@ async def bioactivity_endpoint_options(
     return await bioactivity.get_endpoint_options(db, common_name, direction)
 
 
+@router.get("/categories")
+async def bioactivity_category_options(
+    common_name: str = Query(..., description="Bioactivity common_name"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Global (category, count) counts for the bioactivity's chemicals.
+
+    Powers the chemicals-table sidebar Category filter with counts that
+    reflect ALL matching chemicals rather than only the current page.
+    """
+    return await bioactivity.get_category_options(db, common_name)
+
+
 @router.get("/measurements")
 async def bioactivity_measurements(
     head_id: str = Query(..., description="Chemical or food foodatlas_id"),

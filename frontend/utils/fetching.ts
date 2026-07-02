@@ -483,6 +483,32 @@ export async function getBioactivityEndpointOptions(
   }
 }
 
+// Global chemical-classification counts for the bioactivity-chemicals
+// sidebar. Only the bioactivity → chemicals direction has a category
+// filter, so a single fetcher covers all its consumers.
+export async function getBioactivityCategoryOptions(
+  commonName: string
+): Promise<{ category: string; count: number }[]> {
+  try {
+    const res = await fetch(
+      `${apiBase()}/bioactivity/categories?common_name=${encodeURIComponent(
+        commonName
+      )}`,
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
+        },
+        next: { revalidate: 86400 },
+      }
+    );
+    if (!res.ok) return [];
+    const payload = await res.json();
+    return (payload?.data ?? []) as { category: string; count: number }[];
+  } catch {
+    return [];
+  }
+}
+
 // cache & fetching testing function
 export async function getTime() {
   const response = await fetch("https://worldtimeapi.org/api/timezone/Etc/UTC");
