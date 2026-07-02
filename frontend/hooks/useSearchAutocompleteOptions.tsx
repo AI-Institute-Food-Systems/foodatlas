@@ -29,7 +29,8 @@ const useSearchAutocompleteOptions = () => {
     "term=" +
     encodeURIComponent(autocompleteTerm) +
     "&page=" +
-    currentPage;
+    currentPage +
+    "&rows_per_page=20";
 
   const { data, error, isLoading } = useSWR(
     autocompleteTerm.length > 0 ? url : null,

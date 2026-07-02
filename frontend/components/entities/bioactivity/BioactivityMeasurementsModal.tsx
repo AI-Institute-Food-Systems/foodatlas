@@ -17,8 +17,9 @@
 
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import {
+  MdChevronRight,
   MdClose,
   MdInfoOutline,
   MdKeyboardArrowLeft,
@@ -40,6 +41,21 @@ import type {
 } from "@/types";
 
 type ModalRow = Partial<BioactivityMeasurementFull> & BioactivityMeasurement;
+
+// A row qualifies for the accordion expand only when all four 4PL Hill
+// parameters are present. ChEMBL / PubChem rows usually carry just a
+// logAC50 + raw value; only ToxCast-style measurements have zero /
+// infinite / slope too.
+const hasHillFit = (m: ModalRow): boolean => {
+  const { efficacy_zeroactivity: z, efficacy_infiniteactivity: inf } = m;
+  const { efficacy_logac50_value: lac, efficacy_hillslope: s } = m;
+  return [z, inf, lac, s].every(
+    (v) => v != null && Number.isFinite(v),
+  ) && z !== inf && s !== 0;
+};
+
+const rowKey = (m: ModalRow, i: number): string =>
+  m.bioactivity_metadata_id ?? `row-${i}`;
 
 const PAGE_SIZE = 20;
 const OUTCOME_OPTIONS = ["all", "active", "inactive", "unspecified", "inconclusive"] as const;
@@ -109,13 +125,17 @@ const BioactivityMeasurementsModal = ({
   const [searchTerm, setSearchTerm] = useState("");
   const [outcomeFilter, setOutcomeFilter] = useState<OutcomeFilter>("all");
   const [currentPage, setCurrentPage] = useState(1);
+  // Accordion expansion — at most one row open at a time. Stored by
+  // stable row key so re-renders + page changes don't desync it.
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
 
-  // Reset filters/page when the modal closes or the underlying selection
-  // changes (different chemical/food clicked).
+  // Reset filters/page/expand when the modal closes or the underlying
+  // selection changes (different chemical/food clicked).
   useEffect(() => {
     setSearchTerm("");
     setOutcomeFilter("all");
     setCurrentPage(1);
+    setExpandedKey(null);
   }, [isOpen, selectedId]);
 
   // Outcomes computed from the FULL row set (not filtered) so the chip
@@ -323,6 +343,10 @@ const BioactivityMeasurementsModal = ({
           rows={visible}
           placeholderCount={placeholderCount}
           skeleton={showSkeleton}
+          expandedKey={expandedKey}
+          onToggleExpand={(k) =>
+            setExpandedKey((prev) => (prev === k ? null : k))
+          }
         />
         {showEmptyState && (
           <div className="absolute inset-0 flex items-center justify-center bg-light-950/80 text-light-300 gap-2 text-sm pointer-events-none">
@@ -341,33 +365,48 @@ const MeasurementsTable = ({
   rows,
   placeholderCount,
   skeleton,
+  expandedKey,
+  onToggleExpand,
 }: {
   rows: ModalRow[];
   placeholderCount: number;
   skeleton: boolean;
+  expandedKey: string | null;
+  onToggleExpand: (key: string) => void;
 }) => {
   // When in skeleton mode we draw PAGE_SIZE shimmer rows; otherwise we
   // draw the real rows and pad up to PAGE_SIZE with empty <tr>s so the
   // last-page case doesn't shrink the table height.
   const dataRows = skeleton ? [] : rows;
-  const padCount = skeleton ? PAGE_SIZE : placeholderCount;
+  // Each expanded row takes one extra slot — reduce pads to keep the
+  // total slot count visually stable.
+  const expandedInView = skeleton
+    ? 0
+    : dataRows.some((m, i) => rowKey(m, i) === expandedKey)
+      ? 1
+      : 0;
+  const padCount = skeleton
+    ? PAGE_SIZE
+    : Math.max(0, placeholderCount - expandedInView);
   return (
     <table className="w-full table-fixed">
       <colgroup>
-        <col className="w-[26%]" />
-        <col className="w-[14%]" />
+        <col className="w-[28%]" />
+        <col className="w-[16%]" />
         <col className="w-[10%]" />
         <col className="w-[12%]" />
-        <col className="w-[20%]" />
-        <col className="w-[18%]" />
+        <col className="w-[34%]" />
       </colgroup>
-      <thead className="text-light-400 text-left">
+      <thead className="text-light-400 text-left sticky top-0 z-10 bg-light-950">
         <tr>
-          {["Assay", "Endpoint", "Outcome", "Source", "Value", "Curve"].map(
-            (h) => (
+          {["Assay", "Endpoint", "Outcome", "Source", "Value"].map(
+            (h, idx) => (
               <th
                 key={h}
-                className="h-9 border-b border-light-700 leading-none py-1.5 px-2 first:pl-0 last:pr-0"
+                className={twMerge(
+                  "h-9 border-b border-light-700 leading-none py-1.5 px-2 first:pl-0 last:pr-0 bg-light-950",
+                  idx === 4 && "text-right",
+                )}
               >
                 <span className="select-none uppercase text-xs font-medium">
                   {h}
@@ -378,51 +417,103 @@ const MeasurementsTable = ({
         </tr>
       </thead>
       <tbody className="text-sm font-light">
-        {dataRows.map((m, i) => (
-          <tr key={`${m.assay ?? "row"}-${i}`}>
-            <td className="py-1.5 pr-2 align-top">
-              <div
-                className="font-mono text-xs text-light-200 truncate"
-                title={m.assay ?? undefined}
+        {dataRows.map((m, i) => {
+          const key = rowKey(m, i);
+          const canExpand = hasHillFit(m);
+          const isExpanded = expandedKey === key;
+          return (
+            <Fragment key={key}>
+              <tr
+                onClick={canExpand ? () => onToggleExpand(key) : undefined}
+                aria-expanded={canExpand ? isExpanded : undefined}
+                className={twMerge(
+                  "transition-colors",
+                  canExpand && "cursor-pointer hover:bg-light-900/50",
+                  isExpanded && "bg-light-900/50",
+                )}
               >
-                {m.assay ?? "—"}
-              </div>
-            </td>
-            <td className="py-1.5 px-2 align-top text-light-200">
-              {m.endpoint || "—"}
-            </td>
-            <td className="py-1.5 px-2 align-top">
-              <OutcomeBadge outcome={m.outcome} />
-            </td>
-            <td className="py-1.5 px-2 align-top">
-              <SourceBadge source={m.evidence_source} />
-            </td>
-            <td className="py-1.5 px-2 align-top font-mono text-xs text-light-200 tabular-nums text-right">
-              {m.value === null || m.value === undefined ? (
-                <span className="text-light-600">—</span>
-              ) : (
-                <>
-                  {formatNumberShort(m.value)}{" "}
-                  <span className="text-light-500">
-                    {m.unit && m.unit !== "None" ? m.unit : ""}
-                  </span>
-                </>
+                <td className="py-1.5 pr-2 align-top">
+                  <div
+                    className="font-mono text-xs text-light-200 truncate"
+                    title={m.assay ?? undefined}
+                  >
+                    {m.assay ?? "—"}
+                  </div>
+                </td>
+                <td className="py-1.5 px-2 align-top text-light-200">
+                  {m.endpoint || "—"}
+                </td>
+                <td className="py-1.5 px-2 align-top">
+                  <OutcomeBadge outcome={m.outcome} />
+                </td>
+                <td className="py-1.5 px-2 align-top">
+                  <SourceBadge source={m.evidence_source} />
+                </td>
+                <td className="py-1.5 pl-2 align-top">
+                  <div className="flex items-center justify-between gap-3">
+                    {canExpand ? (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onToggleExpand(key);
+                        }}
+                        aria-label={
+                          isExpanded
+                            ? "Hide Hill curve"
+                            : "Show Hill curve"
+                        }
+                        className={twMerge(
+                          "inline-flex items-center gap-1 px-2 py-0.5 rounded-full border font-mono italic text-xs whitespace-nowrap transition-colors",
+                          isExpanded
+                            ? "border-accent-600/60 bg-accent-600/10 text-accent-600"
+                            : "border-light-700/60 text-light-400 hover:text-light-100 hover:border-light-500",
+                        )}
+                      >
+                        <span>
+                          {isExpanded ? "Hide" : "Show"} Hill Curve
+                        </span>
+                        <MdChevronRight
+                          className={twMerge(
+                            "transition-transform duration-150",
+                            isExpanded && "rotate-90",
+                          )}
+                        />
+                      </button>
+                    ) : (
+                      <span aria-hidden />
+                    )}
+                    <span className="font-mono text-xs text-light-200 tabular-nums text-right">
+                      {m.value === null || m.value === undefined ? (
+                        <span className="text-light-600">—</span>
+                      ) : (
+                        <>
+                          {formatNumberShort(m.value)}{" "}
+                          <span className="text-light-500">
+                            {m.unit && m.unit !== "None" ? m.unit : ""}
+                          </span>
+                        </>
+                      )}
+                    </span>
+                  </div>
+                </td>
+              </tr>
+              {isExpanded && (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="py-3 px-3 bg-light-900/30 border-l-2 border-l-accent-600 border-b border-light-700/40"
+                  >
+                    <ExpandedHillFit m={m} />
+                  </td>
+                </tr>
               )}
-            </td>
-            <td className="py-1.5 pl-2 align-top text-light-300">
-              <HillCurveSparkline
-                zero={m.efficacy_zeroactivity}
-                infinite={m.efficacy_infiniteactivity}
-                logAC50={m.efficacy_logac50_value}
-                slope={m.efficacy_hillslope}
-                unit={m.unit}
-              />
-            </td>
-          </tr>
-        ))}
+            </Fragment>
+          );
+        })}
         {Array.from({ length: padCount }).map((_, i) => (
           <tr key={`pad-${i}`}>
-            <td className="py-1.5 pr-2" colSpan={6}>
+            <td className="py-1.5 pr-2" colSpan={5}>
               {skeleton ? (
                 <LoadingCard className="h-5" />
               ) : (
@@ -433,6 +524,81 @@ const MeasurementsTable = ({
         ))}
       </tbody>
     </table>
+  );
+};
+
+// Inline expanded view for one (assay × bioactivity) measurement —
+// shown below the row when its accordion is open. Large Hill curve on
+// the left, four-parameter fit metadata on the right. Only rendered
+// for rows that pass `hasHillFit`, so all four numbers are guaranteed
+// finite here.
+const ExpandedHillFit = ({ m }: { m: ModalRow }) => {
+  const lac = m.efficacy_logac50_value;
+  const ac50 = lac != null ? 10 ** lac : null;
+  const fmtNum = (v: number | null | undefined, digits = 2): string =>
+    v == null || !Number.isFinite(v) ? "—" : v.toFixed(digits);
+  const fmtSig = (v: number | null | undefined): string =>
+    v == null || !Number.isFinite(v)
+      ? "—"
+      : v.toLocaleString(undefined, { maximumSignificantDigits: 3 });
+  const unitLabel = m.unit && m.unit !== "None" ? m.unit : "";
+  return (
+    <div className="flex flex-col md:flex-row gap-6 items-stretch w-full">
+      {/* Important values — left, fixed-width column for fast scan. */}
+      <dl className="md:w-48 flex-shrink-0 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs font-mono content-start">
+        <dt className="italic uppercase text-light-500">AC50</dt>
+        <dd className="text-light-100 tabular-nums">
+          {fmtSig(ac50)}
+          {unitLabel && <span className="text-light-500"> {unitLabel}</span>}
+        </dd>
+        <dt className="italic uppercase text-light-500">log AC50</dt>
+        <dd className="text-light-100 tabular-nums">{fmtNum(lac, 3)}</dd>
+        <dt className="italic uppercase text-light-500">Hill slope</dt>
+        <dd className="text-light-100 tabular-nums">
+          {fmtNum(m.efficacy_hillslope, 2)}
+        </dd>
+        <dt className="italic uppercase text-light-500">top</dt>
+        <dd className="text-light-100 tabular-nums">
+          {fmtNum(m.efficacy_infiniteactivity, 1)}
+        </dd>
+        <dt className="italic uppercase text-light-500">bottom</dt>
+        <dd className="text-light-100 tabular-nums">
+          {fmtNum(m.efficacy_zeroactivity, 1)}
+        </dd>
+        {m.evidence_fit_r2 != null && (
+          <>
+            <dt className="italic uppercase text-light-500">R²</dt>
+            <dd className="text-light-100 tabular-nums">
+              {fmtNum(m.evidence_fit_r2, 3)}
+            </dd>
+          </>
+        )}
+        {m.evidence_fit_curveclass && (
+          <>
+            <dt className="italic uppercase text-light-500">curve class</dt>
+            <dd className="text-light-100">{m.evidence_fit_curveclass}</dd>
+          </>
+        )}
+      </dl>
+      {/* Curve — right, fills remaining horizontal space. Wrapper has
+       * an explicit aspect ratio matching the viewBox so the
+       * preserveAspectRatio default (meet) doesn't letterbox. */}
+      <div
+        className="flex-1 min-w-0 text-light-300"
+        style={{ aspectRatio: "720 / 320" }}
+      >
+        <HillCurveSparkline
+          zero={m.efficacy_zeroactivity}
+          infinite={m.efficacy_infiniteactivity}
+          logAC50={m.efficacy_logac50_value}
+          slope={m.efficacy_hillslope}
+          unit={m.unit}
+          width={720}
+          height={320}
+          fluid
+        />
+      </div>
+    </div>
   );
 };
 

@@ -29,6 +29,11 @@ interface Props {
   unit?: string | null;
   width?: number;
   height?: number;
+  // When true, the SVG fills its container (width/height = 100%) while
+  // keeping the supplied width/height as the internal viewBox. Used
+  // for the accordion's expanded view so the curve takes whatever
+  // horizontal space the layout offers.
+  fluid?: boolean;
 }
 
 const SAMPLES = 80;
@@ -61,6 +66,7 @@ const HillCurveSparkline = ({
   unit,
   width = 160,
   height = 64,
+  fluid = false,
 }: Props) => {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [hoverPx, setHoverPx] = useState<number | null>(null);
@@ -136,8 +142,8 @@ const HillCurveSparkline = ({
   return (
     <svg
       ref={svgRef}
-      width={width}
-      height={height}
+      width={fluid ? "100%" : width}
+      height={fluid ? "100%" : height}
       viewBox={`0 0 ${width} ${height}`}
       role="img"
       aria-label={`Hill curve fit, AC50 at 10^${logAC50.toFixed(2)}, slope ${slope.toFixed(2)}`}
@@ -248,7 +254,10 @@ const HillCurveSparkline = ({
       {/* AC50 dot at midpoint */}
       <circle cx={midPx} cy={midPy} r="2" fill="currentColor" />
 
-      {/* hover crosshair — vertical line through the curve + dot on it */}
+      {/* hover crosshair — vertical + horizontal lines through the
+       * cursor's curve intersection, dot on the curve, and axis ticks
+       * + value labels so the user can read the concentration / activity
+       * straight off the axes without going to the top-right readout. */}
       {hoverLogX != null && hoverY != null && (
         <>
           <line
@@ -259,12 +268,58 @@ const HillCurveSparkline = ({
             stroke="currentColor"
             strokeOpacity="0.5"
           />
+          <line
+            x1={PAD_LEFT}
+            x2={toPx(hoverLogX)}
+            y1={toPy(hoverY)}
+            y2={toPy(hoverY)}
+            stroke="currentColor"
+            strokeOpacity="0.5"
+            strokeDasharray="2 2"
+          />
           <circle
             cx={toPx(hoverLogX)}
             cy={toPy(hoverY)}
             r="2.5"
             fill="currentColor"
           />
+          {/* X-axis tick + concentration label at the cursor */}
+          <line
+            x1={toPx(hoverLogX)}
+            x2={toPx(hoverLogX)}
+            y1={PAD_TOP + plotH}
+            y2={PAD_TOP + plotH + 3}
+            stroke="currentColor"
+          />
+          <text
+            x={toPx(hoverLogX)}
+            y={height - 1}
+            fontSize="8"
+            fontFamily={labelFont}
+            fill="currentColor"
+            textAnchor="middle"
+          >
+            {fmtConc(hoverLogX)}
+            {unit ? ` ${unit}` : ""}
+          </text>
+          {/* Y-axis tick + activity label at the curve intersection */}
+          <line
+            x1={PAD_LEFT - 3}
+            x2={PAD_LEFT}
+            y1={toPy(hoverY)}
+            y2={toPy(hoverY)}
+            stroke="currentColor"
+          />
+          <text
+            x={PAD_LEFT - 4}
+            y={toPy(hoverY) + 3}
+            fontSize="8"
+            fontFamily={labelFont}
+            fill="currentColor"
+            textAnchor="end"
+          >
+            {fmtY(hoverY)}
+          </text>
         </>
       )}
     </svg>
@@ -272,5 +327,77 @@ const HillCurveSparkline = ({
 };
 
 HillCurveSparkline.displayName = "HillCurveSparkline";
+
+// Tiny line-only glyph for the accordion indicator column — just the
+// curve trace, no axes, labels, AC50 marker, or hover. Carries enough
+// information (slope direction + steepness) to telegraph at a glance
+// that the row has a fitted curve to expand. Defaults sized for a
+// table cell (~50×18). Returns null when the fit is incomplete so the
+// call site can render an em-dash instead.
+export const HillCurveGlyph = ({
+  zero,
+  infinite,
+  logAC50,
+  slope,
+  width = 50,
+  height = 18,
+}: {
+  zero: number | null | undefined;
+  infinite: number | null | undefined;
+  logAC50: number | null | undefined;
+  slope: number | null | undefined;
+  width?: number;
+  height?: number;
+}) => {
+  if (
+    zero == null ||
+    infinite == null ||
+    logAC50 == null ||
+    slope == null ||
+    !Number.isFinite(zero) ||
+    !Number.isFinite(infinite) ||
+    !Number.isFinite(logAC50) ||
+    !Number.isFinite(slope) ||
+    slope === 0 ||
+    zero === infinite
+  ) {
+    return null;
+  }
+  const logXMin = logAC50 - DECADES;
+  const logXMax = logAC50 + DECADES;
+  const yMin = Math.min(zero, infinite);
+  const yMax = Math.max(zero, infinite);
+  const yRange = yMax - yMin;
+  // Leave 1px gutter so the line doesn't touch the edge.
+  const points: string[] = [];
+  for (let i = 0; i < SAMPLES; i++) {
+    const t = i / (SAMPLES - 1);
+    const logX = logXMin + t * (logXMax - logXMin);
+    const y = zero + (infinite - zero) / (1 + 10 ** ((logAC50 - logX) * slope));
+    const px = 1 + t * (width - 2);
+    const py = 1 + ((yMax - y) / yRange) * (height - 2);
+    points.push(`${px.toFixed(1)},${py.toFixed(1)}`);
+  }
+  return (
+    <svg
+      width={width}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+      aria-hidden
+      className="block"
+    >
+      <polyline
+        points={points.join(" ")}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+};
+
+HillCurveGlyph.displayName = "HillCurveGlyph";
 
 export default HillCurveSparkline;

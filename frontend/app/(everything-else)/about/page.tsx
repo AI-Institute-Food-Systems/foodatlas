@@ -60,7 +60,7 @@ const TEAM: TeamMember[] = [
   },
   {
     name: "Lukas Masopust",
-    position: "Frontend Engineer",
+    position: "Fullstack Engineer",
     pathToPortrait: "/images/lukas.webp",
     section: "development",
     linkToWebsite: "https://www.aifs.ucdavis.edu/about/people?s=lukas-masopust",
@@ -68,9 +68,9 @@ const TEAM: TeamMember[] = [
   },
   {
     name: "Kaichi Xie",
-    position: "Backend Engineer",
+    position: "Graduate Student Researcher",
     pathToPortrait: "/images/kaichi.webp",
-    section: "development",
+    section: "research",
     linkToLinkedIn: "https://www.linkedin.com/in/kaichi-xie-nicholas/",
   },
 ];
