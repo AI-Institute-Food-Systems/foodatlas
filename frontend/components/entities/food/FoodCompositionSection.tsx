@@ -2,19 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Portal, Switch } from "@headlessui/react";
 import {
-  Listbox,
-  ListboxButton,
-  ListboxOption,
-  ListboxOptions,
-  Popover,
-  PopoverButton,
-  PopoverPanel,
-  Portal,
-  Switch,
-} from "@headlessui/react";
-import {
-  MdCheck,
   MdClose,
   MdDescription,
   MdErrorOutline,
@@ -46,13 +35,13 @@ import { FoodEvidence } from "@/types/Evidence";
 // headers for table
 const TABLE_HEADERS = [
   { label: "Chemical", sortName: "common_name", align: "left" as const },
-  { label: "Classification", align: "left" as const, filterable: true },
+  { label: "Classification", align: "left" as const },
   {
     label: "Concentration (mg/100g)",
     sortName: "median_concentration",
     align: "right" as const,
   },
-  { label: "Evidence", align: "right" as const },
+  { label: "Evidence", sortName: "evidence_count", align: "right" as const },
 ];
 
 const CLASSIFICATION_OPTIONS = [
@@ -446,18 +435,40 @@ const FoodCompositionSection = ({
   const placeholderRowsCount = data ? 20 - data?.length : 20;
 
 
+  const toggleClassification = (cls: string) => {
+    setTablePaginations("food-composition-table", 1, 20);
+    setClassificationFilter((prev) =>
+      prev.includes(cls) ? prev.filter((c) => c !== cls) : [...prev, cls]
+    );
+  };
+
+  const toggleSource = (source: string) => {
+    setTablePaginations("food-composition-table", 1, 20);
+    setSourceFilters((prev) =>
+      prev.includes(source)
+        ? prev.filter((s) => s !== source)
+        : [...prev, source]
+    );
+  };
+
+  const visibleClassOptions = CLASSIFICATION_OPTIONS.filter(
+    (cls) => (classificationCounts[cls] ?? 0) > 0
+  );
+
   return (
     <>
       <div id="composition" className="flex flex-col gap-7 scroll-mt-8">
-          {/* table controls */}
-          <div className="w-full flex flex-col lg:flex-row justify-between">
-            {/* search */}
+          {/* filter block — apothecary card style: dark slab, cream chip
+           * labels, chip toggles arrange each option visibly. No popovers,
+           * no dropdowns — everything reads at a glance. */}
+          <div className="rounded-md border border-light-700/50 bg-light-950/60 p-4 flex flex-col gap-4">
+            {/* search — dedicated top row */}
             <div className="relative flex items-center">
-              <MdSearch className="absolute left-2.5 w-5 h-5 text-light-400" />
+              <MdSearch className="absolute left-3 w-5 h-5 text-light-400" />
               <input
-                className="pl-9 pr-9 w-full lg:w-72 h-9 text-sm rounded-lg border border-light-50/5 bg-light-900 focus:bg-light-400/20 hover:bg-light-400/20 text-light-100 placeholder-light-400 transition duration-100 ease-in-out outline-light-50/60"
+                className="pl-10 pr-10 w-full h-10 text-sm rounded-md border border-light-700/60 bg-light-900/60 focus:bg-light-900 focus:border-light-500 hover:border-light-500 text-light-100 placeholder-light-500 transition-colors duration-100 ease-in-out outline-none"
                 type="text"
-                placeholder="Search for a chemical"
+                placeholder="Search for a chemical…"
                 value={searchTerm}
                 onChange={handleSearch}
               />
@@ -466,98 +477,79 @@ const FoodCompositionSection = ({
                   type="button"
                   aria-label="Clear search"
                   onClick={handleSearchClear}
-                  className="absolute right-2 flex items-center justify-center w-5 h-5 rounded-full text-light-400 hover:text-light-100 hover:bg-light-700 transition-colors"
+                  className="absolute right-3 flex items-center justify-center w-5 h-5 rounded-full text-light-400 hover:text-light-100 hover:bg-light-700 transition-colors"
                 >
                   <MdClose className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>
-            {/* switch and filters — compact track + shorter label copy */}
-            <div className="mt-4 lg:mt-0 flex gap-3 lg:gap-6 justify-between flex-col md:flex-row md:items-center">
-              {/* switch to remove n/a concentrations */}
-              <div className="flex gap-2 items-center justify-between">
-                <span className="uppercase text-[10px] tracking-wider text-light-400 md:max-w-[8rem] lg:text-right leading-tight">
-                  include without concentration
-                </span>
-                <Switch
-                  checked={showAllConcentrations}
-                  onChange={handleConcentrationSwitchChange}
-                  className="group inline-flex h-4 w-8 items-center rounded-full bg-light-700 data-[checked]:bg-accent-600 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 flex-shrink-0 transition-colors"
-                >
-                  <span className="size-3 translate-x-0.5 rounded-full bg-white transition group-data-[checked]:translate-x-[1.125rem]" />
-                </Switch>
-              </div>
-              {/* switch to surface low-trust data points */}
-              <div className="flex gap-2 items-center justify-between">
-                <span className="uppercase text-[10px] tracking-wider text-light-400 md:max-w-[8rem] lg:text-right leading-tight">
-                  include low-trust points
-                </span>
-                <Switch
-                  checked={showLowTrust}
-                  onChange={handleLowTrustSwitchChange}
-                  className="group inline-flex h-4 w-8 items-center rounded-full bg-light-700 data-[checked]:bg-accent-600 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 flex-shrink-0 transition-colors"
-                >
-                  <span className="size-3 translate-x-0.5 rounded-full bg-white transition group-data-[checked]:translate-x-[1.125rem]" />
-                </Switch>
-              </div>
-              {/* source filter */}
-              <div className="flex gap-3 items-center justify-between">
-                <span className="text-xs text-light-400 uppercase">Source</span>
-                <div className="w-52">
-                  <Listbox
-                    value={sourceFilters}
-                    onChange={handleFilterChange}
-                    multiple
-                  >
-                    <ListboxButton
-                      className={twMerge(
-                        "h-9 relative block w-full rounded-lg bg-light-900 py-1.5 pr-8 pl-4 text-left text-sm/6 text-white truncate",
-                        "focus:outline-none data-[focus]:outline-2 data-[focus]:-outline-offset-2 data-[focus]:outline-white/25"
-                      )}
-                    >
-                      {sourceFilters.length > 0
-                        ? sourceFilters
-                            .map(
-                              (filter) =>
-                                SOURCE_OPTIONS.find(
-                                  (opt) => opt.value === filter
-                                )?.label
-                            )
-                            .join(", ")
-                        : "None selected"}
-                      <MdKeyboardArrowDown
-                        className="group pointer-events-none absolute top-2.5 right-2.5 size-4 fill-white/60"
-                        aria-hidden="true"
-                      />
-                    </ListboxButton>
-                    <ListboxOptions
-                      anchor="bottom"
-                      transition
-                      className={twMerge(
-                        "w-[var(--button-width)] rounded-xl border border-white/5 bg-white/5 backdrop-blur-lg p-1 [--anchor-gap:var(--spacing-1)] focus:outline-none",
-                        "transition duration-100 ease-in data-[leave]:data-[closed]:opacity-0"
-                      )}
-                    >
-                      {SOURCE_OPTIONS.map((option, id) => (
-                        <ListboxOption
-                          key={id}
-                          value={option.value}
-                          className="group flex cursor-default items-center gap-2 rounded-lg py-1.5 px-4 select-none data-[focus]:bg-white/10"
-                        >
-                          <MdCheck className="invisible size-4 fill-white group-data-[selected]:visible flex-shrink-0" />
-                          <span className="flex-1">{option.label}</span>
-                          {sourceCounts[option.value] != null && (
-                            <span className="text-xs text-light-400">
-                              {sourceCounts[option.value]}
-                            </span>
-                          )}
-                        </ListboxOption>
-                      ))}
-                    </ListboxOptions>
-                  </Listbox>
-                </div>
+
+            {/* toggle row */}
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+              <FilterRowLabel>Options</FilterRowLabel>
+              <ToggleSwitch
+                label="Include without concentration"
+                checked={showAllConcentrations}
+                onChange={handleConcentrationSwitchChange}
+              />
+              <ToggleSwitch
+                label="Include low-trust points"
+                checked={showLowTrust}
+                onChange={handleLowTrustSwitchChange}
+              />
+            </div>
+
+            {/* source chip row */}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <FilterRowLabel>Source</FilterRowLabel>
+              <div className="flex flex-wrap gap-1.5">
+                {SOURCE_OPTIONS.map((opt) => (
+                  <ChipToggle
+                    key={opt.value}
+                    label={opt.label}
+                    count={sourceCounts[opt.value]}
+                    selected={sourceFilters.includes(opt.value)}
+                    onClick={() => toggleSource(opt.value)}
+                  />
+                ))}
               </div>
             </div>
+
+            {/* nutrient classification chip row */}
+            {visibleClassOptions.length > 0 && (
+              <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
+                <FilterRowLabel>Class</FilterRowLabel>
+                <div className="flex flex-wrap gap-1.5">
+                  {visibleClassOptions.map((cls) => (
+                    <ChipToggle
+                      key={cls}
+                      label={cls === "n/a" ? "unclassified" : cls}
+                      count={classificationCounts[cls]}
+                      selected={classificationFilter.includes(cls)}
+                      onClick={() => toggleClassification(cls)}
+                    />
+                  ))}
+                  {visibleClassOptions.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const allSelected =
+                          classificationFilter.length >= visibleClassOptions.length;
+                        setTablePaginations("food-composition-table", 1, 20);
+                        setClassificationFilter(
+                          allSelected ? [] : [...visibleClassOptions]
+                        );
+                      }}
+                      className="text-xs font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors px-2 py-0.5"
+                    >
+                      {classificationFilter.length >= visibleClassOptions.length
+                        ? "clear"
+                        : "all"}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
           {/* table */}
           <div
@@ -599,115 +591,6 @@ const FoodCompositionSection = ({
                           : "px-4"
                       } ${header.align === "right" ? "text-right" : "text-left"}`}
                     >
-                      {header.filterable ? (
-                        <Popover className="relative">
-                          <PopoverButton className="group flex gap-1 items-center cursor-pointer focus:outline-none">
-                            {(() => {
-                              const visibleCls = CLASSIFICATION_OPTIONS.filter(
-                                (cls) => (classificationCounts[cls] ?? 0) > 0
-                              );
-                              const isFiltered =
-                                classificationFilter.length < visibleCls.length;
-                              return (
-                                <>
-                                  <span
-                                    className={`select-none uppercase text-xs font-medium transition duration-300 ease-in-out ${
-                                      isFiltered
-                                        ? "text-accent-600"
-                                        : "text-light-400 group-hover:text-light-100"
-                                    }`}
-                                  >
-                                    {header.label}
-                                    {isFiltered &&
-                                      ` (${classificationFilter.length})`}
-                                  </span>
-                                  <MdKeyboardArrowDown
-                                    className={`transition duration-300 ease-in-out flex-shrink-0 ${
-                                      isFiltered
-                                        ? "text-accent-600"
-                                        : "text-light-400 group-hover:text-light-100"
-                                    }`}
-                                  />
-                                </>
-                              );
-                            })()}
-                          </PopoverButton>
-                          <PopoverPanel
-                            anchor="bottom start"
-                            className="w-56 rounded-xl border border-white/5 bg-neutral-900 backdrop-blur-lg p-1 z-50 shadow-lg"
-                          >
-                            {/* select all / deselect all */}
-                            {(() => {
-                              const visibleOpts =
-                                CLASSIFICATION_OPTIONS.filter(
-                                  (cls) =>
-                                    (classificationCounts[cls] ?? 0) > 0
-                                );
-                              const allChecked =
-                                classificationFilter.length >=
-                                visibleOpts.length;
-                              return (
-                                <button
-                                  type="button"
-                                  className="w-full text-left text-xs text-light-400 hover:text-light-100 px-4 py-1.5"
-                                  onClick={() => {
-                                    setTablePaginations(
-                                      "food-composition-table",
-                                      1,
-                                      20
-                                    );
-                                    setClassificationFilter(
-                                      allChecked ? [] : [...visibleOpts]
-                                    );
-                                  }}
-                                >
-                                  {allChecked
-                                    ? "Deselect all"
-                                    : "Select all"}
-                                </button>
-                              );
-                            })()}
-                            <div className="border-b border-white/5 my-1" />
-                            {CLASSIFICATION_OPTIONS.filter(
-                              (cls) =>
-                                (classificationCounts[cls] ?? 0) > 0
-                            ).map((cls) => (
-                              <label
-                                key={cls}
-                                className="flex cursor-pointer items-center gap-2 rounded-lg py-1.5 px-4 hover:bg-white/10 capitalize"
-                              >
-                                <input
-                                  type="checkbox"
-                                  className="size-4 rounded border-white/20 bg-transparent accent-accent-600"
-                                  checked={classificationFilter.includes(
-                                    cls
-                                  )}
-                                  onChange={() => {
-                                    setTablePaginations(
-                                      "food-composition-table",
-                                      1,
-                                      20
-                                    );
-                                    setClassificationFilter((prev) =>
-                                      prev.includes(cls)
-                                        ? prev.filter((c) => c !== cls)
-                                        : [...prev, cls]
-                                    );
-                                  }}
-                                />
-                                <span className="flex-1 text-sm">
-                                  {cls === "n/a"
-                                    ? "Unclassified"
-                                    : cls}
-                                </span>
-                                <span className="text-xs text-light-400">
-                                  {classificationCounts[cls]}
-                                </span>
-                              </label>
-                            ))}
-                          </PopoverPanel>
-                        </Popover>
-                      ) : (
                       <div
                         className={`group flex gap-1 items-center flex-nowrap w-full ${
                           header.sortName
@@ -738,7 +621,6 @@ const FoodCompositionSection = ({
                             <MdUnfoldMore className="text-light-400 group-hover:text-light-100 transition duration-300 ease-in-out flex-shrink-0" />
                           ))}
                       </div>
-                      )}
                     </th>
                   ))}
                 </tr>
@@ -963,5 +845,82 @@ const FoodCompositionSection = ({
 };
 
 FoodCompositionSection.displayName = "FoodCompositionSection";
+
+// -- Filter block chrome -----------------------------------------------------
+// Small, purely-presentational helpers so the JSX above reads as a filter
+// spec ("Options | Source | Class") rather than a wall of class strings.
+
+const FilterRowLabel = ({ children }: { children: React.ReactNode }) => (
+  <span className="font-mono italic text-[11px] uppercase tracking-wider text-light-400 min-w-[3.5rem]">
+    {children}
+  </span>
+);
+
+const ToggleSwitch = ({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: () => void;
+}) => (
+  <label className="flex items-center gap-2 cursor-pointer select-none">
+    <Switch
+      checked={checked}
+      onChange={onChange}
+      className="group inline-flex h-4 w-8 items-center rounded-full bg-light-700 data-[checked]:bg-accent-600 flex-shrink-0 transition-colors"
+    >
+      <span className="size-3 translate-x-0.5 rounded-full bg-white transition group-data-[checked]:translate-x-[1.125rem]" />
+    </Switch>
+    <span
+      className={twMerge(
+        "text-xs transition-colors",
+        checked ? "text-light-100" : "text-light-400"
+      )}
+    >
+      {label}
+    </span>
+  </label>
+);
+
+// Cream-on-dark when selected, outlined dark when not — matches the tab-chip
+// vocabulary from EntityTabs so the two chrome elements read as the same
+// visual system. The (n) count sits inside the pill in a dimmer weight.
+const ChipToggle = ({
+  label,
+  count,
+  selected,
+  onClick,
+}: {
+  label: string;
+  count?: number;
+  selected: boolean;
+  onClick: () => void;
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    aria-pressed={selected}
+    className={twMerge(
+      "capitalize inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-mono italic transition-colors",
+      selected
+        ? "bg-light-200 text-light-900 border-light-200 hover:bg-light-100"
+        : "bg-transparent border-light-700/60 text-light-400 hover:text-light-100 hover:border-light-500"
+    )}
+  >
+    <span>{label}</span>
+    {typeof count === "number" && (
+      <span
+        className={twMerge(
+          "not-italic tabular-nums text-[10px]",
+          selected ? "text-light-700" : "text-light-500"
+        )}
+      >
+        {count}
+      </span>
+    )}
+  </button>
+);
 
 export default FoodCompositionSection;
