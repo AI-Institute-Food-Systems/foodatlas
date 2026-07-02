@@ -71,6 +71,64 @@ class Disease(DiseaseSummary):
     external_ids: dict[str, list[str]] = Field(default_factory=dict)
 
 
+class BioactivityHierarchyNode(BaseModel):
+    """One entry in ``parents`` / ``children`` of a Bioactivity."""
+
+    foodatlas_id: str
+    common_name: str
+
+
+class BioactivitySummary(BaseModel):
+    id: str
+    common_name: str
+    description: str = ""
+    n_foods: int = 0
+    n_chemicals: int = 0
+
+
+class Bioactivity(BioactivitySummary):
+    synonyms: list[str] = Field(default_factory=list)
+    external_ids: dict[str, list[str]] = Field(default_factory=dict)
+    parents: list[BioactivityHierarchyNode] = Field(default_factory=list)
+    children: list[BioactivityHierarchyNode] = Field(default_factory=list)
+
+
+class BioactivityMeasurement(BaseModel):
+    """Highest-value sample measurement for a bioactivity row."""
+
+    endpoint: str = ""
+    value: float | None = None
+    unit: str = ""
+
+
+class BioactivityChemicalRow(BaseModel):
+    """Flat row for /v1/bioactivities/{id}/chemicals and
+    /v1/chemicals/{id}/bioactivities.
+    """
+
+    bioactivity_id: str
+    bioactivity_name: str
+    chemical_id: str
+    chemical_name: str
+    measurement_count: int = 0
+    active_count: int = 0
+    inactive_count: int = 0
+    top_measurement: BioactivityMeasurement | None = None
+
+
+class BioactivityFoodRow(BaseModel):
+    """Flat row for /v1/bioactivities/{id}/foods and
+    /v1/foods/{id}/bioactivities.
+    """
+
+    bioactivity_id: str
+    bioactivity_name: str
+    food_id: str
+    food_name: str
+    measurement_count: int = 0
+    top_measurement: BioactivityMeasurement | None = None
+
+
 class Concentration(BaseModel):
     value: float
     unit: str
@@ -165,7 +223,7 @@ class Taxonomy(BaseModel):
 class SearchHit(BaseModel):
     id: str
     common_name: str
-    entity_type: Literal["food", "chemical", "disease"]
+    entity_type: Literal["food", "chemical", "disease", "bioactivity"]
     scientific_name: str = ""
     associations: int = 0
 
@@ -174,6 +232,8 @@ class Stats(BaseModel):
     foods: int = 0
     chemicals: int = 0
     diseases: int = 0
+    bioactivities: int = 0
+    bioactivity_measurements: int = 0
     publications: int = 0
     connections: int = 0
 

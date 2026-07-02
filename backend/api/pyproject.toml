@@ -14,6 +14,7 @@ dependencies = [
     "httpx>=0.28",
     "boto3>=1.34",
     "click>=8.1",
+    "greenlet>=3.3.2",
 ]
 
 [tool.uv]
