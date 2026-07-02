@@ -263,14 +263,13 @@ def _materialize_statistics(conn: Connection) -> None:
         or 0
     )
 
-    # Associations = every empirical evidence row in the graph: the four
-    # entity-pair relationships (food↔chem, chem↔disease, food/chem↔
-    # bioactivity), the IS_A ontology edges, AND every individual
-    # bioactivity measurement (each assay-level data point is an
-    # association between a chemical/food and the bioactivity).
-    associations = (
-        len(r1) + len(scoped_r3r4) + assoc_r2 + len(r5) + len(r6) + measurement_count
-    )
+    # Associations = distinct entity-pair relationships in the graph:
+    # r1 (food↔chem), scoped r3/r4 (chem↔disease), r2 IS_A ontology edges,
+    # r5 (food↔bioactivity), r6 (chemical↔bioactivity). Each row is one
+    # unique pair. Individual bioactivity measurements are evidence for
+    # r5/r6 edges — not associations themselves — and are reported
+    # separately as "number of bioactivity measurements".
+    associations = len(r1) + len(scoped_r3r4) + assoc_r2 + len(r5) + len(r6)
 
     rows = [
         {"field": "number of foods", "count": len(food_ids)},
