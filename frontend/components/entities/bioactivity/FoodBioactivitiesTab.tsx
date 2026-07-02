@@ -21,17 +21,17 @@ interface Props {
   anchorId?: string | null;
 }
 
-const SOURCE_KINDS = [
+const SOURCE_KINDS: { key: string; label: string }[] = [
+  { key: "", label: "both" },
   { key: "experimental", label: "experimental" },
   { key: "predicted", label: "predicted" },
-  { key: "mixed", label: "mixed" },
-] as const;
+];
 
 const TOP_UNITS = 5;
 
 const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedSourceKinds, setSelectedSourceKinds] = useState<string[]>([]);
+  const [selectedSourceKind, setSelectedSourceKind] = useState<string>("");
   const [selectedUnits, setSelectedUnits] = useState<string[]>([]);
   const [showAllUnits, setShowAllUnits] = useState(false);
   const [unitOptions, setUnitOptions] = useState<
@@ -39,7 +39,7 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
   >([]);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
-  const sourceKindParam = selectedSourceKinds.join("+");
+  const sourceKindParam = selectedSourceKind;
   const unitParam = selectedUnits.join("+");
 
   // Aggregated unit list across BOTH tables — direct (food-level
@@ -75,12 +75,7 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
     };
   }, [commonName]);
 
-  const toggleSourceKind = (kind: string) => {
-    setSelectedSourceKinds((prev) =>
-      prev.includes(kind) ? prev.filter((k) => k !== kind) : [...prev, kind]
-    );
-  };
-  const clearSourceKinds = () => setSelectedSourceKinds([]);
+  const chooseSourceKind = (kind: string) => setSelectedSourceKind(kind);
   const toggleUnit = (unit: string) => {
     setSelectedUnits((prev) =>
       prev.includes(unit) ? prev.filter((u) => u !== unit) : [...prev, unit]
@@ -120,27 +115,23 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
     <div className="flex flex-col gap-1.5">
       <div className="flex items-baseline justify-between gap-2">
         <span className="font-mono italic text-[11px] uppercase tracking-wider text-light-400 min-w-[3.5rem]">
-          Source
+          Assay Source
         </span>
-        {selectedSourceKinds.length > 0 && (
-          <button
-            type="button"
-            onClick={clearSourceKinds}
-            className="text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
-          >
-            clear
-          </button>
-        )}
       </div>
-      <div className="flex flex-col -mx-1">
+      <div
+        className="flex flex-col -mx-1"
+        role="radiogroup"
+        aria-label="Assay Source"
+      >
         {SOURCE_KINDS.map(({ key, label }) => {
-          const selected = selectedSourceKinds.includes(key);
+          const selected = selectedSourceKind === key;
           return (
             <button
-              key={key}
+              key={label}
               type="button"
-              onClick={() => toggleSourceKind(key)}
-              aria-pressed={selected}
+              role="radio"
+              aria-checked={selected}
+              onClick={() => chooseSourceKind(key)}
               className={twMerge(
                 "group w-full flex items-center gap-2 pl-1 pr-2 py-1 rounded transition-colors text-left",
                 selected
@@ -151,13 +142,18 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
               <span
                 aria-hidden
                 className={twMerge(
-                  "w-3.5 h-3.5 rounded-[3px] border flex-shrink-0 flex items-center justify-center transition-colors",
+                  "w-3.5 h-3.5 rounded-full border flex-shrink-0 flex items-center justify-center transition-colors",
                   selected
-                    ? "border-accent-600 bg-accent-600/20 text-accent-600"
+                    ? "border-accent-600 bg-accent-600/20"
                     : "border-light-700 group-hover:border-light-500"
                 )}
               >
-                {selected && <MdCheck className="w-3 h-3" />}
+                {selected && (
+                  <span
+                    className="w-1.5 h-1.5 rounded-full bg-accent-600"
+                    aria-hidden
+                  />
+                )}
               </span>
               <span className="font-mono italic text-xs capitalize flex-1">
                 {label}
