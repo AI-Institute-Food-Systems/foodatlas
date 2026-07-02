@@ -31,10 +31,12 @@ import {
 import { twMerge } from "tailwind-merge";
 
 import Button from "@/components/basic/Button";
+import Link from "@/components/basic/Link";
 import LoadingCard from "@/components/basic/LoadingCard";
 import Modal from "@/components/basic/Modal";
 import HillCurveSparkline from "@/components/entities/bioactivity/HillCurveSparkline";
 import { getBioactivityMeasurements } from "@/utils/fetching";
+import { assayExternalUrl } from "@/utils/utils";
 import type {
   BioactivityMeasurement,
   BioactivityMeasurementFull,
@@ -433,12 +435,7 @@ const MeasurementsTable = ({
                 )}
               >
                 <td className="py-1.5 pr-2 align-top">
-                  <div
-                    className="font-mono text-xs text-light-200 truncate"
-                    title={m.assay ?? undefined}
-                  >
-                    {m.assay ?? "—"}
-                  </div>
+                  <AssayCell assay={m.assay} />
                 </td>
                 <td className="py-1.5 px-2 align-top text-light-200">
                   {m.endpoint || "—"}
@@ -598,6 +595,33 @@ const ExpandedHillFit = ({ m }: { m: ModalRow }) => {
           fluid
         />
       </div>
+    </div>
+  );
+};
+
+// Assay id cell — a raw identifier ("AID: 364", "CHEMBL329341") that the
+// helper turns into a landing-page URL when we recognise the scheme.
+// External-link rendering matches the OverviewCardCatalog convention
+// (font-mono label wrapped in <Link isExternal>) so entities feel
+// consistent across the site. Unknown schemes render as plain text.
+const AssayCell = ({ assay }: { assay: string | null | undefined }) => {
+  if (!assay) return <span className="text-light-600">—</span>;
+  const ext = assayExternalUrl(assay);
+  if (!ext) {
+    return (
+      <div
+        className="font-mono text-xs text-light-200 truncate"
+        title={assay}
+      >
+        {assay}
+      </div>
+    );
+  }
+  return (
+    <div className="truncate" title={`${assay} — open on ${ext.source}`}>
+      <Link href={ext.url} isExternal>
+        <span className="font-mono text-xs">{assay}</span>
+      </Link>
     </div>
   );
 };
