@@ -557,10 +557,23 @@ const FoodCompositionSection = ({
 
   return (
     <>
-      <div id="composition" className="scroll-mt-8">
-          {/* Mobile-only Filters trigger. Desktop hides this — the sidebar
-           * on the left carries the same UI without a click. */}
-          <div className="md:hidden mb-4 flex justify-end">
+      <div id="composition" className="relative scroll-mt-8">
+          {/* Desktop sidebar sits OUTSIDE the table's flow — absolutely
+           * positioned to the left of the composition wrapper via
+           * `right-full`, so the table keeps its full centered max-width.
+           * top-0 bottom-0 stretches the aside to the section's height so
+           * the inner `sticky top-4` div can trail the scroll until the
+           * section ends. Only shown at 2xl+ where the outer max-w-6xl
+           * gutter has enough room; the drawer covers narrower widths. */}
+          <aside className="hidden 2xl:block absolute right-full mr-4 top-0 bottom-0 w-48">
+            <div className="sticky top-4 rounded-md border border-light-700/50 bg-light-950/60 p-4">
+              {filterPanel}
+            </div>
+          </aside>
+
+          {/* Filters trigger — shown whenever the sidebar isn't. Right-
+           * aligned so it doesn't fight the table's header row. */}
+          <div className="2xl:hidden mb-4 flex justify-end">
             <button
               type="button"
               onClick={() => setMobileFiltersOpen(true)}
@@ -571,16 +584,7 @@ const FoodCompositionSection = ({
             </button>
           </div>
 
-          <div className="flex gap-6 items-start">
-            {/* Desktop sidebar. sticky-top so it follows the table when
-             * scrolling. self-start prevents the flex parent from
-             * stretching it to the table's height. */}
-            <aside className="hidden md:block w-64 shrink-0 sticky top-4 self-start rounded-md border border-light-700/50 bg-light-950/60 p-4">
-              {filterPanel}
-            </aside>
-
-            {/* Main content */}
-            <div className="flex-1 min-w-0 flex flex-col gap-7">
+          <div className="flex flex-col gap-7">
           {/* table */}
           <div
             ref={tableWrapperRef}
@@ -832,14 +836,14 @@ const FoodCompositionSection = ({
               />
             </div>
           )}
-            </div>
           </div>
 
-          {/* Mobile drawer — slides in from the right, dark backdrop
-           * behind. Same filterPanel as the sidebar. Esc/backdrop close. */}
+          {/* Drawer — slides in from the right, dark backdrop behind.
+           * Same filterPanel as the sidebar. Esc/backdrop close. Shown
+           * on every viewport that doesn't have the desktop sidebar. */}
           {mobileFiltersOpen && (
             <div
-              className="fixed inset-0 z-50 md:hidden"
+              className="fixed inset-0 z-50 2xl:hidden"
               role="dialog"
               aria-modal="true"
               aria-label="Filters"
