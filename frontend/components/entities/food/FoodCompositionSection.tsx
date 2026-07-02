@@ -565,7 +565,7 @@ const FoodCompositionSection = ({
            * the inner `sticky top-4` div can trail the scroll until the
            * section ends. Only shown at 2xl+ where the outer max-w-6xl
            * gutter has enough room; the drawer covers narrower widths. */}
-          <aside className="hidden 2xl:block absolute right-full mr-4 top-0 bottom-0 w-48">
+          <aside className="hidden min-[1440px]:block absolute right-full mr-4 top-0 bottom-0 w-48">
             <div className="sticky top-4 rounded-md border border-light-700/50 bg-light-950/60 p-4">
               {filterPanel}
             </div>
@@ -573,7 +573,7 @@ const FoodCompositionSection = ({
 
           {/* Filters trigger — shown whenever the sidebar isn't. Right-
            * aligned so it doesn't fight the table's header row. */}
-          <div className="2xl:hidden mb-4 flex justify-end">
+          <div className="min-[1440px]:hidden mb-4 flex justify-end">
             <button
               type="button"
               onClick={() => setMobileFiltersOpen(true)}
@@ -843,7 +843,7 @@ const FoodCompositionSection = ({
            * on every viewport that doesn't have the desktop sidebar. */}
           {mobileFiltersOpen && (
             <div
-              className="fixed inset-0 z-50 2xl:hidden"
+              className="fixed inset-0 z-50 min-[1440px]:hidden"
               role="dialog"
               aria-modal="true"
               aria-label="Filters"
