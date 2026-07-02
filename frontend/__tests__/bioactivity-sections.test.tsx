@@ -98,7 +98,7 @@ describe("BioactivityChemicalsSection", () => {
     // sidebar-filter redesign). The count is rendered as its own text
     // node with commas, so match on the exact label.
     expect(
-      screen.getByRole("button", { name: /View 755 assays/i })
+      screen.getByRole("button", { name: /View 755/i })
     ).toBeInTheDocument();
     expect(screen.getByText("83")).toBeInTheDocument();
     expect(screen.getByText("261")).toBeInTheDocument();
@@ -116,7 +116,7 @@ describe("BioactivityFoodsSection", () => {
     expect(await screen.findByText(/snail/i)).toBeInTheDocument();
     expect(screen.getByText(/Activity: 0\.519 mmol\/100g/)).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /view 1 assay/i })
+      screen.getByRole("button", { name: /view 1/i })
     ).toBeInTheDocument();
   });
 });
