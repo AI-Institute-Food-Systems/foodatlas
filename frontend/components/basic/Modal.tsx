@@ -1,6 +1,7 @@
 // modal wrapper for headless ui dialog
 
 import { Dialog, DialogPanel } from "@headlessui/react";
+import { useEffect } from "react";
 import { MdClose } from "react-icons/md";
 import { twMerge } from "tailwind-merge";
 
@@ -31,9 +32,19 @@ const Modal = ({
   fullHeight,
   footer,
 }: ModalProps) => {
-  // Headless UI Dialog handles scroll locking internally.
-  // scrollbar-gutter: stable on <html> (globals.css) reserves scrollbar
-  // space, preventing layout shift when the scrollbar is hidden.
+  // Lock page scroll while the dialog is open — Headless UI's Dialog
+  // doesn't do this on its own in v2. The scroll container in this app
+  // is <html> (globals.css forces `overflow-y: scroll !important`),
+  // and inline-style `!important` doesn't reliably beat the stylesheet
+  // rule across browsers, so we toggle a class that the stylesheet
+  // raises above it via higher specificity.
+  useEffect(() => {
+    if (!isOpen) return;
+    document.documentElement.classList.add("modal-open");
+    return () => {
+      document.documentElement.classList.remove("modal-open");
+    };
+  }, [isOpen]);
 
   return (
     <Dialog

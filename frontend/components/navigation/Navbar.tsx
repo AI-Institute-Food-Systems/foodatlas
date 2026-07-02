@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useContext } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { MdMenu } from "react-icons/md";
+import { MdMenu, MdSearch } from "react-icons/md";
 import { twMerge } from "tailwind-merge";
 
 import NavbarLink from "@/components/navigation/NavbarLink";
@@ -11,6 +11,7 @@ import FoodAtlasIcon from "@/components/icons/FoodAltasIcon";
 import { SearchContext } from "@/context/searchContext";
 
 const NAV_ITEMS = [
+  { text: "Explore", href: "/" },
   { text: "Background", href: "/technical-background" },
   { text: "API", href: "/developers" },
   { text: "Downloads", href: "/food-composition-downloads" },
@@ -24,7 +25,7 @@ interface NavbarProps {
 
 const Navbar = ({ className }: NavbarProps) => {
   const [isNavMenuOpen, setIsNavMenuOpen] = useState(false);
-  const { isFocused, setIsFocused, inputRef, isVisible, setIsVisible } =
+  const { setIsFocused, inputRef, setIsVisible, setOffsetTop } =
     useContext(SearchContext);
   const [isScrolled, setIsScrolled] = useState(false);
   const router = useRouter();
@@ -34,79 +35,48 @@ const Navbar = ({ className }: NavbarProps) => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 0);
     };
-
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   const handleNavButtonClick = () => setIsNavMenuOpen(!isNavMenuOpen);
 
-  const handleSearchButtonClick = (
-    event: React.MouseEvent<HTMLButtonElement>
-  ) => {
-    if (pathname === "/") {
-      event.stopPropagation();
-      event.preventDefault();
-
-      if (isFocused) {
-        // @ts-ignore
-        inputRef.current.blur();
-        // setIsFocused((prev) => {
-        //   inputRef.current.blur();
-        //   return !prev;
-        // });
-      } else {
-        // @ts-ignore
-        inputRef.current.focus();
-      }
-      // inputRef.current.focus();
-      // setIsVisible(!isVisible);
-      setIsFocused(!isFocused);
-    } else {
-      // @ts-ignore
-      setIsVisible((prev) => !prev);
-      setIsFocused(true);
+  // Opens the global search overlay no matter what route we're on:
+  // - On a hosting route (`/` or `/results`) the bar is already
+  //   mounted at a layout-anchored position — we just focus it.
+  // - On an entity page the bar is mounted but invisible; we
+  //   re-anchor it just below the navbar and fade it back in.
+  const handleSearchButtonClick = () => {
+    const hostsSearch = pathname === "/" || pathname.startsWith("/results");
+    if (!hostsSearch) {
+      setOffsetTop(64);
     }
-
-    // if (isFocused) {
-    //   setIsFocused(false);
-    //   setIsVisible(false);
-    // } else {
-    //   setIsVisible(true);
-    //   setIsFocused(true);
-    // }
-
-    // setIsFocused((prev) => {
-    //   // setIsVisible(!isVisible);
-    //   setIsVisible(true);
-    //   return !prev;
-    // });
+    setIsVisible(true);
+    setIsFocused(true);
+    setIsNavMenuOpen(false);
+    // Wait one paint so the fade-in / re-anchor has taken effect.
+    requestAnimationFrame(() => inputRef.current?.focus());
   };
-
-  useEffect(() => {
-    if (isFocused && inputRef.current) {
-    }
-  }, [isFocused, inputRef]);
 
   return (
     <div
       className={twMerge(
         "fixed top-0 w-[100vw] bg-[#0a0a09]/30 backdrop-blur-2xl saturate-200 z-40 px-3 md:px-12",
         isScrolled ? "border-b border-light-800" : "",
-        className
+        className,
       )}
     >
       <div className="max-w-6xl mx-auto">
-        <div className="py-1.5 w-full h-11 sm:h-12 md:h-14 mx-auto flex justify-between items-center">
+        <div className="py-1.5 w-full h-11 sm:h-12 md:h-14 mx-auto flex justify-between items-center gap-3">
           <Button
             className="relative flex-shrink-0 cursor-pointer min-h-9 min-w-9 p-1 m-0"
             isIconOnly
             onClick={() => router.push("/")}
             aria-label="FoodAtlas home"
           >
-            <FoodAtlasIcon height={30} width={""} color={"#FFFBF7"} />
+            <FoodAtlasIcon height={30} width={120} color={"#FFFBF7"} />
           </Button>
-          <div className="hidden md:flex md:gap-8 lg:gap-20">
+          <div className="hidden md:flex md:gap-8 lg:gap-14">
             {NAV_ITEMS.map((navItem) => (
               <NavbarLink
                 key={navItem.href}
@@ -116,10 +86,20 @@ const Navbar = ({ className }: NavbarProps) => {
               />
             ))}
           </div>
-          {/* search & menu button container */}
-          <div className="md:hidden flex items-center">
-            {/* menu button */}
-            <div className="">
+          <div className="flex items-center gap-1">
+            {/* Search button — always visible, opens the global
+             * overlay (re-anchored under the navbar on entity pages).
+             */}
+            <Button
+              className="min-h-9 min-w-9"
+              isIconOnly
+              onClick={handleSearchButtonClick}
+              aria-label="Open search"
+            >
+              <MdSearch className="w-5 h-5" />
+            </Button>
+            {/* Mobile menu */}
+            <div className="md:hidden">
               <Button
                 className="min-h-9 min-w-9"
                 onClick={handleNavButtonClick}

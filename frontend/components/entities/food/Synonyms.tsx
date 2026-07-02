@@ -67,9 +67,9 @@ const SynonymsModal = ({
     // a single chip. Low vertical padding keeps the row svelte.
     body = (
       <div className="flex flex-wrap gap-1 min-w-0">
-        {previewList.map((name) => (
+        {previewList.map((name, i) => (
           <span
-            key={name}
+            key={`${name}-${i}`}
             className="capitalize text-xs leading-tight px-2 py-0.5 rounded-full border border-light-700/70 bg-light-900/40 text-light-200 break-all max-w-full"
           >
             {name}

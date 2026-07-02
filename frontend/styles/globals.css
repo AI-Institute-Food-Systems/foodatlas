@@ -17,6 +17,15 @@ html {
   overflow-y: scroll !important;
 }
 
+/* Toggled by Modal.tsx to lock page scroll while a dialog is open.
+ * Higher specificity than `html` so it wins regardless of the
+ * !important on the base rule. `scrollbar-gutter: stable` on <html>
+ * keeps layout from shifting when the scrollbar disappears. */
+html.modal-open,
+html.modal-open body {
+  overflow: hidden !important;
+}
+
 @keyframes fadeSlide {
   from {
     opacity: 0;

@@ -32,7 +32,10 @@ const SearchSuggestions = () => {
   return (
     <div className="w-full rounded z-50 foodatlas-search">
       {cachedSuggestions?.length > 0 && autocompleteTerm.length > 0 && (
-        <div className="flex flex-col max-h-[80vh] overflow-y-auto border-[1.5px] border-t-0 bg-light-950/50 border-light-600 rounded-t-none rounded-lg backdrop-blur-3xl">
+        <div
+          className="flex flex-col max-h-[65vh] overflow-y-auto rounded-xl border border-light-50/10 bg-light-950/80 backdrop-blur-xl shadow-xl shadow-black/40"
+          onMouseLeave={() => setSelectedSuggestion(-1)}
+        >
           {cachedSuggestions?.map((suggestion: Suggestion, index: number) => (
             <SuggestionItem
               key={index}
