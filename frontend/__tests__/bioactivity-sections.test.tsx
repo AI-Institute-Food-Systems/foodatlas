@@ -93,9 +93,13 @@ describe("BioactivityChemicalsSection", () => {
     });
     renderWithPagination(<BioactivityChemicalsSection commonName="antioxidant" />);
     expect(await screen.findByText(/quercetin/i)).toBeInTheDocument();
-    // Total count moved into the "View N assays" button; standalone count
-    // column was removed in the apothecary redesign.
-    expect(screen.getByText(/View 755 assays/)).toBeInTheDocument();
+    // Assays column is now a clickable numeric count that opens the
+    // measurements modal (replaced the "View N assays" pill during the
+    // sidebar-filter redesign). The count is rendered as its own text
+    // node with commas, so match on the exact label.
+    expect(
+      screen.getByRole("button", { name: /View 755 assays/i })
+    ).toBeInTheDocument();
     expect(screen.getByText("83")).toBeInTheDocument();
     expect(screen.getByText("261")).toBeInTheDocument();
     expect(screen.getByText(/IC50: 17\.2 MICROMOLAR/)).toBeInTheDocument();

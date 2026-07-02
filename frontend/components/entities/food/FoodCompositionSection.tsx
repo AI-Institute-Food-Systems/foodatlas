@@ -4,17 +4,20 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Portal, Switch } from "@headlessui/react";
 import {
+  MdCheck,
   MdClose,
   MdDescription,
   MdErrorOutline,
   MdKeyboardArrowDown,
   MdKeyboardArrowUp,
   MdSearch,
+  MdTune,
   MdUnfoldMore,
 } from "react-icons/md";
 import { twMerge } from "tailwind-merge";
 
-import Button from "@/components/basic/Button";
+import Card from "@/components/basic/Card";
+import Chip from "@/components/basic/Chip";
 import Link from "@/components/basic/Link";
 import Pagination from "@/components/basic/Pagination";
 import LoadingCard from "@/components/basic/LoadingCard";
@@ -124,6 +127,7 @@ const FoodCompositionSection = ({
   const [classificationCounts, setClassificationCounts] = useState<
     Record<string, number>
   >({});
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   // fetch source + classification counts in one call
   useEffect(() => {
@@ -455,102 +459,163 @@ const FoodCompositionSection = ({
     (cls) => (classificationCounts[cls] ?? 0) > 0
   );
 
+  // Search field is used in three places: inside the sidebar (with
+  // filters), inside the mobile drawer's sidebar copy, and on its own
+  // as a standalone left-of-Filters affordance below 1440. Extract it
+  // so all three stay in sync.
+  const searchInput = (
+    <div className="relative flex items-center">
+      <MdSearch className="absolute left-2 w-4 h-4 text-light-400" />
+      <input
+        className="pl-8 pr-8 w-full h-8 text-xs rounded-md border border-light-700/60 bg-light-900/60 focus:bg-light-900 focus:border-light-500 hover:border-light-500 text-light-100 placeholder-light-500 transition-colors duration-100 ease-in-out outline-none"
+        type="text"
+        placeholder="Search…"
+        value={searchTerm}
+        onChange={handleSearch}
+      />
+      {searchTerm && (
+        <button
+          type="button"
+          aria-label="Clear search"
+          onClick={handleSearchClear}
+          className="absolute right-2 flex items-center justify-center w-4 h-4 rounded-full text-light-400 hover:text-light-100 hover:bg-light-700 transition-colors"
+        >
+          <MdClose className="w-3 h-3" />
+        </button>
+      )}
+    </div>
+  );
+
+  // Non-search filter controls — options + source + class. Drawer on
+  // small viewports uses this alone (search stays visible outside the
+  // drawer per user request).
+  const filtersOnlyPanel = (
+    <div className="flex flex-col gap-5">
+      {/* options — binary switches (not multi-select) so they stay as
+       * toggles rather than checkbox rows. */}
+      <FilterGroup label="Options">
+        <div className="flex flex-col gap-2 pt-0.5">
+          <ToggleSwitch
+            label="Include without concentration"
+            checked={showAllConcentrations}
+            onChange={handleConcentrationSwitchChange}
+          />
+          <ToggleSwitch
+            label="Include low-trust data points"
+            checked={showLowTrust}
+            onChange={handleLowTrustSwitchChange}
+          />
+        </div>
+      </FilterGroup>
+
+      {/* source — checkbox list, one row per source */}
+      <FilterGroup label="Source">
+        <FilterList>
+          {SOURCE_OPTIONS.map((opt) => (
+            <FilterListItem
+              key={opt.value}
+              label={opt.label}
+              count={sourceCounts[opt.value]}
+              selected={sourceFilters.includes(opt.value)}
+              onClick={() => toggleSource(opt.value)}
+            />
+          ))}
+        </FilterList>
+      </FilterGroup>
+
+      {/* nutrient classification — same checklist chrome; 15+ options
+       * scrolls internally if the list would push the sticky sidebar
+       * past the viewport. */}
+      {visibleClassOptions.length > 0 && (
+        <FilterGroup
+          label="Class"
+          action={
+            visibleClassOptions.length > 1 ? (
+              <button
+                type="button"
+                onClick={() => {
+                  const allSelected =
+                    classificationFilter.length >= visibleClassOptions.length;
+                  setTablePaginations("food-composition-table", 1, 20);
+                  setClassificationFilter(
+                    allSelected ? [] : [...visibleClassOptions]
+                  );
+                }}
+                className="text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
+              >
+                {classificationFilter.length >= visibleClassOptions.length
+                  ? "clear"
+                  : "all"}
+              </button>
+            ) : null
+          }
+        >
+          <FilterList maxHeightClass="max-h-72">
+            {visibleClassOptions.map((cls) => (
+              <FilterListItem
+                key={cls}
+                label={cls === "n/a" ? "unclassified" : cls}
+                count={classificationCounts[cls]}
+                selected={classificationFilter.includes(cls)}
+                onClick={() => toggleClassification(cls)}
+              />
+            ))}
+          </FilterList>
+        </FilterGroup>
+      )}
+    </div>
+  );
+
+  // Full sidebar (search on top + filters underneath). Used both in the
+  // desktop absolute-positioned aside and as the mobile-view content
+  // that pairs a visible search input with a drawer of the remaining
+  // controls.
+  const filterPanel = (
+    <div className="flex flex-col gap-5">
+      {searchInput}
+      {filtersOnlyPanel}
+    </div>
+  );
+
   return (
     <>
-      <div id="composition" className="flex flex-col gap-7 scroll-mt-8">
-          {/* filter block — apothecary card style: dark slab, cream chip
-           * labels, chip toggles arrange each option visibly. No popovers,
-           * no dropdowns — everything reads at a glance. */}
-          <div className="rounded-md border border-light-700/50 bg-light-950/60 p-4 flex flex-col gap-4">
-            {/* search — dedicated top row */}
-            <div className="relative flex items-center">
-              <MdSearch className="absolute left-3 w-5 h-5 text-light-400" />
-              <input
-                className="pl-10 pr-10 w-full h-10 text-sm rounded-md border border-light-700/60 bg-light-900/60 focus:bg-light-900 focus:border-light-500 hover:border-light-500 text-light-100 placeholder-light-500 transition-colors duration-100 ease-in-out outline-none"
-                type="text"
-                placeholder="Search for a chemical…"
-                value={searchTerm}
-                onChange={handleSearch}
-              />
-              {searchTerm && (
-                <button
-                  type="button"
-                  aria-label="Clear search"
-                  onClick={handleSearchClear}
-                  className="absolute right-3 flex items-center justify-center w-5 h-5 rounded-full text-light-400 hover:text-light-100 hover:bg-light-700 transition-colors"
-                >
-                  <MdClose className="w-3.5 h-3.5" />
-                </button>
-              )}
+      <div id="composition" className="relative scroll-mt-8">
+          {/* Desktop sidebar sits OUTSIDE the table's flow — absolutely
+           * positioned to the left of the composition wrapper via
+           * `right-full`, so the table keeps its full centered max-width.
+           * top-0 bottom-0 stretches the aside to the section's height so
+           * the inner `sticky top-4` div can trail the scroll until the
+           * section ends. Only shown at min-[1440px]+ where the outer
+           * max-w-5xl gutter has enough room for the w-48 aside plus
+           * mr-4 gap; the drawer covers narrower widths. */}
+          <aside className="hidden min-[1440px]:block absolute right-full mr-10 -top-[17px] bottom-0 w-48">
+            {/* -top-[17px] sits halfway between -top-4 (16) and -top-5
+             * (20) so the aside lines up with the Card border-top;
+             * mr-10 (40px) gives a clear gap from the Card frame.
+             * Wrapping the inner box in <Card> matches the tab card's
+             * exact border/shadow/rounded so the sidebar and the
+             * table frame read as siblings. */}
+            <div className="sticky top-4">
+              <Card>{filterPanel}</Card>
             </div>
+          </aside>
 
-            {/* toggle row */}
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-              <FilterRowLabel>Options</FilterRowLabel>
-              <ToggleSwitch
-                label="Include without concentration"
-                checked={showAllConcentrations}
-                onChange={handleConcentrationSwitchChange}
-              />
-              <ToggleSwitch
-                label="Include low-trust points"
-                checked={showLowTrust}
-                onChange={handleLowTrustSwitchChange}
-              />
-            </div>
-
-            {/* source chip row */}
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-              <FilterRowLabel>Source</FilterRowLabel>
-              <div className="flex flex-wrap gap-1.5">
-                {SOURCE_OPTIONS.map((opt) => (
-                  <ChipToggle
-                    key={opt.value}
-                    label={opt.label}
-                    count={sourceCounts[opt.value]}
-                    selected={sourceFilters.includes(opt.value)}
-                    onClick={() => toggleSource(opt.value)}
-                  />
-                ))}
-              </div>
-            </div>
-
-            {/* nutrient classification chip row */}
-            {visibleClassOptions.length > 0 && (
-              <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
-                <FilterRowLabel>Class</FilterRowLabel>
-                <div className="flex flex-wrap gap-1.5">
-                  {visibleClassOptions.map((cls) => (
-                    <ChipToggle
-                      key={cls}
-                      label={cls === "n/a" ? "unclassified" : cls}
-                      count={classificationCounts[cls]}
-                      selected={classificationFilter.includes(cls)}
-                      onClick={() => toggleClassification(cls)}
-                    />
-                  ))}
-                  {visibleClassOptions.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const allSelected =
-                          classificationFilter.length >= visibleClassOptions.length;
-                        setTablePaginations("food-composition-table", 1, 20);
-                        setClassificationFilter(
-                          allSelected ? [] : [...visibleClassOptions]
-                        );
-                      }}
-                      className="text-xs font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors px-2 py-0.5"
-                    >
-                      {classificationFilter.length >= visibleClassOptions.length
-                        ? "clear"
-                        : "all"}
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
+          {/* Sub-1440 row: search visible on the left, Filters trigger
+           * on the right. Search stays outside the drawer so the user
+           * doesn't have to open a modal to type. */}
+          <div className="min-[1440px]:hidden mb-4 flex items-center gap-3">
+            <div className="flex-1 min-w-0 max-w-xs">{searchInput}</div>
+            <button
+              type="button"
+              onClick={() => setMobileFiltersOpen(true)}
+              className="inline-flex items-center gap-2 rounded-md border border-light-700/60 bg-light-900/60 px-3 py-1.5 text-xs font-mono italic text-light-300 hover:text-light-100 hover:border-light-500 transition-colors"
+            >
+              <MdTune className="w-4 h-4" />
+              Filters
+            </button>
           </div>
+
+          <div className="flex flex-col gap-7">
           {/* table */}
           <div
             ref={tableWrapperRef}
@@ -729,7 +794,7 @@ const FoodCompositionSection = ({
                               <>
                                 <span
                                   aria-hidden
-                                  className="relative h-1.5 w-32 shrink-0 rounded-full bg-light-800/70 overflow-hidden"
+                                  className="relative hidden xl:inline-block h-1.5 w-32 shrink-0 rounded-full bg-light-800/70 overflow-hidden"
                                 >
                                   {pct !== null && (
                                     <span
@@ -751,19 +816,19 @@ const FoodCompositionSection = ({
                       </td>
                       {/* evidence */}
                       <td className="py-1.5 pl-4">
-                        <div className="flex min-h-9 capitalize items-center justify-end">
-                          <Button
-                            className="border-light-500 text-light-500 w-36"
-                            variant="outlined"
-                            size="sm"
+                        <div className="flex min-h-9 items-center justify-end">
+                          <Chip
+                            icon={<MdDescription className="size-3" />}
+                            label={`${getRowEvidenceCount(row)} data point${
+                              getRowEvidenceCount(row) === 1 ? "" : "s"
+                            }`}
+                            tone="outline"
+                            size="md"
                             onClick={(event) =>
                               handleEvidenceButtonClick(event, row.name)
                             }
-                          >
-                            <MdDescription className="size-4" />{" "}
-                            {getRowEvidenceCount(row)} Data Point
-                            {getRowEvidenceCount(row) === 1 ? "" : "s"}
-                          </Button>
+                            className="min-w-[9rem] justify-center"
+                          />
                         </div>
                       </td>
                     </tr>
@@ -800,6 +865,42 @@ const FoodCompositionSection = ({
                 numberOfPages={numberOfPages}
                 isLoading={isLoading}
               />
+            </div>
+          )}
+          </div>
+
+          {/* Drawer — slides in from the right, dark backdrop behind.
+           * Same filterPanel as the sidebar. Esc/backdrop close. Shown
+           * on every viewport that doesn't have the desktop sidebar. */}
+          {mobileFiltersOpen && (
+            <div
+              className="fixed inset-0 z-50 min-[1440px]:hidden"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Filters"
+            >
+              <button
+                type="button"
+                aria-label="Close filters"
+                onClick={() => setMobileFiltersOpen(false)}
+                className="absolute inset-0 bg-black/60 cursor-default"
+              />
+              <aside className="absolute right-0 top-0 h-full w-[85vw] max-w-sm bg-light-950 border-l border-light-700/50 overflow-y-auto flex flex-col gap-4 p-4">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono italic text-sm text-light-300">
+                    Filters
+                  </span>
+                  <button
+                    type="button"
+                    aria-label="Close filters"
+                    onClick={() => setMobileFiltersOpen(false)}
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-light-400 hover:text-light-100 hover:bg-light-800 transition-colors"
+                  >
+                    <MdClose className="w-4 h-4" />
+                  </button>
+                </div>
+                {filtersOnlyPanel}
+              </aside>
             </div>
           )}
       </div>
@@ -884,10 +985,50 @@ const ToggleSwitch = ({
   </label>
 );
 
-// Cream-on-dark when selected, outlined dark when not — matches the tab-chip
-// vocabulary from EntityTabs so the two chrome elements read as the same
-// visual system. The (n) count sits inside the pill in a dimmer weight.
-const ChipToggle = ({
+// A labelled section in the filter sidebar. The optional `action` sits in
+// the label row (right-aligned) — used by Class for the "all / clear"
+// button so it doesn't need its own row.
+const FilterGroup = ({
+  label,
+  action,
+  children,
+}: {
+  label: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) => (
+  <div className="flex flex-col gap-1.5">
+    <div className="flex items-baseline justify-between gap-2">
+      <FilterRowLabel>{label}</FilterRowLabel>
+      {action}
+    </div>
+    {children}
+  </div>
+);
+
+// A vertical list of checkbox rows. Optionally caps its height + scrolls
+// so Class (15+ items) doesn't push the sticky sidebar past the viewport.
+const FilterList = ({
+  maxHeightClass,
+  children,
+}: {
+  maxHeightClass?: string;
+  children: React.ReactNode;
+}) => (
+  <div
+    className={twMerge(
+      "flex flex-col -mx-1",
+      maxHeightClass ? `${maxHeightClass} overflow-y-auto` : undefined
+    )}
+  >
+    {children}
+  </div>
+);
+
+// One row in the filter list. Full-width click target, checkbox affordance
+// on the left, label in the middle, count right-aligned. Full-row hover
+// state makes the whole thing feel tappable.
+const FilterListItem = ({
   label,
   count,
   selected,
@@ -903,18 +1044,31 @@ const ChipToggle = ({
     onClick={onClick}
     aria-pressed={selected}
     className={twMerge(
-      "capitalize inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-mono italic transition-colors",
+      "group w-full flex items-center gap-2 pl-1 pr-2 py-1 rounded transition-colors text-left",
       selected
-        ? "bg-light-200 text-light-900 border-light-200 hover:bg-light-100"
-        : "bg-transparent border-light-700/60 text-light-400 hover:text-light-100 hover:border-light-500"
+        ? "text-light-100 hover:bg-light-900/70"
+        : "text-light-400 hover:text-light-100 hover:bg-light-900/50"
     )}
   >
-    <span>{label}</span>
+    <span
+      aria-hidden
+      className={twMerge(
+        "w-3.5 h-3.5 rounded-[3px] border flex-shrink-0 flex items-center justify-center transition-colors",
+        selected
+          ? "border-accent-600 bg-accent-600/20 text-accent-600"
+          : "border-light-700 group-hover:border-light-500"
+      )}
+    >
+      {selected && <MdCheck className="w-3 h-3" />}
+    </span>
+    <span className="capitalize font-mono italic text-xs flex-1 min-w-0 truncate">
+      {label}
+    </span>
     {typeof count === "number" && (
       <span
         className={twMerge(
-          "not-italic tabular-nums text-[10px]",
-          selected ? "text-light-700" : "text-light-500"
+          "not-italic tabular-nums text-[10px] flex-shrink-0",
+          selected ? "text-light-400" : "text-light-500"
         )}
       >
         {count}

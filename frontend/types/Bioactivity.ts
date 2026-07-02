@@ -71,6 +71,10 @@ export type BioactivityChemicalRow = {
   // /bioactivity/chemicals (server-side correlated subquery); undefined
   // on the chemical-bioactivities direction where it's not relevant.
   n_foods?: number;
+  // Chemical classification (e.g. ["flavonoid", "polyphenol"]). Only
+  // populated by /bioactivity/chemicals for the Category column +
+  // sidebar filter. Undefined elsewhere.
+  chemical_classification?: string[] | null;
 };
 
 export type BioactivityFoodRow = {

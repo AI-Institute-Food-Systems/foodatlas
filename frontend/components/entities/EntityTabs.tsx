@@ -69,9 +69,10 @@ const EntityTabs = ({ tabs, defaultTabId }: Props) => {
   return (
     <TabGroup selectedIndex={selectedIndex} onChange={handleChange}>
       {/* Tabs sit on top of the card as apothecary-jar labels: cream chips
-       * affixed to the top of a dark cabinet. The selected chip pops in
-       * cream-on-dark for unmistakable selection; unselected chips read as
-       * dimmer wax seals beside it. -mb-[1.5px] overlaps the card border. */}
+       * affixed to the top of a dark cabinet. Selected chip = cream fill,
+       * unselected = dark slab with a visible border. -mb-[2px] pulls all
+       * tabs down 2px so the selected chip's transparent bottom border
+       * blends into the Card top edge below it. */}
       <TabList className="flex items-end gap-1.5 pl-3">
         {tabs.map((tab) => (
           <Tab
@@ -80,15 +81,10 @@ const EntityTabs = ({ tabs, defaultTabId }: Props) => {
               twMerge(
                 "relative z-10 px-4 py-1.5 -mb-[2px]",
                 "font-mono italic text-sm min-w-[9.5rem] font-medium",
-                "rounded-t-md transition-colors outline-none border-[1.5px]",
-                // Selected: cream chip with NO bottom border. pb is bumped
-                // by the missing 1.5px so total height matches unselected.
-                // The 2px cream box-shadow bleeds the chip's fill down INTO
-                // the card body so the card's faint top border never shows
-                // as a hairline below the chip.
+                "rounded-t-md transition-colors outline-none border-t-[1.5px] border-x-[1.5px]",
                 selected
-                  ? "bg-light-200 text-light-900 border-light-200 border-b-0 pb-[calc(0.375rem_+_1.5px)] shadow-[inset_0_1px_2px_rgba(255,249,242,0.6),0_2px_0_0_#efe6de]"
-                  : "bg-transparent border-light-700/50 border-b-transparent text-light-400 hover:text-light-100 hover:border-light-500"
+                  ? "bg-light-200 text-light-900 border-light-200 shadow-[inset_0_1px_2px_rgba(255,249,242,0.5)]"
+                  : "bg-light-950/50 border-light-600/60 text-light-300 hover:text-light-100 hover:border-light-400 hover:bg-light-900/70"
               )
             }
           >

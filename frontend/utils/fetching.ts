@@ -283,6 +283,14 @@ export type BioactivityListParams = {
   // is also recomputed from the filtered sample, so it reflects the
   // active filter.
   filterEvidenceType?: string;
+  // Multi-select chemical classification filter ('+'-separated) applied
+  // by /bioactivity/chemicals only; other list endpoints ignore it.
+  filterCategory?: string;
+  // Multi-select measurement provenance filter ('+'-separated). Values
+  // are "experimental", "predicted", "mixed". Classified per-row by
+  // inspecting the capped `measurements` sample's evidence_source
+  // values ("exp*" vs "pred*"/"comp*").
+  filterSourceKind?: string;
 };
 
 const buildBioactivityQuery = (params?: BioactivityListParams): string => {
@@ -295,6 +303,9 @@ const buildBioactivityQuery = (params?: BioactivityListParams): string => {
   if (params?.filterUnit) p.set("filter_unit", params.filterUnit);
   if (params?.filterEvidenceType)
     p.set("filter_evidence_type", params.filterEvidenceType);
+  if (params?.filterCategory) p.set("filter_category", params.filterCategory);
+  if (params?.filterSourceKind)
+    p.set("filter_source_kind", params.filterSourceKind);
   const qs = p.toString();
   return qs ? `&${qs}` : "";
 };
@@ -432,11 +443,15 @@ export async function getBioactivityMeasurements(
 }
 
 // Direction selector for the bioactivity table — one per table-page combo.
+// "food-inferred-bioactivities" is a virtual direction used by the food
+// page's shared sidebar to surface units from ALL chemicals present in
+// the food (not just the direct food-level measurements).
 export type BioactivityDirection =
   | "bioactivity-chemicals"
   | "bioactivity-foods"
   | "chemical-bioactivities"
-  | "food-bioactivities";
+  | "food-bioactivities"
+  | "food-inferred-bioactivities";
 
 // Distinct (endpoint, unit, count) tuples for the table's filter chips.
 // Returns [] on any fetch failure so the table can render without chips.

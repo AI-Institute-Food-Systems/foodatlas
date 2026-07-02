@@ -9,15 +9,18 @@
 
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import {
+  MdCheck,
   MdClose,
   MdInfoOutline,
   MdKeyboardArrowDown,
   MdKeyboardArrowUp,
   MdSearch,
+  MdTune,
   MdUnfoldMore,
 } from "react-icons/md";
 import { twMerge } from "tailwind-merge";
 
+import Card from "@/components/basic/Card";
 import Link from "@/components/basic/Link";
 import LoadingCard from "@/components/basic/LoadingCard";
 import Pagination from "@/components/basic/Pagination";
@@ -25,9 +28,10 @@ import BioactivityMeasurementsModal from "@/components/entities/bioactivity/Bioa
 import { formatTopMeasurement, topMeasurementOf } from "@/components/entities/bioactivity/format";
 import { usePaginations } from "@/context/paginationsContext";
 import { encodeSpace } from "@/utils/utils";
-import type {
-  BioactivityDirection,
-  BioactivityListParams,
+import {
+  getBioactivityEndpointOptions,
+  type BioactivityDirection,
+  type BioactivityListParams,
 } from "@/utils/fetching";
 import type {
   BioactivityChemicalRow,
@@ -61,6 +65,16 @@ export type SortableColumn = {
 const TOP_VALUE_SORT_KEY = "top_measurement_value";
 
 interface Props {
+  // Optional overrides for shared-chrome layouts (e.g. the Food page's
+  // Bioactivities tab hosts one search + filter sidebar for both the
+  // direct table and the inferred table). When any of these is set,
+  // the internal state is replaced; when `hideChrome` is true, the
+  // table renders as a bare table + pagination + modal with no
+  // sidebar / mobile trigger / drawer.
+  externalSearch?: string;
+  externalSourceKind?: string;
+  externalUnit?: string;
+  hideChrome?: boolean;
   // Stable identifier for pagination context — e.g. "food-bioact-foodId".
   tableId: string;
   // Pivot+direction combo used to fetch the endpoint-filter chip options.
@@ -120,33 +134,150 @@ const BioactivityTable = ({
   searchPlaceholder = "Search…",
   emptyMessage,
   modalConfig,
+  externalSearch,
+  externalSourceKind,
+  externalUnit,
+  hideChrome = false,
 }: Props) => {
   const { getTablePaginations, setTablePaginations } = usePaginations();
   const { currentPage } = getTablePaginations(tableId);
 
   const [searchTerm, setSearchTerm] = useState("");
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [sort, setSort] = useState<{ by: string; dir: SortDir }>({
     by: defaultSortBy,
     dir: defaultSortDir,
   });
-  // Endpoint·unit filter retained as backend-only state so URL
-  // (?filter_endpoint=&filter_unit=) keeps working; the UI was retired
-  // because the upstream surfaces 250+ noisy combos — see memory
-  // `bioactivity-endpoint-unit-cleanup`. Re-enable the chip row once
-  // Kaichi normalises the upstream.
+  // Endpoint·unit chip UI is still retired, but the sidebar now offers
+  // a UNIT-only multi-select (grouped by count) that maps to the same
+  // `filter_unit` backend param. Endpoint stays URL-only.
   const [filter] = useState<{ endpoint: string; unit: string }>({
     endpoint: "",
     unit: "",
   });
+  const [selectedUnits, setSelectedUnits] = useState<string[]>([]);
+  const [showAllUnits, setShowAllUnits] = useState(false);
+  const [unitOptions, setUnitOptions] = useState<
+    { unit: string; count: number }[]
+  >([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedSourceKinds, setSelectedSourceKinds] = useState<string[]>([]);
   const filterActive = Boolean(filter.endpoint && filter.unit);
-  // direction + pivotName retained for the re-enabled endpoint·unit
-  // chip case; referenced so the linter doesn't complain.
-  void direction;
-  void pivotName;
+  const unitFilterParam = selectedUnits.join("+");
+  const categoryFilterParam = selectedCategories.join("+");
+  // External overrides win when present so a parent (e.g. the food
+  // page's Bioactivities tab) can drive search + source kind + unit
+  // for its tables from one shared sidebar.
+  const effectiveSearchTerm =
+    externalSearch !== undefined ? externalSearch : searchTerm;
+  const effectiveSourceKindParam =
+    externalSourceKind !== undefined
+      ? externalSourceKind
+      : selectedSourceKinds.join("+");
+  const effectiveUnitParam =
+    externalUnit !== undefined
+      ? externalUnit
+      : unitFilterParam || filter.unit || "";
+
+  // Fetch the endpoint options once per (direction, pivotName). We
+  // aggregate to distinct UNITS + summed counts across endpoints, then
+  // sort by count desc so the sidebar's "top N + show more" pattern
+  // surfaces the most common units first.
+  useEffect(() => {
+    if (!direction || !pivotName) return;
+    let cancelled = false;
+    (async () => {
+      const opts = await getBioactivityEndpointOptions(pivotName, direction);
+      if (cancelled) return;
+      const totals = new Map<string, number>();
+      for (const o of opts) {
+        const u = (o.unit ?? "").trim();
+        if (!u) continue;
+        totals.set(u, (totals.get(u) ?? 0) + (o.count ?? 0));
+      }
+      const sorted = Array.from(totals.entries())
+        .map(([unit, count]) => ({ unit, count }))
+        .sort((a, b) => b.count - a.count);
+      setUnitOptions(sorted);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [direction, pivotName]);
+
+  const toggleUnit = (unit: string) => {
+    setTablePaginations(tableId, 1, 20);
+    setSelectedUnits((prev) =>
+      prev.includes(unit) ? prev.filter((u) => u !== unit) : [...prev, unit]
+    );
+  };
+  const clearUnits = () => {
+    setTablePaginations(tableId, 1, 20);
+    setSelectedUnits([]);
+  };
+
+  // How many units to surface before the "show more" toggle expands
+  // the rest. Kept small so the sidebar stays scannable.
+  const TOP_UNITS = 5;
+  const visibleUnits = showAllUnits
+    ? unitOptions
+    : unitOptions.slice(0, TOP_UNITS);
+  const hiddenUnitsCount = Math.max(0, unitOptions.length - TOP_UNITS);
 
   const [rows, setRows] = useState<BioactivityRow[]>([]);
   const [totalPages, setTotalPages] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Chemical Category options — derived from the current page's rows.
+  // Uses a stable memo so filtering by a category that's not on the
+  // current page still resolves server-side (we send the raw category
+  // string; the sidebar just surfaces what the user has already seen).
+  const categoryOptions = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const r of rows) {
+      const cats = (r as BioactivityChemicalRow).chemical_classification;
+      if (!Array.isArray(cats)) continue;
+      for (const c of cats) {
+        if (!c) continue;
+        totals.set(c, (totals.get(c) ?? 0) + 1);
+      }
+    }
+    return Array.from(totals.entries())
+      .map(([category, count]) => ({ category, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [rows]);
+
+  const toggleCategory = (category: string) => {
+    setTablePaginations(tableId, 1, 20);
+    setSelectedCategories((prev) =>
+      prev.includes(category)
+        ? prev.filter((c) => c !== category)
+        : [...prev, category]
+    );
+  };
+  const clearCategories = () => {
+    setTablePaginations(tableId, 1, 20);
+    setSelectedCategories([]);
+  };
+
+  // Row-level measurement provenance. Kinds are fixed, not derived —
+  // the backend does the exp/pred/mixed classification against the
+  // per-row measurements sample.
+  const SOURCE_KINDS = [
+    { key: "experimental", label: "experimental" },
+    { key: "predicted", label: "predicted" },
+    { key: "mixed", label: "mixed" },
+  ];
+  const toggleSourceKind = (kind: string) => {
+    setTablePaginations(tableId, 1, 20);
+    setSelectedSourceKinds((prev) =>
+      prev.includes(kind) ? prev.filter((k) => k !== kind) : [...prev, kind]
+    );
+  };
+  const clearSourceKinds = () => {
+    setTablePaginations(tableId, 1, 20);
+    setSelectedSourceKinds([]);
+  };
 
   const [selected, setSelected] = useState<BioactivityRow | null>(null);
 
@@ -158,11 +289,13 @@ const BioactivityTable = ({
       // the empty-state instead of a noisy "An error occurred" banner.
       const payload = await fetcher({
         page: currentPage,
-        search: searchTerm,
+        search: effectiveSearchTerm,
         sortBy: sort.by,
         sortDir: sort.dir,
         filterEndpoint: filter.endpoint || undefined,
-        filterUnit: filter.unit || undefined,
+        filterUnit: effectiveUnitParam || undefined,
+        filterCategory: categoryFilterParam || undefined,
+        filterSourceKind: effectiveSourceKindParam || undefined,
       });
       if (cancelled) return;
       setRows(payload?.data ?? []);
@@ -172,7 +305,16 @@ const BioactivityTable = ({
     return () => {
       cancelled = true;
     };
-  }, [fetcher, currentPage, searchTerm, sort, filter]);
+  }, [
+    fetcher,
+    currentPage,
+    effectiveSearchTerm,
+    sort,
+    filter,
+    effectiveUnitParam,
+    categoryFilterParam,
+    effectiveSourceKindParam,
+  ]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value.toLowerCase());
@@ -198,37 +340,188 @@ const BioactivityTable = ({
   const showingPaginator = totalPages > 1 || isLoading;
   const showEmpty = !isLoading && rows.length === 0;
 
-  return (
-    <div className="flex flex-col gap-7">
-      {/* toolbar — search + endpoint:unit chip row */}
-      <div className="w-full flex flex-col gap-3">
-        <div className="relative flex items-center">
-          <MdSearch className="absolute left-2.5 w-5 h-5 text-light-400" />
-          <input
-            className="pl-9 pr-9 w-full lg:w-72 h-9 text-sm rounded-lg border border-light-50/5 bg-light-900 focus:bg-light-400/20 hover:bg-light-400/20 text-light-100 placeholder-light-400 transition duration-100 ease-in-out outline-light-50/60"
-            type="text"
-            placeholder={searchPlaceholder}
-            value={searchTerm}
-            onChange={handleSearchChange}
-          />
-          {searchTerm && (
+  // Search field used in three places: sidebar, drawer's sidebar-copy,
+  // and standalone left of the mobile Filters button.
+  const searchInput = (
+    <div className="relative flex items-center">
+      <MdSearch className="absolute left-2 w-4 h-4 text-light-400" />
+      <input
+        className="pl-8 pr-8 w-full h-8 text-xs rounded-md border border-light-700/60 bg-light-900/60 focus:bg-light-900 focus:border-light-500 hover:border-light-500 text-light-100 placeholder-light-500 transition-colors duration-100 ease-in-out outline-none"
+        type="text"
+        placeholder="Search…"
+        aria-label={searchPlaceholder}
+        value={searchTerm}
+        onChange={handleSearchChange}
+      />
+      {searchTerm && (
+        <button
+          type="button"
+          aria-label="Clear search"
+          onClick={handleSearchClear}
+          className="absolute right-2 flex items-center justify-center w-4 h-4 rounded-full text-light-400 hover:text-light-100 hover:bg-light-700 transition-colors"
+        >
+          <MdClose className="w-3 h-3" />
+        </button>
+      )}
+    </div>
+  );
+
+  // Non-search filters — currently just Unit. Drawer on small viewports
+  // uses this alone (search stays visible outside the drawer).
+  const filtersOnlyPanel = (
+    <div className="flex flex-col gap-5">
+      {unitOptions.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="font-mono italic text-[11px] uppercase tracking-wider text-light-400 min-w-[3.5rem]">
+              Unit
+            </span>
+            {selectedUnits.length > 0 && (
+              <button
+                type="button"
+                onClick={clearUnits}
+                className="text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
+              >
+                clear
+              </button>
+            )}
+          </div>
+          <div className="flex flex-col -mx-1">
+            {visibleUnits.map(({ unit, count }) => (
+              <UnitRow
+                key={unit}
+                unit={unit}
+                count={count}
+                selected={selectedUnits.includes(unit)}
+                onClick={() => toggleUnit(unit)}
+              />
+            ))}
+            {!showAllUnits && hiddenUnitsCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowAllUnits(true)}
+                className="mt-1 px-1 py-1 text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors text-left"
+              >
+                {hiddenUnitsCount} more…
+              </button>
+            )}
+            {showAllUnits && unitOptions.length > TOP_UNITS && (
+              <button
+                type="button"
+                onClick={() => setShowAllUnits(false)}
+                className="mt-1 px-1 py-1 text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors text-left"
+              >
+                collapse
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {categoryOptions.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="font-mono italic text-[11px] uppercase tracking-wider text-light-400 min-w-[3.5rem]">
+              Category
+            </span>
+            {selectedCategories.length > 0 && (
+              <button
+                type="button"
+                onClick={clearCategories}
+                className="text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
+              >
+                clear
+              </button>
+            )}
+          </div>
+          <div className="flex flex-col -mx-1">
+            {categoryOptions.map(({ category, count }) => (
+              <UnitRow
+                key={category}
+                unit={category}
+                count={count}
+                selected={selectedCategories.includes(category)}
+                onClick={() => toggleCategory(category)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="font-mono italic text-[11px] uppercase tracking-wider text-light-400 min-w-[3.5rem]">
+            Source
+          </span>
+          {selectedSourceKinds.length > 0 && (
             <button
               type="button"
-              aria-label="Clear search"
-              onClick={handleSearchClear}
-              className="absolute right-2 flex items-center justify-center w-5 h-5 rounded-full text-light-400 hover:text-light-100 hover:bg-light-700 transition-colors"
+              onClick={clearSourceKinds}
+              className="text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
             >
-              <MdClose className="w-3.5 h-3.5" />
+              clear
             </button>
           )}
         </div>
-        {/* Evidence-type chip UI removed 2026-06-27 — backend
-         * `filter_evidence_type` param + URL state still work so a
-         * power user can set ?filter_evidence_type=in+vitro directly.
-         * Restore the chip row when revisiting the filter UX (see
-         * memory `monday-evidence-filter-ui`). */}
+        <div className="flex flex-col -mx-1">
+          {SOURCE_KINDS.map(({ key, label }) => (
+            <SourceKindRow
+              key={key}
+              label={label}
+              selected={selectedSourceKinds.includes(key)}
+              onClick={() => toggleSourceKind(key)}
+            />
+          ))}
+        </div>
       </div>
+    </div>
+  );
 
+  // Full sidebar panel — search on top of non-search filters.
+  const filterPanel = (
+    <div className="flex flex-col gap-5">
+      {searchInput}
+      {filtersOnlyPanel}
+    </div>
+  );
+
+  // Source is always available (backend classifies rows regardless);
+  // so the drawer / sidebar Filters entry point is always relevant.
+  const hasNonSearchFilters = true;
+
+  return (
+    <div className="relative">
+      {/* Desktop sidebar — same geometry as FoodCompositionSection so
+       * the two pages have matching chrome. Suppressed when a parent
+       * hosts the shared search+filter chrome (hideChrome). */}
+      {!hideChrome && (
+        <aside className="hidden min-[1440px]:block absolute right-full mr-10 -top-[17px] bottom-0 w-48">
+          <div className="sticky top-4">
+            <Card>{filterPanel}</Card>
+          </div>
+        </aside>
+      )}
+
+      {/* Sub-1440 row: search visible on the left; Filters button on
+       * the right (hidden when there are no non-search filters to
+       * surface). */}
+      {!hideChrome && (
+        <div className="min-[1440px]:hidden mb-4 flex items-center gap-3">
+          <div className="flex-1 min-w-0 max-w-xs">{searchInput}</div>
+          {hasNonSearchFilters && (
+            <button
+              type="button"
+              onClick={() => setMobileFiltersOpen(true)}
+              className="inline-flex items-center gap-2 rounded-md border border-light-700/60 bg-light-900/60 px-3 py-1.5 text-xs font-mono italic text-light-300 hover:text-light-100 hover:border-light-500 transition-colors"
+            >
+              <MdTune className="w-4 h-4" />
+              Filters
+            </button>
+          )}
+        </div>
+      )}
+
+      <div className="flex flex-col gap-7">
       <div className="overflow-x-auto">
         <table className="w-full table-fixed">
           <colgroup>
@@ -311,6 +604,39 @@ const BioactivityTable = ({
             numberOfPages={totalPages}
             isLoading={isLoading}
           />
+        </div>
+      )}
+      </div>
+
+      {!hideChrome && mobileFiltersOpen && (
+        <div
+          className="fixed inset-0 z-50 min-[1440px]:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Filters"
+        >
+          <button
+            type="button"
+            aria-label="Close filters"
+            onClick={() => setMobileFiltersOpen(false)}
+            className="absolute inset-0 bg-black/60 cursor-default"
+          />
+          <aside className="absolute right-0 top-0 h-full w-[85vw] max-w-sm bg-light-950 border-l border-light-700/50 overflow-y-auto flex flex-col gap-4 p-4">
+            <div className="flex items-center justify-between">
+              <span className="font-mono italic text-sm text-light-300">
+                Filters
+              </span>
+              <button
+                type="button"
+                aria-label="Close filters"
+                onClick={() => setMobileFiltersOpen(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-light-400 hover:text-light-100 hover:bg-light-800 transition-colors"
+              >
+                <MdClose className="w-4 h-4" />
+              </button>
+            </div>
+            {filtersOnlyPanel}
+          </aside>
         </div>
       )}
 
@@ -470,6 +796,141 @@ export const ViewAssaysCell = ({
   </button>
 );
 
+// Compact numeric assay count that doubles as the modal opener. Same
+// affordance as ViewAssaysCell but takes less horizontal room — the
+// column is now a sortable numeric column that just happens to be
+// clickable. Uses <button> so the whole cell stays in the tab order.
+export const AssayCountCell = ({
+  row,
+  ctx,
+}: {
+  row: BioactivityRow;
+  ctx: ColumnContext;
+}) => (
+  <button
+    type="button"
+    onClick={ctx.openModal}
+    disabled={row.measurement_count === 0}
+    className="font-mono text-xs tabular-nums text-light-200 hover:text-light-100 underline-offset-4 hover:underline disabled:no-underline disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+    aria-label={`View ${row.measurement_count} assays`}
+  >
+    {row.measurement_count.toLocaleString()}
+  </button>
+);
+
+// Chemical classification (["flavonoid", "polyphenol"] → "flavonoid,
+// polyphenol"). Trims to the first entry + "N more" once we have more
+// than two so the column stays narrow. Silent em-dash for empty/null
+// so unclassified rows read the same as unmeasured elsewhere.
+export const CategoryCell = ({
+  value,
+}: {
+  value?: string[] | null;
+}) => {
+  const cats = Array.isArray(value) ? value.filter(Boolean) : [];
+  if (cats.length === 0) return <span className="text-light-600">—</span>;
+  const first = cats[0];
+  const extra = cats.length - 1;
+  return (
+    <span
+      className="capitalize text-light-200 truncate"
+      title={cats.join(", ")}
+    >
+      {first}
+      {extra > 0 && (
+        <span className="ml-1 text-light-500">+{extra}</span>
+      )}
+    </span>
+  );
+};
+
 BioactivityTable.displayName = "BioactivityTable";
+
+// One row in the sidebar's Unit checklist — mirrors FilterListItem in
+// FoodCompositionSection so both pages share the same row chrome. Kept
+// local so it can drop the count when duplicated in the mobile drawer
+// without importing an extra file.
+const UnitRow = ({
+  unit,
+  count,
+  selected,
+  onClick,
+}: {
+  unit: string;
+  count: number;
+  selected: boolean;
+  onClick: () => void;
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    aria-pressed={selected}
+    className={twMerge(
+      "group w-full flex items-center gap-2 pl-1 pr-2 py-1 rounded transition-colors text-left",
+      selected
+        ? "text-light-100 hover:bg-light-900/70"
+        : "text-light-400 hover:text-light-100 hover:bg-light-900/50"
+    )}
+  >
+    <span
+      aria-hidden
+      className={twMerge(
+        "w-3.5 h-3.5 rounded-[3px] border flex-shrink-0 flex items-center justify-center transition-colors",
+        selected
+          ? "border-accent-600 bg-accent-600/20 text-accent-600"
+          : "border-light-700 group-hover:border-light-500"
+      )}
+    >
+      {selected && <MdCheck className="w-3 h-3" />}
+    </span>
+    <span className="font-mono text-xs flex-1 min-w-0 truncate">{unit}</span>
+    <span
+      className={twMerge(
+        "tabular-nums text-[10px] flex-shrink-0",
+        selected ? "text-light-400" : "text-light-500"
+      )}
+    >
+      {count.toLocaleString()}
+    </span>
+  </button>
+);
+
+// One row in the Source-kind picker — same chrome as UnitRow but
+// without the numeric count (kinds are exhaustive, count is implicit
+// via row filtering).
+const SourceKindRow = ({
+  label,
+  selected,
+  onClick,
+}: {
+  label: string;
+  selected: boolean;
+  onClick: () => void;
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    aria-pressed={selected}
+    className={twMerge(
+      "group w-full flex items-center gap-2 pl-1 pr-2 py-1 rounded transition-colors text-left",
+      selected
+        ? "text-light-100 hover:bg-light-900/70"
+        : "text-light-400 hover:text-light-100 hover:bg-light-900/50"
+    )}
+  >
+    <span
+      aria-hidden
+      className={twMerge(
+        "w-3.5 h-3.5 rounded-[3px] border flex-shrink-0 flex items-center justify-center transition-colors",
+        selected
+          ? "border-accent-600 bg-accent-600/20 text-accent-600"
+          : "border-light-700 group-hover:border-light-500"
+      )}
+    >
+      {selected && <MdCheck className="w-3 h-3" />}
+    </span>
+    <span className="font-mono italic text-xs capitalize flex-1">{label}</span>
+  </button>
+);
 
 export default BioactivityTable;

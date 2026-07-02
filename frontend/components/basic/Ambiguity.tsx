@@ -3,6 +3,7 @@
 import { MdCallSplit } from "react-icons/md";
 import { twMerge } from "tailwind-merge";
 
+import Chip from "@/components/basic/Chip";
 import Tooltip from "@/components/basic/Tooltip";
 
 export const isAmbiguous = (
@@ -101,20 +102,15 @@ export const AmbiguityBadge = ({
         </span>
       }
     >
-      <button
-        type="button"
+      <Chip
+        tone="amber"
+        size="xs"
+        icon={<MdCallSplit className="size-2.5 rotate-90" />}
+        label={ambiguousCount}
         onClick={onClick}
-        className={twMerge(
-          "inline-flex items-center gap-1 rounded-full border px-1.5 py-[0.1rem] text-[0.6rem] font-mono font-medium transition-colors",
-          fullyAmbiguous
-            ? "text-amber-400 border-amber-500 bg-amber-500/15 hover:bg-amber-500/25"
-            : "text-amber-400/90 border-amber-500/60 bg-amber-500/10 hover:bg-amber-500/20",
-          className
-        )}
-      >
-        <MdCallSplit className="size-3 rotate-90" />
-        {ambiguousCount}
-      </button>
+        className={twMerge(fullyAmbiguous && "bg-amber-500/20", className)}
+        aria-label={`${ambiguousCount} ambiguous data points`}
+      />
     </Tooltip>
   );
 };

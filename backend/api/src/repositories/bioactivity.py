@@ -133,6 +133,85 @@ async def get_metadata(session: AsyncSession, common_name: str) -> dict[str, obj
     return {"data": data, "metadata": {"row_count": len(data)}}
 
 
+def _apply_endpoint_unit_filter(
+    where_parts: list[str],
+    params: dict,
+    filter_endpoint: str,
+    filter_unit: str,
+    has_pair: bool,
+    measurements_col: str = "measurements",
+) -> None:
+    """Endpoint+unit strict pair OR unit-only multi-select."""
+    if has_pair:
+        where_parts.append(
+            f"EXISTS (SELECT 1 FROM jsonb_array_elements({measurements_col}) m"
+            " WHERE m->>'endpoint' = :ep AND m->>'unit' = :unit)"
+        )
+        params["ep"] = filter_endpoint
+        params["unit"] = filter_unit
+        return
+    if not filter_unit:
+        return
+    units = [u for u in filter_unit.split("+") if u]
+    if not units:
+        return
+    where_parts.append(
+        f"EXISTS (SELECT 1 FROM jsonb_array_elements({measurements_col}) m"
+        " WHERE m->>'unit' = ANY(:units))"
+    )
+    params["units"] = units
+
+
+def _apply_evidence_type_filter(
+    where_parts: list[str],
+    params: dict,
+    filter_evidence_type: str,
+    measurements_col: str = "measurements",
+) -> None:
+    if not filter_evidence_type:
+        return
+    where_parts.append(
+        f"EXISTS (SELECT 1 FROM jsonb_array_elements({measurements_col}) m"
+        " WHERE m->>'evidence_type' = :et)"
+    )
+    params["et"] = filter_evidence_type
+
+
+def _apply_source_kind_filter(
+    where_parts: list[str],
+    filter_source_kind: str,
+    measurements_col: str,
+) -> None:
+    """Row classification per evidence_source values in the capped sample.
+
+    "experimental" = only exp*, "predicted" = only pred*/comp*, "mixed" =
+    both present. A row can only match one, so OR-ing three across the
+    multi-select is safe.
+    """
+    if not filter_source_kind:
+        return
+    kinds = [k for k in filter_source_kind.split("+") if k]
+    if not kinds:
+        return
+    exp_expr = (
+        f"EXISTS (SELECT 1 FROM jsonb_array_elements({measurements_col}) m"
+        " WHERE lower(m->>'evidence_source') LIKE 'exp%')"
+    )
+    pred_expr = (
+        f"EXISTS (SELECT 1 FROM jsonb_array_elements({measurements_col}) m"
+        " WHERE lower(m->>'evidence_source') LIKE 'pred%'"
+        " OR lower(m->>'evidence_source') LIKE 'comp%')"
+    )
+    kind_to_clause = {
+        "experimental": f"({exp_expr} AND NOT {pred_expr})",
+        "predicted": f"({pred_expr} AND NOT {exp_expr})",
+        "mixed": f"({exp_expr} AND {pred_expr})",
+    }
+    clauses = [kind_to_clause[k] for k in kinds if k in kind_to_clause]
+    if clauses:
+        where_parts.append("(" + " OR ".join(clauses) + ")")
+
+
 async def _paginated(
     session: AsyncSession,
     *,
@@ -149,6 +228,9 @@ async def _paginated(
     filter_endpoint: str = "",
     filter_unit: str = "",
     filter_evidence_type: str = "",
+    filter_source_kind: str = "",
+    extra_where: list[str] | None = None,
+    extra_params: dict | None = None,
 ) -> dict[str, object]:
     """Shared paginated query against the bioactivity MVs.
 
@@ -170,25 +252,17 @@ async def _paginated(
         params["q"] = f"%{search}%"
 
     has_filter = bool(filter_endpoint and filter_unit)
-    if has_filter:
-        where_parts.append(
-            "EXISTS (SELECT 1 FROM jsonb_array_elements(measurements) m"
-            " WHERE m->>'endpoint' = :ep AND m->>'unit' = :unit)"
-        )
-        params["ep"] = filter_endpoint
-        params["unit"] = filter_unit
-
-    # Independent of the endpoint·unit filter. Row presence is filtered
-    # at the SQL level (EXISTS) so pagination + total_pages reflect the
-    # filtered set; the per-row `measurements` sample is also narrowed
-    # in `_attach_top_measurement` so the displayed top_measurement
-    # matches the filter state.
-    if filter_evidence_type:
-        where_parts.append(
-            "EXISTS (SELECT 1 FROM jsonb_array_elements(measurements) m"
-            " WHERE m->>'evidence_type' = :et)"
-        )
-        params["et"] = filter_evidence_type
+    _apply_endpoint_unit_filter(
+        where_parts, params, filter_endpoint, filter_unit, has_filter
+    )
+    _apply_evidence_type_filter(where_parts, params, filter_evidence_type)
+    _apply_source_kind_filter(where_parts, filter_source_kind, "measurements")
+    # Caller-supplied additional WHERE clauses (e.g., the Chemical
+    # Category filter injected by get_chemicals).
+    if extra_where:
+        where_parts.extend(extra_where)
+    if extra_params:
+        params.update(extra_params)
 
     where = " AND ".join(where_parts)
 
@@ -248,11 +322,27 @@ async def get_chemicals(
     filter_endpoint: str = "",
     filter_unit: str = "",
     filter_evidence_type: str = "",
+    filter_category: str = "",
+    filter_source_kind: str = "",
 ) -> dict[str, object]:
     """Chemicals measured for this bioactivity."""
     sort_col, direction = _resolve_sort(
         sort_by, sort_dir, _BIO_CHEM_SORT, "measurement_count"
     )
+    # Chemical Category filter — multi-select via '+'-separated string.
+    # Row survives when ANY selected category overlaps the chemical's
+    # classification array (Postgres && array-overlap).
+    extra_where: list[str] = []
+    extra_params: dict = {}
+    if filter_category:
+        cats = [c for c in filter_category.split("+") if c]
+        if cats:
+            extra_where.append(
+                "EXISTS (SELECT 1 FROM mv_chemical_entities e "
+                "WHERE e.foodatlas_id = chemical_foodatlas_id "
+                "AND e.chemical_classification && :cats)"
+            )
+            extra_params["cats"] = cats
     return await _paginated(
         session,
         mv="mv_chemical_bioactivity",
@@ -262,7 +352,13 @@ async def get_chemicals(
             "chemical_name AS name, chemical_foodatlas_id AS id, "
             "measurement_count, active_count, inactive_count, "
             "unspecified_count, inconclusive_count, measurements, "
-            "n_foods"
+            "n_foods, "
+            # Correlated lookup so each chemical row carries its
+            # classification (e.g. flavonoid, alkaloid) for the sidebar
+            # Category filter + the table's new Category column.
+            "(SELECT chemical_classification FROM mv_chemical_entities "
+            "WHERE foodatlas_id = chemical_foodatlas_id) "
+            "AS chemical_classification"
         ),
         search_col="chemical_name",
         search=search,
@@ -273,6 +369,9 @@ async def get_chemicals(
         filter_endpoint=filter_endpoint,
         filter_unit=filter_unit,
         filter_evidence_type=filter_evidence_type,
+        filter_source_kind=filter_source_kind,
+        extra_where=extra_where,
+        extra_params=extra_params,
     )
 
 
@@ -287,6 +386,7 @@ async def get_foods(
     filter_endpoint: str = "",
     filter_unit: str = "",
     filter_evidence_type: str = "",
+    filter_source_kind: str = "",
 ) -> dict[str, object]:
     """Foods that exhibit this bioactivity."""
     sort_col, direction = _resolve_sort(
@@ -310,6 +410,7 @@ async def get_foods(
         filter_endpoint=filter_endpoint,
         filter_unit=filter_unit,
         filter_evidence_type=filter_evidence_type,
+        filter_source_kind=filter_source_kind,
     )
 
 
@@ -324,6 +425,7 @@ async def get_chemical_bioactivities(
     filter_endpoint: str = "",
     filter_unit: str = "",
     filter_evidence_type: str = "",
+    filter_source_kind: str = "",
 ) -> dict[str, object]:
     """A chemical's bioactivities."""
     sort_col, direction = _resolve_sort(
@@ -348,6 +450,7 @@ async def get_chemical_bioactivities(
         filter_endpoint=filter_endpoint,
         filter_unit=filter_unit,
         filter_evidence_type=filter_evidence_type,
+        filter_source_kind=filter_source_kind,
     )
 
 
@@ -362,6 +465,7 @@ async def get_food_bioactivities(
     filter_endpoint: str = "",
     filter_unit: str = "",
     filter_evidence_type: str = "",
+    filter_source_kind: str = "",
 ) -> dict[str, object]:
     """A food's bioactivities."""
     sort_col, direction = _resolve_sort(
@@ -385,6 +489,7 @@ async def get_food_bioactivities(
         filter_endpoint=filter_endpoint,
         filter_unit=filter_unit,
         filter_evidence_type=filter_evidence_type,
+        filter_source_kind=filter_source_kind,
     )
 
 
@@ -416,6 +521,8 @@ async def get_food_inferred_bioactivities(
     sort_by: str = "concentration",
     sort_dir: str = "desc",
     rows_per_page: int = ROWS_PER_PAGE_DEFAULT,
+    filter_source_kind: str = "",
+    filter_unit: str = "",
 ) -> dict[str, object]:
     """Bioactivities of the chemicals found in this food (transitive)."""
     sort_col = _INFERRED_SORT.get(sort_by, _INFERRED_SORT["concentration"])
@@ -428,6 +535,15 @@ async def get_food_inferred_bioactivities(
             "(cb.bioactivity_name ILIKE :q OR fcc.chemical_name ILIKE :q)"
         )
         params["q"] = f"%{search}%"
+    _apply_source_kind_filter(where_parts, filter_source_kind, "cb.measurements")
+    _apply_endpoint_unit_filter(
+        where_parts,
+        params,
+        filter_endpoint="",
+        filter_unit=filter_unit,
+        has_pair=False,
+        measurements_col="cb.measurements",
+    )
     where = " AND ".join(where_parts)
 
     total_result = await session.execute(
@@ -497,7 +613,39 @@ async def get_endpoint_options(
     Used to populate the table's endpoint+unit filter chip row. Counts
     are descending by occurrence so the UI can surface the most useful
     chips first.
+
+    Special direction: "food-inferred-bioactivities" — walks the food's
+    chemistry (mv_food_chemical_composition) and surfaces the units from
+    every chemical's measurements. Used by the food page's shared
+    bioactivities sidebar so its unit list isn't limited to the direct
+    (food-level) measurements alone.
     """
+    if direction == "food-inferred-bioactivities":
+        rows_result = await session.execute(
+            text("""
+                SELECT ba.evidence_endpoint_type AS endpoint,
+                       ba.potency_unit AS unit,
+                       COUNT(*) AS count
+                FROM mv_food_chemical_composition fcc
+                JOIN base_triplets bt
+                  ON bt.head_id = fcc.chemical_foodatlas_id
+                 AND bt.relationship_id = 'r6'
+                CROSS JOIN LATERAL unnest(bt.attestation_ids) AS att(bm)
+                JOIN base_attestations_bioactivity ba
+                  ON ba.bioactivity_metadata_id = att.bm
+                WHERE fcc.food_name = :name
+                  AND ba.evidence_endpoint_type <> ''
+                  AND ba.potency_unit <> ''
+                GROUP BY ba.evidence_endpoint_type, ba.potency_unit
+                ORDER BY COUNT(*) DESC
+            """),
+            {"name": common_name},
+        )
+        data = _bioact_hotfix.clean_endpoint_options(
+            [dict(r._mapping) for r in rows_result]
+        )
+        return {"data": data, "metadata": {"row_count": len(data)}}
+
     info = _DIRECTION_PIVOTS.get(direction)
     if info is None:
         return {"data": [], "metadata": {"row_count": 0}}

@@ -1,0 +1,337 @@
+"use client";
+
+// Shared search + source-kind filter chrome for BOTH the direct
+// FoodBioactivitiesSection and the FoodInferredBioactivitiesSection.
+// Instead of each section owning its own sidebar (as they do
+// standalone), this component hosts one sidebar aside + one mobile
+// drawer and drives both tables via `externalSearch` /
+// `externalSourceKind` / `hideChrome` props.
+
+import { useEffect, useState } from "react";
+import { MdCheck, MdClose, MdSearch, MdTune } from "react-icons/md";
+import { twMerge } from "tailwind-merge";
+
+import Card from "@/components/basic/Card";
+import FoodBioactivitiesSection from "@/components/entities/bioactivity/FoodBioactivitiesSection";
+import FoodInferredBioactivitiesSection from "@/components/entities/bioactivity/FoodInferredBioactivitiesSection";
+import { getBioactivityEndpointOptions } from "@/utils/fetching";
+
+interface Props {
+  commonName: string;
+  anchorId?: string | null;
+}
+
+const SOURCE_KINDS = [
+  { key: "experimental", label: "experimental" },
+  { key: "predicted", label: "predicted" },
+  { key: "mixed", label: "mixed" },
+] as const;
+
+const TOP_UNITS = 5;
+
+const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedSourceKinds, setSelectedSourceKinds] = useState<string[]>([]);
+  const [selectedUnits, setSelectedUnits] = useState<string[]>([]);
+  const [showAllUnits, setShowAllUnits] = useState(false);
+  const [unitOptions, setUnitOptions] = useState<
+    { unit: string; count: number }[]
+  >([]);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+
+  const sourceKindParam = selectedSourceKinds.join("+");
+  const unitParam = selectedUnits.join("+");
+
+  // Aggregated unit list across BOTH tables — direct (food-level
+  // measurements, usually just "mmol/100g") + inferred (all measurements
+  // for every chemical present in this food, so IC50 uM/nM, MIC ug/mL,
+  // etc). Fetches both directions and merges counts so the sidebar
+  // surfaces the full spectrum of units the user might filter by.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const [direct, inferred] = await Promise.all([
+        getBioactivityEndpointOptions(commonName, "food-bioactivities"),
+        getBioactivityEndpointOptions(
+          commonName,
+          "food-inferred-bioactivities"
+        ),
+      ]);
+      if (cancelled) return;
+      const totals = new Map<string, number>();
+      for (const o of [...direct, ...inferred]) {
+        const u = (o.unit ?? "").trim();
+        if (!u) continue;
+        totals.set(u, (totals.get(u) ?? 0) + (o.count ?? 0));
+      }
+      setUnitOptions(
+        Array.from(totals.entries())
+          .map(([unit, count]) => ({ unit, count }))
+          .sort((a, b) => b.count - a.count)
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [commonName]);
+
+  const toggleSourceKind = (kind: string) => {
+    setSelectedSourceKinds((prev) =>
+      prev.includes(kind) ? prev.filter((k) => k !== kind) : [...prev, kind]
+    );
+  };
+  const clearSourceKinds = () => setSelectedSourceKinds([]);
+  const toggleUnit = (unit: string) => {
+    setSelectedUnits((prev) =>
+      prev.includes(unit) ? prev.filter((u) => u !== unit) : [...prev, unit]
+    );
+  };
+  const clearUnits = () => setSelectedUnits([]);
+  const visibleUnits = showAllUnits
+    ? unitOptions
+    : unitOptions.slice(0, TOP_UNITS);
+  const hiddenUnitsCount = Math.max(0, unitOptions.length - TOP_UNITS);
+
+  const searchInput = (
+    <div className="relative flex items-center">
+      <MdSearch className="absolute left-2 w-4 h-4 text-light-400" />
+      <input
+        className="pl-8 pr-8 w-full h-8 text-xs rounded-md border border-light-700/60 bg-light-900/60 focus:bg-light-900 focus:border-light-500 hover:border-light-500 text-light-100 placeholder-light-500 transition-colors duration-100 ease-in-out outline-none"
+        type="text"
+        placeholder="Search…"
+        aria-label="Search bioactivity or chemical"
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value.toLowerCase())}
+      />
+      {searchTerm && (
+        <button
+          type="button"
+          aria-label="Clear search"
+          onClick={() => setSearchTerm("")}
+          className="absolute right-2 flex items-center justify-center w-4 h-4 rounded-full text-light-400 hover:text-light-100 hover:bg-light-700 transition-colors"
+        >
+          <MdClose className="w-3 h-3" />
+        </button>
+      )}
+    </div>
+  );
+
+  const sourceFilter = (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="font-mono italic text-[11px] uppercase tracking-wider text-light-400 min-w-[3.5rem]">
+          Source
+        </span>
+        {selectedSourceKinds.length > 0 && (
+          <button
+            type="button"
+            onClick={clearSourceKinds}
+            className="text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
+          >
+            clear
+          </button>
+        )}
+      </div>
+      <div className="flex flex-col -mx-1">
+        {SOURCE_KINDS.map(({ key, label }) => {
+          const selected = selectedSourceKinds.includes(key);
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => toggleSourceKind(key)}
+              aria-pressed={selected}
+              className={twMerge(
+                "group w-full flex items-center gap-2 pl-1 pr-2 py-1 rounded transition-colors text-left",
+                selected
+                  ? "text-light-100 hover:bg-light-900/70"
+                  : "text-light-400 hover:text-light-100 hover:bg-light-900/50"
+              )}
+            >
+              <span
+                aria-hidden
+                className={twMerge(
+                  "w-3.5 h-3.5 rounded-[3px] border flex-shrink-0 flex items-center justify-center transition-colors",
+                  selected
+                    ? "border-accent-600 bg-accent-600/20 text-accent-600"
+                    : "border-light-700 group-hover:border-light-500"
+                )}
+              >
+                {selected && <MdCheck className="w-3 h-3" />}
+              </span>
+              <span className="font-mono italic text-xs capitalize flex-1">
+                {label}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  const unitFilter = unitOptions.length > 0 && (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="font-mono italic text-[11px] uppercase tracking-wider text-light-400 min-w-[3.5rem]">
+          Unit
+        </span>
+        {selectedUnits.length > 0 && (
+          <button
+            type="button"
+            onClick={clearUnits}
+            className="text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
+          >
+            clear
+          </button>
+        )}
+      </div>
+      <div className="flex flex-col -mx-1">
+        {visibleUnits.map(({ unit, count }) => {
+          const selected = selectedUnits.includes(unit);
+          return (
+            <button
+              key={unit}
+              type="button"
+              onClick={() => toggleUnit(unit)}
+              aria-pressed={selected}
+              className={twMerge(
+                "group w-full flex items-center gap-2 pl-1 pr-2 py-1 rounded transition-colors text-left",
+                selected
+                  ? "text-light-100 hover:bg-light-900/70"
+                  : "text-light-400 hover:text-light-100 hover:bg-light-900/50"
+              )}
+            >
+              <span
+                aria-hidden
+                className={twMerge(
+                  "w-3.5 h-3.5 rounded-[3px] border flex-shrink-0 flex items-center justify-center transition-colors",
+                  selected
+                    ? "border-accent-600 bg-accent-600/20 text-accent-600"
+                    : "border-light-700 group-hover:border-light-500"
+                )}
+              >
+                {selected && <MdCheck className="w-3 h-3" />}
+              </span>
+              <span className="font-mono text-xs flex-1 min-w-0 truncate">
+                {unit}
+              </span>
+              <span
+                className={twMerge(
+                  "tabular-nums text-[10px] flex-shrink-0",
+                  selected ? "text-light-400" : "text-light-500"
+                )}
+              >
+                {count.toLocaleString()}
+              </span>
+            </button>
+          );
+        })}
+        {!showAllUnits && hiddenUnitsCount > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowAllUnits(true)}
+            className="mt-1 px-1 py-1 text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors text-left"
+          >
+            {hiddenUnitsCount} more…
+          </button>
+        )}
+        {showAllUnits && unitOptions.length > TOP_UNITS && (
+          <button
+            type="button"
+            onClick={() => setShowAllUnits(false)}
+            className="mt-1 px-1 py-1 text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors text-left"
+          >
+            collapse
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
+  const filterPanel = (
+    <div className="flex flex-col gap-5">
+      {searchInput}
+      {unitFilter}
+      {sourceFilter}
+    </div>
+  );
+
+  return (
+    <div className="relative flex flex-col gap-12">
+      {/* Desktop shared sidebar for BOTH tables — same geometry as
+       * FoodCompositionSection / BioactivityTable. */}
+      <aside className="hidden min-[1440px]:block absolute right-full mr-10 -top-[17px] bottom-0 w-48">
+        <div className="sticky top-4">
+          <Card>{filterPanel}</Card>
+        </div>
+      </aside>
+
+      {/* Sub-1440 row: search visible on the left, Filters button on
+       * the right. Drawer holds the source filter. */}
+      <div className="min-[1440px]:hidden flex items-center gap-3">
+        <div className="flex-1 min-w-0 max-w-xs">{searchInput}</div>
+        <button
+          type="button"
+          onClick={() => setMobileFiltersOpen(true)}
+          className="inline-flex items-center gap-2 rounded-md border border-light-700/60 bg-light-900/60 px-3 py-1.5 text-xs font-mono italic text-light-300 hover:text-light-100 hover:border-light-500 transition-colors"
+        >
+          <MdTune className="w-4 h-4" />
+          Filters
+        </button>
+      </div>
+
+      <FoodBioactivitiesSection
+        commonName={commonName}
+        anchorId={anchorId}
+        externalSearch={searchTerm}
+        externalSourceKind={sourceKindParam}
+        externalUnit={unitParam}
+        hideChrome
+      />
+      <div className="border-t-2 border-double border-light-700/60" />
+      <FoodInferredBioactivitiesSection
+        commonName={commonName}
+        externalSearch={searchTerm}
+        externalSourceKind={sourceKindParam}
+        externalUnit={unitParam}
+        hideChrome
+      />
+
+      {mobileFiltersOpen && (
+        <div
+          className="fixed inset-0 z-50 min-[1440px]:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Filters"
+        >
+          <button
+            type="button"
+            aria-label="Close filters"
+            onClick={() => setMobileFiltersOpen(false)}
+            className="absolute inset-0 bg-black/60 cursor-default"
+          />
+          <aside className="absolute right-0 top-0 h-full w-[85vw] max-w-sm bg-light-950 border-l border-light-700/50 overflow-y-auto flex flex-col gap-4 p-4">
+            <div className="flex items-center justify-between">
+              <span className="font-mono italic text-sm text-light-300">
+                Filters
+              </span>
+              <button
+                type="button"
+                aria-label="Close filters"
+                onClick={() => setMobileFiltersOpen(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-light-400 hover:text-light-100 hover:bg-light-800 transition-colors"
+              >
+                <MdClose className="w-4 h-4" />
+              </button>
+            </div>
+            {unitFilter}
+            {sourceFilter}
+          </aside>
+        </div>
+      )}
+    </div>
+  );
+};
+
+FoodBioactivitiesTab.displayName = "FoodBioactivitiesTab";
+export default FoodBioactivitiesTab;

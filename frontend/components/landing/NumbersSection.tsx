@@ -114,7 +114,7 @@ const NumbersSection = () => {
     <div className="bg-light-950 w-full">
       {/* padding container */}
       <div className="px-3 md:px-12">
-        <div className="max-w-6xl py-28 mx-auto delay-150">
+        <div className="max-w-5xl py-28 mx-auto delay-150">
           <div>
             <Heading
               type="h2"

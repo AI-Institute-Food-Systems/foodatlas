@@ -224,7 +224,7 @@ const SearchBar = () => {
         style={{ top: offsetTop || 50 }}
       >
           <div className="px-3 md:px-12">
-            <div className="mx-auto max-w-6xl" id="search-component">
+            <div className="mx-auto max-w-5xl" id="search-component">
               {/* search input */}
               <div className="relative flex items-center select-none">
                 {/* search icon */}

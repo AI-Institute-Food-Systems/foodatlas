@@ -15,9 +15,24 @@ import BioactivityTable, {
 interface Props {
   commonName: string;
   anchorId?: string | null;
+  // Optional external control: forwarded to BioactivityTable so a
+  // parent (FoodBioactivitiesTab) can drive search + source-kind
+  // filtering + chrome-suppression for BOTH direct + inferred tables
+  // from one shared sidebar.
+  externalSearch?: string;
+  externalSourceKind?: string;
+  externalUnit?: string;
+  hideChrome?: boolean;
 }
 
-const FoodBioactivitiesSection = ({ commonName, anchorId }: Props) => {
+const FoodBioactivitiesSection = ({
+  commonName,
+  anchorId,
+  externalSearch,
+  externalSourceKind,
+  externalUnit,
+  hideChrome,
+}: Props) => {
   const fetcher = useCallback(
     (params: BioactivityListParams) => getFoodBioactivities(commonName, params),
     [commonName]
@@ -74,6 +89,10 @@ const FoodBioactivitiesSection = ({ commonName, anchorId }: Props) => {
         columns={columns}
         searchPlaceholder="Search bioactivities"
         emptyMessage="No bioactivities recorded for this food yet"
+        externalSearch={externalSearch}
+        externalSourceKind={externalSourceKind}
+        externalUnit={externalUnit}
+        hideChrome={hideChrome}
         modalConfig={{
           anchorLabel: commonName,
           headIsRow: false,

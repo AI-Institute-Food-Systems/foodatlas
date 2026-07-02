@@ -6,11 +6,12 @@ import { getBioactivityChemicals } from "@/utils/fetching";
 import type { BioactivityListParams } from "@/utils/fetching";
 import type { BioactivityChemicalRow } from "@/types";
 import BioactivityTable, {
+  AssayCountCell,
+  CategoryCell,
   NameLinkCell,
   NumberCell,
   TOP_MEASUREMENT_SORT_KEY,
   TopMeasurementCell,
-  ViewAssaysCell,
   type SortableColumn,
 } from "@/components/entities/bioactivity/BioactivityTable";
 
@@ -32,15 +33,26 @@ const BioactivityChemicalsSection = ({ commonName, anchorId }: Props) => {
         key: "name",
         label: "Chemical",
         align: "left",
-        width: "w-[24%]",
+        width: "w-[22%]",
         sortable: true,
         render: (row) => <NameLinkCell row={row} hrefPrefix="/chemical/" />,
+      },
+      {
+        key: "category",
+        label: "Category",
+        align: "left",
+        width: "w-[16%]",
+        render: (row) => (
+          <CategoryCell
+            value={(row as BioactivityChemicalRow).chemical_classification}
+          />
+        ),
       },
       {
         key: "active_count",
         label: "Active",
         align: "right",
-        width: "w-[10%]",
+        width: "w-[9%]",
         sortable: true,
         render: (row) => (
           <NumberCell value={(row as BioactivityChemicalRow).active_count} />
@@ -50,7 +62,7 @@ const BioactivityChemicalsSection = ({ commonName, anchorId }: Props) => {
         key: "inactive_count",
         label: "Inactive",
         align: "right",
-        width: "w-[10%]",
+        width: "w-[9%]",
         sortable: true,
         render: (row) => (
           <NumberCell value={(row as BioactivityChemicalRow).inactive_count} />
@@ -60,7 +72,7 @@ const BioactivityChemicalsSection = ({ commonName, anchorId }: Props) => {
         key: "n_foods",
         label: "# Foods",
         align: "right",
-        width: "w-[12%]",
+        width: "w-[10%]",
         sortable: true,
         render: (row) => (
           <NumberCell value={(row as BioactivityChemicalRow).n_foods ?? 0} />
@@ -70,16 +82,19 @@ const BioactivityChemicalsSection = ({ commonName, anchorId }: Props) => {
         key: TOP_MEASUREMENT_SORT_KEY,
         label: "Top measurement",
         align: "right",
-        width: "w-[28%]",
+        width: "w-[22%]",
         sortable: true,
         render: (row) => <TopMeasurementCell row={row} />,
       },
+      // The former "Assays" View-button column becomes a sortable
+      // measurement_count cell that doubles as the modal opener.
       {
-        key: "assays",
+        key: "measurement_count",
         label: "Assays",
         align: "right",
-        width: "w-[16%]",
-        render: (row, ctx) => <ViewAssaysCell row={row} ctx={ctx} />,
+        width: "w-[12%]",
+        sortable: true,
+        render: (row, ctx) => <AssayCountCell row={row} ctx={ctx} />,
       },
     ],
     []
