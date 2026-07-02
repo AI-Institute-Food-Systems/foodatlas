@@ -566,7 +566,11 @@ const FoodCompositionSection = ({
            * section ends. Only shown at min-[1440px]+ where the outer
            * max-w-5xl gutter has enough room for the w-48 aside plus
            * mr-4 gap; the drawer covers narrower widths. */}
-          <aside className="hidden min-[1440px]:block absolute right-full mr-4 top-0 bottom-0 w-48">
+          <aside className="hidden min-[1440px]:block absolute right-full mr-8 top-8 bottom-0 w-48">
+            {/* top-8 drops the aside 32px so its top edge lines up with
+             * the Card border-top rather than the apothecary tab chips
+             * that sit above it. mr-8 clears the Card border with a bit
+             * of breathing room so the sidebar doesn't kiss the frame. */}
             <div className="sticky top-4 rounded-md border border-light-700/50 bg-light-950/60 p-4">
               {filterPanel}
             </div>
