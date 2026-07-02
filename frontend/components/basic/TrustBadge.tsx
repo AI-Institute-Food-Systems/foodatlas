@@ -3,6 +3,7 @@
 import { MdWarningAmber } from "react-icons/md";
 import { twMerge } from "tailwind-merge";
 
+import Chip from "@/components/basic/Chip";
 import Tooltip from "@/components/basic/Tooltip";
 
 // Pill that surfaces low LLM-plausibility data points on a row in the
@@ -38,20 +39,15 @@ export const TrustBadge = ({
         </span>
       }
     >
-      <button
-        type="button"
+      <Chip
+        tone="rose"
+        size="sm"
+        icon={<MdWarningAmber className="size-3" />}
+        label={lowTrustCount}
         onClick={onClick}
-        className={twMerge(
-          "inline-flex items-center gap-1 rounded-full border px-1.5 py-[0.1rem] text-[0.6rem] font-mono font-medium transition-colors",
-          allLow
-            ? "text-rose-400 border-rose-500 bg-rose-500/15 hover:bg-rose-500/25"
-            : "text-rose-400/90 border-rose-500/60 bg-rose-500/10 hover:bg-rose-500/20",
-          className
-        )}
-      >
-        <MdWarningAmber className="size-3" />
-        {lowTrustCount}
-      </button>
+        className={twMerge(allLow && "bg-rose-500/20", className)}
+        aria-label={`${lowTrustCount} low-trust data points`}
+      />
     </Tooltip>
   );
 };

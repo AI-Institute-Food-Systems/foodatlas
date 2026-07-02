@@ -16,7 +16,7 @@ import {
 } from "react-icons/md";
 import { twMerge } from "tailwind-merge";
 
-import Button from "@/components/basic/Button";
+import Chip from "@/components/basic/Chip";
 import Link from "@/components/basic/Link";
 import Pagination from "@/components/basic/Pagination";
 import LoadingCard from "@/components/basic/LoadingCard";
@@ -465,11 +465,11 @@ const FoodCompositionSection = ({
     <div className="flex flex-col gap-5">
       {/* search */}
       <div className="relative flex items-center">
-        <MdSearch className="absolute left-3 w-5 h-5 text-light-400" />
+        <MdSearch className="absolute left-2 w-4 h-4 text-light-400" />
         <input
-          className="pl-10 pr-10 w-full h-10 text-sm rounded-md border border-light-700/60 bg-light-900/60 focus:bg-light-900 focus:border-light-500 hover:border-light-500 text-light-100 placeholder-light-500 transition-colors duration-100 ease-in-out outline-none"
+          className="pl-8 pr-8 w-full h-8 text-xs rounded-md border border-light-700/60 bg-light-900/60 focus:bg-light-900 focus:border-light-500 hover:border-light-500 text-light-100 placeholder-light-500 transition-colors duration-100 ease-in-out outline-none"
           type="text"
-          placeholder="Search chemical…"
+          placeholder="Search…"
           value={searchTerm}
           onChange={handleSearch}
         />
@@ -478,9 +478,9 @@ const FoodCompositionSection = ({
             type="button"
             aria-label="Clear search"
             onClick={handleSearchClear}
-            className="absolute right-3 flex items-center justify-center w-5 h-5 rounded-full text-light-400 hover:text-light-100 hover:bg-light-700 transition-colors"
+            className="absolute right-2 flex items-center justify-center w-4 h-4 rounded-full text-light-400 hover:text-light-100 hover:bg-light-700 transition-colors"
           >
-            <MdClose className="w-3.5 h-3.5" />
+            <MdClose className="w-3 h-3" />
           </button>
         )}
       </div>
@@ -495,7 +495,7 @@ const FoodCompositionSection = ({
             onChange={handleConcentrationSwitchChange}
           />
           <ToggleSwitch
-            label="Include low-trust points"
+            label="Include low-trust data points"
             checked={showLowTrust}
             onChange={handleLowTrustSwitchChange}
           />
@@ -795,19 +795,18 @@ const FoodCompositionSection = ({
                       </td>
                       {/* evidence */}
                       <td className="py-1.5 pl-4">
-                        <div className="flex min-h-9 capitalize items-center justify-end">
-                          <Button
-                            className="border-light-500 text-light-500 w-36"
-                            variant="outlined"
-                            size="sm"
+                        <div className="flex min-h-9 items-center justify-end">
+                          <Chip
+                            icon={<MdDescription className="size-3" />}
+                            label={`${getRowEvidenceCount(row)} data point${
+                              getRowEvidenceCount(row) === 1 ? "" : "s"
+                            }`}
+                            tone="outline"
+                            size="md"
                             onClick={(event) =>
                               handleEvidenceButtonClick(event, row.name)
                             }
-                          >
-                            <MdDescription className="size-4" />{" "}
-                            {getRowEvidenceCount(row)} Data Point
-                            {getRowEvidenceCount(row) === 1 ? "" : "s"}
-                          </Button>
+                          />
                         </div>
                       </td>
                     </tr>
