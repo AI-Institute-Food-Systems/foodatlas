@@ -67,12 +67,13 @@ const TOP_VALUE_SORT_KEY = "top_measurement_value";
 interface Props {
   // Optional overrides for shared-chrome layouts (e.g. the Food page's
   // Bioactivities tab hosts one search + filter sidebar for both the
-  // direct table and the inferred table). When `externalSearch` is
-  // set, the internal searchTerm state is replaced by it; when
-  // `hideChrome` is true, the table renders as a bare table +
-  // pagination + modal with no sidebar / mobile trigger / drawer.
+  // direct table and the inferred table). When any of these is set,
+  // the internal state is replaced; when `hideChrome` is true, the
+  // table renders as a bare table + pagination + modal with no
+  // sidebar / mobile trigger / drawer.
   externalSearch?: string;
   externalSourceKind?: string;
+  externalUnit?: string;
   hideChrome?: boolean;
   // Stable identifier for pagination context — e.g. "food-bioact-foodId".
   tableId: string;
@@ -135,6 +136,7 @@ const BioactivityTable = ({
   modalConfig,
   externalSearch,
   externalSourceKind,
+  externalUnit,
   hideChrome = false,
 }: Props) => {
   const { getTablePaginations, setTablePaginations } = usePaginations();
@@ -164,14 +166,18 @@ const BioactivityTable = ({
   const unitFilterParam = selectedUnits.join("+");
   const categoryFilterParam = selectedCategories.join("+");
   // External overrides win when present so a parent (e.g. the food
-  // page's Bioactivities tab) can drive search + source kind for both
-  // its direct and inferred tables from one shared sidebar.
+  // page's Bioactivities tab) can drive search + source kind + unit
+  // for its tables from one shared sidebar.
   const effectiveSearchTerm =
     externalSearch !== undefined ? externalSearch : searchTerm;
   const effectiveSourceKindParam =
     externalSourceKind !== undefined
       ? externalSourceKind
       : selectedSourceKinds.join("+");
+  const effectiveUnitParam =
+    externalUnit !== undefined
+      ? externalUnit
+      : unitFilterParam || filter.unit || "";
 
   // Fetch the endpoint options once per (direction, pivotName). We
   // aggregate to distinct UNITS + summed counts across endpoints, then
@@ -287,7 +293,7 @@ const BioactivityTable = ({
         sortBy: sort.by,
         sortDir: sort.dir,
         filterEndpoint: filter.endpoint || undefined,
-        filterUnit: unitFilterParam || filter.unit || undefined,
+        filterUnit: effectiveUnitParam || undefined,
         filterCategory: categoryFilterParam || undefined,
         filterSourceKind: effectiveSourceKindParam || undefined,
       });
@@ -305,7 +311,7 @@ const BioactivityTable = ({
     effectiveSearchTerm,
     sort,
     filter,
-    unitFilterParam,
+    effectiveUnitParam,
     categoryFilterParam,
     effectiveSourceKindParam,
   ]);

@@ -21,6 +21,7 @@ interface Props {
   // from one shared sidebar.
   externalSearch?: string;
   externalSourceKind?: string;
+  externalUnit?: string;
   hideChrome?: boolean;
 }
 
@@ -29,6 +30,7 @@ const FoodBioactivitiesSection = ({
   anchorId,
   externalSearch,
   externalSourceKind,
+  externalUnit,
   hideChrome,
 }: Props) => {
   const fetcher = useCallback(
@@ -89,6 +91,7 @@ const FoodBioactivitiesSection = ({
         emptyMessage="No bioactivities recorded for this food yet"
         externalSearch={externalSearch}
         externalSourceKind={externalSourceKind}
+        externalUnit={externalUnit}
         hideChrome={hideChrome}
         modalConfig={{
           anchorLabel: commonName,

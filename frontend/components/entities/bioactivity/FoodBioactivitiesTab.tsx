@@ -7,13 +7,14 @@
 // drawer and drives both tables via `externalSearch` /
 // `externalSourceKind` / `hideChrome` props.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { MdCheck, MdClose, MdSearch, MdTune } from "react-icons/md";
 import { twMerge } from "tailwind-merge";
 
 import Card from "@/components/basic/Card";
 import FoodBioactivitiesSection from "@/components/entities/bioactivity/FoodBioactivitiesSection";
 import FoodInferredBioactivitiesSection from "@/components/entities/bioactivity/FoodInferredBioactivitiesSection";
+import { getBioactivityEndpointOptions } from "@/utils/fetching";
 
 interface Props {
   commonName: string;
@@ -26,12 +27,50 @@ const SOURCE_KINDS = [
   { key: "mixed", label: "mixed" },
 ] as const;
 
+const TOP_UNITS = 5;
+
 const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSourceKinds, setSelectedSourceKinds] = useState<string[]>([]);
+  const [selectedUnits, setSelectedUnits] = useState<string[]>([]);
+  const [showAllUnits, setShowAllUnits] = useState(false);
+  const [unitOptions, setUnitOptions] = useState<
+    { unit: string; count: number }[]
+  >([]);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   const sourceKindParam = selectedSourceKinds.join("+");
+  const unitParam = selectedUnits.join("+");
+
+  // Aggregated unit list for the direct-measurements table's direction.
+  // Inferred rows don't have unit variance surfaced through the
+  // endpoint-options API so they only respect the unit filter as a
+  // pass-through if we plumb it there — for now the unit filter is
+  // meaningful for the direct table.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const opts = await getBioactivityEndpointOptions(
+        commonName,
+        "food-bioactivities"
+      );
+      if (cancelled) return;
+      const totals = new Map<string, number>();
+      for (const o of opts) {
+        const u = (o.unit ?? "").trim();
+        if (!u) continue;
+        totals.set(u, (totals.get(u) ?? 0) + (o.count ?? 0));
+      }
+      setUnitOptions(
+        Array.from(totals.entries())
+          .map(([unit, count]) => ({ unit, count }))
+          .sort((a, b) => b.count - a.count)
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [commonName]);
 
   const toggleSourceKind = (kind: string) => {
     setSelectedSourceKinds((prev) =>
@@ -39,6 +78,16 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
     );
   };
   const clearSourceKinds = () => setSelectedSourceKinds([]);
+  const toggleUnit = (unit: string) => {
+    setSelectedUnits((prev) =>
+      prev.includes(unit) ? prev.filter((u) => u !== unit) : [...prev, unit]
+    );
+  };
+  const clearUnits = () => setSelectedUnits([]);
+  const visibleUnits = showAllUnits
+    ? unitOptions
+    : unitOptions.slice(0, TOP_UNITS);
+  const hiddenUnitsCount = Math.max(0, unitOptions.length - TOP_UNITS);
 
   const searchInput = (
     <div className="relative flex items-center">
@@ -117,9 +166,89 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
     </div>
   );
 
+  const unitFilter = unitOptions.length > 0 && (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="font-mono italic text-[11px] uppercase tracking-wider text-light-400 min-w-[3.5rem]">
+          Unit
+        </span>
+        {selectedUnits.length > 0 && (
+          <button
+            type="button"
+            onClick={clearUnits}
+            className="text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
+          >
+            clear
+          </button>
+        )}
+      </div>
+      <div className="flex flex-col -mx-1">
+        {visibleUnits.map(({ unit, count }) => {
+          const selected = selectedUnits.includes(unit);
+          return (
+            <button
+              key={unit}
+              type="button"
+              onClick={() => toggleUnit(unit)}
+              aria-pressed={selected}
+              className={twMerge(
+                "group w-full flex items-center gap-2 pl-1 pr-2 py-1 rounded transition-colors text-left",
+                selected
+                  ? "text-light-100 hover:bg-light-900/70"
+                  : "text-light-400 hover:text-light-100 hover:bg-light-900/50"
+              )}
+            >
+              <span
+                aria-hidden
+                className={twMerge(
+                  "w-3.5 h-3.5 rounded-[3px] border flex-shrink-0 flex items-center justify-center transition-colors",
+                  selected
+                    ? "border-accent-600 bg-accent-600/20 text-accent-600"
+                    : "border-light-700 group-hover:border-light-500"
+                )}
+              >
+                {selected && <MdCheck className="w-3 h-3" />}
+              </span>
+              <span className="font-mono text-xs flex-1 min-w-0 truncate">
+                {unit}
+              </span>
+              <span
+                className={twMerge(
+                  "tabular-nums text-[10px] flex-shrink-0",
+                  selected ? "text-light-400" : "text-light-500"
+                )}
+              >
+                {count.toLocaleString()}
+              </span>
+            </button>
+          );
+        })}
+        {!showAllUnits && hiddenUnitsCount > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowAllUnits(true)}
+            className="mt-1 px-1 py-1 text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors text-left"
+          >
+            {hiddenUnitsCount} more…
+          </button>
+        )}
+        {showAllUnits && unitOptions.length > TOP_UNITS && (
+          <button
+            type="button"
+            onClick={() => setShowAllUnits(false)}
+            className="mt-1 px-1 py-1 text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors text-left"
+          >
+            collapse
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
   const filterPanel = (
     <div className="flex flex-col gap-5">
       {searchInput}
+      {unitFilter}
       {sourceFilter}
     </div>
   );
@@ -153,6 +282,7 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
         anchorId={anchorId}
         externalSearch={searchTerm}
         externalSourceKind={sourceKindParam}
+        externalUnit={unitParam}
         hideChrome
       />
       <div className="border-t-2 border-double border-light-700/60" />
@@ -190,6 +320,7 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
                 <MdClose className="w-4 h-4" />
               </button>
             </div>
+            {unitFilter}
             {sourceFilter}
           </aside>
         </div>
