@@ -10,6 +10,7 @@ import {
   MdKeyboardArrowDown,
   MdKeyboardArrowUp,
   MdSearch,
+  MdTune,
   MdUnfoldMore,
 } from "react-icons/md";
 import { twMerge } from "tailwind-merge";
@@ -124,6 +125,7 @@ const FoodCompositionSection = ({
   const [classificationCounts, setClassificationCounts] = useState<
     Record<string, number>
   >({});
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   // fetch source + classification counts in one call
   useEffect(() => {
@@ -455,102 +457,130 @@ const FoodCompositionSection = ({
     (cls) => (classificationCounts[cls] ?? 0) > 0
   );
 
-  return (
-    <>
-      <div id="composition" className="flex flex-col gap-7 scroll-mt-8">
-          {/* filter block — apothecary card style: dark slab, cream chip
-           * labels, chip toggles arrange each option visibly. No popovers,
-           * no dropdowns — everything reads at a glance. */}
-          <div className="rounded-md border border-light-700/50 bg-light-950/60 p-4 flex flex-col gap-4">
-            {/* search — dedicated top row */}
-            <div className="relative flex items-center">
-              <MdSearch className="absolute left-3 w-5 h-5 text-light-400" />
-              <input
-                className="pl-10 pr-10 w-full h-10 text-sm rounded-md border border-light-700/60 bg-light-900/60 focus:bg-light-900 focus:border-light-500 hover:border-light-500 text-light-100 placeholder-light-500 transition-colors duration-100 ease-in-out outline-none"
-                type="text"
-                placeholder="Search for a chemical…"
-                value={searchTerm}
-                onChange={handleSearch}
-              />
-              {searchTerm && (
-                <button
-                  type="button"
-                  aria-label="Clear search"
-                  onClick={handleSearchClear}
-                  className="absolute right-3 flex items-center justify-center w-5 h-5 rounded-full text-light-400 hover:text-light-100 hover:bg-light-700 transition-colors"
-                >
-                  <MdClose className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
+  // Rendered inside both the desktop sidebar and the mobile drawer.
+  // Labels stack ABOVE their controls (not inline) so a narrow column
+  // gives chips full width to wrap without truncation.
+  const filterPanel = (
+    <div className="flex flex-col gap-5">
+      {/* search */}
+      <div className="relative flex items-center">
+        <MdSearch className="absolute left-3 w-5 h-5 text-light-400" />
+        <input
+          className="pl-10 pr-10 w-full h-10 text-sm rounded-md border border-light-700/60 bg-light-900/60 focus:bg-light-900 focus:border-light-500 hover:border-light-500 text-light-100 placeholder-light-500 transition-colors duration-100 ease-in-out outline-none"
+          type="text"
+          placeholder="Search chemical…"
+          value={searchTerm}
+          onChange={handleSearch}
+        />
+        {searchTerm && (
+          <button
+            type="button"
+            aria-label="Clear search"
+            onClick={handleSearchClear}
+            className="absolute right-3 flex items-center justify-center w-5 h-5 rounded-full text-light-400 hover:text-light-100 hover:bg-light-700 transition-colors"
+          >
+            <MdClose className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
 
-            {/* toggle row */}
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-              <FilterRowLabel>Options</FilterRowLabel>
-              <ToggleSwitch
-                label="Include without concentration"
-                checked={showAllConcentrations}
-                onChange={handleConcentrationSwitchChange}
-              />
-              <ToggleSwitch
-                label="Include low-trust points"
-                checked={showLowTrust}
-                onChange={handleLowTrustSwitchChange}
-              />
-            </div>
+      {/* options */}
+      <div className="flex flex-col gap-2">
+        <FilterRowLabel>Options</FilterRowLabel>
+        <ToggleSwitch
+          label="Include without concentration"
+          checked={showAllConcentrations}
+          onChange={handleConcentrationSwitchChange}
+        />
+        <ToggleSwitch
+          label="Include low-trust points"
+          checked={showLowTrust}
+          onChange={handleLowTrustSwitchChange}
+        />
+      </div>
 
-            {/* source chip row */}
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-              <FilterRowLabel>Source</FilterRowLabel>
-              <div className="flex flex-wrap gap-1.5">
-                {SOURCE_OPTIONS.map((opt) => (
-                  <ChipToggle
-                    key={opt.value}
-                    label={opt.label}
-                    count={sourceCounts[opt.value]}
-                    selected={sourceFilters.includes(opt.value)}
-                    onClick={() => toggleSource(opt.value)}
-                  />
-                ))}
-              </div>
-            </div>
+      {/* source */}
+      <div className="flex flex-col gap-2">
+        <FilterRowLabel>Source</FilterRowLabel>
+        <div className="flex flex-wrap gap-1.5">
+          {SOURCE_OPTIONS.map((opt) => (
+            <ChipToggle
+              key={opt.value}
+              label={opt.label}
+              count={sourceCounts[opt.value]}
+              selected={sourceFilters.includes(opt.value)}
+              onClick={() => toggleSource(opt.value)}
+            />
+          ))}
+        </div>
+      </div>
 
-            {/* nutrient classification chip row */}
-            {visibleClassOptions.length > 0 && (
-              <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
-                <FilterRowLabel>Class</FilterRowLabel>
-                <div className="flex flex-wrap gap-1.5">
-                  {visibleClassOptions.map((cls) => (
-                    <ChipToggle
-                      key={cls}
-                      label={cls === "n/a" ? "unclassified" : cls}
-                      count={classificationCounts[cls]}
-                      selected={classificationFilter.includes(cls)}
-                      onClick={() => toggleClassification(cls)}
-                    />
-                  ))}
-                  {visibleClassOptions.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const allSelected =
-                          classificationFilter.length >= visibleClassOptions.length;
-                        setTablePaginations("food-composition-table", 1, 20);
-                        setClassificationFilter(
-                          allSelected ? [] : [...visibleClassOptions]
-                        );
-                      }}
-                      className="text-xs font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors px-2 py-0.5"
-                    >
-                      {classificationFilter.length >= visibleClassOptions.length
-                        ? "clear"
-                        : "all"}
-                    </button>
-                  )}
-                </div>
-              </div>
+      {/* nutrient classification */}
+      {visibleClassOptions.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <div className="flex items-baseline justify-between gap-2">
+            <FilterRowLabel>Class</FilterRowLabel>
+            {visibleClassOptions.length > 1 && (
+              <button
+                type="button"
+                onClick={() => {
+                  const allSelected =
+                    classificationFilter.length >= visibleClassOptions.length;
+                  setTablePaginations("food-composition-table", 1, 20);
+                  setClassificationFilter(
+                    allSelected ? [] : [...visibleClassOptions]
+                  );
+                }}
+                className="text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
+              >
+                {classificationFilter.length >= visibleClassOptions.length
+                  ? "clear"
+                  : "all"}
+              </button>
             )}
           </div>
+          <div className="flex flex-wrap gap-1.5">
+            {visibleClassOptions.map((cls) => (
+              <ChipToggle
+                key={cls}
+                label={cls === "n/a" ? "unclassified" : cls}
+                count={classificationCounts[cls]}
+                selected={classificationFilter.includes(cls)}
+                onClick={() => toggleClassification(cls)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <>
+      <div id="composition" className="scroll-mt-8">
+          {/* Mobile-only Filters trigger. Desktop hides this — the sidebar
+           * on the left carries the same UI without a click. */}
+          <div className="md:hidden mb-4 flex justify-end">
+            <button
+              type="button"
+              onClick={() => setMobileFiltersOpen(true)}
+              className="inline-flex items-center gap-2 rounded-md border border-light-700/60 bg-light-900/60 px-3 py-1.5 text-xs font-mono italic text-light-300 hover:text-light-100 hover:border-light-500 transition-colors"
+            >
+              <MdTune className="w-4 h-4" />
+              Filters
+            </button>
+          </div>
+
+          <div className="flex gap-6 items-start">
+            {/* Desktop sidebar. sticky-top so it follows the table when
+             * scrolling. self-start prevents the flex parent from
+             * stretching it to the table's height. */}
+            <aside className="hidden md:block w-64 shrink-0 sticky top-4 self-start rounded-md border border-light-700/50 bg-light-950/60 p-4">
+              {filterPanel}
+            </aside>
+
+            {/* Main content */}
+            <div className="flex-1 min-w-0 flex flex-col gap-7">
           {/* table */}
           <div
             ref={tableWrapperRef}
@@ -800,6 +830,42 @@ const FoodCompositionSection = ({
                 numberOfPages={numberOfPages}
                 isLoading={isLoading}
               />
+            </div>
+          )}
+            </div>
+          </div>
+
+          {/* Mobile drawer — slides in from the right, dark backdrop
+           * behind. Same filterPanel as the sidebar. Esc/backdrop close. */}
+          {mobileFiltersOpen && (
+            <div
+              className="fixed inset-0 z-50 md:hidden"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Filters"
+            >
+              <button
+                type="button"
+                aria-label="Close filters"
+                onClick={() => setMobileFiltersOpen(false)}
+                className="absolute inset-0 bg-black/60 cursor-default"
+              />
+              <aside className="absolute right-0 top-0 h-full w-[85vw] max-w-sm bg-light-950 border-l border-light-700/50 overflow-y-auto flex flex-col gap-4 p-4">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono italic text-sm text-light-300">
+                    Filters
+                  </span>
+                  <button
+                    type="button"
+                    aria-label="Close filters"
+                    onClick={() => setMobileFiltersOpen(false)}
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-light-400 hover:text-light-100 hover:bg-light-800 transition-colors"
+                  >
+                    <MdClose className="w-4 h-4" />
+                  </button>
+                </div>
+                {filterPanel}
+              </aside>
             </div>
           )}
       </div>
