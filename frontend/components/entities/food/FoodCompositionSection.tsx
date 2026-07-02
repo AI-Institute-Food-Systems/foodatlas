@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Portal, Switch } from "@headlessui/react";
 import {
+  MdCheck,
   MdClose,
   MdDescription,
   MdErrorOutline,
@@ -484,27 +485,28 @@ const FoodCompositionSection = ({
         )}
       </div>
 
-      {/* options */}
-      <div className="flex flex-col gap-2">
-        <FilterRowLabel>Options</FilterRowLabel>
-        <ToggleSwitch
-          label="Include without concentration"
-          checked={showAllConcentrations}
-          onChange={handleConcentrationSwitchChange}
-        />
-        <ToggleSwitch
-          label="Include low-trust points"
-          checked={showLowTrust}
-          onChange={handleLowTrustSwitchChange}
-        />
-      </div>
+      {/* options — binary switches (not multi-select) so they stay as
+       * toggles rather than checkbox rows. */}
+      <FilterGroup label="Options">
+        <div className="flex flex-col gap-2 pt-0.5">
+          <ToggleSwitch
+            label="Include without concentration"
+            checked={showAllConcentrations}
+            onChange={handleConcentrationSwitchChange}
+          />
+          <ToggleSwitch
+            label="Include low-trust points"
+            checked={showLowTrust}
+            onChange={handleLowTrustSwitchChange}
+          />
+        </div>
+      </FilterGroup>
 
-      {/* source */}
-      <div className="flex flex-col gap-2">
-        <FilterRowLabel>Source</FilterRowLabel>
-        <div className="flex flex-wrap gap-1.5">
+      {/* source — checkbox list, one row per source */}
+      <FilterGroup label="Source">
+        <FilterList>
           {SOURCE_OPTIONS.map((opt) => (
-            <ChipToggle
+            <FilterListItem
               key={opt.value}
               label={opt.label}
               count={sourceCounts[opt.value]}
@@ -512,15 +514,17 @@ const FoodCompositionSection = ({
               onClick={() => toggleSource(opt.value)}
             />
           ))}
-        </div>
-      </div>
+        </FilterList>
+      </FilterGroup>
 
-      {/* nutrient classification */}
+      {/* nutrient classification — same checklist chrome; 15+ options
+       * scrolls internally if the list would push the sticky sidebar
+       * past the viewport. */}
       {visibleClassOptions.length > 0 && (
-        <div className="flex flex-col gap-2">
-          <div className="flex items-baseline justify-between gap-2">
-            <FilterRowLabel>Class</FilterRowLabel>
-            {visibleClassOptions.length > 1 && (
+        <FilterGroup
+          label="Class"
+          action={
+            visibleClassOptions.length > 1 ? (
               <button
                 type="button"
                 onClick={() => {
@@ -537,11 +541,12 @@ const FoodCompositionSection = ({
                   ? "clear"
                   : "all"}
               </button>
-            )}
-          </div>
-          <div className="flex flex-wrap gap-1.5">
+            ) : null
+          }
+        >
+          <FilterList maxHeightClass="max-h-72">
             {visibleClassOptions.map((cls) => (
-              <ChipToggle
+              <FilterListItem
                 key={cls}
                 label={cls === "n/a" ? "unclassified" : cls}
                 count={classificationCounts[cls]}
@@ -549,8 +554,8 @@ const FoodCompositionSection = ({
                 onClick={() => toggleClassification(cls)}
               />
             ))}
-          </div>
-        </div>
+          </FilterList>
+        </FilterGroup>
       )}
     </div>
   );
@@ -959,10 +964,50 @@ const ToggleSwitch = ({
   </label>
 );
 
-// Cream-on-dark when selected, outlined dark when not — matches the tab-chip
-// vocabulary from EntityTabs so the two chrome elements read as the same
-// visual system. The (n) count sits inside the pill in a dimmer weight.
-const ChipToggle = ({
+// A labelled section in the filter sidebar. The optional `action` sits in
+// the label row (right-aligned) — used by Class for the "all / clear"
+// button so it doesn't need its own row.
+const FilterGroup = ({
+  label,
+  action,
+  children,
+}: {
+  label: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) => (
+  <div className="flex flex-col gap-1.5">
+    <div className="flex items-baseline justify-between gap-2">
+      <FilterRowLabel>{label}</FilterRowLabel>
+      {action}
+    </div>
+    {children}
+  </div>
+);
+
+// A vertical list of checkbox rows. Optionally caps its height + scrolls
+// so Class (15+ items) doesn't push the sticky sidebar past the viewport.
+const FilterList = ({
+  maxHeightClass,
+  children,
+}: {
+  maxHeightClass?: string;
+  children: React.ReactNode;
+}) => (
+  <div
+    className={twMerge(
+      "flex flex-col -mx-1",
+      maxHeightClass ? `${maxHeightClass} overflow-y-auto` : undefined
+    )}
+  >
+    {children}
+  </div>
+);
+
+// One row in the filter list. Full-width click target, checkbox affordance
+// on the left, label in the middle, count right-aligned. Full-row hover
+// state makes the whole thing feel tappable.
+const FilterListItem = ({
   label,
   count,
   selected,
@@ -978,18 +1023,31 @@ const ChipToggle = ({
     onClick={onClick}
     aria-pressed={selected}
     className={twMerge(
-      "capitalize inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-mono italic transition-colors",
+      "group w-full flex items-center gap-2 pl-1 pr-2 py-1 rounded transition-colors text-left",
       selected
-        ? "bg-light-200 text-light-900 border-light-200 hover:bg-light-100"
-        : "bg-transparent border-light-700/60 text-light-400 hover:text-light-100 hover:border-light-500"
+        ? "text-light-100 hover:bg-light-900/70"
+        : "text-light-400 hover:text-light-100 hover:bg-light-900/50"
     )}
   >
-    <span>{label}</span>
+    <span
+      aria-hidden
+      className={twMerge(
+        "w-3.5 h-3.5 rounded-[3px] border flex-shrink-0 flex items-center justify-center transition-colors",
+        selected
+          ? "border-accent-600 bg-accent-600/20 text-accent-600"
+          : "border-light-700 group-hover:border-light-500"
+      )}
+    >
+      {selected && <MdCheck className="w-3 h-3" />}
+    </span>
+    <span className="capitalize font-mono italic text-xs flex-1 min-w-0 truncate">
+      {label}
+    </span>
     {typeof count === "number" && (
       <span
         className={twMerge(
-          "not-italic tabular-nums text-[10px]",
-          selected ? "text-light-700" : "text-light-500"
+          "not-italic tabular-nums text-[10px] flex-shrink-0",
+          selected ? "text-light-400" : "text-light-500"
         )}
       >
         {count}
