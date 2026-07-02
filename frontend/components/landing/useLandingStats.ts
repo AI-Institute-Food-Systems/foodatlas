@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-// apiBase is not exported from fetching.ts — use env directly.
+import { apiBase } from "@/utils/fetching";
 
 export interface LandingStats {
   foods: number;
@@ -31,7 +31,7 @@ export const useLandingStats = (): LandingStats => {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/metadata/statistics`, {
+        const res = await fetch(`${apiBase()}/metadata/statistics`, {
           headers: {
             Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
           },
