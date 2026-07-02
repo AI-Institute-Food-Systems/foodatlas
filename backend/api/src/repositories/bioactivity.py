@@ -256,9 +256,7 @@ async def _paginated(
         where_parts, params, filter_endpoint, filter_unit, has_filter
     )
     _apply_evidence_type_filter(where_parts, params, filter_evidence_type)
-    _apply_source_kind_filter(
-        where_parts, filter_source_kind, "measurements"
-    )
+    _apply_source_kind_filter(where_parts, filter_source_kind, "measurements")
     # Caller-supplied additional WHERE clauses (e.g., the Chemical
     # Category filter injected by get_chemicals).
     if extra_where:
