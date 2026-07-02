@@ -11,7 +11,9 @@ import FoodAtlasIcon from "@/components/icons/FoodAltasIcon";
 import { SearchContext } from "@/context/searchContext";
 
 const NAV_ITEMS = [
-  { text: "Explore", href: "/" },
+  // "Explore" hidden 2026-07-02 (the "/" landing is still reachable
+  // via the logo click; nav slot removed while the landing is being
+  // reworked).
   { text: "Background", href: "/technical-background" },
   { text: "API", href: "/developers" },
   { text: "Downloads", href: "/food-composition-downloads" },
