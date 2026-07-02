@@ -76,7 +76,7 @@ const Navbar = ({ className }: NavbarProps) => {
           >
             <FoodAtlasIcon height={30} width={120} color={"#FFFBF7"} />
           </Button>
-          <div className="hidden md:flex md:gap-8 lg:gap-14">
+          <div className="hidden md:flex md:gap-5 lg:gap-8">
             {NAV_ITEMS.map((navItem) => (
               <NavbarLink
                 key={navItem.href}

@@ -104,8 +104,8 @@ export const AmbiguityBadge = ({
     >
       <Chip
         tone="amber"
-        size="sm"
-        icon={<MdCallSplit className="size-3 rotate-90" />}
+        size="xs"
+        icon={<MdCallSplit className="size-2.5 rotate-90" />}
         label={ambiguousCount}
         onClick={onClick}
         className={twMerge(fullyAmbiguous && "bg-amber-500/20", className)}

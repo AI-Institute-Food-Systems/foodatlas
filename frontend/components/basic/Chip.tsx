@@ -20,7 +20,7 @@ import { twMerge } from "tailwind-merge";
 // - lg  → tab label
 
 export type ChipTone = "cream" | "outline" | "amber" | "rose";
-export type ChipSize = "sm" | "md" | "lg";
+export type ChipSize = "xs" | "sm" | "md" | "lg";
 
 interface ChipProps {
   label: React.ReactNode;
@@ -47,6 +47,7 @@ const TONE_CLASSES: Record<ChipTone, string> = {
 };
 
 const SIZE_CLASSES: Record<ChipSize, string> = {
+  xs: "px-1 py-[0.05rem] text-[9px] gap-0.5 border",
   sm: "px-1.5 py-[0.1rem] text-[0.6rem] gap-1 border",
   md: "px-2.5 py-0.5 text-xs gap-1.5 border",
   lg: "px-3 py-1 text-sm gap-2 border-[1.5px]",

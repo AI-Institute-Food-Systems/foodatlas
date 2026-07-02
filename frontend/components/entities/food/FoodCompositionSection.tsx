@@ -16,6 +16,7 @@ import {
 } from "react-icons/md";
 import { twMerge } from "tailwind-merge";
 
+import Card from "@/components/basic/Card";
 import Chip from "@/components/basic/Chip";
 import Link from "@/components/basic/Link";
 import Pagination from "@/components/basic/Pagination";
@@ -571,13 +572,15 @@ const FoodCompositionSection = ({
            * section ends. Only shown at min-[1440px]+ where the outer
            * max-w-5xl gutter has enough room for the w-48 aside plus
            * mr-4 gap; the drawer covers narrower widths. */}
-          <aside className="hidden min-[1440px]:block absolute right-full mr-10 -top-5 bottom-0 w-48">
-            {/* -top-5 lifts the aside 20px so its top edge lines up
-             * with the Card border-top; mr-10 (40px) gives a clear gap
-             * from the Card frame. rounded-xl matches the Card's own
-             * corner radius so the two frames read as siblings. */}
-            <div className="sticky top-4 rounded-xl border border-light-700/50 bg-light-950/60 p-4">
-              {filterPanel}
+          <aside className="hidden min-[1440px]:block absolute right-full mr-10 -top-[18px] bottom-0 w-48">
+            {/* -top-[18px] sits halfway between -top-4 (16) and -top-5
+             * (20) so the aside lines up with the Card border-top;
+             * mr-10 (40px) gives a clear gap from the Card frame.
+             * Wrapping the inner box in <Card> matches the tab card's
+             * exact border/shadow/rounded so the sidebar and the
+             * table frame read as siblings. */}
+            <div className="sticky top-4">
+              <Card>{filterPanel}</Card>
             </div>
           </aside>
 

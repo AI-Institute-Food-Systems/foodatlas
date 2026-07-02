@@ -41,8 +41,8 @@ export const TrustBadge = ({
     >
       <Chip
         tone="rose"
-        size="sm"
-        icon={<MdWarningAmber className="size-3" />}
+        size="xs"
+        icon={<MdWarningAmber className="size-2.5" />}
         label={lowTrustCount}
         onClick={onClick}
         className={twMerge(allLow && "bg-rose-500/20", className)}
