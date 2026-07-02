@@ -177,6 +177,17 @@ async def _paginated(
         )
         params["ep"] = filter_endpoint
         params["unit"] = filter_unit
+    elif filter_unit:
+        # Unit-only multi-select filter (frontend sidebar). Accepts a
+        # single unit or a '+'-separated list; row survives if ANY of
+        # its measurements matches ANY selected unit.
+        units = [u for u in filter_unit.split("+") if u]
+        if units:
+            where_parts.append(
+                "EXISTS (SELECT 1 FROM jsonb_array_elements(measurements) m"
+                " WHERE m->>'unit' = ANY(:units))"
+            )
+            params["units"] = units
 
     # Independent of the endpoint·unit filter. Row presence is filtered
     # at the SQL level (EXISTS) so pagination + total_pages reflect the

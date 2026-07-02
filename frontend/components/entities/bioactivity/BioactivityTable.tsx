@@ -9,6 +9,7 @@
 
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import {
+  MdCheck,
   MdClose,
   MdInfoOutline,
   MdKeyboardArrowDown,
@@ -27,9 +28,10 @@ import BioactivityMeasurementsModal from "@/components/entities/bioactivity/Bioa
 import { formatTopMeasurement, topMeasurementOf } from "@/components/entities/bioactivity/format";
 import { usePaginations } from "@/context/paginationsContext";
 import { encodeSpace } from "@/utils/utils";
-import type {
-  BioactivityDirection,
-  BioactivityListParams,
+import {
+  getBioactivityEndpointOptions,
+  type BioactivityDirection,
+  type BioactivityListParams,
 } from "@/utils/fetching";
 import type {
   BioactivityChemicalRow,
@@ -132,20 +134,65 @@ const BioactivityTable = ({
     by: defaultSortBy,
     dir: defaultSortDir,
   });
-  // Endpoint·unit filter retained as backend-only state so URL
-  // (?filter_endpoint=&filter_unit=) keeps working; the UI was retired
-  // because the upstream surfaces 250+ noisy combos — see memory
-  // `bioactivity-endpoint-unit-cleanup`. Re-enable the chip row once
-  // Kaichi normalises the upstream.
+  // Endpoint·unit chip UI is still retired, but the sidebar now offers
+  // a UNIT-only multi-select (grouped by count) that maps to the same
+  // `filter_unit` backend param. Endpoint stays URL-only.
   const [filter] = useState<{ endpoint: string; unit: string }>({
     endpoint: "",
     unit: "",
   });
+  const [selectedUnits, setSelectedUnits] = useState<string[]>([]);
+  const [showAllUnits, setShowAllUnits] = useState(false);
+  const [unitOptions, setUnitOptions] = useState<
+    { unit: string; count: number }[]
+  >([]);
   const filterActive = Boolean(filter.endpoint && filter.unit);
-  // direction + pivotName retained for the re-enabled endpoint·unit
-  // chip case; referenced so the linter doesn't complain.
-  void direction;
-  void pivotName;
+  const unitFilterParam = selectedUnits.join("+");
+
+  // Fetch the endpoint options once per (direction, pivotName). We
+  // aggregate to distinct UNITS + summed counts across endpoints, then
+  // sort by count desc so the sidebar's "top N + show more" pattern
+  // surfaces the most common units first.
+  useEffect(() => {
+    if (!direction || !pivotName) return;
+    let cancelled = false;
+    (async () => {
+      const opts = await getBioactivityEndpointOptions(pivotName, direction);
+      if (cancelled) return;
+      const totals = new Map<string, number>();
+      for (const o of opts) {
+        const u = (o.unit ?? "").trim();
+        if (!u) continue;
+        totals.set(u, (totals.get(u) ?? 0) + (o.count ?? 0));
+      }
+      const sorted = Array.from(totals.entries())
+        .map(([unit, count]) => ({ unit, count }))
+        .sort((a, b) => b.count - a.count);
+      setUnitOptions(sorted);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [direction, pivotName]);
+
+  const toggleUnit = (unit: string) => {
+    setTablePaginations(tableId, 1, 20);
+    setSelectedUnits((prev) =>
+      prev.includes(unit) ? prev.filter((u) => u !== unit) : [...prev, unit]
+    );
+  };
+  const clearUnits = () => {
+    setTablePaginations(tableId, 1, 20);
+    setSelectedUnits([]);
+  };
+
+  // How many units to surface before the "show more" toggle expands
+  // the rest. Kept small so the sidebar stays scannable.
+  const TOP_UNITS = 5;
+  const visibleUnits = showAllUnits
+    ? unitOptions
+    : unitOptions.slice(0, TOP_UNITS);
+  const hiddenUnitsCount = Math.max(0, unitOptions.length - TOP_UNITS);
 
   const [rows, setRows] = useState<BioactivityRow[]>([]);
   const [totalPages, setTotalPages] = useState(0);
@@ -165,7 +212,7 @@ const BioactivityTable = ({
         sortBy: sort.by,
         sortDir: sort.dir,
         filterEndpoint: filter.endpoint || undefined,
-        filterUnit: filter.unit || undefined,
+        filterUnit: unitFilterParam || filter.unit || undefined,
       });
       if (cancelled) return;
       setRows(payload?.data ?? []);
@@ -175,7 +222,7 @@ const BioactivityTable = ({
     return () => {
       cancelled = true;
     };
-  }, [fetcher, currentPage, searchTerm, sort, filter]);
+  }, [fetcher, currentPage, searchTerm, sort, filter, unitFilterParam]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value.toLowerCase());
@@ -202,9 +249,10 @@ const BioactivityTable = ({
   const showEmpty = !isLoading && rows.length === 0;
 
   // Sidebar filter panel — mirrors composition's structure so the two
-  // pages read as one design system. Currently just search; unit filter
-  // TODO once the endpoint options API is confirmed clean upstream (see
-  // memory `bioactivity-endpoint-unit-cleanup`).
+  // pages read as one design system: search on top, then labelled
+  // checklist sections. The Units section groups by aggregate count,
+  // surfaces the top N, and hides the tail behind a "N more" toggle so
+  // the sidebar stays scannable even with a long-tail unit list.
   const filterPanel = (
     <div className="flex flex-col gap-5">
       <div className="relative flex items-center">
@@ -228,9 +276,54 @@ const BioactivityTable = ({
           </button>
         )}
       </div>
-      {/* Evidence-type chip UI removed 2026-06-27; unit filter to be
-       * added once upstream endpoint options are confirmed clean (see
-       * memory bioactivity-endpoint-unit-cleanup). */}
+
+      {unitOptions.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="font-mono italic text-[11px] uppercase tracking-wider text-light-400 min-w-[3.5rem]">
+              Unit
+            </span>
+            {selectedUnits.length > 0 && (
+              <button
+                type="button"
+                onClick={clearUnits}
+                className="text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
+              >
+                clear
+              </button>
+            )}
+          </div>
+          <div className="flex flex-col -mx-1">
+            {visibleUnits.map(({ unit, count }) => (
+              <UnitRow
+                key={unit}
+                unit={unit}
+                count={count}
+                selected={selectedUnits.includes(unit)}
+                onClick={() => toggleUnit(unit)}
+              />
+            ))}
+            {!showAllUnits && hiddenUnitsCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowAllUnits(true)}
+                className="mt-1 px-1 py-1 text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors text-left"
+              >
+                {hiddenUnitsCount} more…
+              </button>
+            )}
+            {showAllUnits && unitOptions.length > TOP_UNITS && (
+              <button
+                type="button"
+                onClick={() => setShowAllUnits(false)}
+                className="mt-1 px-1 py-1 text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors text-left"
+              >
+                collapse
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 
@@ -238,7 +331,7 @@ const BioactivityTable = ({
     <div className="relative">
       {/* Desktop sidebar — same geometry as FoodCompositionSection so
        * the two pages have matching chrome. */}
-      <aside className="hidden min-[1440px]:block absolute right-full mr-10 -top-[18px] bottom-0 w-48">
+      <aside className="hidden min-[1440px]:block absolute right-full mr-10 -top-[17px] bottom-0 w-48">
         <div className="sticky top-4">
           <Card>{filterPanel}</Card>
         </div>
@@ -532,5 +625,54 @@ export const ViewAssaysCell = ({
 );
 
 BioactivityTable.displayName = "BioactivityTable";
+
+// One row in the sidebar's Unit checklist — mirrors FilterListItem in
+// FoodCompositionSection so both pages share the same row chrome. Kept
+// local so it can drop the count when duplicated in the mobile drawer
+// without importing an extra file.
+const UnitRow = ({
+  unit,
+  count,
+  selected,
+  onClick,
+}: {
+  unit: string;
+  count: number;
+  selected: boolean;
+  onClick: () => void;
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    aria-pressed={selected}
+    className={twMerge(
+      "group w-full flex items-center gap-2 pl-1 pr-2 py-1 rounded transition-colors text-left",
+      selected
+        ? "text-light-100 hover:bg-light-900/70"
+        : "text-light-400 hover:text-light-100 hover:bg-light-900/50"
+    )}
+  >
+    <span
+      aria-hidden
+      className={twMerge(
+        "w-3.5 h-3.5 rounded-[3px] border flex-shrink-0 flex items-center justify-center transition-colors",
+        selected
+          ? "border-accent-600 bg-accent-600/20 text-accent-600"
+          : "border-light-700 group-hover:border-light-500"
+      )}
+    >
+      {selected && <MdCheck className="w-3 h-3" />}
+    </span>
+    <span className="font-mono text-xs flex-1 min-w-0 truncate">{unit}</span>
+    <span
+      className={twMerge(
+        "tabular-nums text-[10px] flex-shrink-0",
+        selected ? "text-light-400" : "text-light-500"
+      )}
+    >
+      {count.toLocaleString()}
+    </span>
+  </button>
+);
 
 export default BioactivityTable;

@@ -572,8 +572,8 @@ const FoodCompositionSection = ({
            * section ends. Only shown at min-[1440px]+ where the outer
            * max-w-5xl gutter has enough room for the w-48 aside plus
            * mr-4 gap; the drawer covers narrower widths. */}
-          <aside className="hidden min-[1440px]:block absolute right-full mr-10 -top-[18px] bottom-0 w-48">
-            {/* -top-[18px] sits halfway between -top-4 (16) and -top-5
+          <aside className="hidden min-[1440px]:block absolute right-full mr-10 -top-[17px] bottom-0 w-48">
+            {/* -top-[17px] sits halfway between -top-4 (16) and -top-5
              * (20) so the aside lines up with the Card border-top;
              * mr-10 (40px) gives a clear gap from the Card frame.
              * Wrapping the inner box in <Card> matches the tab card's
