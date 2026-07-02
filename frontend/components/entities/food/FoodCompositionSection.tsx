@@ -603,10 +603,18 @@ const FoodCompositionSection = ({
           </div>
 
           <div className="flex flex-col gap-7">
+          <div>
+          {!isLoading && numberOfRows > 0 && (
+            <div className="mb-1.5 mt-3 flex justify-end">
+              <span className="font-mono italic text-[11px] text-light-500 tabular-nums">
+                {numberOfRows.toLocaleString()} {numberOfRows === 1 ? "row" : "rows"}
+              </span>
+            </div>
+          )}
           {/* table */}
           <div
             ref={tableWrapperRef}
-            className="mt-3 overflow-x-auto relative"
+            className="overflow-x-auto relative"
           >
             {highlightName && overlayRect && (
               <div
@@ -843,6 +851,7 @@ const FoodCompositionSection = ({
                   ))}
               </tbody>
             </table>
+          </div>
           </div>
           {/* pagination */}
           {(numberOfPages > 1 || isLoading) && (
