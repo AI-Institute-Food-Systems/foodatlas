@@ -563,8 +563,9 @@ const FoodCompositionSection = ({
            * `right-full`, so the table keeps its full centered max-width.
            * top-0 bottom-0 stretches the aside to the section's height so
            * the inner `sticky top-4` div can trail the scroll until the
-           * section ends. Only shown at 2xl+ where the outer max-w-6xl
-           * gutter has enough room; the drawer covers narrower widths. */}
+           * section ends. Only shown at min-[1440px]+ where the outer
+           * max-w-5xl gutter has enough room for the w-48 aside plus
+           * mr-4 gap; the drawer covers narrower widths. */}
           <aside className="hidden min-[1440px]:block absolute right-full mr-4 top-0 bottom-0 w-48">
             <div className="sticky top-4 rounded-md border border-light-700/50 bg-light-950/60 p-4">
               {filterPanel}

@@ -10,7 +10,7 @@ import Link from "@/components/basic/Link";
 const Footer = () => {
   return (
     <div className="w-full py-16 bg-[#090909] text-lg px-3 md:px-12">
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-5xl mx-auto">
         {/* upper content */}
         <div className="flex gap-8 md:gap-12 flex-col md:flex-row">
           <div className="md:w-1/3">

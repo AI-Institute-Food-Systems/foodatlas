@@ -66,7 +66,7 @@ const Navbar = ({ className }: NavbarProps) => {
         className,
       )}
     >
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-5xl mx-auto">
         <div className="py-1.5 w-full h-11 sm:h-12 md:h-14 mx-auto flex justify-between items-center gap-3">
           <Button
             className="relative flex-shrink-0 cursor-pointer min-h-9 min-w-9 p-1 m-0"
