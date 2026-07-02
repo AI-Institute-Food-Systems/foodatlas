@@ -121,9 +121,13 @@ const FoodCompositionSection = ({
   const [evidenceFilter, setEvidenceFilter] =
     useState<EvidenceFilter>("all");
   const [sourceCounts, setSourceCounts] = useState<Record<string, number>>({});
-  const [classificationFilter, setClassificationFilter] = useState<
-    string[]
-  >([...CLASSIFICATION_OPTIONS]);
+  // Empty selection means "no class filter" (show all rows). Users
+  // pre-2026-07 saw every checkbox pre-checked which inverted the mental
+  // model — clicking "flavonoid" REMOVED it, so rows returned were the
+  // complement. Start empty so click = include.
+  const [classificationFilter, setClassificationFilter] = useState<string[]>(
+    [],
+  );
   const [classificationCounts, setClassificationCounts] = useState<
     Record<string, number>
   >({});
@@ -136,12 +140,6 @@ const FoodCompositionSection = ({
         const counts = await getFoodCompositionCounts(commonName);
         setSourceCounts(counts.source_counts);
         setClassificationCounts(counts.classification_counts);
-        // Initialize filter to only classes that have results
-        setClassificationFilter(
-          CLASSIFICATION_OPTIONS.filter(
-            (cls) => (counts.classification_counts[cls] ?? 0) > 0
-          )
-        );
       } catch {
         setSourceCounts({});
         setClassificationCounts({});
@@ -165,13 +163,9 @@ const FoodCompositionSection = ({
       try {
         setIsError(false);
         setIsLoading(true);
-        const visibleCount = CLASSIFICATION_OPTIONS.filter(
-          (cls) => (classificationCounts[cls] ?? 0) > 0
-        ).length;
-        const activeClsFilter =
-          classificationFilter.length >= visibleCount
-            ? []
-            : classificationFilter;
+        // Empty = no filter (show all). Any selection narrows results to
+        // rows whose classification array overlaps the selection.
+        const activeClsFilter = classificationFilter;
         const result = await getFoodCompositionData(
           commonName,
           currentPage,
@@ -230,7 +224,6 @@ const FoodCompositionSection = ({
     showAllConcentrations,
     showLowTrust,
     classificationFilter,
-    classificationCounts,
     findChemical,
     setTablePaginations,
   ]);
@@ -530,22 +523,16 @@ const FoodCompositionSection = ({
         <FilterGroup
           label="Class"
           action={
-            visibleClassOptions.length > 1 ? (
+            classificationFilter.length > 0 ? (
               <button
                 type="button"
                 onClick={() => {
-                  const allSelected =
-                    classificationFilter.length >= visibleClassOptions.length;
                   setTablePaginations("food-composition-table", 1, 20);
-                  setClassificationFilter(
-                    allSelected ? [] : [...visibleClassOptions]
-                  );
+                  setClassificationFilter([]);
                 }}
                 className="text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
               >
-                {classificationFilter.length >= visibleClassOptions.length
-                  ? "clear"
-                  : "all"}
+                clear
               </button>
             ) : null
           }
