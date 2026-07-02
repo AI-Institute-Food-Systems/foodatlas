@@ -149,6 +149,9 @@ async def _paginated(
     filter_endpoint: str = "",
     filter_unit: str = "",
     filter_evidence_type: str = "",
+    filter_source_kind: str = "",
+    extra_where: list[str] | None = None,
+    extra_params: dict | None = None,
 ) -> dict[str, object]:
     """Shared paginated query against the bioactivity MVs.
 
@@ -200,6 +203,43 @@ async def _paginated(
             " WHERE m->>'evidence_type' = :et)"
         )
         params["et"] = filter_evidence_type
+
+    if filter_source_kind:
+        kinds = [k for k in filter_source_kind.split("+") if k]
+        clauses: list[str] = []
+        # Rows classified per evidence_source values in the capped
+        # measurements sample: "experimental" when everything starts
+        # with `exp`, "predicted" when everything starts with `pred` or
+        # `comp`, "mixed" when both are present. A row can only match
+        # one of these three, so OR-ing them together is safe for the
+        # multi-select case.
+        exp_expr = (
+            "EXISTS (SELECT 1 FROM jsonb_array_elements(measurements) m"
+            " WHERE lower(m->>'evidence_source') LIKE 'exp%')"
+        )
+        pred_expr = (
+            "EXISTS (SELECT 1 FROM jsonb_array_elements(measurements) m"
+            " WHERE lower(m->>'evidence_source') LIKE 'pred%'"
+            " OR lower(m->>'evidence_source') LIKE 'comp%')"
+        )
+        for kind in kinds:
+            if kind == "experimental":
+                clauses.append(f"({exp_expr} AND NOT {pred_expr})")
+            elif kind == "predicted":
+                clauses.append(f"({pred_expr} AND NOT {exp_expr})")
+            elif kind == "mixed":
+                clauses.append(f"({exp_expr} AND {pred_expr})")
+        if clauses:
+            where_parts.append("(" + " OR ".join(clauses) + ")")
+
+    # Caller-supplied additional WHERE clauses (e.g., the Chemical
+    # Category filter injected by get_chemicals). Kept opt-in so it
+    # only fires when the calling MV actually supports the columns
+    # referenced in the clause.
+    if extra_where:
+        where_parts.extend(extra_where)
+    if extra_params:
+        params.update(extra_params)
 
     where = " AND ".join(where_parts)
 
@@ -259,11 +299,27 @@ async def get_chemicals(
     filter_endpoint: str = "",
     filter_unit: str = "",
     filter_evidence_type: str = "",
+    filter_category: str = "",
+    filter_source_kind: str = "",
 ) -> dict[str, object]:
     """Chemicals measured for this bioactivity."""
     sort_col, direction = _resolve_sort(
         sort_by, sort_dir, _BIO_CHEM_SORT, "measurement_count"
     )
+    # Chemical Category filter — multi-select via '+'-separated string.
+    # Row survives when ANY selected category overlaps the chemical's
+    # classification array (Postgres && array-overlap).
+    extra_where: list[str] = []
+    extra_params: dict = {}
+    if filter_category:
+        cats = [c for c in filter_category.split("+") if c]
+        if cats:
+            extra_where.append(
+                "EXISTS (SELECT 1 FROM mv_chemical_entities e "
+                "WHERE e.foodatlas_id = chemical_foodatlas_id "
+                "AND e.chemical_classification && :cats)"
+            )
+            extra_params["cats"] = cats
     return await _paginated(
         session,
         mv="mv_chemical_bioactivity",
@@ -273,7 +329,13 @@ async def get_chemicals(
             "chemical_name AS name, chemical_foodatlas_id AS id, "
             "measurement_count, active_count, inactive_count, "
             "unspecified_count, inconclusive_count, measurements, "
-            "n_foods"
+            "n_foods, "
+            # Correlated lookup so each chemical row carries its
+            # classification (e.g. flavonoid, alkaloid) for the sidebar
+            # Category filter + the table's new Category column.
+            "(SELECT chemical_classification FROM mv_chemical_entities "
+            "WHERE foodatlas_id = chemical_foodatlas_id) "
+            "AS chemical_classification"
         ),
         search_col="chemical_name",
         search=search,
@@ -284,6 +346,9 @@ async def get_chemicals(
         filter_endpoint=filter_endpoint,
         filter_unit=filter_unit,
         filter_evidence_type=filter_evidence_type,
+        filter_source_kind=filter_source_kind,
+        extra_where=extra_where,
+        extra_params=extra_params,
     )
 
 
@@ -298,6 +363,7 @@ async def get_foods(
     filter_endpoint: str = "",
     filter_unit: str = "",
     filter_evidence_type: str = "",
+    filter_source_kind: str = "",
 ) -> dict[str, object]:
     """Foods that exhibit this bioactivity."""
     sort_col, direction = _resolve_sort(
@@ -321,6 +387,7 @@ async def get_foods(
         filter_endpoint=filter_endpoint,
         filter_unit=filter_unit,
         filter_evidence_type=filter_evidence_type,
+        filter_source_kind=filter_source_kind,
     )
 
 
@@ -335,6 +402,7 @@ async def get_chemical_bioactivities(
     filter_endpoint: str = "",
     filter_unit: str = "",
     filter_evidence_type: str = "",
+    filter_source_kind: str = "",
 ) -> dict[str, object]:
     """A chemical's bioactivities."""
     sort_col, direction = _resolve_sort(
@@ -359,6 +427,7 @@ async def get_chemical_bioactivities(
         filter_endpoint=filter_endpoint,
         filter_unit=filter_unit,
         filter_evidence_type=filter_evidence_type,
+        filter_source_kind=filter_source_kind,
     )
 
 
@@ -373,6 +442,7 @@ async def get_food_bioactivities(
     filter_endpoint: str = "",
     filter_unit: str = "",
     filter_evidence_type: str = "",
+    filter_source_kind: str = "",
 ) -> dict[str, object]:
     """A food's bioactivities."""
     sort_col, direction = _resolve_sort(
@@ -396,6 +466,7 @@ async def get_food_bioactivities(
         filter_endpoint=filter_endpoint,
         filter_unit=filter_unit,
         filter_evidence_type=filter_evidence_type,
+        filter_source_kind=filter_source_kind,
     )
 
 

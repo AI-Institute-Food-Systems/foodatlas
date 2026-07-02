@@ -56,6 +56,7 @@ async def chemical_bioactivities(
     sort_dir: str = Query("desc"),
     filter_endpoint: str = Query(""),
     filter_unit: str = Query(""),
+    filter_source_kind: str = Query(""),
     db: AsyncSession = Depends(get_db),
 ):
     return await bioactivity.get_chemical_bioactivities(
@@ -67,4 +68,5 @@ async def chemical_bioactivities(
         sort_dir=sort_dir,
         filter_endpoint=filter_endpoint,
         filter_unit=filter_unit,
+        filter_source_kind=filter_source_kind,
     )

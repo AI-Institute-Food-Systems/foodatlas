@@ -146,8 +146,12 @@ const BioactivityTable = ({
   const [unitOptions, setUnitOptions] = useState<
     { unit: string; count: number }[]
   >([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedSourceKinds, setSelectedSourceKinds] = useState<string[]>([]);
   const filterActive = Boolean(filter.endpoint && filter.unit);
   const unitFilterParam = selectedUnits.join("+");
+  const categoryFilterParam = selectedCategories.join("+");
+  const sourceKindFilterParam = selectedSourceKinds.join("+");
 
   // Fetch the endpoint options once per (direction, pivotName). We
   // aggregate to distinct UNITS + summed counts across endpoints, then
@@ -198,6 +202,57 @@ const BioactivityTable = ({
   const [totalPages, setTotalPages] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Chemical Category options — derived from the current page's rows.
+  // Uses a stable memo so filtering by a category that's not on the
+  // current page still resolves server-side (we send the raw category
+  // string; the sidebar just surfaces what the user has already seen).
+  const categoryOptions = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const r of rows) {
+      const cats = (r as BioactivityChemicalRow).chemical_classification;
+      if (!Array.isArray(cats)) continue;
+      for (const c of cats) {
+        if (!c) continue;
+        totals.set(c, (totals.get(c) ?? 0) + 1);
+      }
+    }
+    return Array.from(totals.entries())
+      .map(([category, count]) => ({ category, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [rows]);
+
+  const toggleCategory = (category: string) => {
+    setTablePaginations(tableId, 1, 20);
+    setSelectedCategories((prev) =>
+      prev.includes(category)
+        ? prev.filter((c) => c !== category)
+        : [...prev, category]
+    );
+  };
+  const clearCategories = () => {
+    setTablePaginations(tableId, 1, 20);
+    setSelectedCategories([]);
+  };
+
+  // Row-level measurement provenance. Kinds are fixed, not derived —
+  // the backend does the exp/pred/mixed classification against the
+  // per-row measurements sample.
+  const SOURCE_KINDS = [
+    { key: "experimental", label: "experimental" },
+    { key: "predicted", label: "predicted" },
+    { key: "mixed", label: "mixed" },
+  ];
+  const toggleSourceKind = (kind: string) => {
+    setTablePaginations(tableId, 1, 20);
+    setSelectedSourceKinds((prev) =>
+      prev.includes(kind) ? prev.filter((k) => k !== kind) : [...prev, kind]
+    );
+  };
+  const clearSourceKinds = () => {
+    setTablePaginations(tableId, 1, 20);
+    setSelectedSourceKinds([]);
+  };
+
   const [selected, setSelected] = useState<BioactivityRow | null>(null);
 
   useEffect(() => {
@@ -213,6 +268,8 @@ const BioactivityTable = ({
         sortDir: sort.dir,
         filterEndpoint: filter.endpoint || undefined,
         filterUnit: unitFilterParam || filter.unit || undefined,
+        filterCategory: categoryFilterParam || undefined,
+        filterSourceKind: sourceKindFilterParam || undefined,
       });
       if (cancelled) return;
       setRows(payload?.data ?? []);
@@ -222,7 +279,16 @@ const BioactivityTable = ({
     return () => {
       cancelled = true;
     };
-  }, [fetcher, currentPage, searchTerm, sort, filter, unitFilterParam]);
+  }, [
+    fetcher,
+    currentPage,
+    searchTerm,
+    sort,
+    filter,
+    unitFilterParam,
+    categoryFilterParam,
+    sourceKindFilterParam,
+  ]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value.toLowerCase());
@@ -325,6 +391,63 @@ const BioactivityTable = ({
           </div>
         </div>
       )}
+
+      {categoryOptions.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="font-mono italic text-[11px] uppercase tracking-wider text-light-400 min-w-[3.5rem]">
+              Category
+            </span>
+            {selectedCategories.length > 0 && (
+              <button
+                type="button"
+                onClick={clearCategories}
+                className="text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
+              >
+                clear
+              </button>
+            )}
+          </div>
+          <div className="flex flex-col -mx-1">
+            {categoryOptions.map(({ category, count }) => (
+              <UnitRow
+                key={category}
+                unit={category}
+                count={count}
+                selected={selectedCategories.includes(category)}
+                onClick={() => toggleCategory(category)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="font-mono italic text-[11px] uppercase tracking-wider text-light-400 min-w-[3.5rem]">
+            Source
+          </span>
+          {selectedSourceKinds.length > 0 && (
+            <button
+              type="button"
+              onClick={clearSourceKinds}
+              className="text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
+            >
+              clear
+            </button>
+          )}
+        </div>
+        <div className="flex flex-col -mx-1">
+          {SOURCE_KINDS.map(({ key, label }) => (
+            <SourceKindRow
+              key={key}
+              label={label}
+              selected={selectedSourceKinds.includes(key)}
+              onClick={() => toggleSourceKind(key)}
+            />
+          ))}
+        </div>
+      </div>
     </div>
   );
 
@@ -336,7 +459,9 @@ const BioactivityTable = ({
     </div>
   );
 
-  const hasNonSearchFilters = unitOptions.length > 0;
+  // Source is always available (backend classifies rows regardless);
+  // so the drawer / sidebar Filters entry point is always relevant.
+  const hasNonSearchFilters = true;
 
   return (
     <div className="relative">
@@ -640,6 +765,54 @@ export const ViewAssaysCell = ({
   </button>
 );
 
+// Compact numeric assay count that doubles as the modal opener. Same
+// affordance as ViewAssaysCell but takes less horizontal room — the
+// column is now a sortable numeric column that just happens to be
+// clickable. Uses <button> so the whole cell stays in the tab order.
+export const AssayCountCell = ({
+  row,
+  ctx,
+}: {
+  row: BioactivityRow;
+  ctx: ColumnContext;
+}) => (
+  <button
+    type="button"
+    onClick={ctx.openModal}
+    disabled={row.measurement_count === 0}
+    className="font-mono text-xs tabular-nums text-light-200 hover:text-light-100 underline-offset-4 hover:underline disabled:no-underline disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+    aria-label={`View ${row.measurement_count} assays`}
+  >
+    {row.measurement_count.toLocaleString()}
+  </button>
+);
+
+// Chemical classification (["flavonoid", "polyphenol"] → "flavonoid,
+// polyphenol"). Trims to the first entry + "N more" once we have more
+// than two so the column stays narrow. Silent em-dash for empty/null
+// so unclassified rows read the same as unmeasured elsewhere.
+export const CategoryCell = ({
+  value,
+}: {
+  value?: string[] | null;
+}) => {
+  const cats = Array.isArray(value) ? value.filter(Boolean) : [];
+  if (cats.length === 0) return <span className="text-light-600">—</span>;
+  const first = cats[0];
+  const extra = cats.length - 1;
+  return (
+    <span
+      className="capitalize text-light-200 truncate"
+      title={cats.join(", ")}
+    >
+      {first}
+      {extra > 0 && (
+        <span className="ml-1 text-light-500">+{extra}</span>
+      )}
+    </span>
+  );
+};
+
 BioactivityTable.displayName = "BioactivityTable";
 
 // One row in the sidebar's Unit checklist — mirrors FilterListItem in
@@ -688,6 +861,44 @@ const UnitRow = ({
     >
       {count.toLocaleString()}
     </span>
+  </button>
+);
+
+// One row in the Source-kind picker — same chrome as UnitRow but
+// without the numeric count (kinds are exhaustive, count is implicit
+// via row filtering).
+const SourceKindRow = ({
+  label,
+  selected,
+  onClick,
+}: {
+  label: string;
+  selected: boolean;
+  onClick: () => void;
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    aria-pressed={selected}
+    className={twMerge(
+      "group w-full flex items-center gap-2 pl-1 pr-2 py-1 rounded transition-colors text-left",
+      selected
+        ? "text-light-100 hover:bg-light-900/70"
+        : "text-light-400 hover:text-light-100 hover:bg-light-900/50"
+    )}
+  >
+    <span
+      aria-hidden
+      className={twMerge(
+        "w-3.5 h-3.5 rounded-[3px] border flex-shrink-0 flex items-center justify-center transition-colors",
+        selected
+          ? "border-accent-600 bg-accent-600/20 text-accent-600"
+          : "border-light-700 group-hover:border-light-500"
+      )}
+    >
+      {selected && <MdCheck className="w-3 h-3" />}
+    </span>
+    <span className="font-mono italic text-xs capitalize flex-1">{label}</span>
   </button>
 );
 

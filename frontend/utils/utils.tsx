@@ -96,7 +96,7 @@ export const assayExternalUrl = (
   const chembl = id.match(/^CHEMBL\d+$/i);
   if (chembl) {
     return {
-      url: `https://www.ebi.ac.uk/chembl/assay_report_card/${id.toUpperCase()}/`,
+      url: `https://www.ebi.ac.uk/chembl/explore/assay/${id.toUpperCase()}`,
       source: "ChEMBL",
     };
   }

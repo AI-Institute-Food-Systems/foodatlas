@@ -827,6 +827,7 @@ const FoodCompositionSection = ({
                             onClick={(event) =>
                               handleEvidenceButtonClick(event, row.name)
                             }
+                            className="min-w-[9rem] justify-center"
                           />
                         </div>
                       </td>
