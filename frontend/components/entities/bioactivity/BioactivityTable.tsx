@@ -794,8 +794,7 @@ export const ViewAssaysCell = ({
     disabled={row.measurement_count === 0}
     className="font-mono italic text-xs px-2.5 py-0.5 rounded-full border border-light-700/60 text-light-300 hover:text-light-100 hover:border-light-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
   >
-    View {row.measurement_count.toLocaleString()} assay
-    {row.measurement_count === 1 ? "" : "s"} →
+    View {row.measurement_count.toLocaleString()} →
   </button>
 );
 
