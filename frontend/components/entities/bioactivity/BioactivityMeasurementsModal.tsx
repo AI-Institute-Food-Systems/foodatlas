@@ -230,12 +230,52 @@ const BioactivityMeasurementsModal = ({
   const placeholderCount = Math.max(0, PAGE_SIZE - visible.length);
   const showEmptyState = !showSkeleton && filtered.length === 0;
 
+  // Sidebar chrome mirrors BioactivityTable — cream Card hanging off the
+  // modal's left edge at min-[1440px]. Below that the sidebar is hidden
+  // and the modal body renders a "search + Filters" top bar + drawer.
+  const searchInput = (
+    <SearchInput
+      value={searchTerm}
+      disabled={showSkeleton}
+      onChange={(v) => {
+        setSearchTerm(v);
+        setCurrentPage(1);
+      }}
+      onClear={() => {
+        setSearchTerm("");
+        setCurrentPage(1);
+      }}
+    />
+  );
+  const filtersOnlyPanel = (
+    <FiltersOnlyPanel
+      outcomeFilter={outcomeFilter}
+      availableOutcomes={availableOutcomes}
+      onOutcomeChange={(o) => {
+        setOutcomeFilter(o);
+        setCurrentPage(1);
+      }}
+      sourceFilter={sourceFilter}
+      onSourceChange={(s) => {
+        setSourceFilter(s);
+        setCurrentPage(1);
+      }}
+      showSkeleton={showSkeleton}
+    />
+  );
+
   return (
     <Modal
       title={`Assay measurements · ${headLabel} × ${tailLabel}`}
       isOpen={isOpen}
       onClose={onClose}
       fullHeight
+      sidebar={
+        <Card className="px-4 py-4 gap-5">
+          {searchInput}
+          {filtersOnlyPanel}
+        </Card>
+      }
       description={
         <span className="font-mono italic text-xs text-light-400 capitalize">
           {totalKnown.toLocaleString()} measurement
@@ -302,36 +342,24 @@ const BioactivityMeasurementsModal = ({
         </div>
       }
     >
-      {/* Modal body: same sidebar+table split as the big bioactivity
-       * tables — sidebar left at lg+, drawer at sub-lg. Toolbar +
-       * skeleton scaffolding still ALWAYS renders so layout doesn't
-       * shift on filter changes. */}
-      <ModalBody
-        searchTerm={searchTerm}
-        onSearchChange={(v) => {
-          setSearchTerm(v);
-          setCurrentPage(1);
-        }}
-        onSearchClear={() => {
-          setSearchTerm("");
-          setCurrentPage(1);
-        }}
-        outcomeFilter={outcomeFilter}
-        onOutcomeChange={(o) => {
-          setOutcomeFilter(o);
-          setCurrentPage(1);
-        }}
-        availableOutcomes={availableOutcomes}
-        sourceFilter={sourceFilter}
-        onSourceChange={(s) => {
-          setSourceFilter(s);
-          setCurrentPage(1);
-        }}
-        mobileFiltersOpen={mobileFiltersOpen}
-        onOpenMobileFilters={() => setMobileFiltersOpen(true)}
-        onCloseMobileFilters={() => setMobileFiltersOpen(false)}
-        showSkeleton={showSkeleton}
-      >
+      {/* Sub-1440px top bar: search + Filters button — hidden at
+       * min-[1440px] where the sidebar (outside the panel) carries
+       * these controls instead. */}
+      <div className="min-[1440px]:hidden mb-4 shrink-0 flex items-center gap-3">
+        <div className="flex-1 min-w-0 max-w-xs">{searchInput}</div>
+        <button
+          type="button"
+          onClick={() => setMobileFiltersOpen(true)}
+          className="inline-flex items-center gap-2 rounded-md border border-light-700/60 bg-light-900/60 px-3 py-1.5 text-xs font-mono italic text-light-300 hover:text-light-100 hover:border-light-500 transition-colors"
+        >
+          <MdTune className="w-4 h-4" />
+          Filters
+        </button>
+      </div>
+
+      {/* Scroll area — the row scaffolding pads out to PAGE_SIZE so
+       * last-page + filtered-empty cases don't shrink the table. */}
+      <div className="flex-1 min-h-0 overflow-y-auto relative">
         <MeasurementsTable
           rows={visible}
           placeholderCount={placeholderCount}
@@ -349,93 +377,122 @@ const BioactivityMeasurementsModal = ({
               : "No measurements match the current filters"}
           </div>
         )}
-      </ModalBody>
+      </div>
+
+      {/* Sub-1440px filter drawer. */}
+      {mobileFiltersOpen && (
+        <div
+          className="fixed inset-0 z-[60] min-[1440px]:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Filters"
+        >
+          <button
+            type="button"
+            aria-label="Close filters"
+            onClick={() => setMobileFiltersOpen(false)}
+            className="absolute inset-0 bg-black/60 cursor-default"
+          />
+          <aside className="absolute right-0 top-0 h-full w-[85vw] max-w-sm bg-light-950 border-l border-light-700/50 overflow-y-auto flex flex-col gap-4 p-4">
+            <div className="flex items-center justify-between">
+              <span className="font-mono italic text-sm text-light-300">
+                Filters
+              </span>
+              <button
+                type="button"
+                aria-label="Close filters"
+                onClick={() => setMobileFiltersOpen(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-light-400 hover:text-light-100 hover:bg-light-800 transition-colors"
+              >
+                <MdClose className="w-4 h-4" />
+              </button>
+            </div>
+            {filtersOnlyPanel}
+          </aside>
+        </div>
+      )}
     </Modal>
   );
 };
 
-// Chrome: sidebar (lg+) with search + outcome + source filters, or a
-// top bar with search + Filters button that opens a drawer (sub-lg).
-// Mirrors BioactivityTable so the modal reads like a small version of
-// the big table.
-const ModalBody = ({
-  searchTerm,
-  onSearchChange,
-  onSearchClear,
+// Reused inside the modal's outside sidebar, the sub-1440px top bar,
+// and the drawer.
+const SearchInput = ({
+  value,
+  disabled,
+  onChange,
+  onClear,
+}: {
+  value: string;
+  disabled?: boolean;
+  onChange: (v: string) => void;
+  onClear: () => void;
+}) => (
+  <div className="relative flex items-center">
+    <MdSearch className="absolute left-2 w-4 h-4 text-light-400" />
+    <input
+      className="pl-8 pr-8 w-full h-8 text-xs rounded-md border border-light-700/60 bg-light-900/60 focus:bg-light-900 focus:border-light-500 hover:border-light-500 text-light-100 placeholder-light-500 transition-colors duration-100 ease-in-out outline-none disabled:opacity-60"
+      type="text"
+      placeholder="Search assay or endpoint"
+      aria-label="Search assay or endpoint"
+      value={value}
+      disabled={disabled}
+      onChange={(e) => onChange(e.target.value)}
+    />
+    {value && (
+      <button
+        type="button"
+        aria-label="Clear search"
+        onClick={onClear}
+        className="absolute right-2 flex items-center justify-center w-4 h-4 rounded-full text-light-400 hover:text-light-100 hover:bg-light-700 transition-colors"
+      >
+        <MdClose className="w-3 h-3" />
+      </button>
+    )}
+  </div>
+);
+
+// Non-search filters — Outcome (hidden when only one outcome present)
+// + Assay Source. Rendered inside the sidebar (min-[1440px]) and inside
+// the drawer (sub-1440px).
+const FiltersOnlyPanel = ({
   outcomeFilter,
-  onOutcomeChange,
   availableOutcomes,
+  onOutcomeChange,
   sourceFilter,
   onSourceChange,
-  mobileFiltersOpen,
-  onOpenMobileFilters,
-  onCloseMobileFilters,
   showSkeleton,
-  children,
 }: {
-  searchTerm: string;
-  onSearchChange: (v: string) => void;
-  onSearchClear: () => void;
   outcomeFilter: OutcomeFilter;
-  onOutcomeChange: (o: OutcomeFilter) => void;
   availableOutcomes: OutcomeFilter[];
+  onOutcomeChange: (o: OutcomeFilter) => void;
   sourceFilter: string;
   onSourceChange: (s: string) => void;
-  mobileFiltersOpen: boolean;
-  onOpenMobileFilters: () => void;
-  onCloseMobileFilters: () => void;
   showSkeleton: boolean;
-  children: React.ReactNode;
-}) => {
-  const searchInput = (
-    <div className="relative flex items-center">
-      <MdSearch className="absolute left-2 w-4 h-4 text-light-400" />
-      <input
-        className="pl-8 pr-8 w-full h-8 text-xs rounded-md border border-light-700/60 bg-light-900/60 focus:bg-light-900 focus:border-light-500 hover:border-light-500 text-light-100 placeholder-light-500 transition-colors duration-100 ease-in-out outline-none disabled:opacity-60"
-        type="text"
-        placeholder="Search assay or endpoint"
-        aria-label="Search assay or endpoint"
-        value={searchTerm}
-        disabled={showSkeleton}
-        onChange={(e) => onSearchChange(e.target.value)}
-      />
-      {searchTerm && (
-        <button
-          type="button"
-          aria-label="Clear search"
-          onClick={onSearchClear}
-          className="absolute right-2 flex items-center justify-center w-4 h-4 rounded-full text-light-400 hover:text-light-100 hover:bg-light-700 transition-colors"
+}) => (
+  <div className="flex flex-col gap-5">
+    {availableOutcomes.length > 1 && (
+      <div className="flex flex-col gap-1.5">
+        <span className="font-mono italic text-[11px] uppercase tracking-wider text-light-400">
+          Outcome
+        </span>
+        <div
+          className="flex flex-col -mx-1"
+          role="radiogroup"
+          aria-label="Outcome"
         >
-          <MdClose className="w-3 h-3" />
-        </button>
-      )}
-    </div>
-  );
-
-  const outcomeFilterPanel = availableOutcomes.length > 1 && (
-    <div className="flex flex-col gap-1.5">
-      <span className="font-mono italic text-[11px] uppercase tracking-wider text-light-400">
-        Outcome
-      </span>
-      <div
-        className="flex flex-col -mx-1"
-        role="radiogroup"
-        aria-label="Outcome"
-      >
-        {availableOutcomes.map((opt) => (
-          <RadioRow
-            key={opt}
-            label={opt}
-            selected={outcomeFilter === opt}
-            disabled={showSkeleton}
-            onClick={() => onOutcomeChange(opt)}
-          />
-        ))}
+          {availableOutcomes.map((opt) => (
+            <RadioRow
+              key={opt}
+              label={opt}
+              selected={outcomeFilter === opt}
+              disabled={showSkeleton}
+              onClick={() => onOutcomeChange(opt)}
+            />
+          ))}
+        </div>
       </div>
-    </div>
-  );
-
-  const sourceFilterPanel = (
+    )}
     <div className="flex flex-col gap-1.5">
       <span className="font-mono italic text-[11px] uppercase tracking-wider text-light-400">
         Assay Source
@@ -456,78 +513,8 @@ const ModalBody = ({
         ))}
       </div>
     </div>
-  );
-
-  const filtersOnlyPanel = (
-    <div className="flex flex-col gap-5">
-      {outcomeFilterPanel}
-      {sourceFilterPanel}
-    </div>
-  );
-
-  return (
-    <div className="flex-1 min-h-0 flex flex-col lg:flex-row lg:gap-6">
-      {/* Desktop sidebar */}
-      <aside className="hidden lg:block w-48 shrink-0">
-        <Card className="px-4 py-4 gap-5">
-          {searchInput}
-          {filtersOnlyPanel}
-        </Card>
-      </aside>
-
-      {/* Right column: sub-lg top bar + scroll area */}
-      <div className="flex-1 min-w-0 flex flex-col">
-        <div className="lg:hidden mb-4 shrink-0 flex items-center gap-3">
-          <div className="flex-1 min-w-0 max-w-xs">{searchInput}</div>
-          <button
-            type="button"
-            onClick={onOpenMobileFilters}
-            className="inline-flex items-center gap-2 rounded-md border border-light-700/60 bg-light-900/60 px-3 py-1.5 text-xs font-mono italic text-light-300 hover:text-light-100 hover:border-light-500 transition-colors"
-          >
-            <MdTune className="w-4 h-4" />
-            Filters
-          </button>
-        </div>
-
-        <div className="flex-1 min-h-0 overflow-y-auto relative">
-          {children}
-        </div>
-      </div>
-
-      {mobileFiltersOpen && (
-        <div
-          className="fixed inset-0 z-50 lg:hidden"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Filters"
-        >
-          <button
-            type="button"
-            aria-label="Close filters"
-            onClick={onCloseMobileFilters}
-            className="absolute inset-0 bg-black/60 cursor-default"
-          />
-          <aside className="absolute right-0 top-0 h-full w-[85vw] max-w-sm bg-light-950 border-l border-light-700/50 overflow-y-auto flex flex-col gap-4 p-4">
-            <div className="flex items-center justify-between">
-              <span className="font-mono italic text-sm text-light-300">
-                Filters
-              </span>
-              <button
-                type="button"
-                aria-label="Close filters"
-                onClick={onCloseMobileFilters}
-                className="w-8 h-8 rounded-full flex items-center justify-center text-light-400 hover:text-light-100 hover:bg-light-800 transition-colors"
-              >
-                <MdClose className="w-4 h-4" />
-              </button>
-            </div>
-            {filtersOnlyPanel}
-          </aside>
-        </div>
-      )}
-    </div>
-  );
-};
+  </div>
+);
 
 const RadioRow = ({
   label,

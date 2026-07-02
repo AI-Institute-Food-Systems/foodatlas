@@ -21,6 +21,12 @@ interface ModalProps {
   // and you don't want the dialog re-centering on every page change.
   fullHeight?: boolean;
   footer?: React.ReactNode;
+  // Optional filter sidebar rendered OUTSIDE the dialog panel at
+  // min-[1440px] (mirrors the big table layout on entity pages). Below
+  // that breakpoint it is hidden so callers can offer a Filters drawer
+  // inside `children` instead. Sidebar + panel are centered as a group,
+  // so the modal shifts slightly right when the sidebar is present.
+  sidebar?: React.ReactNode;
 }
 
 const Modal = ({
@@ -31,6 +37,7 @@ const Modal = ({
   description,
   fullHeight,
   footer,
+  sidebar,
 }: ModalProps) => {
   // Lock page scroll while the dialog is open — Headless UI's Dialog
   // doesn't do this on its own in v2. The scroll container in this app
@@ -57,8 +64,16 @@ const Modal = ({
       <div className="fixed inset-0 w-screen backdrop-blur-md bg-neutral-800/50" />
       {/* modal */}
       <div className="fixed inset-0 overflow-y-auto md:p-12">
-        {/* center content */}
+        {/* center content — sidebar + panel form a top-aligned group
+         * so the sidebar Card lines up with the panel's top edge; the
+         * group as a whole is centered vertically in the viewport. */}
         <div className="flex min-h-full items-center justify-center">
+          <div className="flex items-start justify-center gap-6">
+            {sidebar && (
+              <aside className="hidden min-[1440px]:block w-48 shrink-0">
+                {sidebar}
+              </aside>
+            )}
           <DialogPanel
             className={twMerge(
               "w-full max-w-5xl md:rounded-xl border border-light-50/5 bg-light-950 backdrop-blur-2xl shadow-inner shadow-light-700/20 p-5 md:p-7",
@@ -93,6 +108,7 @@ const Modal = ({
             </div>
             {footer && <div className="mt-4 shrink-0">{footer}</div>}
           </DialogPanel>
+          </div>
         </div>
       </div>
     </Dialog>
