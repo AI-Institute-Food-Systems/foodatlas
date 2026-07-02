@@ -78,9 +78,12 @@ export const EXTERNAL_REFERENCE_LOOKUP = {
 // one URL template. Returns null when we don't recognise the id
 // scheme so callers can render plain text as a fallback.
 //
-// Recognised schemes:
+// Recognised schemes (both bare + upstream "prefix: id" formats, since
+// the KGC parquet stores the display label — e.g. "ChEMBL: CHEMBL...",
+// "AID: 364" — not the bare id):
 // - PubChem BioAssay: "AID 364", "AID: 364", "AID:364"
-// - ChEMBL assay:     "CHEMBL329341"
+// - ChEMBL assay:     "CHEMBL329341", "ChEMBL: CHEMBL329341",
+//                     "ChEMBL:CHEMBL329341", "ChEMBL CHEMBL329341"
 export const assayExternalUrl = (
   raw: string | null | undefined
 ): { url: string; source: "PubChem" | "ChEMBL" } | null => {
@@ -93,10 +96,10 @@ export const assayExternalUrl = (
       source: "PubChem",
     };
   }
-  const chembl = id.match(/^CHEMBL\d+$/i);
+  const chembl = id.match(/^(?:ChEMBL[\s:]*)?(CHEMBL\d+)$/i);
   if (chembl) {
     return {
-      url: `https://www.ebi.ac.uk/chembl/explore/assay/${id.toUpperCase()}`,
+      url: `https://www.ebi.ac.uk/chembl/explore/assay/${chembl[1].toUpperCase()}`,
       source: "ChEMBL",
     };
   }
