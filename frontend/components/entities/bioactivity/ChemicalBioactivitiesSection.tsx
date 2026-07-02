@@ -61,7 +61,6 @@ const ChemicalBioactivitiesSection = ({ commonName, anchorId }: Props) => {
         label: "Top measurement",
         align: "right",
         width: "w-[28%]",
-        sortable: true,
         render: (row) => <TopMeasurementCell row={row} />,
       },
       {

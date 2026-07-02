@@ -83,7 +83,6 @@ const BioactivityChemicalsSection = ({ commonName, anchorId }: Props) => {
         label: "Top measurement",
         align: "right",
         width: "w-[22%]",
-        sortable: true,
         render: (row) => <TopMeasurementCell row={row} />,
       },
       // Assays column: sortable by measurement_count, and each cell is
