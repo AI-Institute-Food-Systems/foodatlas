@@ -65,6 +65,15 @@ export type SortableColumn = {
 const TOP_VALUE_SORT_KEY = "top_measurement_value";
 
 interface Props {
+  // Optional overrides for shared-chrome layouts (e.g. the Food page's
+  // Bioactivities tab hosts one search + filter sidebar for both the
+  // direct table and the inferred table). When `externalSearch` is
+  // set, the internal searchTerm state is replaced by it; when
+  // `hideChrome` is true, the table renders as a bare table +
+  // pagination + modal with no sidebar / mobile trigger / drawer.
+  externalSearch?: string;
+  externalSourceKind?: string;
+  hideChrome?: boolean;
   // Stable identifier for pagination context — e.g. "food-bioact-foodId".
   tableId: string;
   // Pivot+direction combo used to fetch the endpoint-filter chip options.
@@ -124,6 +133,9 @@ const BioactivityTable = ({
   searchPlaceholder = "Search…",
   emptyMessage,
   modalConfig,
+  externalSearch,
+  externalSourceKind,
+  hideChrome = false,
 }: Props) => {
   const { getTablePaginations, setTablePaginations } = usePaginations();
   const { currentPage } = getTablePaginations(tableId);
@@ -151,7 +163,15 @@ const BioactivityTable = ({
   const filterActive = Boolean(filter.endpoint && filter.unit);
   const unitFilterParam = selectedUnits.join("+");
   const categoryFilterParam = selectedCategories.join("+");
-  const sourceKindFilterParam = selectedSourceKinds.join("+");
+  // External overrides win when present so a parent (e.g. the food
+  // page's Bioactivities tab) can drive search + source kind for both
+  // its direct and inferred tables from one shared sidebar.
+  const effectiveSearchTerm =
+    externalSearch !== undefined ? externalSearch : searchTerm;
+  const effectiveSourceKindParam =
+    externalSourceKind !== undefined
+      ? externalSourceKind
+      : selectedSourceKinds.join("+");
 
   // Fetch the endpoint options once per (direction, pivotName). We
   // aggregate to distinct UNITS + summed counts across endpoints, then
@@ -263,13 +283,13 @@ const BioactivityTable = ({
       // the empty-state instead of a noisy "An error occurred" banner.
       const payload = await fetcher({
         page: currentPage,
-        search: searchTerm,
+        search: effectiveSearchTerm,
         sortBy: sort.by,
         sortDir: sort.dir,
         filterEndpoint: filter.endpoint || undefined,
         filterUnit: unitFilterParam || filter.unit || undefined,
         filterCategory: categoryFilterParam || undefined,
-        filterSourceKind: sourceKindFilterParam || undefined,
+        filterSourceKind: effectiveSourceKindParam || undefined,
       });
       if (cancelled) return;
       setRows(payload?.data ?? []);
@@ -282,12 +302,12 @@ const BioactivityTable = ({
   }, [
     fetcher,
     currentPage,
-    searchTerm,
+    effectiveSearchTerm,
     sort,
     filter,
     unitFilterParam,
     categoryFilterParam,
-    sourceKindFilterParam,
+    effectiveSourceKindParam,
   ]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -466,29 +486,34 @@ const BioactivityTable = ({
   return (
     <div className="relative">
       {/* Desktop sidebar — same geometry as FoodCompositionSection so
-       * the two pages have matching chrome. */}
-      <aside className="hidden min-[1440px]:block absolute right-full mr-10 -top-[17px] bottom-0 w-48">
-        <div className="sticky top-4">
-          <Card>{filterPanel}</Card>
-        </div>
-      </aside>
+       * the two pages have matching chrome. Suppressed when a parent
+       * hosts the shared search+filter chrome (hideChrome). */}
+      {!hideChrome && (
+        <aside className="hidden min-[1440px]:block absolute right-full mr-10 -top-[17px] bottom-0 w-48">
+          <div className="sticky top-4">
+            <Card>{filterPanel}</Card>
+          </div>
+        </aside>
+      )}
 
       {/* Sub-1440 row: search visible on the left; Filters button on
        * the right (hidden when there are no non-search filters to
        * surface). */}
-      <div className="min-[1440px]:hidden mb-4 flex items-center gap-3">
-        <div className="flex-1 min-w-0 max-w-xs">{searchInput}</div>
-        {hasNonSearchFilters && (
-          <button
-            type="button"
-            onClick={() => setMobileFiltersOpen(true)}
-            className="inline-flex items-center gap-2 rounded-md border border-light-700/60 bg-light-900/60 px-3 py-1.5 text-xs font-mono italic text-light-300 hover:text-light-100 hover:border-light-500 transition-colors"
-          >
-            <MdTune className="w-4 h-4" />
-            Filters
-          </button>
-        )}
-      </div>
+      {!hideChrome && (
+        <div className="min-[1440px]:hidden mb-4 flex items-center gap-3">
+          <div className="flex-1 min-w-0 max-w-xs">{searchInput}</div>
+          {hasNonSearchFilters && (
+            <button
+              type="button"
+              onClick={() => setMobileFiltersOpen(true)}
+              className="inline-flex items-center gap-2 rounded-md border border-light-700/60 bg-light-900/60 px-3 py-1.5 text-xs font-mono italic text-light-300 hover:text-light-100 hover:border-light-500 transition-colors"
+            >
+              <MdTune className="w-4 h-4" />
+              Filters
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="flex flex-col gap-7">
       <div className="overflow-x-auto">
@@ -577,7 +602,7 @@ const BioactivityTable = ({
       )}
       </div>
 
-      {mobileFiltersOpen && (
+      {!hideChrome && mobileFiltersOpen && (
         <div
           className="fixed inset-0 z-50 min-[1440px]:hidden"
           role="dialog"

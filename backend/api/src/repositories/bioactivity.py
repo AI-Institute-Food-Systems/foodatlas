@@ -498,6 +498,7 @@ async def get_food_inferred_bioactivities(
     sort_by: str = "concentration",
     sort_dir: str = "desc",
     rows_per_page: int = ROWS_PER_PAGE_DEFAULT,
+    filter_source_kind: str = "",
 ) -> dict[str, object]:
     """Bioactivities of the chemicals found in this food (transitive)."""
     sort_col = _INFERRED_SORT.get(sort_by, _INFERRED_SORT["concentration"])
@@ -510,6 +511,27 @@ async def get_food_inferred_bioactivities(
             "(cb.bioactivity_name ILIKE :q OR fcc.chemical_name ILIKE :q)"
         )
         params["q"] = f"%{search}%"
+    if filter_source_kind:
+        kinds = [k for k in filter_source_kind.split("+") if k]
+        clauses: list[str] = []
+        exp_expr = (
+            "EXISTS (SELECT 1 FROM jsonb_array_elements(cb.measurements) m"
+            " WHERE lower(m->>'evidence_source') LIKE 'exp%')"
+        )
+        pred_expr = (
+            "EXISTS (SELECT 1 FROM jsonb_array_elements(cb.measurements) m"
+            " WHERE lower(m->>'evidence_source') LIKE 'pred%'"
+            " OR lower(m->>'evidence_source') LIKE 'comp%')"
+        )
+        for kind in kinds:
+            if kind == "experimental":
+                clauses.append(f"({exp_expr} AND NOT {pred_expr})")
+            elif kind == "predicted":
+                clauses.append(f"({pred_expr} AND NOT {exp_expr})")
+            elif kind == "mixed":
+                clauses.append(f"({exp_expr} AND {pred_expr})")
+        if clauses:
+            where_parts.append("(" + " OR ".join(clauses) + ")")
     where = " AND ".join(where_parts)
 
     total_result = await session.execute(

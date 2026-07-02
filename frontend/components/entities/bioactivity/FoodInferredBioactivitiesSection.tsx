@@ -54,16 +54,32 @@ type SortDir = "asc" | "desc";
 
 interface Props {
   commonName: string;
+  // Set when a parent (e.g. FoodBioactivitiesTab) hosts the shared
+  // search/filter chrome and drives BOTH the direct + inferred tables
+  // from one sidebar. `hideChrome` suppresses this section's own
+  // aside + search input row, `externalSearch` / `externalSourceKind`
+  // override the internal state that would otherwise be uncontrolled.
+  externalSearch?: string;
+  externalSourceKind?: string;
+  hideChrome?: boolean;
 }
 
 const TABLE_ID_PREFIX = "food-inferred-bioact";
 
-const FoodInferredBioactivitiesSection = ({ commonName }: Props) => {
+const FoodInferredBioactivitiesSection = ({
+  commonName,
+  externalSearch,
+  externalSourceKind,
+  hideChrome = false,
+}: Props) => {
   const tableId = `${TABLE_ID_PREFIX}-${commonName}`;
   const { getTablePaginations, setTablePaginations } = usePaginations();
   const { currentPage } = getTablePaginations(tableId);
 
   const [searchTerm, setSearchTerm] = useState("");
+  const effectiveSearchTerm =
+    externalSearch !== undefined ? externalSearch : searchTerm;
+  const effectiveSourceKind = externalSourceKind ?? "";
   const [sort, setSort] = useState<{ by: string; dir: SortDir }>({
     by: "concentration",
     dir: "desc",
@@ -80,9 +96,10 @@ const FoodInferredBioactivitiesSection = ({ commonName }: Props) => {
     (async () => {
       const payload = await getFoodInferredBioactivities(commonName, {
         page: currentPage,
-        search: searchTerm,
+        search: effectiveSearchTerm,
         sortBy: sort.by,
         sortDir: sort.dir,
+        filterSourceKind: effectiveSourceKind || undefined,
       });
       if (cancelled) return;
       setRows((payload?.data as InferredRow[] | undefined) ?? []);
@@ -92,7 +109,13 @@ const FoodInferredBioactivitiesSection = ({ commonName }: Props) => {
     return () => {
       cancelled = true;
     };
-  }, [commonName, currentPage, searchTerm, sort]);
+  }, [
+    commonName,
+    currentPage,
+    effectiveSearchTerm,
+    effectiveSourceKind,
+    sort,
+  ]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value.toLowerCase());
@@ -140,16 +163,15 @@ const FoodInferredBioactivitiesSection = ({ commonName }: Props) => {
 
   return (
     <div className="relative flex flex-col gap-7">
-      {/* Desktop sidebar — matches the direct-measurements table and
-       * composition table so the whole Bioactivities tab reads as one
-       * design system. Only search for now; unit filter requires
-       * endpoint options in the inferred direction and is pending
-       * backend support. */}
-      <aside className="hidden min-[1440px]:block absolute right-full mr-10 -top-[17px] bottom-0 w-48">
-        <div className="sticky top-4">
-          <Card>{searchInput}</Card>
-        </div>
-      </aside>
+      {/* Desktop sidebar + sub-1440 search input — hidden when a
+       * parent (FoodBioactivitiesTab) hosts the shared chrome. */}
+      {!hideChrome && (
+        <aside className="hidden min-[1440px]:block absolute right-full mr-10 -top-[17px] bottom-0 w-48">
+          <div className="sticky top-4">
+            <Card>{searchInput}</Card>
+          </div>
+        </aside>
+      )}
 
       {/* Heading + provenance disclaimer — same chip vocabulary as the
        * card-catalog sections. The italic line frames the data as
@@ -166,10 +188,11 @@ const FoodInferredBioactivitiesSection = ({ commonName }: Props) => {
         </p>
       </div>
 
-      {/* Sub-1440 search input — sits in the left gutter above the
-       * table (there are no non-search filters yet, so no Filters
-       * button on this section). */}
-      <div className="min-[1440px]:hidden w-full max-w-xs">{searchInput}</div>
+      {!hideChrome && (
+        <div className="min-[1440px]:hidden w-full max-w-xs">
+          {searchInput}
+        </div>
+      )}
 
       <div className="overflow-x-auto">
         <table className="w-full table-fixed">
