@@ -58,6 +58,36 @@ const ENDPOINTS: Array<{ method: string; path: string; summary: string }> = [
   },
   {
     method: "GET",
+    path: "/v1/bioactivities",
+    summary: "List bioactivities (paginated, filterable)",
+  },
+  {
+    method: "GET",
+    path: "/v1/bioactivities/{id}",
+    summary: "Get one bioactivity + parents/children hierarchy",
+  },
+  {
+    method: "GET",
+    path: "/v1/bioactivities/{id}/chemicals",
+    summary: "Chemicals measured for a bioactivity (r6)",
+  },
+  {
+    method: "GET",
+    path: "/v1/bioactivities/{id}/foods",
+    summary: "Foods that exhibit a bioactivity (r5)",
+  },
+  {
+    method: "GET",
+    path: "/v1/chemicals/{id}/bioactivities",
+    summary: "Bioactivities measured for a chemical",
+  },
+  {
+    method: "GET",
+    path: "/v1/foods/{id}/bioactivities",
+    summary: "Bioactivities exhibited by a food",
+  },
+  {
+    method: "GET",
     path: "/v1/triplets",
     summary: "Knowledge-graph edges (head, relationship, tail)",
   },
