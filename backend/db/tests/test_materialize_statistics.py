@@ -109,9 +109,7 @@ class TestMaterializeStatistics:
 
     @patch("src.etl.materializer_search.bulk_copy")
     @patch("src.etl.materializer_search.pd.read_sql", side_effect=_mock_read_sql)
-    def test_measurement_count_excluded_from_associations(
-        self, _mock_sql, mock_copy
-    ):
+    def test_measurement_count_excluded_from_associations(self, _mock_sql, mock_copy):
         """measurement_count is evidence, not associations.
 
         Regression test: an earlier version of the formula summed
