@@ -20,6 +20,7 @@ import {
   MdUnfoldMore,
 } from "react-icons/md";
 
+import Card from "@/components/basic/Card";
 import Link from "@/components/basic/Link";
 import LoadingCard from "@/components/basic/LoadingCard";
 import Pagination from "@/components/basic/Pagination";
@@ -113,8 +114,43 @@ const FoodInferredBioactivitiesSection = ({ commonName }: Props) => {
   const showingPaginator = totalPages > 1 || isLoading;
   const showEmpty = !isLoading && rows.length === 0;
 
+  const searchInput = (
+    <div className="relative flex items-center">
+      <MdSearch className="absolute left-2 w-4 h-4 text-light-400" />
+      <input
+        className="pl-8 pr-8 w-full h-8 text-xs rounded-md border border-light-700/60 bg-light-900/60 focus:bg-light-900 focus:border-light-500 hover:border-light-500 text-light-100 placeholder-light-500 transition-colors duration-100 ease-in-out outline-none"
+        type="text"
+        placeholder="Search…"
+        aria-label="Search bioactivity or chemical"
+        value={searchTerm}
+        onChange={handleSearchChange}
+      />
+      {searchTerm && (
+        <button
+          type="button"
+          aria-label="Clear search"
+          onClick={handleSearchClear}
+          className="absolute right-2 flex items-center justify-center w-4 h-4 rounded-full text-light-400 hover:text-light-100 hover:bg-light-700 transition-colors"
+        >
+          <MdClose className="w-3 h-3" />
+        </button>
+      )}
+    </div>
+  );
+
   return (
-    <div className="flex flex-col gap-7">
+    <div className="relative flex flex-col gap-7">
+      {/* Desktop sidebar — matches the direct-measurements table and
+       * composition table so the whole Bioactivities tab reads as one
+       * design system. Only search for now; unit filter requires
+       * endpoint options in the inferred direction and is pending
+       * backend support. */}
+      <aside className="hidden min-[1440px]:block absolute right-full mr-10 -top-[17px] bottom-0 w-48">
+        <div className="sticky top-4">
+          <Card>{searchInput}</Card>
+        </div>
+      </aside>
+
       {/* Heading + provenance disclaimer — same chip vocabulary as the
        * card-catalog sections. The italic line frames the data as
        * inferred, not directly observed in the food. */}
@@ -130,28 +166,10 @@ const FoodInferredBioactivitiesSection = ({ commonName }: Props) => {
         </p>
       </div>
 
-      <div className="w-full">
-        <div className="relative flex items-center">
-          <MdSearch className="absolute left-2.5 w-5 h-5 text-light-400" />
-          <input
-            className="pl-9 pr-9 w-full lg:w-72 h-9 text-sm rounded-lg border border-light-50/5 bg-light-900 focus:bg-light-400/20 hover:bg-light-400/20 text-light-100 placeholder-light-400 transition duration-100 ease-in-out outline-light-50/60"
-            type="text"
-            placeholder="Search bioactivity or chemical"
-            value={searchTerm}
-            onChange={handleSearchChange}
-          />
-          {searchTerm && (
-            <button
-              type="button"
-              aria-label="Clear search"
-              onClick={handleSearchClear}
-              className="absolute right-2 flex items-center justify-center w-5 h-5 rounded-full text-light-400 hover:text-light-100 hover:bg-light-700 transition-colors"
-            >
-              <MdClose className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
-      </div>
+      {/* Sub-1440 search input — sits in the left gutter above the
+       * table (there are no non-search filters yet, so no Filters
+       * button on this section). */}
+      <div className="min-[1440px]:hidden w-full max-w-xs">{searchInput}</div>
 
       <div className="overflow-x-auto">
         <table className="w-full table-fixed">

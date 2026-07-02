@@ -248,35 +248,36 @@ const BioactivityTable = ({
   const showingPaginator = totalPages > 1 || isLoading;
   const showEmpty = !isLoading && rows.length === 0;
 
-  // Sidebar filter panel — mirrors composition's structure so the two
-  // pages read as one design system: search on top, then labelled
-  // checklist sections. The Units section groups by aggregate count,
-  // surfaces the top N, and hides the tail behind a "N more" toggle so
-  // the sidebar stays scannable even with a long-tail unit list.
-  const filterPanel = (
-    <div className="flex flex-col gap-5">
-      <div className="relative flex items-center">
-        <MdSearch className="absolute left-2 w-4 h-4 text-light-400" />
-        <input
-          className="pl-8 pr-8 w-full h-8 text-xs rounded-md border border-light-700/60 bg-light-900/60 focus:bg-light-900 focus:border-light-500 hover:border-light-500 text-light-100 placeholder-light-500 transition-colors duration-100 ease-in-out outline-none"
-          type="text"
-          placeholder="Search…"
-          aria-label={searchPlaceholder}
-          value={searchTerm}
-          onChange={handleSearchChange}
-        />
-        {searchTerm && (
-          <button
-            type="button"
-            aria-label="Clear search"
-            onClick={handleSearchClear}
-            className="absolute right-2 flex items-center justify-center w-4 h-4 rounded-full text-light-400 hover:text-light-100 hover:bg-light-700 transition-colors"
-          >
-            <MdClose className="w-3 h-3" />
-          </button>
-        )}
-      </div>
+  // Search field used in three places: sidebar, drawer's sidebar-copy,
+  // and standalone left of the mobile Filters button.
+  const searchInput = (
+    <div className="relative flex items-center">
+      <MdSearch className="absolute left-2 w-4 h-4 text-light-400" />
+      <input
+        className="pl-8 pr-8 w-full h-8 text-xs rounded-md border border-light-700/60 bg-light-900/60 focus:bg-light-900 focus:border-light-500 hover:border-light-500 text-light-100 placeholder-light-500 transition-colors duration-100 ease-in-out outline-none"
+        type="text"
+        placeholder="Search…"
+        aria-label={searchPlaceholder}
+        value={searchTerm}
+        onChange={handleSearchChange}
+      />
+      {searchTerm && (
+        <button
+          type="button"
+          aria-label="Clear search"
+          onClick={handleSearchClear}
+          className="absolute right-2 flex items-center justify-center w-4 h-4 rounded-full text-light-400 hover:text-light-100 hover:bg-light-700 transition-colors"
+        >
+          <MdClose className="w-3 h-3" />
+        </button>
+      )}
+    </div>
+  );
 
+  // Non-search filters — currently just Unit. Drawer on small viewports
+  // uses this alone (search stays visible outside the drawer).
+  const filtersOnlyPanel = (
+    <div className="flex flex-col gap-5">
       {unitOptions.length > 0 && (
         <div className="flex flex-col gap-1.5">
           <div className="flex items-baseline justify-between gap-2">
@@ -327,6 +328,16 @@ const BioactivityTable = ({
     </div>
   );
 
+  // Full sidebar panel — search on top of non-search filters.
+  const filterPanel = (
+    <div className="flex flex-col gap-5">
+      {searchInput}
+      {filtersOnlyPanel}
+    </div>
+  );
+
+  const hasNonSearchFilters = unitOptions.length > 0;
+
   return (
     <div className="relative">
       {/* Desktop sidebar — same geometry as FoodCompositionSection so
@@ -337,16 +348,21 @@ const BioactivityTable = ({
         </div>
       </aside>
 
-      {/* Sub-1440 trigger + drawer. */}
-      <div className="min-[1440px]:hidden mb-4 flex justify-end">
-        <button
-          type="button"
-          onClick={() => setMobileFiltersOpen(true)}
-          className="inline-flex items-center gap-2 rounded-md border border-light-700/60 bg-light-900/60 px-3 py-1.5 text-xs font-mono italic text-light-300 hover:text-light-100 hover:border-light-500 transition-colors"
-        >
-          <MdTune className="w-4 h-4" />
-          Filters
-        </button>
+      {/* Sub-1440 row: search visible on the left; Filters button on
+       * the right (hidden when there are no non-search filters to
+       * surface). */}
+      <div className="min-[1440px]:hidden mb-4 flex items-center gap-3">
+        <div className="flex-1 min-w-0 max-w-xs">{searchInput}</div>
+        {hasNonSearchFilters && (
+          <button
+            type="button"
+            onClick={() => setMobileFiltersOpen(true)}
+            className="inline-flex items-center gap-2 rounded-md border border-light-700/60 bg-light-900/60 px-3 py-1.5 text-xs font-mono italic text-light-300 hover:text-light-100 hover:border-light-500 transition-colors"
+          >
+            <MdTune className="w-4 h-4" />
+            Filters
+          </button>
+        )}
       </div>
 
       <div className="flex flex-col gap-7">
@@ -463,7 +479,7 @@ const BioactivityTable = ({
                 <MdClose className="w-4 h-4" />
               </button>
             </div>
-            {filterPanel}
+            {filtersOnlyPanel}
           </aside>
         </div>
       )}

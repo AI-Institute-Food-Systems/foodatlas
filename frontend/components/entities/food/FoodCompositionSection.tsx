@@ -459,33 +459,38 @@ const FoodCompositionSection = ({
     (cls) => (classificationCounts[cls] ?? 0) > 0
   );
 
-  // Rendered inside both the desktop sidebar and the mobile drawer.
-  // Labels stack ABOVE their controls (not inline) so a narrow column
-  // gives chips full width to wrap without truncation.
-  const filterPanel = (
-    <div className="flex flex-col gap-5">
-      {/* search */}
-      <div className="relative flex items-center">
-        <MdSearch className="absolute left-2 w-4 h-4 text-light-400" />
-        <input
-          className="pl-8 pr-8 w-full h-8 text-xs rounded-md border border-light-700/60 bg-light-900/60 focus:bg-light-900 focus:border-light-500 hover:border-light-500 text-light-100 placeholder-light-500 transition-colors duration-100 ease-in-out outline-none"
-          type="text"
-          placeholder="Search…"
-          value={searchTerm}
-          onChange={handleSearch}
-        />
-        {searchTerm && (
-          <button
-            type="button"
-            aria-label="Clear search"
-            onClick={handleSearchClear}
-            className="absolute right-2 flex items-center justify-center w-4 h-4 rounded-full text-light-400 hover:text-light-100 hover:bg-light-700 transition-colors"
-          >
-            <MdClose className="w-3 h-3" />
-          </button>
-        )}
-      </div>
+  // Search field is used in three places: inside the sidebar (with
+  // filters), inside the mobile drawer's sidebar copy, and on its own
+  // as a standalone left-of-Filters affordance below 1440. Extract it
+  // so all three stay in sync.
+  const searchInput = (
+    <div className="relative flex items-center">
+      <MdSearch className="absolute left-2 w-4 h-4 text-light-400" />
+      <input
+        className="pl-8 pr-8 w-full h-8 text-xs rounded-md border border-light-700/60 bg-light-900/60 focus:bg-light-900 focus:border-light-500 hover:border-light-500 text-light-100 placeholder-light-500 transition-colors duration-100 ease-in-out outline-none"
+        type="text"
+        placeholder="Search…"
+        value={searchTerm}
+        onChange={handleSearch}
+      />
+      {searchTerm && (
+        <button
+          type="button"
+          aria-label="Clear search"
+          onClick={handleSearchClear}
+          className="absolute right-2 flex items-center justify-center w-4 h-4 rounded-full text-light-400 hover:text-light-100 hover:bg-light-700 transition-colors"
+        >
+          <MdClose className="w-3 h-3" />
+        </button>
+      )}
+    </div>
+  );
 
+  // Non-search filter controls — options + source + class. Drawer on
+  // small viewports uses this alone (search stays visible outside the
+  // drawer per user request).
+  const filtersOnlyPanel = (
+    <div className="flex flex-col gap-5">
       {/* options — binary switches (not multi-select) so they stay as
        * toggles rather than checkbox rows. */}
       <FilterGroup label="Options">
@@ -561,6 +566,17 @@ const FoodCompositionSection = ({
     </div>
   );
 
+  // Full sidebar (search on top + filters underneath). Used both in the
+  // desktop absolute-positioned aside and as the mobile-view content
+  // that pairs a visible search input with a drawer of the remaining
+  // controls.
+  const filterPanel = (
+    <div className="flex flex-col gap-5">
+      {searchInput}
+      {filtersOnlyPanel}
+    </div>
+  );
+
   return (
     <>
       <div id="composition" className="relative scroll-mt-8">
@@ -584,9 +600,11 @@ const FoodCompositionSection = ({
             </div>
           </aside>
 
-          {/* Filters trigger — shown whenever the sidebar isn't. Right-
-           * aligned so it doesn't fight the table's header row. */}
-          <div className="min-[1440px]:hidden mb-4 flex justify-end">
+          {/* Sub-1440 row: search visible on the left, Filters trigger
+           * on the right. Search stays outside the drawer so the user
+           * doesn't have to open a modal to type. */}
+          <div className="min-[1440px]:hidden mb-4 flex items-center gap-3">
+            <div className="flex-1 min-w-0 max-w-xs">{searchInput}</div>
             <button
               type="button"
               onClick={() => setMobileFiltersOpen(true)}
@@ -776,7 +794,7 @@ const FoodCompositionSection = ({
                               <>
                                 <span
                                   aria-hidden
-                                  className="relative h-1.5 w-32 shrink-0 rounded-full bg-light-800/70 overflow-hidden"
+                                  className="relative hidden xl:inline-block h-1.5 w-32 shrink-0 rounded-full bg-light-800/70 overflow-hidden"
                                 >
                                   {pct !== null && (
                                     <span
@@ -880,7 +898,7 @@ const FoodCompositionSection = ({
                     <MdClose className="w-4 h-4" />
                   </button>
                 </div>
-                {filterPanel}
+                {filtersOnlyPanel}
               </aside>
             </div>
           )}
