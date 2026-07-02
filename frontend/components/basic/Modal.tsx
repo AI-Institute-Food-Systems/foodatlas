@@ -64,13 +64,16 @@ const Modal = ({
       <div className="fixed inset-0 w-screen backdrop-blur-md bg-neutral-800/50" />
       {/* modal */}
       <div className="fixed inset-0 overflow-y-auto md:p-12">
-        {/* center content — sidebar + panel are centered as a group */}
-        <div className="flex min-h-full items-center justify-center gap-6">
-          {sidebar && (
-            <aside className="hidden min-[1440px]:flex w-48 shrink-0 self-stretch items-center">
-              {sidebar}
-            </aside>
-          )}
+        {/* center content — sidebar + panel form a top-aligned group
+         * so the sidebar Card lines up with the panel's top edge; the
+         * group as a whole is centered vertically in the viewport. */}
+        <div className="flex min-h-full items-center justify-center">
+          <div className="flex items-start justify-center gap-6">
+            {sidebar && (
+              <aside className="hidden min-[1440px]:block w-48 shrink-0">
+                {sidebar}
+              </aside>
+            )}
           <DialogPanel
             className={twMerge(
               "w-full max-w-5xl md:rounded-xl border border-light-50/5 bg-light-950 backdrop-blur-2xl shadow-inner shadow-light-700/20 p-5 md:p-7",
@@ -105,6 +108,7 @@ const Modal = ({
             </div>
             {footer && <div className="mt-4 shrink-0">{footer}</div>}
           </DialogPanel>
+          </div>
         </div>
       </div>
     </Dialog>
