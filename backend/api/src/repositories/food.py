@@ -21,6 +21,11 @@ VALID_SOURCES = {"fdc", "foodatlas", "dmd"}
 VALID_SORT_COLS = {
     "common_name": "chemical_name",
     "median_concentration": "(median_concentration->>'value')::NUMERIC",
+    "evidence_count": (
+        "COALESCE(jsonb_array_length(fdc_evidences), 0) "
+        "+ COALESCE(jsonb_array_length(foodatlas_evidences), 0) "
+        "+ COALESCE(jsonb_array_length(dmd_evidences), 0)"
+    ),
 }
 VALID_DIRECTIONS = {"ASC", "DESC"}
 
@@ -327,6 +332,16 @@ def _resort_after_filter(data: list[dict], sort_by: str, direction: str) -> list
     if sort_by == "common_name":
         return sorted(
             data, key=lambda r: (r.get("name") or "").lower(), reverse=descending
+        )
+    if sort_by == "evidence_count":
+        return sorted(
+            data,
+            key=lambda r: (
+                len(r.get("fdc_evidences") or [])
+                + len(r.get("foodatlas_evidences") or [])
+                + len(r.get("dmd_evidences") or [])
+            ),
+            reverse=descending,
         )
     return data
 
