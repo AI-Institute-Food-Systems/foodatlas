@@ -90,6 +90,7 @@ const FoodInferredBioactivitiesSection = ({
 
   const [rows, setRows] = useState<InferredRow[]>([]);
   const [totalPages, setTotalPages] = useState(0);
+  const [totalRows, setTotalRows] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [selected, setSelected] = useState<InferredRow | null>(null);
 
@@ -108,6 +109,7 @@ const FoodInferredBioactivitiesSection = ({
       if (cancelled) return;
       setRows((payload?.data as InferredRow[] | undefined) ?? []);
       setTotalPages(payload?.metadata?.total_pages ?? 0);
+      setTotalRows(payload?.metadata?.total_rows ?? 0);
       setIsLoading(false);
     })();
     return () => {
@@ -199,6 +201,13 @@ const FoodInferredBioactivitiesSection = ({
         </div>
       )}
 
+      {!isLoading && totalRows > 0 && (
+        <div className="mb-1.5 flex justify-end">
+          <span className="font-mono italic text-[11px] text-light-500 tabular-nums">
+            {totalRows.toLocaleString()} {totalRows === 1 ? "row" : "rows"}
+          </span>
+        </div>
+      )}
       <div className="overflow-x-auto">
         <table className="w-full table-fixed">
           <colgroup>
