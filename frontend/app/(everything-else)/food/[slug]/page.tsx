@@ -12,6 +12,7 @@ import EntityOverviewPanelSuspense from "@/components/entities/EntityOverviewPan
 import {
   getFoodBioactivities,
   getFoodCompositionData,
+  getFoodInferredBioactivities,
   getMetaData,
 } from "@/utils/fetching";
 import { decodeSpace, toTitleCase } from "@/utils/utils";
@@ -46,25 +47,36 @@ const FoodPage = async ({ params }: FoodPageProps) => {
   // back to null so the badge silently hides instead of breaking the page.
   // Composition uses the same call as the table (default filters: all sources,
   // include unmeasured, no search) so the badge matches "Found N chemicals".
-  const [compPayload, bioPayload, metaPayload] = await Promise.all([
-    getFoodCompositionData(
-      commonName,
-      1,
-      ["fdc", "foodatlas", "dmd"],
-      "",
-      { column: "median_concentration", direction: "desc" },
-      true,
-      [],
-      "default"
-    ).catch(() => null),
-    getFoodBioactivities(commonName).catch(() => null),
-    getMetaData(commonName, entityType).catch(() => null),
-  ]);
+  // Bioactivities badge sums the direct (food→bioactivity) and inferred
+  // (via chemicals-in-food) totals — same shape as the two tables rendered
+  // in the tab, so the badge matches what the user actually sees.
+  const [compPayload, bioPayload, inferredBioPayload, metaPayload] =
+    await Promise.all([
+      getFoodCompositionData(
+        commonName,
+        1,
+        ["fdc", "foodatlas", "dmd"],
+        "",
+        { column: "median_concentration", direction: "desc" },
+        true,
+        [],
+        "default"
+      ).catch(() => null),
+      getFoodBioactivities(commonName).catch(() => null),
+      getFoodInferredBioactivities(commonName).catch(() => null),
+      getMetaData(commonName, entityType).catch(() => null),
+    ]);
   const anchorId = metaPayload?.id ?? null;
   const compositionCount =
     (compPayload?.metadata?.total_rows as number | undefined) ?? null;
-  const bioactivitiesCount =
+  const directBio =
     (bioPayload?.metadata?.total_rows as number | undefined) ?? null;
+  const inferredBio =
+    (inferredBioPayload?.metadata?.total_rows as number | undefined) ?? null;
+  const bioactivitiesCount =
+    directBio === null && inferredBio === null
+      ? null
+      : (directBio ?? 0) + (inferredBio ?? 0);
 
   return (
     <div>
