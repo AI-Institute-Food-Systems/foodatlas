@@ -21,11 +21,12 @@ interface ModalProps {
   // and you don't want the dialog re-centering on every page change.
   fullHeight?: boolean;
   footer?: React.ReactNode;
-  // Optional filter sidebar rendered OUTSIDE the dialog panel at
-  // min-[1440px] (mirrors the big table layout on entity pages). Below
-  // that breakpoint it is hidden so callers can offer a Filters drawer
-  // inside `children` instead. Sidebar + panel are centered as a group,
-  // so the modal shifts slightly right when the sidebar is present.
+  // Optional filter sidebar. Rendered visually OUTSIDE the dialog
+  // panel's left edge at min-[1440px] (via absolute right-full),
+  // but DOM-wise INSIDE the panel so Headless UI's outside-click
+  // detection treats sidebar interactions as inside the dialog and
+  // doesn't dismiss it. Hidden below 1440; callers offer a Filters
+  // drawer inside `children` for narrower viewports.
   sidebar?: React.ReactNode;
 }
 
@@ -64,22 +65,23 @@ const Modal = ({
       <div className="fixed inset-0 w-screen backdrop-blur-md bg-neutral-800/50" />
       {/* modal */}
       <div className="fixed inset-0 overflow-y-auto md:p-12">
-        {/* center content — sidebar + panel form a top-aligned group
-         * so the sidebar Card lines up with the panel's top edge; the
-         * group as a whole is centered vertically in the viewport. */}
+        {/* center content */}
         <div className="flex min-h-full items-center justify-center">
-          <div className="flex items-start justify-center gap-6">
-            {sidebar && (
-              <aside className="hidden min-[1440px]:block w-48 shrink-0">
-                {sidebar}
-              </aside>
-            )}
           <DialogPanel
             className={twMerge(
-              "w-full max-w-5xl md:rounded-xl border border-light-50/5 bg-light-950 backdrop-blur-2xl shadow-inner shadow-light-700/20 p-5 md:p-7",
+              "relative w-full max-w-5xl md:rounded-xl border border-light-50/5 bg-light-950 backdrop-blur-2xl shadow-inner shadow-light-700/20 p-5 md:p-7",
               fullHeight && "flex flex-col h-[min(85vh,800px)]"
             )}
           >
+            {/* Sidebar hangs OUTSIDE the panel visually via absolute
+             * right-full, but DOM-wise it lives INSIDE DialogPanel so
+             * Headless UI's outside-click detection treats sidebar
+             * clicks as "inside" and doesn't dismiss the modal. */}
+            {sidebar && (
+              <aside className="hidden min-[1440px]:block absolute right-full mr-6 top-0 w-48">
+                {sidebar}
+              </aside>
+            )}
             {/* modal header */}
             <div className="flex justify-between items-center shrink-0">
               <Heading className="capitalize" type="h3" variant="boxed">
@@ -108,7 +110,6 @@ const Modal = ({
             </div>
             {footer && <div className="mt-4 shrink-0">{footer}</div>}
           </DialogPanel>
-          </div>
         </div>
       </div>
     </Dialog>
