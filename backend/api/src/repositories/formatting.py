@@ -7,7 +7,6 @@ _SOURCE_CONFIG: dict[str, tuple[str, str]] = {
     "fdc_nutrient": ("FDC Nutrient", ""),
     "cdno": ("CDNO", ""),
     "ctd": ("CTD", "https://ctdbase.org/detail.go?type=disease&acc={}"),
-    "dmd": ("DMD", ""),
     "pubchem_compound": (
         "PubChem",
         "https://pubchem.ncbi.nlm.nih.gov/compound/{}",

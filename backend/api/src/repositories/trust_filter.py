@@ -1,8 +1,8 @@
 """Per-attestation trust-score filtering applied to composition responses.
 
 Each evidence dict in the materialised composition view (``fdc_evidences``,
-``foodatlas_evidences``, ``dmd_evidences``) carries a list of ``extraction``
-objects, each annotated with an ``attestation_id``. Trust signals live in
+``foodatlas_evidences``) carries a list of ``extraction`` objects, each
+annotated with an ``attestation_id``. Trust signals live in
 ``base_trust_signals`` and are joined at request time by attestation_id. The
 threshold is configurable via :class:`APISettings.trust_low_threshold`.
 
@@ -13,16 +13,16 @@ Modes:
 - ``show_all`` — return every extraction; annotate each with ``trust_low``
   (``True`` when the extraction has a score and that score is below the
   threshold; ``False`` otherwise — including for unscored attestations like
-  FDC/DMD which we treat as trusted). The frontend uses ``trust_low`` to
-  render a warning badge on rows with at least one low-trust extraction.
+  FDC which we treat as trusted). The frontend uses ``trust_low`` to render
+  a warning badge on rows with at least one low-trust extraction.
 - ``low_only`` — keep only extractions whose score is below the threshold;
   drop rows that end up with no evidences. Used when the user clicks the
   warning badge to filter to suspicious data points (mirrors the
   "ambiguous" pattern).
 
 Attestations without a trust signal default to ``score = 1.0`` (trusted).
-This means FDC and DMD-derived attestations — which the trust stage doesn't
-judge today — pass through ``default`` and are correctly excluded from
+This means FDC-derived attestations — which the trust stage doesn't judge
+today — pass through ``default`` and are correctly excluded from
 ``low_only``.
 """
 
@@ -36,7 +36,7 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
 TrustMode = Literal["default", "show_all", "low_only"]
-_EVIDENCE_KEYS = ("fdc_evidences", "foodatlas_evidences", "dmd_evidences")
+_EVIDENCE_KEYS = ("fdc_evidences", "foodatlas_evidences")
 _NO_SIGNAL_DEFAULT_SCORE = 1.0
 
 
@@ -50,9 +50,9 @@ async def apply_trust_filter(
     """Filter or annotate ``rows`` according to ``mode``; returns new list.
 
     ``rows`` is a list of MV-shaped dicts (each may contain
-    ``fdc_evidences`` / ``foodatlas_evidences`` / ``dmd_evidences`` keys
-    with list-or-None values). Every extraction must already carry
-    ``attestation_id`` (added in the materializer).
+    ``fdc_evidences`` / ``foodatlas_evidences`` keys with list-or-None
+    values). Every extraction must already carry ``attestation_id`` (added
+    in the materializer).
     """
     if not rows:
         return rows
@@ -111,7 +111,7 @@ def _is_low(ext: dict, scores: dict[str, float], threshold: float) -> bool:
     (e.g. judges "suspicious-but-not-impossible" cases as exactly 0.3); using
     ``<=`` catches those instead of letting them slip through.
 
-    Unscored attestations (FDC / DMD / un-judged lit2kg) are *not* flagged —
+    Unscored attestations (FDC / un-judged lit2kg) are *not* flagged —
     we don't know their plausibility and shouldn't visually penalize them.
     """
     aid = ext.get("attestation_id", "")
