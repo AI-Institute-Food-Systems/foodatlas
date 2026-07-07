@@ -6,7 +6,6 @@ import { twMerge } from "tailwind-merge";
 
 import FoodAtlasEvidence from "@/components/entities/food/FoodAtlasEvidence";
 import FdcEvidence from "@/components/entities/food/FdcEvidence";
-import DmdEvidence from "@/components/entities/food/DmdEvidence";
 import Modal from "@/components/basic/Modal";
 import { FoodEvidence, FoodEvidenceExtraction } from "@/types/Evidence";
 
@@ -174,8 +173,6 @@ const FoodCompositionEvidenceModal = ({
             <FoodAtlasEvidence key={id} evidence={evidence} />
           ) : evidence.reference.source_name === "FDC" ? (
             <FdcEvidence key={id} evidence={evidence} />
-          ) : evidence.reference.source_name === "DMD" ? (
-            <DmdEvidence key={id} evidence={evidence} />
           ) : null
         )}
       </div>

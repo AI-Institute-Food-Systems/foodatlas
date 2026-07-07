@@ -17,14 +17,18 @@ NUTRIENT_KEY_MAP = {
     "nucleotide": "others",
 }
 
-VALID_SOURCES = {"fdc", "foodatlas", "dmd"}
+# DMD (Dairy Molecule Database) is retired from the public API surface
+# 2026-07-06 — the DB column `dmd_evidences` stays populated on
+# `mv_food_chemical_composition` but is no longer selectable / filterable
+# / countable via this API.
+VALID_SOURCES = {"fdc", "foodatlas"}
 VALID_SORT_COLS = {
     "common_name": "chemical_name",
     "median_concentration": "(median_concentration->>'value')::NUMERIC",
 }
 VALID_DIRECTIONS = {"ASC", "DESC"}
 
-ALL_EVIDENCE_COLS = "fdc_evidences, foodatlas_evidences, dmd_evidences"
+ALL_EVIDENCE_COLS = "fdc_evidences, foodatlas_evidences"
 BASE_SELECT = (
     "chemical_name AS name, chemical_foodatlas_id AS id, "
     "chemical_classification, median_concentration"
@@ -93,23 +97,20 @@ async def get_composition_counts(
             SELECT
                 chemical_classification,
                 CASE WHEN fdc_evidences IS NOT NULL THEN 1 ELSE 0 END AS has_fdc,
-                CASE WHEN foodatlas_evidences IS NOT NULL THEN 1 ELSE 0 END AS has_fa,
-                CASE WHEN dmd_evidences IS NOT NULL THEN 1 ELSE 0 END AS has_dmd
+                CASE WHEN foodatlas_evidences IS NOT NULL THEN 1 ELSE 0 END AS has_fa
             FROM mv_food_chemical_composition
             WHERE food_name = :name
         """),
         {"name": common_name},
     )
     cls_counts: dict[str, int] = {}
-    source_counts = {"fdc": 0, "foodatlas": 0, "dmd": 0}
+    source_counts = {"fdc": 0, "foodatlas": 0}
     for row in result:
         mapping = row._mapping
         if mapping["has_fdc"]:
             source_counts["fdc"] += 1
         if mapping["has_fa"]:
             source_counts["foodatlas"] += 1
-        if mapping["has_dmd"]:
-            source_counts["dmd"] += 1
         classifications = mapping["chemical_classification"] or []
         if not classifications:
             cls_counts["n/a"] = cls_counts.get("n/a", 0) + 1
