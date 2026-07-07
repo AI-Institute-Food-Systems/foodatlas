@@ -65,7 +65,6 @@ async def get_composition(session: AsyncSession, common_name: str) -> dict[str, 
             SELECT c.food_foodatlas_id AS id, c.food_name AS name,
                    COALESCE(jsonb_array_length(c.fdc_evidences), 0)
                    + COALESCE(jsonb_array_length(c.foodatlas_evidences), 0)
-                   + COALESCE(jsonb_array_length(c.dmd_evidences), 0)
                    AS evidence_count,
                    COALESCE((
                        SELECT jsonb_agg(s ORDER BY s->>'common_name')
@@ -77,8 +76,7 @@ async def get_composition(session: AsyncSession, common_name: str) -> dict[str, 
                 ON fe.foodatlas_id = c.food_foodatlas_id
             WHERE c.chemical_name = :name AND c.median_concentration IS NULL
             ORDER BY COALESCE(jsonb_array_length(c.fdc_evidences), 0)
-                   + COALESCE(jsonb_array_length(c.foodatlas_evidences), 0)
-                   + COALESCE(jsonb_array_length(c.dmd_evidences), 0) DESC
+                   + COALESCE(jsonb_array_length(c.foodatlas_evidences), 0) DESC
         """),
         {"name": common_name},
     )

@@ -137,8 +137,8 @@ class Concentration(BaseModel):
 class CompositionRow(BaseModel):
     """Flat row for /v1/foods/{id}/chemicals and /v1/chemicals/{id}/foods.
 
-    Aggregates evidence across all sources (FDC, FoodAtlas literature, DMD)
-    into a single ``sources[]`` list + ``attestation_count`` — no UI-specific
+    Aggregates evidence across all sources (FDC, FoodAtlas literature) into
+    a single ``sources[]`` list + ``attestation_count`` — no UI-specific
     per-source grouping.
     """
 
