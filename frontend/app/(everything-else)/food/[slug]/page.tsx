@@ -55,7 +55,7 @@ const FoodPage = async ({ params }: FoodPageProps) => {
       getFoodCompositionData(
         commonName,
         1,
-        ["fdc", "foodatlas", "dmd"],
+        ["fdc", "foodatlas"],
         "",
         { column: "median_concentration", direction: "desc" },
         true,

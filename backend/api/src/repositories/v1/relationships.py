@@ -3,7 +3,7 @@
 Both endpoints return the same flat row shape regardless of which side
 ("food's chemicals" vs. "chemical's foods") the caller asked for. Sources
 are aggregated into a single list rather than the UI's
-fdc/foodatlas/dmd-grouped evidence arrays.
+fdc/foodatlas-grouped evidence arrays.
 """
 
 from __future__ import annotations
@@ -28,13 +28,11 @@ _COMPOSITION_SELECT_CLAUSE = """
     chemical_classification,
     median_concentration,
     COALESCE(jsonb_array_length(fdc_evidences), 0)
-        + COALESCE(jsonb_array_length(foodatlas_evidences), 0)
-        + COALESCE(jsonb_array_length(dmd_evidences), 0) AS attestation_count,
+        + COALESCE(jsonb_array_length(foodatlas_evidences), 0) AS attestation_count,
     ARRAY_REMOVE(
         ARRAY[
             CASE WHEN fdc_evidences IS NOT NULL THEN 'fdc' END,
-            CASE WHEN foodatlas_evidences IS NOT NULL THEN 'foodatlas' END,
-            CASE WHEN dmd_evidences IS NOT NULL THEN 'dmd' END
+            CASE WHEN foodatlas_evidences IS NOT NULL THEN 'foodatlas' END
         ],
         NULL
     ) AS sources

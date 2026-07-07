@@ -45,7 +45,7 @@ export type FoodEvidence = {
   extraction: FoodEvidenceExtraction[];
   reference: {
     id: string;
-    source_name: "FoodAtlas" | "FDC" | "DMD";
+    source_name: "FoodAtlas" | "FDC";
     display_name: string;
     url: string;
   };

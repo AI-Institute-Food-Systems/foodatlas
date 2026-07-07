@@ -13,6 +13,5 @@ export type FoodCompositionData = {
   median_concentration: Concentration | null;
   foodatlas_evidences: FoodEvidence[] | null;
   fdc_evidences: FoodEvidence[] | null;
-  dmd_evidences: FoodEvidence[] | null;
   chemical_classification: string[];
 };

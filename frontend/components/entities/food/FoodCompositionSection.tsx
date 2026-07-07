@@ -33,7 +33,6 @@ import {
   getFoodCompositionData,
 } from "@/utils/fetching";
 import { FoodCompositionData } from "@/types";
-import { FoodEvidence } from "@/types/Evidence";
 
 // headers for table
 const TABLE_HEADERS = [
@@ -69,7 +68,6 @@ const CLASSIFICATION_OPTIONS = [
 const SOURCE_OPTIONS = [
   { value: "fdc", label: "FDC" },
   { value: "foodatlas", label: "FoodAtlas" },
-  { value: "dmd", label: "Dairy Molecule Database" },
 ];
 
 interface FoodCompositionSectionProps {
@@ -109,7 +107,6 @@ const FoodCompositionSection = ({
   const [sourceFilters, setSourceFilters] = useState<string[]>([
     "fdc",
     "foodatlas",
-    "dmd",
   ]);
   const [sort, setSort] = useState({
     column: "median_concentration",
@@ -367,7 +364,6 @@ const FoodCompositionSection = ({
     const all = [
       ...(row.foodatlas_evidences ?? []),
       ...(row.fdc_evidences ?? []),
-      ...(row.dmd_evidences ?? []),
     ];
     return all.filter((ev) =>
       ev.extraction.some((ex) => (ex.chemical_candidates?.length ?? 0) > 1)
@@ -381,7 +377,6 @@ const FoodCompositionSection = ({
     const all = [
       ...(row.foodatlas_evidences ?? []),
       ...(row.fdc_evidences ?? []),
-      ...(row.dmd_evidences ?? []),
     ];
     return all.filter((ev) => ev.extraction.some((ex) => ex.trust_low === true))
       .length;
@@ -425,8 +420,7 @@ const FoodCompositionSection = ({
 
   const getRowEvidenceCount = (row: FoodCompositionData) =>
     (row.foodatlas_evidences?.length || 0) +
-    (row.fdc_evidences?.length || 0) +
-    (row.dmd_evidences?.length || 0);
+    (row.fdc_evidences?.length || 0);
 
   // number of placeholder rows to make up for the total of 20 rows
   const placeholderRowsCount = data ? 20 - data?.length : 20;
@@ -910,27 +904,10 @@ const FoodCompositionSection = ({
               (row) => row.name === selectedEvidenceName
             );
             if (!selectedRow) return undefined;
-
-            // separate dmd evidences from other evidences
-            const dmdEvidences = selectedRow.dmd_evidences ?? [];
-            const otherEvidences = [
+            return [
               ...(selectedRow.fdc_evidences ?? []),
               ...(selectedRow.foodatlas_evidences ?? []),
             ];
-
-            // combine all dmd evidences into one evidence item
-            if (dmdEvidences.length > 0) {
-              const combinedDmdEvidence: FoodEvidence = {
-                premise: "",
-                extraction: dmdEvidences.flatMap(
-                  (evidence) => evidence.extraction
-                ),
-                reference: dmdEvidences[0].reference, // use first evidence's reference
-              };
-              return [combinedDmdEvidence, ...otherEvidences];
-            }
-
-            return otherEvidences;
           })()}
           isOpen={selectedEvidenceName !== ""}
           onClose={() => setSelectedEvidenceName("")}
