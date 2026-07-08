@@ -75,31 +75,34 @@ const FoodAtlasEvidence = ({ evidence }: FoodAtlasEvidenceProps) => {
             return part;
           })}
       </p>
-      {/* extraction table */}
+      {/* extraction table — hides Food + Method below md: (mirrors
+       * FdcEvidence). Keeps Chemical / Concentration / Converted for
+       * phones where 5 columns @ 16–24% each becomes unreadable.
+       */}
       <div className="mt-5 overflow-x-auto">
         <table className="text-xs w-full table-fixed">
           <colgroup>
-            <col className="w-[20%]" />
-            <col className="w-[20%]" />
-            <col className="w-[16%]" />
-            <col className="w-[24%]" />
-            <col className="w-[20%]" />
+            <col className="hidden md:table-column md:w-[20%]" />
+            <col className="w-[40%] md:w-[20%]" />
+            <col className="w-[25%] md:w-[16%]" />
+            <col className="w-[35%] md:w-[24%]" />
+            <col className="hidden md:table-column md:w-[20%]" />
           </colgroup>
           <thead>
             <tr className="border-b border-light-700">
-              <th className="text-light-400 uppercase font-normal text-left pb-2 pr-2">
+              <th className="hidden md:table-cell text-light-400 uppercase font-normal text-left pb-2 pr-2">
                 Food
               </th>
-              <th className="text-light-400 uppercase font-normal text-left pb-2 px-2">
+              <th className="text-light-400 uppercase font-normal text-left pb-2 pr-2 md:px-2">
                 Chemical
               </th>
               <th className="text-light-400 uppercase font-normal text-right pb-2 px-2">
-                Concentration
+                Conc.
               </th>
-              <th className="text-light-400 uppercase font-normal text-right pb-2 px-2">
-                Converted Concentration
+              <th className="text-light-400 uppercase font-normal text-right pb-2 pl-2 md:px-2">
+                Converted
               </th>
-              <th className="text-light-400 uppercase font-normal text-right pb-2 pl-2">
+              <th className="hidden md:table-cell text-light-400 uppercase font-normal text-right pb-2 pl-2">
                 Method
               </th>
             </tr>
@@ -107,10 +110,10 @@ const FoodAtlasEvidence = ({ evidence }: FoodAtlasEvidenceProps) => {
           <tbody>
             {evidence.extraction.map((extraction, index) => (
               <tr key={index}>
-                <td className="py-2 pr-2 break-all">
+                <td className="hidden md:table-cell py-2 pr-2 break-all">
                   {extraction.extracted_food_name}
                 </td>
-                <td className="py-2 px-2 break-all">
+                <td className="py-2 pr-2 md:px-2 break-all">
                   <span className="inline-flex items-center gap-1 align-middle">
                     {extraction.extracted_chemical_name}
                     <AmbiguityIcon
@@ -121,7 +124,7 @@ const FoodAtlasEvidence = ({ evidence }: FoodAtlasEvidenceProps) => {
                 <td className="py-2 px-2 text-right whitespace-nowrap">
                   {extraction.extracted_concentration ?? "-"}
                 </td>
-                <td className="py-2 px-2 text-right whitespace-nowrap">
+                <td className="py-2 pl-2 md:px-2 text-right whitespace-nowrap">
                   {extraction.converted_concentration.unit &&
                   extraction.converted_concentration.value
                     ? `${formatConcentrationValueAlt(
@@ -129,7 +132,7 @@ const FoodAtlasEvidence = ({ evidence }: FoodAtlasEvidenceProps) => {
                       )} ${extraction.converted_concentration.unit}`
                     : "-"}
                 </td>
-                <td className="py-2 pl-2 text-right uppercase break-words">
+                <td className="hidden md:table-cell py-2 pl-2 text-right uppercase break-words">
                   {extraction.method}
                 </td>
               </tr>
