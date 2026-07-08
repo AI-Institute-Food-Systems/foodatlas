@@ -218,7 +218,14 @@ const SearchBar = () => {
     >
       <div
         className={`z-50 w-full absolute px-3 md:px-12 ${
-          isFocused ? "absolute inset-0 top-24 -right-4" : ""
+          // When focused, the overlay flies up to sit flush against
+          // the navbar bottom (top-16 = 4rem = 64px, matching the
+          // navbar row height and the `setOffsetTop(64)` set by the
+          // navbar's search button on entity pages). Was `top-24` (96
+          // px) which sat 32px too low on entity pages. On landing
+          // the transition animates the bar upward from its natural
+          // hero-below position; on entity pages it stays put.
+          isFocused ? "absolute inset-0 top-16 -right-4" : ""
         } ${isResultsPage ? "" : "duration-[250ms]"}`}
         ref={containerRef}
         style={{ top: offsetTop || 50 }}
@@ -286,13 +293,11 @@ const SearchBar = () => {
                 {/* search input */}
                 <input
                   ref={inputRef}
-                  className={`pl-12 w-full h-12 rounded-lg border-[1.5px] border-light-600 bg-light-950/50 backdrop-blur-3xl saturate-150 hover:outline-white text-light-100 transition duration-100 ease-in-out outline-light-50/60 placeholder-light-500 ${
-                    isFocused &&
-                    cachedSuggestions.length > 0 &&
-                    autocompleteTerm.length > 0
-                      ? "rounded-b-none"
-                      : ""
-                  }`}
+                  // Suggestions live in their own rounded card below
+                  // the input now (with a gap), so the input stays
+                  // fully rounded at all times — used to drop the
+                  // bottom radius when suggestions were flush.
+                  className="pl-12 w-full h-12 rounded-lg border-[1.5px] border-light-600 bg-light-950/50 backdrop-blur-3xl saturate-150 hover:outline-white text-light-100 transition duration-100 ease-in-out outline-light-50/60 placeholder-light-500"
                   type="text"
                   value={searchTerm}
                   placeholder={placeholder}
@@ -304,11 +309,14 @@ const SearchBar = () => {
                   onKeyDown={handleKeyDown}
                 />
               </div>
-              {/* Try-out chips — always visible so the entry-points
-               * are discoverable even mid-session. */}
-              <div className="mt-3">
-                <TryChips />
-              </div>
+              {/* Try-out chips — only while the input is empty. Once
+               * the user starts typing, suggestions take the row so
+               * the two lists don't compete for the same visual slot. */}
+              {autocompleteTerm.length === 0 && (
+                <div className="mt-3">
+                  <TryChips />
+                </div>
+              )}
               {/* Suggestions appear below the chips when focused,
                * with a small gap so the two rows feel distinct. */}
               {isFocused && (

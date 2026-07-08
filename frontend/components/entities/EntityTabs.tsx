@@ -2,7 +2,18 @@
 
 import { ReactNode, useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Tab, TabGroup, TabList, TabPanel, TabPanels } from "@headlessui/react";
+import {
+  Listbox,
+  ListboxButton,
+  ListboxOption,
+  ListboxOptions,
+  Tab,
+  TabGroup,
+  TabList,
+  TabPanel,
+  TabPanels,
+} from "@headlessui/react";
+import { MdCheck, MdKeyboardArrowDown } from "react-icons/md";
 import { twMerge } from "tailwind-merge";
 
 import Card from "@/components/basic/Card";
@@ -73,7 +84,55 @@ const EntityTabs = ({ tabs, defaultTabId }: Props) => {
        * unselected = dark slab with a visible border. -mb-[2px] pulls all
        * tabs down 2px so the selected chip's transparent bottom border
        * blends into the Card top edge below it. */}
-      <TabList className="flex items-end gap-1.5 pl-3">
+      {/* Mobile: HeadlessUI Listbox replaces the chip row — native
+       * <select> on iOS Safari doesn't anchor the popup precisely
+       * left, and we can't fix that from CSS. Listbox gives full
+       * control of trigger and popup positioning. Options carry the
+       * count as "· 42" (matching the chip badges) and zero-count
+       * options are disabled. */}
+      <div className="md:hidden mb-2 pl-1">
+        <Listbox value={selectedIndex} onChange={handleChange}>
+          <div className="relative">
+            <ListboxButton className="w-full font-mono italic text-sm font-medium bg-light-200 text-light-900 rounded-md pl-3 pr-9 py-2 border-[1.5px] border-light-200 shadow-[inset_0_1px_2px_rgba(255,249,242,0.5)] focus:outline-none focus:ring-1 focus:ring-accent-500 text-left">
+              <span className="flex items-center gap-1.5">
+                <span>{tabs[selectedIndex]?.label ?? ""}</span>
+                {typeof tabs[selectedIndex]?.count === "number" && (
+                  <span className="text-light-700 not-italic">
+                    · {formatCount(tabs[selectedIndex]!.count!)}
+                  </span>
+                )}
+              </span>
+              <MdKeyboardArrowDown
+                aria-hidden
+                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-light-900"
+              />
+            </ListboxButton>
+            <ListboxOptions
+              anchor="bottom start"
+              className="mt-1 w-[var(--button-width)] rounded-md border border-light-700/60 bg-light-950 shadow-lg shadow-black/40 focus:outline-none z-50 py-1"
+            >
+              {tabs.map((tab, i) => (
+                <ListboxOption
+                  key={tab.id}
+                  value={i}
+                  disabled={tab.count === 0}
+                  className="group flex items-center gap-2 px-3 py-2 font-mono italic text-sm text-light-200 data-[focus]:bg-light-900/60 data-[selected]:text-light-100 data-[disabled]:opacity-40 data-[disabled]:cursor-not-allowed cursor-pointer"
+                >
+                  <MdCheck className="w-4 h-4 opacity-0 group-data-[selected]:opacity-100 text-accent-500" />
+                  <span>{tab.label}</span>
+                  {typeof tab.count === "number" && (
+                    <span className="text-light-500 not-italic">
+                      · {formatCount(tab.count)}
+                    </span>
+                  )}
+                </ListboxOption>
+              ))}
+            </ListboxOptions>
+          </div>
+        </Listbox>
+      </div>
+
+      <TabList className="hidden md:flex items-end gap-1.5 pl-3">
         {tabs.map((tab) => (
           <Tab
             key={tab.id}
