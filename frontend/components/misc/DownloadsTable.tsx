@@ -20,7 +20,8 @@ interface DownloadsTableProps {
 
 const DownloadsTable = ({ data }: DownloadsTableProps) => {
   return (
-    <div className="overflow-x-auto">
+    <>
+    <div className="hidden md:block overflow-x-auto">
       <table className="w-full md:table-fixed">
         <thead className="text-light-400">
           <tr>
@@ -83,6 +84,42 @@ const DownloadsTable = ({ data }: DownloadsTableProps) => {
         </tbody>
       </table>
     </div>
+
+    {/* card list — mobile. Version + release date on top, summary and
+     * size below, download button on its own line. */}
+    <div className="md:hidden w-full flex flex-col divide-y divide-light-800">
+      {data.map((row) => (
+        <div
+          key={row.release_date + "_" + row.version}
+          className="w-full py-3 flex flex-col gap-2"
+        >
+          <div className="w-full flex items-baseline justify-between gap-2">
+            <span className="font-mono text-sm text-light-100">
+              {row.version}
+            </span>
+            <span className="font-mono italic text-[11px] text-light-500 tabular-nums">
+              {row.release_date}
+            </span>
+          </div>
+          <p className="w-full text-light-200 text-sm leading-snug">
+            {row.summary}
+          </p>
+          <div className="w-full flex items-center justify-between gap-2">
+            <span className="font-mono italic text-[10px] uppercase tracking-wider text-light-500">
+              {row.file_size}
+            </span>
+            <a
+              href={row.download_link}
+              className="flex items-center gap-1 border border-light-300 text-light-300 hover:border-light-200 hover:text-light-200 px-2 py-0.5 text-xs rounded transition-all duration-150"
+            >
+              <MdDownload />
+              Download
+            </a>
+          </div>
+        </div>
+      ))}
+    </div>
+    </>
   );
 };
 

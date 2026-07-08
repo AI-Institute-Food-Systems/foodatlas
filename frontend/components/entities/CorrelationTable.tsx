@@ -68,11 +68,24 @@ const CorrelationTable = ({
     setSelectedRowIdx(idx);
   };
 
+  // Small +/- badge — used by both the desktop table and the mobile
+  // card list, so the visual language stays identical.
+  const SignBadge = () =>
+    correlationType === "negative" ? (
+      <div className="w-[1.2rem] h-[1.2rem] flex justify-center items-center rounded-full border-[1.5px] border-red-600 text-red-600 bg-red-600/10 shadow-red-800/50 shadow-[inset_0_2px_8px_rgba(0,0,0,0.4)] md:shadow-inset_0_2px_8px_rgba(0,0,0,0.6) font-bold">
+        <MdRemove />
+      </div>
+    ) : (
+      <div className="w-[1.2rem] h-[1.2rem] flex justify-center items-center rounded-full border-[1.5px] border-lime-600 text-lime-600 bg-lime-600/10 shadow-lime-800/50 shadow-[inset_0_2px_8px_rgba(0,0,0,0.4)] md:shadow-inset_0_2px_8px_rgba(0,0,0,0.6) font-bold">
+        <MdAdd />
+      </div>
+    );
+
   return (
     <>
       <div>
-        {/* table */}
-        <div className="overflow-x-auto">
+        {/* table — desktop */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full table-fixed">
             {/* table headers */}
             <thead className="text-light-400 text-left">
@@ -228,6 +241,91 @@ const CorrelationTable = ({
             </tbody>
           </table>
         </div>
+
+        {/* card list — mobile. Primary line: sign badge + linked entity
+         * name. Evidence collapsed to a single "Show PMIDs" button so
+         * the row never overflows; users still reach every PMID via
+         * the modal. On the chemical page (where each row has both a
+         * source chemical + a disease/other entity), the source
+         * chemical link sits on the primary line and the impacted
+         * entity + evidence sit below it. */}
+        <div className="md:hidden w-full flex flex-col divide-y divide-light-800">
+          {isLoading ? (
+            Array.from({ length: 10 }, (_, index) => (
+              <div key={index} className="w-full py-3">
+                <LoadingCard className="h-5" />
+              </div>
+            ))
+          ) : isError ? (
+            <div className="w-full py-6 flex items-center justify-center text-red-400 gap-2">
+              <MdErrorOutline /> An error occurred fetching data, please
+              refresh the page
+            </div>
+          ) : data.length > 0 ? (
+            data.map((row, rowIdx) => (
+              <div
+                key={`${row.id}-${rowIdx}`}
+                className="w-full py-3 flex flex-col gap-2"
+              >
+                <div className="w-full flex items-center gap-2 flex-wrap capitalize">
+                  <SignBadge />
+                  <Link
+                    className="capitalize"
+                    href={
+                      tableLocation === "chemical"
+                        ? `/chemical/${encodeURIComponent(encodeSpace(row.source_chemical_name ?? commonName))}`
+                        : `/chemical/${encodeURIComponent(encodeSpace(row.name))}`
+                    }
+                    isExternal={false}
+                  >
+                    {tableLocation === "chemical"
+                      ? (row.source_chemical_name ?? commonName)
+                      : row.name}
+                  </Link>
+                  {tableLocation !== "chemical" && (
+                    <EntitySiblingIcon
+                      siblings={row.ambiguity_siblings}
+                      entityKind="chemical"
+                    />
+                  )}
+                </div>
+                {tableLocation === "chemical" && (
+                  <div className="w-full flex items-baseline justify-between gap-2 text-sm">
+                    <span className="font-mono italic text-[10px] uppercase tracking-wider text-light-500">
+                      Impacts
+                    </span>
+                    <Link
+                      className="capitalize text-right"
+                      href={`/disease/${encodeURIComponent(encodeSpace(row.name))}`}
+                      isExternal={false}
+                    >
+                      {row.name}
+                    </Link>
+                  </div>
+                )}
+                <div className="w-full flex items-center justify-between gap-2 text-sm">
+                  <span className="font-mono italic text-[10px] uppercase tracking-wider text-light-500">
+                    Evidence
+                  </span>
+                  <Button
+                    className="font-medium"
+                    variant="outlined"
+                    size="sm"
+                    onClick={() => handleEvidenceShowMoreClick(rowIdx)}
+                  >
+                    Show {row.evidences.length} PMID
+                    {row.evidences.length === 1 ? "" : "s"}
+                  </Button>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="w-full py-6 flex items-center justify-center text-light-300 gap-2">
+              <MdInfoOutline /> No evidence found
+            </div>
+          )}
+        </div>
+
         {/* pagination */}
         {(numberOfPages > 1 || isLoading) && (
           <div className="mt-8 max-w-xl w-full mx-auto">

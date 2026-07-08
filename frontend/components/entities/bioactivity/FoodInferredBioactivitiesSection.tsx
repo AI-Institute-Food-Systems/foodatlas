@@ -202,13 +202,36 @@ const FoodInferredBioactivitiesSection = ({
       )}
 
       {!isLoading && totalRows > 0 && (
-        <div className="mb-1.5 flex justify-end">
+        <div className="mb-1.5 flex justify-between md:justify-end items-center gap-3">
           <span className="font-mono italic text-[11px] text-light-500 tabular-nums">
             {totalRows.toLocaleString()} {totalRows === 1 ? "row" : "rows"}
           </span>
+          <div className="md:hidden flex items-center gap-2">
+            <span className="font-mono italic text-[11px] text-light-500">
+              sort
+            </span>
+            <select
+              value={`${sort.by}|${sort.dir}`}
+              onChange={(e) => {
+                const [by, dir] = e.target.value.split("|");
+                setSort({ by, dir: dir as SortDir });
+                setTablePaginations(tableId, 1, 20);
+              }}
+              className="rounded-md border border-light-700/60 bg-light-900/60 px-2 py-1 text-xs font-mono italic text-light-200 focus:outline-none focus:ring-1 focus:ring-accent-500"
+            >
+              <option value="bioactivity|asc">Bioactivity A–Z</option>
+              <option value="bioactivity|desc">Bioactivity Z–A</option>
+              <option value="chemical|asc">Chemical A–Z</option>
+              <option value="chemical|desc">Chemical Z–A</option>
+              <option value="concentration|desc">Highest concentration</option>
+              <option value="concentration|asc">Lowest concentration</option>
+              <option value="measurement_count|desc">Most assays</option>
+              <option value="measurement_count|asc">Least assays</option>
+            </select>
+          </div>
         </div>
       )}
-      <div className="overflow-x-auto">
+      <div className="hidden md:block overflow-x-auto">
         <table className="w-full table-fixed">
           <colgroup>
             <col className="w-[22%]" />
@@ -292,6 +315,100 @@ const FoodInferredBioactivitiesSection = ({
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Card list — mobile. Primary line pairs Bioactivity → Chemical
+       * (the inference chain). Concentration + Assays + Top + View
+       * button sit below as label:value rows. */}
+      <div className="md:hidden w-full flex flex-col divide-y divide-light-800">
+        {isLoading ? (
+          Array.from({ length: 8 }).map((_, i) => (
+            <div key={`l-${i}`} className="w-full py-3">
+              <LoadingCard className="h-5" />
+            </div>
+          ))
+        ) : showEmpty ? (
+          <div className="w-full py-6 flex items-center justify-center text-light-300 gap-2">
+            <MdInfoOutline /> No chemicals in this food have measured
+            bioactivities yet
+          </div>
+        ) : (
+          rows.map((row, idx) => {
+            const conc = row.median_concentration;
+            const top = row.top_measurement;
+            return (
+              <div
+                key={`${row.chemical_id}-${row.bioactivity_id}-${idx}`}
+                className="w-full py-3 flex flex-col gap-2 text-sm"
+              >
+                <div className="w-full flex items-baseline gap-2 flex-wrap capitalize">
+                  <Link
+                    href={`/bioactivity/${encodeURIComponent(
+                      encodeSpace(row.bioactivity)
+                    )}`}
+                    isExternal={false}
+                  >
+                    {row.bioactivity}
+                  </Link>
+                  <span className="font-mono italic text-[10px] uppercase tracking-wider text-light-500">
+                    via
+                  </span>
+                  <Link
+                    href={`/chemical/${encodeURIComponent(
+                      encodeSpace(row.chemical)
+                    )}`}
+                    isExternal={false}
+                  >
+                    {row.chemical}
+                  </Link>
+                </div>
+                <div className="w-full flex items-baseline justify-between gap-2">
+                  <span className="font-mono italic text-[10px] uppercase tracking-wider text-light-500">
+                    Concentration
+                  </span>
+                  <span className="font-mono tabular-nums text-light-200 text-right">
+                    {conc?.value == null ? (
+                      <span className="text-light-600">—</span>
+                    ) : (
+                      <>
+                        {formatConcentrationValueAlt(conc.value)}
+                        <span className="ml-1 text-light-500">
+                          {conc.unit ?? ""}
+                        </span>
+                      </>
+                    )}
+                  </span>
+                </div>
+                <div className="w-full flex items-baseline justify-between gap-2">
+                  <span className="font-mono italic text-[10px] uppercase tracking-wider text-light-500">
+                    Assays
+                  </span>
+                  <span className="tabular-nums text-light-200">
+                    {row.measurement_count.toLocaleString()}
+                  </span>
+                </div>
+                <div className="w-full flex items-baseline justify-between gap-2">
+                  <span className="font-mono italic text-[10px] uppercase tracking-wider text-light-500">
+                    Top measurement
+                  </span>
+                  <span className="font-mono text-xs text-light-200 text-right">
+                    {formatTopMeasurement(top)}
+                  </span>
+                </div>
+                <div className="w-full flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setSelected(row)}
+                    disabled={row.measurement_count === 0}
+                    className="font-mono italic text-xs px-2.5 py-0.5 rounded-full border border-light-700/60 text-light-300 hover:text-light-100 hover:border-light-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+                  >
+                    View {row.measurement_count.toLocaleString()} →
+                  </button>
+                </div>
+              </div>
+            );
+          })
+        )}
       </div>
 
       {showingPaginator && (

@@ -500,13 +500,42 @@ const BioactivityTable = ({
       <div className="flex flex-col gap-7">
       <div>
       {!isLoading && totalRows > 0 && (
-        <div className="mb-1.5 flex justify-end">
+        <div className="mb-1.5 flex justify-between md:justify-end items-center gap-3">
           <span className="font-mono italic text-[11px] text-light-500 tabular-nums">
             {totalRows.toLocaleString()} {totalRows === 1 ? "row" : "rows"}
           </span>
+          {/* Mobile sort — built from sortable columns × asc/desc. */}
+          {columns.some((c) => c.sortable) && (
+            <div className="md:hidden flex items-center gap-2">
+              <span className="font-mono italic text-[11px] text-light-500">
+                sort
+              </span>
+              <select
+                value={`${sort.by}|${sort.dir}`}
+                onChange={(e) => {
+                  const [by, dir] = e.target.value.split("|");
+                  setSort({ by, dir: dir as SortDir });
+                  setTablePaginations(tableId, 1, 20);
+                }}
+                className="rounded-md border border-light-700/60 bg-light-900/60 px-2 py-1 text-xs font-mono italic text-light-200 focus:outline-none focus:ring-1 focus:ring-accent-500"
+              >
+                {columns
+                  .filter((c) => c.sortable)
+                  .flatMap((c) => [
+                    { value: `${c.key}|desc`, label: `${c.label} ↓` },
+                    { value: `${c.key}|asc`, label: `${c.label} ↑` },
+                  ])
+                  .map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+              </select>
+            </div>
+          )}
         </div>
       )}
-      <div className="overflow-x-auto">
+      <div className="hidden md:block overflow-x-auto">
         <table className="w-full table-fixed">
           <colgroup>
             {columns.map((c) => (
@@ -585,6 +614,60 @@ const BioactivityTable = ({
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Card list — mobile. Walks the same `columns[]` spec: first
+       * column renders as the primary line (typically NameLinkCell),
+       * remaining columns become label:value rows with justify-between.
+       * That way every consumer (bioactivity chemicals / foods /
+       * measurements) gets a mobile view without a per-caller
+       * override. */}
+      <div className="md:hidden w-full flex flex-col divide-y divide-light-800">
+        {isLoading ? (
+          Array.from({ length: 8 }).map((_, i) => (
+            <div key={`l-${i}`} className="w-full py-3">
+              <LoadingCard className="h-5" />
+            </div>
+          ))
+        ) : showEmpty ? (
+          <div className="w-full py-6 flex items-center justify-center text-light-300 gap-2">
+            <MdInfoOutline /> {emptyMessage}
+          </div>
+        ) : (
+          rows.map((row) => {
+            const ctx: ColumnContext = { openModal: () => setSelected(row) };
+            const [primary, ...rest] = columns;
+            return (
+              <div
+                key={row.id}
+                className="w-full py-3 flex flex-col gap-2 text-sm"
+              >
+                <div className="w-full flex items-center gap-2 flex-wrap">
+                  {primary.render(row, ctx)}
+                </div>
+                {rest.map((c) => {
+                  const label =
+                    c.label === "Assays" && effectiveSourceKindParam
+                      ? `Assays (${effectiveSourceKindParam})`
+                      : c.label;
+                  return (
+                    <div
+                      key={c.key}
+                      className="w-full flex items-center justify-between gap-2"
+                    >
+                      <span className="font-mono italic text-[10px] uppercase tracking-wider text-light-500">
+                        {label}
+                      </span>
+                      <div className="text-right">
+                        {c.render(row, ctx)}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })
+        )}
       </div>
       </div>
 

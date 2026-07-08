@@ -587,7 +587,9 @@ const MeasurementsTable = ({
     ? PAGE_SIZE
     : Math.max(0, placeholderCount - expandedInView);
   return (
-    <table className="w-full table-fixed">
+    <>
+    {/* Desktop table */}
+    <table className="hidden md:table w-full table-fixed">
       <colgroup>
         <col className="w-[28%]" />
         <col className="w-[16%]" />
@@ -717,6 +719,100 @@ const MeasurementsTable = ({
         ))}
       </tbody>
     </table>
+
+    {/* Card list — mobile. Primary line: Assay + Value. Endpoint /
+     * Outcome / Source stack below as label:value rows. Hill Curve
+     * button + expanded fit view live at the bottom of the card. */}
+    <div className="md:hidden w-full flex flex-col divide-y divide-light-800">
+      {skeleton
+        ? Array.from({ length: PAGE_SIZE }).map((_, i) => (
+            <div key={`sk-${i}`} className="w-full py-3">
+              <LoadingCard className="h-5" />
+            </div>
+          ))
+        : dataRows.map((m, i) => {
+            const key = rowKey(m, i);
+            const canExpand = hasHillFit(m);
+            const isExpanded = expandedKey === key;
+            return (
+              <div
+                key={key}
+                className={twMerge(
+                  "w-full py-3 flex flex-col gap-2 text-sm",
+                  isExpanded && "bg-light-900/50 -mx-2 px-2 rounded",
+                )}
+              >
+                <div className="w-full flex items-center justify-between gap-2 flex-wrap">
+                  <AssayCell assay={m.assay} />
+                  <span className="font-mono text-xs text-light-200 tabular-nums text-right">
+                    {m.value === null || m.value === undefined ? (
+                      <span className="text-light-600">—</span>
+                    ) : (
+                      <>
+                        {formatNumberShort(m.value)}{" "}
+                        <span className="text-light-500">
+                          {m.unit && m.unit !== "None" ? m.unit : ""}
+                        </span>
+                      </>
+                    )}
+                  </span>
+                </div>
+                <div className="w-full flex items-baseline justify-between gap-2">
+                  <span className="font-mono italic text-[10px] uppercase tracking-wider text-light-500">
+                    Endpoint
+                  </span>
+                  <span className="text-light-200 text-right">
+                    {m.endpoint || "—"}
+                  </span>
+                </div>
+                <div className="w-full flex items-center justify-between gap-2">
+                  <span className="font-mono italic text-[10px] uppercase tracking-wider text-light-500">
+                    Outcome
+                  </span>
+                  <OutcomeBadge outcome={m.outcome} />
+                </div>
+                <div className="w-full flex items-center justify-between gap-2">
+                  <span className="font-mono italic text-[10px] uppercase tracking-wider text-light-500">
+                    Source
+                  </span>
+                  <SourceBadge source={m.evidence_source} />
+                </div>
+                {canExpand && (
+                  <div className="w-full flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => onToggleExpand(key)}
+                      aria-label={
+                        isExpanded ? "Hide Hill curve" : "Show Hill curve"
+                      }
+                      aria-expanded={isExpanded}
+                      className={twMerge(
+                        "inline-flex items-center gap-1 px-2 py-0.5 rounded-full border font-mono italic text-xs whitespace-nowrap transition-colors",
+                        isExpanded
+                          ? "border-accent-600/60 bg-accent-600/10 text-accent-600"
+                          : "border-light-700/60 text-light-400 hover:text-light-100 hover:border-light-500",
+                      )}
+                    >
+                      <span>{isExpanded ? "Hide" : "Show"} Hill Curve</span>
+                      <MdChevronRight
+                        className={twMerge(
+                          "transition-transform duration-150",
+                          isExpanded && "rotate-90",
+                        )}
+                      />
+                    </button>
+                  </div>
+                )}
+                {isExpanded && (
+                  <div className="w-full pt-2 border-t border-l-2 border-l-accent-600 border-light-700/40 pl-3">
+                    <ExpandedHillFit m={m} />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+    </div>
+    </>
   );
 };
 

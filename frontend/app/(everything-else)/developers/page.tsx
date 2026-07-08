@@ -206,7 +206,7 @@ const Developers = () => {
             is offset-based:{" "}
             <Code>?page=&page_size=</Code> (max 100).
           </p>
-          <div className="overflow-x-auto">
+          <div className="hidden md:block overflow-x-auto">
             {/* Same chrome as the entity-page tables: h-9 header / py-1.5
              * rows / text-sm body, mono cells for method+path. */}
             <table className="w-full table-fixed">
@@ -253,6 +253,27 @@ const Developers = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* card list — mobile. METHOD + path on top mono line,
+           * summary below. */}
+          <div className="md:hidden w-full flex flex-col divide-y divide-light-800">
+            {ENDPOINTS.map((e) => (
+              <div
+                key={`${e.method} ${e.path}`}
+                className="w-full py-3 flex flex-col gap-1.5"
+              >
+                <div className="w-full flex items-baseline gap-2 flex-wrap font-mono">
+                  <span className="text-light-100 text-sm">{e.method}</span>
+                  <span className="text-light-200 text-xs break-all">
+                    {e.path}
+                  </span>
+                </div>
+                <p className="w-full text-light-300 text-sm leading-snug">
+                  {e.summary}
+                </p>
+              </div>
+            ))}
           </div>
         </Card>
       </div>

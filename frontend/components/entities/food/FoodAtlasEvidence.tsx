@@ -75,8 +75,8 @@ const FoodAtlasEvidence = ({ evidence }: FoodAtlasEvidenceProps) => {
             return part;
           })}
       </p>
-      {/* extraction table */}
-      <div className="mt-5 overflow-x-auto">
+      {/* extraction table — desktop */}
+      <div className="hidden md:block mt-5 overflow-x-auto">
         <table className="text-xs w-full table-fixed">
           <colgroup>
             <col className="w-[20%]" />
@@ -136,6 +136,57 @@ const FoodAtlasEvidence = ({ evidence }: FoodAtlasEvidenceProps) => {
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* extraction cards — mobile. Same shape as FdcEvidence. */}
+      <div className="md:hidden mt-4 w-full flex flex-col divide-y divide-light-800 text-xs">
+        {evidence.extraction.map((extraction, index) => (
+          <div key={index} className="w-full py-3 flex flex-col gap-1.5">
+            <div className="w-full flex items-center gap-1.5 flex-wrap capitalize text-sm text-light-100">
+              {extraction.extracted_chemical_name}
+              <AmbiguityIcon
+                chemicalCandidates={extraction.chemical_candidates}
+              />
+            </div>
+            <div className="w-full flex items-baseline justify-between gap-2">
+              <span className="font-mono italic text-[10px] uppercase tracking-wider text-light-500">
+                Food
+              </span>
+              <span className="capitalize text-light-300 text-right break-all">
+                {extraction.extracted_food_name}
+              </span>
+            </div>
+            <div className="w-full flex items-baseline justify-between gap-2">
+              <span className="font-mono italic text-[10px] uppercase tracking-wider text-light-500">
+                Conc.
+              </span>
+              <span className="font-mono tabular-nums text-light-300 text-right">
+                {extraction.extracted_concentration ?? "-"}
+              </span>
+            </div>
+            <div className="w-full flex items-baseline justify-between gap-2">
+              <span className="font-mono italic text-[10px] uppercase tracking-wider text-light-500">
+                Converted
+              </span>
+              <span className="font-mono tabular-nums text-light-300 text-right">
+                {extraction.converted_concentration.unit &&
+                extraction.converted_concentration.value
+                  ? `${formatConcentrationValueAlt(
+                      extraction.converted_concentration.value
+                    )} ${extraction.converted_concentration.unit}`
+                  : "-"}
+              </span>
+            </div>
+            <div className="w-full flex items-baseline justify-between gap-2">
+              <span className="font-mono italic text-[10px] uppercase tracking-wider text-light-500">
+                Method
+              </span>
+              <span className="uppercase text-light-300 text-right break-words">
+                {extraction.method}
+              </span>
+            </div>
+          </div>
+        ))}
       </div>
     </Card>
   );
