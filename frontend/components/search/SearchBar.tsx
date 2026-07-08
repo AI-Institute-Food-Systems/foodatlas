@@ -217,7 +217,7 @@ const SearchBar = () => {
       aria-hidden={!isVisible}
     >
       <div
-        className={`z-50 w-full absolute px-3md:px-12 ${
+        className={`z-50 w-full absolute px-3 md:px-12 ${
           isFocused ? "absolute inset-0 top-24 -right-4" : ""
         } ${isResultsPage ? "" : "duration-[250ms]"}`}
         ref={containerRef}

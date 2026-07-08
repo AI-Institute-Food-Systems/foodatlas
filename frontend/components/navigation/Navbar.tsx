@@ -114,7 +114,7 @@ const Navbar = ({ className }: NavbarProps) => {
           </div>
         </div>
         {isNavMenuOpen && (
-          <div className="h-screen mt-10 mx-3 flex flex-col gap-10">
+          <div className="max-h-[calc(100dvh-4rem)] overflow-y-auto mt-10 mx-3 pb-10 flex flex-col gap-10">
             {NAV_ITEMS.map((navItem) => (
               <NavbarLink
                 key={navItem.href}

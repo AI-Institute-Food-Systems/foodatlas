@@ -64,7 +64,7 @@ const Modal = ({
       {/* backdrop   */}
       <div className="fixed inset-0 w-screen backdrop-blur-md bg-neutral-800/50" />
       {/* modal */}
-      <div className="fixed inset-0 overflow-y-auto md:p-12">
+      <div className="fixed inset-0 overflow-y-auto p-3 md:p-12">
         {/* center content */}
         <div className="flex min-h-full items-center justify-center">
           <DialogPanel
