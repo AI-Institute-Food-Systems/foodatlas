@@ -63,7 +63,11 @@ const Navbar = ({ className }: NavbarProps) => {
   return (
     <div
       className={twMerge(
-        "fixed top-0 w-[100vw] bg-[#0a0a09]/30 backdrop-blur-2xl saturate-200 z-40 px-3 md:px-12",
+        // Base sits at z-40. When the mobile menu is open we bump to
+        // z-[60] so the SearchBar portal (z-50) and its backdrop don't
+        // punch through the menu.
+        "fixed top-0 w-[100vw] bg-[#0a0a09]/30 backdrop-blur-2xl saturate-200 px-3 md:px-12",
+        isNavMenuOpen ? "z-[60]" : "z-40",
         isScrolled ? "border-b border-light-800" : "",
         className,
       )}
@@ -114,7 +118,7 @@ const Navbar = ({ className }: NavbarProps) => {
           </div>
         </div>
         {isNavMenuOpen && (
-          <div className="max-h-[calc(100dvh-4rem)] overflow-y-auto mt-10 mx-3 pb-10 flex flex-col gap-10">
+          <div className="h-[calc(100dvh-2.75rem)] sm:h-[calc(100dvh-3rem)] overflow-y-auto pt-8 pb-1.5 pl-2 flex flex-col gap-4">
             {NAV_ITEMS.map((navItem) => (
               <NavbarLink
                 key={navItem.href}
