@@ -35,14 +35,9 @@ import {
 import { FoodCompositionData } from "@/types";
 
 // headers for table
-// `hideOnMobile: true` collapses the column below md: — the header,
-// colgroup col, and corresponding <td> all get `hidden md:table-*`.
-// We hide Classification because it's a nice-to-have signal that
-// competes with Chemical, Concentration, and Evidence for space on
-// narrow screens.
 const TABLE_HEADERS = [
   { label: "Chemical", sortName: "common_name", align: "left" as const },
-  { label: "Classification", align: "left" as const, hideOnMobile: true },
+  { label: "Classification", align: "left" as const },
   {
     label: "Concentration (mg/100g)",
     sortName: "median_concentration",
@@ -631,10 +626,10 @@ const FoodCompositionSection = ({
             )}
             <table className="w-full table-fixed">
               <colgroup>
-                <col className="w-[38%] md:w-[28%]" />
-                <col className="hidden md:table-column md:w-[15%]" />
-                <col className="w-[38%] md:w-[37%]" />
-                <col className="w-[24%] md:w-[20%]" />
+                <col className="w-[28%]" />
+                <col className="w-[15%]" />
+                <col className="w-[37%]" />
+                <col className="w-[20%]" />
               </colgroup>
               <thead className="text-light-400 text-left">
                 <tr>
@@ -648,9 +643,7 @@ const FoodCompositionSection = ({
                           : index === TABLE_HEADERS.length - 1
                           ? "pl-4"
                           : "px-4"
-                      } ${header.align === "right" ? "text-right" : "text-left"} ${
-                        header.hideOnMobile ? "hidden md:table-cell" : ""
-                      }`}
+                      } ${header.align === "right" ? "text-right" : "text-left"}`}
                     >
                       <div
                         className={`group flex gap-1 items-center flex-nowrap w-full ${
@@ -749,9 +742,8 @@ const FoodCompositionSection = ({
                           />
                         </div>
                       </td>
-                      {/* classification — hidden below md: (see
-                       * TABLE_HEADERS `hideOnMobile`). */}
-                      <td className="hidden md:table-cell py-1.5 px-4">
+                      {/* classification */}
+                      <td className="py-1.5 px-4">
                         <div className="flex min-h-9 capitalize items-center">
                           {row.chemical_classification.length > 0
                             ? row.chemical_classification.join(", ")

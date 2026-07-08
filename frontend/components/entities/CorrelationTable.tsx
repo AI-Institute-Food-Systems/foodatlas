@@ -129,11 +129,11 @@ const CorrelationTable = ({
                       <td className="py-1.5 pr-4">
                         <div className="flex gap-2.5 min-h-9 capitalize items-center">
                           {correlationType === "negative" ? (
-                            <div className="w-4 h-4 md:w-[1.2rem] md:h-[1.2rem] text-sm md:text-base flex justify-center items-center rounded-full border-[1.5px] border-red-600 text-red-600 bg-red-600/10 shadow-red-800/50 shadow-[inset_0_2px_8px_rgba(0,0,0,0.4)] md:shadow-inset_0_2px_8px_rgba(0,0,0,0.6) font-bold">
+                            <div className="w-[1.2rem] h-[1.2rem] flex justify-center items-center rounded-full border-[1.5px] border-red-600 text-red-600 bg-red-600/10 shadow-red-800/50 shadow-[inset_0_2px_8px_rgba(0,0,0,0.4)] md:shadow-inset_0_2px_8px_rgba(0,0,0,0.6) font-bold">
                               <MdRemove />
                             </div>
                           ) : (
-                            <div className="w-4 h-4 md:w-[1.2rem] md:h-[1.2rem] text-sm md:text-base flex justify-center items-center rounded-full border-[1.5px] border-lime-600 text-lime-600 bg-lime-600/10 shadow-lime-800/50 shadow-[inset_0_2px_8px_rgba(0,0,0,0.4)] md:shadow-inset_0_2px_8px_rgba(0,0,0,0.6) font-bold">
+                            <div className="w-[1.2rem] h-[1.2rem] flex justify-center items-center rounded-full border-[1.5px] border-lime-600 text-lime-600 bg-lime-600/10 shadow-lime-800/50 shadow-[inset_0_2px_8px_rgba(0,0,0,0.4)] md:shadow-inset_0_2px_8px_rgba(0,0,0,0.6) font-bold">
                               <MdAdd />
                             </div>
                           )}
@@ -152,11 +152,11 @@ const CorrelationTable = ({
                       <div className="flex gap-2.5 min-h-9 capitalize items-center">
                         {tableLocation !== "chemical" && (
                           correlationType === "negative" ? (
-                            <div className="w-4 h-4 md:w-[1.2rem] md:h-[1.2rem] text-sm md:text-base flex justify-center items-center rounded-full border-[1.5px] border-red-600 text-red-600 bg-red-600/10 shadow-red-800/50 shadow-[inset_0_2px_8px_rgba(0,0,0,0.4)] md:shadow-inset_0_2px_8px_rgba(0,0,0,0.6) font-bold">
+                            <div className="w-[1.2rem] h-[1.2rem] flex justify-center items-center rounded-full border-[1.5px] border-red-600 text-red-600 bg-red-600/10 shadow-red-800/50 shadow-[inset_0_2px_8px_rgba(0,0,0,0.4)] md:shadow-inset_0_2px_8px_rgba(0,0,0,0.6) font-bold">
                               <MdRemove />
                             </div>
                           ) : (
-                            <div className="w-4 h-4 md:w-[1.2rem] md:h-[1.2rem] text-sm md:text-base flex justify-center items-center rounded-full border-[1.5px] border-lime-600 text-lime-600 bg-lime-600/10 shadow-lime-800/50 shadow-[inset_0_2px_8px_rgba(0,0,0,0.4)] md:shadow-inset_0_2px_8px_rgba(0,0,0,0.6) font-bold">
+                            <div className="w-[1.2rem] h-[1.2rem] flex justify-center items-center rounded-full border-[1.5px] border-lime-600 text-lime-600 bg-lime-600/10 shadow-lime-800/50 shadow-[inset_0_2px_8px_rgba(0,0,0,0.4)] md:shadow-inset_0_2px_8px_rgba(0,0,0,0.6) font-bold">
                               <MdAdd />
                             </div>
                           )
@@ -180,39 +180,38 @@ const CorrelationTable = ({
                         )}
                       </div>
                     </td>
-                    {/* evidence — shows up to 3 PMIDs on desktop; on
-                     * mobile we only surface the first PMID + the "N
-                     * more" button (or just the button when there are
-                     * ≥3) so the column doesn't force horizontal
-                     * scroll. Users still reach the full list via the
-                     * evidence modal. */}
+                    {/* evidence */}
                     <td className="py-1.5 pl-4">
-                      <div className="flex min-h-9 capitalize items-center justify-end">
-                        <div className="flex gap-2 justify-end items-center flex-wrap md:flex-nowrap">
-                          {row.evidences.slice(0, 3).map((evidence, i) => (
-                            <Link
-                              className={`whitespace-nowrap ${i > 0 ? "hidden md:inline" : ""}`}
-                              key={evidence.pmid?.id ?? evidence.pmcid?.id}
-                              href={evidence.pmid?.url ?? evidence.pmcid?.url}
-                              isExternal
-                            >
-                              {evidence.pmid?.id ?? evidence.pmcid?.id}
-                            </Link>
-                          ))}
-                          {row.evidences.length > 3 && (
-                            <Button
-                              className="font-medium"
-                              variant="outlined"
-                              size="sm"
-                              onClick={() =>
-                                handleEvidenceShowMoreClick(rowIdx)
-                              }
-                            >
-                              {`${row.evidences.length - 3} more`}...
-                            </Button>
-                          )}
+                      {
+                        <div className="flex min-h-9 capitalize items-center justify-end">
+                          <div className="flex gap-2 justify-end items-center flex-nowrap">
+                            {row.evidences.slice(0, 3).map((evidence) => (
+                              <Link
+                                className="whitespace-nowrap"
+                                key={evidence.pmid?.id ?? evidence.pmcid?.id}
+                                href={evidence.pmid?.url ?? evidence.pmcid?.url}
+                                isExternal
+                              >
+                                {evidence.pmid?.id ?? evidence.pmcid?.id}
+                              </Link>
+                            ))}
+                            {row.evidences.length > 3 && (
+                              <>
+                                <Button
+                                  className="font-medium"
+                                  variant="outlined"
+                                  size="sm"
+                                  onClick={() =>
+                                    handleEvidenceShowMoreClick(rowIdx)
+                                  }
+                                >
+                                  {`${row.evidences.length - 3} more`}...
+                                </Button>
+                              </>
+                            )}
+                          </div>
                         </div>
-                      </div>
+                      }
                     </td>
                   </tr>
                 ))

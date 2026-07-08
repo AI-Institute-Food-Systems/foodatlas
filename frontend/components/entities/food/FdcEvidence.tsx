@@ -24,35 +24,31 @@ const FdcEvidence = ({ evidence }: FdcEvidenceProps) => {
           View Source
         </Link>
       </div>
-      {/* extraction table — hides Food + Method below md: so the
-       * remaining 3 columns (Chemical / Concentration / Converted) get
-       * enough width on phones. Food is redundant with page context and
-       * Method is the least essential signal.
-       */}
+      {/* extraction table */}
       <div className="mt-5 overflow-x-auto">
         <table className="text-xs w-full table-fixed">
           <colgroup>
-            <col className="hidden md:table-column md:w-[20%]" />
-            <col className="w-[40%] md:w-[20%]" />
-            <col className="w-[25%] md:w-[16%]" />
-            <col className="w-[35%] md:w-[24%]" />
-            <col className="hidden md:table-column md:w-[20%]" />
+            <col className="w-[20%]" />
+            <col className="w-[20%]" />
+            <col className="w-[16%]" />
+            <col className="w-[24%]" />
+            <col className="w-[20%]" />
           </colgroup>
           <thead>
             <tr className="border-b border-light-700">
-              <th className="hidden md:table-cell text-light-400 uppercase font-normal text-left pb-2 pr-2">
+              <th className="text-light-400 uppercase font-normal text-left pb-2 pr-2">
                 Food
               </th>
-              <th className="text-light-400 uppercase font-normal text-left pb-2 pr-2 md:px-2">
+              <th className="text-light-400 uppercase font-normal text-left pb-2 px-2">
                 Chemical
               </th>
               <th className="text-light-400 uppercase font-normal text-right pb-2 px-2">
-                Conc.
+                Concentration
               </th>
-              <th className="text-light-400 uppercase font-normal text-right pb-2 pl-2 md:px-2">
-                Converted
+              <th className="text-light-400 uppercase font-normal text-right pb-2 px-2">
+                Converted Concentration
               </th>
-              <th className="hidden md:table-cell text-light-400 uppercase font-normal text-right pb-2 pl-2">
+              <th className="text-light-400 uppercase font-normal text-right pb-2 pl-2">
                 Method
               </th>
             </tr>
@@ -60,10 +56,10 @@ const FdcEvidence = ({ evidence }: FdcEvidenceProps) => {
           <tbody>
             {evidence.extraction.map((extraction, index) => (
               <tr key={index}>
-                <td className="hidden md:table-cell py-2 pr-2 break-all">
+                <td className="py-2 pr-2 break-all">
                   {extraction.extracted_food_name}
                 </td>
-                <td className="py-2 pr-2 md:px-2 break-all">
+                <td className="py-2 px-2 break-all">
                   <span className="inline-flex items-center gap-1 align-middle">
                     {extraction.extracted_chemical_name}
                     <AmbiguityIcon
@@ -74,7 +70,7 @@ const FdcEvidence = ({ evidence }: FdcEvidenceProps) => {
                 <td className="py-2 px-2 text-right whitespace-nowrap">
                   {extraction.extracted_concentration ?? "—"}
                 </td>
-                <td className="py-2 pl-2 md:px-2 text-right whitespace-nowrap">
+                <td className="py-2 px-2 text-right whitespace-nowrap">
                   {extraction.converted_concentration.unit &&
                   extraction.converted_concentration.value
                     ? `${formatConcentrationValueAlt(
@@ -82,7 +78,7 @@ const FdcEvidence = ({ evidence }: FdcEvidenceProps) => {
                       )} ${extraction.converted_concentration.unit}`
                     : "—"}
                 </td>
-                <td className="hidden md:table-cell py-2 pl-2 text-right uppercase break-words">
+                <td className="py-2 pl-2 text-right uppercase break-words">
                   {extraction.method}
                 </td>
               </tr>
