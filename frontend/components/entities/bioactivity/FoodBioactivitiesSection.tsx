@@ -46,6 +46,7 @@ const FoodBioactivitiesSection = ({
         align: "left",
         width: "w-[40%]",
         sortable: true,
+        sortLabels: { asc: "Bioactivity A–Z", desc: "Bioactivity Z–A" },
         render: (row) => <NameLinkCell row={row} hrefPrefix="/bioactivity/" />,
       },
       {

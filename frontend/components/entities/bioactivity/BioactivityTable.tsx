@@ -57,6 +57,11 @@ export type SortableColumn = {
   width: string;
   // Whether this column maps to a server-side sort_by key.
   sortable?: boolean;
+  // Human labels for asc/desc in the mobile sort dropdown. Arrows
+  // ("Chemical ↓") are ambiguous for text vs numeric columns, so each
+  // sortable column should supply a phrase like "Chemical A–Z" /
+  // "Highest concentration". Falls back to `${label} ↑ / ↓` if omitted.
+  sortLabels?: { asc: string; desc: string };
   // Renders the cell content for a row.
   render: (row: BioactivityRow, ctx: ColumnContext) => ReactNode;
 };
@@ -522,8 +527,14 @@ const BioactivityTable = ({
                 {columns
                   .filter((c) => c.sortable)
                   .flatMap((c) => [
-                    { value: `${c.key}|desc`, label: `${c.label} ↓` },
-                    { value: `${c.key}|asc`, label: `${c.label} ↑` },
+                    {
+                      value: `${c.key}|desc`,
+                      label: c.sortLabels?.desc ?? `${c.label} ↓`,
+                    },
+                    {
+                      value: `${c.key}|asc`,
+                      label: c.sortLabels?.asc ?? `${c.label} ↑`,
+                    },
                   ])
                   .map((opt) => (
                     <option key={opt.value} value={opt.value}>

@@ -31,6 +31,7 @@ const BioactivityFoodsSection = ({ commonName, anchorId }: Props) => {
         align: "left",
         width: "w-[40%]",
         sortable: true,
+        sortLabels: { asc: "Food A–Z", desc: "Food Z–A" },
         render: (row) => <NameLinkCell row={row} hrefPrefix="/food/" />,
       },
       {

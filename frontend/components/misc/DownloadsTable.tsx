@@ -108,9 +108,10 @@ const DownloadsTable = ({ data }: DownloadsTableProps) => {
             <span className="font-mono italic text-[10px] uppercase tracking-wider text-light-500">
               {row.file_size}
             </span>
+            {/* Same pill affordance as the other tables' action buttons. */}
             <a
               href={row.download_link}
-              className="flex items-center gap-1 border border-light-300 text-light-300 hover:border-light-200 hover:text-light-200 px-2 py-0.5 text-xs rounded transition-all duration-150"
+              className="inline-flex items-center gap-1 font-mono italic text-xs px-2.5 py-0.5 rounded-full border border-light-700/60 text-light-300 hover:text-light-100 hover:border-light-500 transition-colors whitespace-nowrap"
             >
               <MdDownload />
               Download

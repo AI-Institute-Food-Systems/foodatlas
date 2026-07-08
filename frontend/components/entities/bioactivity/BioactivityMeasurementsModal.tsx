@@ -737,10 +737,7 @@ const MeasurementsTable = ({
             return (
               <div
                 key={key}
-                className={twMerge(
-                  "w-full py-3 flex flex-col gap-2 text-sm",
-                  isExpanded && "bg-light-900/50 -mx-2 px-2 rounded",
-                )}
+                className="w-full py-3 flex flex-col gap-2 text-sm"
               >
                 <div className="w-full flex items-center justify-between gap-2 flex-wrap">
                   <AssayCell assay={m.assay} />
@@ -804,7 +801,7 @@ const MeasurementsTable = ({
                   </div>
                 )}
                 {isExpanded && (
-                  <div className="w-full pt-2 border-t border-l-2 border-l-accent-600 border-light-700/40 pl-3">
+                  <div className="w-full pt-3 pb-3 pl-3 pr-2 border-t border-l-2 border-l-accent-600 border-light-700/40">
                     <ExpandedHillFit m={m} />
                   </div>
                 )}

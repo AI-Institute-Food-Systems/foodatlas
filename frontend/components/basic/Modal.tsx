@@ -70,7 +70,11 @@ const Modal = ({
           <DialogPanel
             className={twMerge(
               "relative w-full max-w-5xl rounded-xl border border-light-50/5 bg-light-950 backdrop-blur-2xl shadow-inner shadow-light-700/20 p-5 md:p-7",
-              fullHeight && "flex flex-col h-[min(85vh,800px)]"
+              // Mobile: fill nearly the whole dynamic viewport (minus
+              // the wrapper's p-3 = 1.5rem). Desktop: 85vh capped at
+              // 800px — leaves gutters for the sidebar affordance.
+              fullHeight &&
+                "flex flex-col h-[calc(100dvh-1.5rem)] md:h-[min(85vh,800px)]"
             )}
           >
             {/* Sidebar hangs OUTSIDE the panel visually via absolute

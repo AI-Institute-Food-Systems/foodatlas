@@ -307,15 +307,17 @@ const CorrelationTable = ({
                   <span className="font-mono italic text-[10px] uppercase tracking-wider text-light-500">
                     Evidence
                   </span>
-                  <Button
-                    className="font-medium"
-                    variant="outlined"
-                    size="sm"
+                  {/* Same pill affordance as View-N-assays across
+                   * bioactivity tables — keeps action buttons visually
+                   * aligned across every table. */}
+                  <button
+                    type="button"
                     onClick={() => handleEvidenceShowMoreClick(rowIdx)}
+                    className="font-mono italic text-xs px-2.5 py-0.5 rounded-full border border-light-700/60 text-light-300 hover:text-light-100 hover:border-light-500 transition-colors whitespace-nowrap"
                   >
-                    Show {row.evidences.length} PMID
-                    {row.evidences.length === 1 ? "" : "s"}
-                  </Button>
+                    View {row.evidences.length} PMID
+                    {row.evidences.length === 1 ? "" : "s"} →
+                  </button>
                 </div>
               </div>
             ))
