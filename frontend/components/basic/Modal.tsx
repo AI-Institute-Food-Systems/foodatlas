@@ -69,7 +69,7 @@ const Modal = ({
         <div className="flex min-h-full items-center justify-center">
           <DialogPanel
             className={twMerge(
-              "relative w-full max-w-5xl md:rounded-xl border border-light-50/5 bg-light-950 backdrop-blur-2xl shadow-inner shadow-light-700/20 p-5 md:p-7",
+              "relative w-full max-w-5xl rounded-xl border border-light-50/5 bg-light-950 backdrop-blur-2xl shadow-inner shadow-light-700/20 p-5 md:p-7",
               fullHeight && "flex flex-col h-[min(85vh,800px)]"
             )}
           >
