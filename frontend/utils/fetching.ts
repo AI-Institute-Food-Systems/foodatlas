@@ -1,4 +1,4 @@
-import { MacroAndMicroData, Metadata, TaxonomyData } from "@/types";
+import { DownloadEntry, MacroAndMicroData, Metadata, TaxonomyData } from "@/types";
 
 // API base URL. On the server we hit the upstream ALB directly (it may be
 // HTTP — that's fine server-side). On the client we route through a
@@ -262,6 +262,33 @@ export async function getDownloadEntries() {
   const { data } = await response.json();
 
   return data;
+}
+
+// Newest bundle for the home-page notification. Returns null on any
+// error so the notification can fall back to a static string rather
+// than propagating a 500 (staging manifest is occasionally missing).
+export async function getLatestBundle(): Promise<DownloadEntry | null> {
+  try {
+    const response = await fetch(`${apiBase()}/download`, {
+      headers: {
+        Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
+      },
+      next: { revalidate: 300 },
+    });
+    if (!response.ok) return null;
+    const { data } = await response.json();
+    if (!Array.isArray(data) || data.length === 0) return null;
+    // release_date is ISO YYYY-MM-DD, so string sort is chronological.
+    // Version is the tiebreaker to keep the pick deterministic when two
+    // bundles ship on the same day.
+    const sorted = [...data].sort((a, b) => {
+      const d = String(b.release_date).localeCompare(String(a.release_date));
+      return d !== 0 ? d : String(b.version).localeCompare(String(a.version));
+    });
+    return sorted[0];
+  } catch {
+    return null;
+  }
 }
 
 // Shared list-fetch params for the four paginated bioactivity endpoints —
