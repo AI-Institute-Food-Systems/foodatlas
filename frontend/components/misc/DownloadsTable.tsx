@@ -1,5 +1,6 @@
 import { MdDownload } from "react-icons/md";
 
+import Chip from "@/components/basic/Chip";
 import { DownloadEntry } from "@/types";
 
 export type DownloadRow = DownloadEntry & { summary: string };
@@ -70,13 +71,13 @@ const DownloadsTable = ({ data }: DownloadsTableProps) => {
               </td>
               <td className="py-2 pl-3">
                 <div className="flex min-h-12 justify-end items-center">
-                  <a
+                  <Chip
+                    icon={<MdDownload className="size-3" />}
+                    label="Download"
+                    tone="outline"
+                    size="md"
                     href={row.download_link}
-                    className="flex h-fit w-fit items-center gap-1 border border-light-300 text-light-300 hover:border-light-200 hover:text-light-200 px-[0.40rem] py-[0.05rem] text-[0.7rem] rounded transition-all duration-150"
-                  >
-                    <MdDownload />
-                    Download
-                  </a>
+                  />
                 </div>
               </td>
             </tr>
@@ -108,14 +109,13 @@ const DownloadsTable = ({ data }: DownloadsTableProps) => {
             <span className="font-mono italic text-[10px] uppercase tracking-wider text-light-500">
               {row.file_size}
             </span>
-            {/* Same pill affordance as the other tables' action buttons. */}
-            <a
+            <Chip
+              icon={<MdDownload className="size-3" />}
+              label="Download"
+              tone="outline"
+              size="md"
               href={row.download_link}
-              className="inline-flex items-center gap-1 font-mono italic text-xs px-2.5 py-0.5 rounded-full border border-light-700/60 text-light-300 hover:text-light-100 hover:border-light-500 transition-colors whitespace-nowrap"
-            >
-              <MdDownload />
-              Download
-            </a>
+            />
           </div>
         </div>
       ))}

@@ -33,6 +33,7 @@ import { twMerge } from "tailwind-merge";
 
 import Button from "@/components/basic/Button";
 import Card from "@/components/basic/Card";
+import Chip from "@/components/basic/Chip";
 import Link from "@/components/basic/Link";
 import LoadingCard from "@/components/basic/LoadingCard";
 import Modal from "@/components/basic/Modal";
@@ -647,34 +648,27 @@ const MeasurementsTable = ({
                 <td className="py-1.5 pl-2 align-top">
                   <div className="flex items-center justify-between gap-3">
                     {canExpand ? (
-                      <button
-                        type="button"
+                      <Chip
+                        icon={
+                          <MdChevronRight
+                            className={twMerge(
+                              "size-3.5 transition-transform duration-150",
+                              isExpanded && "rotate-90",
+                            )}
+                          />
+                        }
+                        label={`${isExpanded ? "Hide" : "Show"} Hill Curve`}
+                        tone={isExpanded ? "cream" : "outline"}
+                        size="md"
                         onClick={(e) => {
                           e.stopPropagation();
                           onToggleExpand(key);
                         }}
                         aria-label={
-                          isExpanded
-                            ? "Hide Hill curve"
-                            : "Show Hill curve"
+                          isExpanded ? "Hide Hill curve" : "Show Hill curve"
                         }
-                        className={twMerge(
-                          "inline-flex items-center gap-1 px-2 py-0.5 rounded-full border font-mono italic text-xs whitespace-nowrap transition-colors",
-                          isExpanded
-                            ? "border-accent-600/60 bg-accent-600/10 text-accent-600"
-                            : "border-light-700/60 text-light-400 hover:text-light-100 hover:border-light-500",
-                        )}
-                      >
-                        <span>
-                          {isExpanded ? "Hide" : "Show"} Hill Curve
-                        </span>
-                        <MdChevronRight
-                          className={twMerge(
-                            "transition-transform duration-150",
-                            isExpanded && "rotate-90",
-                          )}
-                        />
-                      </button>
+                        aria-pressed={isExpanded}
+                      />
                     ) : (
                       <span aria-hidden />
                     )}
@@ -776,28 +770,24 @@ const MeasurementsTable = ({
                 </div>
                 {canExpand && (
                   <div className="w-full flex justify-end">
-                    <button
-                      type="button"
+                    <Chip
+                      icon={
+                        <MdChevronRight
+                          className={twMerge(
+                            "size-3.5 transition-transform duration-150",
+                            isExpanded && "rotate-90",
+                          )}
+                        />
+                      }
+                      label={`${isExpanded ? "Hide" : "Show"} Hill Curve`}
+                      tone={isExpanded ? "cream" : "outline"}
+                      size="md"
                       onClick={() => onToggleExpand(key)}
                       aria-label={
                         isExpanded ? "Hide Hill curve" : "Show Hill curve"
                       }
-                      aria-expanded={isExpanded}
-                      className={twMerge(
-                        "inline-flex items-center gap-1 px-2 py-0.5 rounded-full border font-mono italic text-xs whitespace-nowrap transition-colors",
-                        isExpanded
-                          ? "border-accent-600/60 bg-accent-600/10 text-accent-600"
-                          : "border-light-700/60 text-light-400 hover:text-light-100 hover:border-light-500",
-                      )}
-                    >
-                      <span>{isExpanded ? "Hide" : "Show"} Hill Curve</span>
-                      <MdChevronRight
-                        className={twMerge(
-                          "transition-transform duration-150",
-                          isExpanded && "rotate-90",
-                        )}
-                      />
-                    </button>
+                      aria-pressed={isExpanded}
+                    />
                   </div>
                 )}
                 {isExpanded && (

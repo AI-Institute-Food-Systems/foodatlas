@@ -32,7 +32,15 @@ const ResultsPage = ({ searchParams }: { searchParams: SearchParams }) => {
   const { setTablePaginations, getTablePaginations } = usePaginations();
 
   useEffect(() => {
-    setOffsetTop(96);
+    // Anchor with a half-navbar gap under the navbar bottom —
+    // 48 + 24 = 72 mobile / 56 + 28 = 84 md+. Matches the focused
+    // fly-up so nothing moves on focus.
+    setOffsetTop(
+      typeof window !== "undefined" &&
+        window.matchMedia("(min-width: 768px)").matches
+        ? 84
+        : 72,
+    );
     setIsVisible(true);
   }, [setIsVisible, setOffsetTop]);
 
@@ -41,7 +49,10 @@ const ResultsPage = ({ searchParams }: { searchParams: SearchParams }) => {
   }, [searchParams.term, setAutocompleteTerm]);
 
   return (
-    <div className="mt-52">
+    // Reserves vertical space under the portaled SearchBar (anchored
+    // at ~72 mobile / ~84 md + h-12 input = ~120/132). mt-36 gives
+    // ~24px breathing on phones; md:mt-44 matches on desktop.
+    <div className="mt-36 md:mt-44">
       {/* error indicator */}
       {isError ? (
         <div className="w-full mt-32 flex justify-center gap-1.5 items-center">

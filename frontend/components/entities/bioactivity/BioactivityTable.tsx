@@ -11,6 +11,7 @@ import { ReactNode, useEffect, useState } from "react";
 import {
   MdCheck,
   MdClose,
+  MdDescription,
   MdInfoOutline,
   MdKeyboardArrowDown,
   MdKeyboardArrowUp,
@@ -21,9 +22,11 @@ import {
 import { twMerge } from "tailwind-merge";
 
 import Card from "@/components/basic/Card";
+import Chip from "@/components/basic/Chip";
 import Link from "@/components/basic/Link";
 import LoadingCard from "@/components/basic/LoadingCard";
 import Pagination from "@/components/basic/Pagination";
+import SortListbox from "@/components/basic/SortListbox";
 import BioactivityMeasurementsModal from "@/components/entities/bioactivity/BioactivityMeasurementsModal";
 import { formatTopMeasurement, topMeasurementOf } from "@/components/entities/bioactivity/format";
 import { usePaginations } from "@/context/paginationsContext";
@@ -515,16 +518,9 @@ const BioactivityTable = ({
               <span className="font-mono italic text-[11px] text-light-500">
                 sort
               </span>
-              <select
+              <SortListbox
                 value={`${sort.by}|${sort.dir}`}
-                onChange={(e) => {
-                  const [by, dir] = e.target.value.split("|");
-                  setSort({ by, dir: dir as SortDir });
-                  setTablePaginations(tableId, 1, 20);
-                }}
-                className="rounded-md border border-light-700/60 bg-light-900/60 px-2 py-1 text-xs font-mono italic text-light-200 focus:outline-none focus:ring-1 focus:ring-accent-500"
-              >
-                {columns
+                options={columns
                   .filter((c) => c.sortable)
                   .flatMap((c) => [
                     {
@@ -535,13 +531,13 @@ const BioactivityTable = ({
                       value: `${c.key}|asc`,
                       label: c.sortLabels?.asc ?? `${c.label} ↑`,
                     },
-                  ])
-                  .map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-              </select>
+                  ])}
+                onChange={(value) => {
+                  const [by, dir] = value.split("|");
+                  setSort({ by, dir: dir as SortDir });
+                  setTablePaginations(tableId, 1, 20);
+                }}
+              />
             </div>
           )}
         </div>
@@ -863,14 +859,16 @@ export const ViewAssaysCell = ({
   row: BioactivityRow;
   ctx: ColumnContext;
 }) => (
-  <button
-    type="button"
+  <Chip
+    icon={<MdDescription className="size-3" />}
+    label={`${row.measurement_count.toLocaleString()} assay${
+      row.measurement_count === 1 ? "" : "s"
+    }`}
+    tone="outline"
+    size="md"
     onClick={ctx.openModal}
     disabled={row.measurement_count === 0}
-    className="font-mono italic text-xs px-2.5 py-0.5 rounded-full border border-light-700/60 text-light-300 hover:text-light-100 hover:border-light-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-  >
-    View {row.measurement_count.toLocaleString()} →
-  </button>
+  />
 );
 
 // Chemical classification (["flavonoid", "polyphenol"] → "flavonoid,

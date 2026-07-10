@@ -98,16 +98,14 @@ const TaxonomySection = async ({
 
   const colorClass = ENTITY_COLOR[entityType] ?? "text-light-100";
 
+  // Cream-chip section label — mirrors the OverviewCardCatalog
+  // ("Identifiers", "Synonyms", etc.) so Overview reads as one panel
+  // of apothecary sections rather than a mix of chip labels and
+  // uppercase micro-headings.
   const heading = (
-    <h4
-      className={
-        naked
-          ? "font-mono uppercase text-[10px] tracking-[0.2em] text-light-400"
-          : "font-mono italic text-light-400 text-xs"
-      }
-    >
+    <span className="self-start -ml-3 bg-light-200 shadow-inner shadow-light-50 rounded-r-md px-2.5 py-0.5 font-mono italic font-medium text-light-900 text-[10px] tracking-[0.12em] uppercase">
       Taxonomy
-    </h4>
+    </span>
   );
 
   const tree = (

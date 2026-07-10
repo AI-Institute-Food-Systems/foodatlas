@@ -21,6 +21,7 @@ import Chip from "@/components/basic/Chip";
 import Link from "@/components/basic/Link";
 import Pagination from "@/components/basic/Pagination";
 import LoadingCard from "@/components/basic/LoadingCard";
+import SortListbox from "@/components/basic/SortListbox";
 import { AmbiguityBadge } from "@/components/basic/Ambiguity";
 import { TrustBadge } from "@/components/basic/TrustBadge";
 import FoodCompositionEvidenceModal, {
@@ -655,24 +656,18 @@ const FoodCompositionSection = ({
                 <span className="font-mono italic text-[11px] text-light-500">
                   sort
                 </span>
-                <select
+                <SortListbox
                   value={`${sort.column}|${sort.direction}`}
-                  onChange={(e) => {
+                  options={MOBILE_SORT_OPTIONS}
+                  onChange={(value) => {
                     const opt = MOBILE_SORT_OPTIONS.find(
-                      (o) => o.value === e.target.value
+                      (o) => o.value === value
                     );
                     if (!opt) return;
                     setSort({ column: opt.column, direction: opt.direction });
                     setTablePaginations("food-composition-table", 1, 20);
                   }}
-                  className="rounded-md border border-light-700/60 bg-light-900/60 px-2 py-1 text-xs font-mono italic text-light-200 focus:outline-none focus:ring-1 focus:ring-accent-500"
-                >
-                  {MOBILE_SORT_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
             </div>
           )}
@@ -1036,19 +1031,17 @@ const FoodCompositionSection = ({
                         <span className="text-light-400 capitalize">
                           {classifications}
                         </span>
-                        {/* Same pill affordance as View-N-assays across
-                         * bioactivity/inferred tables — keeps action
-                         * buttons visually aligned across every table. */}
-                        <button
-                          type="button"
+                        <Chip
+                          icon={<MdDescription className="size-3" />}
+                          label={`${evidenceCount} data point${
+                            evidenceCount === 1 ? "" : "s"
+                          }`}
+                          tone="outline"
+                          size="md"
                           onClick={(event) =>
                             handleEvidenceButtonClick(event, row.name)
                           }
-                          className="font-mono italic text-xs px-2.5 py-0.5 rounded-full border border-light-700/60 text-light-300 hover:text-light-100 hover:border-light-500 transition-colors whitespace-nowrap"
-                        >
-                          View {evidenceCount} data point
-                          {evidenceCount === 1 ? "" : "s"} →
-                        </button>
+                        />
                       </div>
                     </div>
                   );

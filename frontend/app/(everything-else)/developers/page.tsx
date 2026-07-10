@@ -2,10 +2,8 @@ import { Metadata } from "next";
 
 import Card from "@/components/basic/Card";
 import Code from "@/components/basic/Code";
-import Divider from "@/components/basic/Divider";
 import Heading from "@/components/basic/Heading";
 import Link from "@/components/basic/Link";
-import SubHeading from "@/components/basic/SubHeading";
 
 export const metadata: Metadata = {
   title: "Developers | FoodAtlas Public API",
@@ -106,11 +104,10 @@ const Developers = () => {
   return (
     <div>
       <div>
-        <Heading type="h1">Developer API</Heading>
-        <SubHeading>
-          Programmatic access to the <i>FoodAtlas</i> knowledge graph
-        </SubHeading>
-        <p className="mt-10 text-base leading-relaxed text-light-200">
+        <Heading type="h1" variant="display">
+          Developer API
+        </Heading>
+        <p className="mt-6 text-base leading-relaxed text-light-200">
           The public API exposes the same food–chemical–disease graph that
           powers this site, with stable resource-shaped responses suited for
           research scripts. The interactive OpenAPI reference lives at{" "}
@@ -118,10 +115,8 @@ const Developers = () => {
         </p>
       </div>
 
-      <Divider />
-
-      <div>
-        <Heading type="h2" variant="boxed">
+      <div className="mt-16">
+        <Heading type="h2" variant="chip">
           Get an API key
         </Heading>
       </div>
@@ -144,8 +139,27 @@ const Developers = () => {
         </Card>
       </div>
 
-      <div className="mt-20">
-        <Heading type="h2" variant="boxed">
+      <div className="mt-16">
+        <Heading type="h2" variant="chip">
+          How to Cite
+        </Heading>
+      </div>
+      <div className="mt-8">
+        <Card>
+          <p className="leading-relaxed text-light-200">
+            Li, F., Youn, J., Xie, K., Chan, T., Gupta, P., Yoo, A., ... &
+            Tagkopoulos, I. (2026). A unified knowledge graph linking
+            foodomics to chemical-disease networks and flavor profiles.{" "}
+            <i>npj Science of Food</i>.{" "}
+            <Link href="https://doi.org/10.1038/s41538-025-00680-9">
+              https://doi.org/10.1038/s41538-025-00680-9
+            </Link>
+          </p>
+        </Card>
+      </div>
+
+      <div className="mt-16">
+        <Heading type="h2" variant="chip">
           Setup
         </Heading>
       </div>
@@ -177,8 +191,8 @@ const Developers = () => {
         </Card>
       </div>
 
-      <div className="mt-20">
-        <Heading type="h2" variant="boxed">
+      <div className="mt-16">
+        <Heading type="h2" variant="chip">
           Examples
         </Heading>
       </div>
@@ -193,8 +207,8 @@ const Developers = () => {
         </Card>
       </div>
 
-      <div className="mt-20">
-        <Heading type="h2" variant="boxed">
+      <div className="mt-16">
+        <Heading type="h2" variant="chip">
           Endpoints
         </Heading>
       </div>
@@ -278,8 +292,8 @@ const Developers = () => {
         </Card>
       </div>
 
-      <div className="mt-20">
-        <Heading type="h2" variant="boxed">
+      <div className="mt-16">
+        <Heading type="h2" variant="chip">
           Versioning &amp; terms
         </Heading>
       </div>

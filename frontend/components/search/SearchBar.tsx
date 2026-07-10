@@ -148,7 +148,15 @@ const SearchBar = () => {
         );
       } else {
         if (searchTerm.length > 0) {
-          setOffsetTop(96);
+          // Intermediate hint before the results page's own useEffect
+          // takes over. Same half-navbar-gap values so the bar
+          // doesn't visibly jump during the navigation.
+          setOffsetTop(
+            typeof window !== "undefined" &&
+              window.matchMedia("(min-width: 768px)").matches
+              ? 84
+              : 72,
+          );
           router.push(`/results?term=${searchTerm}`);
         }
       }
@@ -217,20 +225,21 @@ const SearchBar = () => {
       aria-hidden={!isVisible}
     >
       <div
-        className={`z-50 w-full absolute px-3 md:px-12 ${
-          // When focused, the overlay flies up to sit flush against
-          // the navbar bottom (top-16 = 4rem = 64px, matching the
-          // navbar row height and the `setOffsetTop(64)` set by the
-          // navbar's search button on entity pages). Was `top-24` (96
-          // px) which sat 32px too low on entity pages. On landing
-          // the transition animates the bar upward from its natural
-          // hero-below position; on entity pages it stays put.
-          isFocused ? "absolute inset-0 top-16 -right-4" : ""
+        className={`z-50 w-full absolute px-4 md:px-24 ${
+          // When focused, the overlay sits with a half-navbar-height
+          // gap under the navbar bottom — 48 + 24 = 72 mobile,
+          // 56 + 28 = 84 desktop. Tailwind `important: true` makes
+          // the class win over inline `top: offsetTop` on the docked
+          // state, so the same responsive values apply on every page.
+          isFocused ? "absolute inset-0 top-[72px] md:top-[84px] -right-4" : ""
         } ${isResultsPage ? "" : "duration-[250ms]"}`}
         ref={containerRef}
         style={{ top: offsetTop || 50 }}
       >
-          <div className="px-3 md:px-12">
+          {/* Outer wrapper already applies `px-3 md:px-12` (matches
+           * navbar / footer / page layout inset). The inner content
+           * only needs the max-width cap + centering. */}
+          <div>
             <div className="mx-auto max-w-5xl" id="search-component">
               {/* search input */}
               <div className="relative flex items-center select-none">

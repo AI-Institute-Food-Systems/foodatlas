@@ -1,9 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MdAdd, MdErrorOutline, MdInfoOutline, MdRemove } from "react-icons/md";
+import {
+  MdAdd,
+  MdDescription,
+  MdErrorOutline,
+  MdInfoOutline,
+  MdRemove,
+} from "react-icons/md";
 
-import Button from "@/components/basic/Button";
+import Chip from "@/components/basic/Chip";
 import EntitySiblingIcon from "@/components/basic/EntitySiblingIcon";
 import Link from "@/components/basic/Link";
 import LoadingCard from "@/components/basic/LoadingCard";
@@ -195,36 +201,31 @@ const CorrelationTable = ({
                     </td>
                     {/* evidence */}
                     <td className="py-1.5 pl-4">
-                      {
-                        <div className="flex min-h-9 capitalize items-center justify-end">
-                          <div className="flex gap-2 justify-end items-center flex-nowrap">
-                            {row.evidences.slice(0, 3).map((evidence) => (
-                              <Link
-                                className="whitespace-nowrap"
-                                key={evidence.pmid?.id ?? evidence.pmcid?.id}
-                                href={evidence.pmid?.url ?? evidence.pmcid?.url}
-                                isExternal
-                              >
-                                {evidence.pmid?.id ?? evidence.pmcid?.id}
-                              </Link>
-                            ))}
-                            {row.evidences.length > 3 && (
-                              <>
-                                <Button
-                                  className="font-medium"
-                                  variant="outlined"
-                                  size="sm"
-                                  onClick={() =>
-                                    handleEvidenceShowMoreClick(rowIdx)
-                                  }
-                                >
-                                  {`${row.evidences.length - 3} more`}...
-                                </Button>
-                              </>
-                            )}
-                          </div>
+                      <div className="flex min-h-9 capitalize items-center justify-end">
+                        <div className="flex gap-2 justify-end items-center flex-nowrap">
+                          {row.evidences.slice(0, 3).map((evidence) => (
+                            <Link
+                              className="whitespace-nowrap"
+                              key={evidence.pmid?.id ?? evidence.pmcid?.id}
+                              href={evidence.pmid?.url ?? evidence.pmcid?.url}
+                              isExternal
+                            >
+                              {evidence.pmid?.id ?? evidence.pmcid?.id}
+                            </Link>
+                          ))}
+                          {row.evidences.length > 3 && (
+                            <Chip
+                              icon={<MdDescription className="size-3" />}
+                              label={`${row.evidences.length - 3} more...`}
+                              tone="outline"
+                              size="md"
+                              onClick={() =>
+                                handleEvidenceShowMoreClick(rowIdx)
+                              }
+                            />
+                          )}
                         </div>
-                      }
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -307,17 +308,15 @@ const CorrelationTable = ({
                   <span className="font-mono italic text-[10px] uppercase tracking-wider text-light-500">
                     Evidence
                   </span>
-                  {/* Same pill affordance as View-N-assays across
-                   * bioactivity tables — keeps action buttons visually
-                   * aligned across every table. */}
-                  <button
-                    type="button"
+                  <Chip
+                    icon={<MdDescription className="size-3" />}
+                    label={`${row.evidences.length} PMID${
+                      row.evidences.length === 1 ? "" : "s"
+                    }`}
+                    tone="outline"
+                    size="md"
                     onClick={() => handleEvidenceShowMoreClick(rowIdx)}
-                    className="font-mono italic text-xs px-2.5 py-0.5 rounded-full border border-light-700/60 text-light-300 hover:text-light-100 hover:border-light-500 transition-colors whitespace-nowrap"
-                  >
-                    View {row.evidences.length} PMID
-                    {row.evidences.length === 1 ? "" : "s"} →
-                  </button>
+                  />
                 </div>
               </div>
             ))

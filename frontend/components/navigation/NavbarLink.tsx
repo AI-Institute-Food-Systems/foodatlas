@@ -17,10 +17,10 @@ const NavbarLink = ({
         isActive ? "underline decoration-light-300" : ""
       } ${
         isNavMenu
-          ? // Mobile menu row — same heights as the navbar row itself
-            // (h-11 mobile, h-12 sm:) with px-0 so text aligns with the
-            // logo at the parent's px-3 edge.
-            "min-h-11 sm:min-h-12 px-0 text-base"
+          ? // Mobile menu row — matches the navbar row height (h-12,
+            // 48px) with px-0 so text aligns with the logo at the
+            // parent's px-4 edge.
+            "min-h-12 px-0 text-base"
           : "min-h-11 px-3 text-xs lg:text-sm"
       }`}
       href={href}

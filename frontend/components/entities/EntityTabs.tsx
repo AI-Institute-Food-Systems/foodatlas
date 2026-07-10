@@ -90,7 +90,7 @@ const EntityTabs = ({ tabs, defaultTabId }: Props) => {
        * control of trigger and popup positioning. Options carry the
        * count as "· 42" (matching the chip badges) and zero-count
        * options are disabled. */}
-      <div className="md:hidden mb-2 pl-1">
+      <div className="sm:hidden mb-2 pl-1">
         <Listbox value={selectedIndex} onChange={handleChange}>
           <div className="relative">
             <ListboxButton className="w-full font-mono italic text-sm font-medium bg-light-200 text-light-900 rounded-md pl-3 pr-9 py-2 border-[1.5px] border-light-200 shadow-[inset_0_1px_2px_rgba(255,249,242,0.5)] focus:outline-none focus:ring-1 focus:ring-accent-500 text-left">
@@ -132,14 +132,14 @@ const EntityTabs = ({ tabs, defaultTabId }: Props) => {
         </Listbox>
       </div>
 
-      <TabList className="hidden md:flex items-end gap-1.5 pl-3">
+      <TabList className="hidden sm:flex items-end gap-1.5 pl-3">
         {tabs.map((tab) => (
           <Tab
             key={tab.id}
             className={({ selected }) =>
               twMerge(
-                "relative z-10 px-4 py-1.5 -mb-[2px]",
-                "font-mono italic text-sm min-w-[9.5rem] font-medium",
+                "relative z-10 px-3 md:px-4 py-1.5 -mb-[2px]",
+                "font-mono italic text-xs md:text-sm min-w-[7rem] md:min-w-[9.5rem] font-medium",
                 "rounded-t-md transition-colors outline-none border-t-[1.5px] border-x-[1.5px]",
                 selected
                   ? "bg-light-200 text-light-900 border-light-200 shadow-[inset_0_1px_2px_rgba(255,249,242,0.5)]"

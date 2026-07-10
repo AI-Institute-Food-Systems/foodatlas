@@ -13,6 +13,7 @@
 import { useEffect, useState } from "react";
 import {
   MdClose,
+  MdDescription,
   MdInfoOutline,
   MdKeyboardArrowDown,
   MdKeyboardArrowUp,
@@ -21,9 +22,11 @@ import {
 } from "react-icons/md";
 
 import Card from "@/components/basic/Card";
+import Chip from "@/components/basic/Chip";
 import Link from "@/components/basic/Link";
 import LoadingCard from "@/components/basic/LoadingCard";
 import Pagination from "@/components/basic/Pagination";
+import SortListbox from "@/components/basic/SortListbox";
 import BioactivityMeasurementsModal from "@/components/entities/bioactivity/BioactivityMeasurementsModal";
 import {
   formatTopMeasurement,
@@ -210,36 +213,35 @@ const FoodInferredBioactivitiesSection = ({
             <span className="font-mono italic text-[11px] text-light-500">
               sort
             </span>
-            <select
+            <SortListbox
               value={`${sort.by}|${sort.dir}`}
-              onChange={(e) => {
-                const [by, dir] = e.target.value.split("|");
+              options={[
+                { value: "bioactivity|asc", label: "Bioactivity A–Z" },
+                { value: "bioactivity|desc", label: "Bioactivity Z–A" },
+                { value: "chemical|asc", label: "Chemical A–Z" },
+                { value: "chemical|desc", label: "Chemical Z–A" },
+                { value: "concentration|desc", label: "Highest concentration" },
+                { value: "concentration|asc", label: "Lowest concentration" },
+                { value: "measurement_count|desc", label: "Most assays" },
+                { value: "measurement_count|asc", label: "Least assays" },
+              ]}
+              onChange={(value) => {
+                const [by, dir] = value.split("|");
                 setSort({ by, dir: dir as SortDir });
                 setTablePaginations(tableId, 1, 20);
               }}
-              className="rounded-md border border-light-700/60 bg-light-900/60 px-2 py-1 text-xs font-mono italic text-light-200 focus:outline-none focus:ring-1 focus:ring-accent-500"
-            >
-              <option value="bioactivity|asc">Bioactivity A–Z</option>
-              <option value="bioactivity|desc">Bioactivity Z–A</option>
-              <option value="chemical|asc">Chemical A–Z</option>
-              <option value="chemical|desc">Chemical Z–A</option>
-              <option value="concentration|desc">Highest concentration</option>
-              <option value="concentration|asc">Lowest concentration</option>
-              <option value="measurement_count|desc">Most assays</option>
-              <option value="measurement_count|asc">Least assays</option>
-            </select>
+            />
           </div>
         </div>
       )}
       <div className="hidden md:block overflow-x-auto">
         <table className="w-full table-fixed">
           <colgroup>
-            <col className="w-[22%]" />
-            <col className="w-[18%]" />
-            <col className="w-[16%]" />
-            <col className="w-[10%]" />
+            <col className="w-[24%]" />
             <col className="w-[20%]" />
-            <col className="w-[14%]" />
+            <col className="w-[18%]" />
+            <col className="w-[22%]" />
+            <col className="w-[16%]" />
           </colgroup>
           <thead className="text-light-400 text-left">
             <tr>
@@ -265,6 +267,11 @@ const FoodInferredBioactivitiesSection = ({
                 onClick={handleSortClick}
                 align="right"
               />
+              <th className="h-9 border-b border-light-700 leading-none py-1.5 px-4 text-right">
+                <span className="select-none uppercase text-xs font-medium text-light-400">
+                  Top measurement
+                </span>
+              </th>
               <SortableTh
                 label="Assays"
                 sortKey="measurement_count"
@@ -272,23 +279,13 @@ const FoodInferredBioactivitiesSection = ({
                 onClick={handleSortClick}
                 align="right"
               />
-              <th className="h-9 border-b border-light-700 leading-none py-1.5 px-4 text-right">
-                <span className="select-none uppercase text-xs font-medium text-light-400">
-                  Top measurement
-                </span>
-              </th>
-              <th className="h-9 border-b border-light-700 leading-none py-1.5 pl-4 text-right last:pr-0">
-                <span className="select-none uppercase text-xs font-medium text-light-400">
-                  Detail
-                </span>
-              </th>
             </tr>
           </thead>
           <tbody className="text-sm font-light">
             {isLoading ? (
               Array.from({ length: 20 }).map((_, i) => (
                 <tr key={`l-${i}`}>
-                  <td className="w-full py-1.5" colSpan={6}>
+                  <td className="w-full py-1.5" colSpan={5}>
                     <div className="h-9 flex items-center">
                       <LoadingCard className="h-5" />
                     </div>
@@ -297,7 +294,7 @@ const FoodInferredBioactivitiesSection = ({
               ))
             ) : showEmpty ? (
               <tr>
-                <td colSpan={6}>
+                <td colSpan={5}>
                   <div className="h-[10rem] flex items-center justify-center text-light-300 gap-2">
                     <MdInfoOutline /> No chemicals in this food have measured
                     bioactivities yet
@@ -381,14 +378,6 @@ const FoodInferredBioactivitiesSection = ({
                 </div>
                 <div className="w-full flex items-baseline justify-between gap-2">
                   <span className="font-mono italic text-[10px] uppercase tracking-wider text-light-500">
-                    Assays
-                  </span>
-                  <span className="tabular-nums text-light-200">
-                    {row.measurement_count.toLocaleString()}
-                  </span>
-                </div>
-                <div className="w-full flex items-baseline justify-between gap-2">
-                  <span className="font-mono italic text-[10px] uppercase tracking-wider text-light-500">
                     Top measurement
                   </span>
                   <span className="font-mono text-xs text-light-200 text-right">
@@ -396,14 +385,16 @@ const FoodInferredBioactivitiesSection = ({
                   </span>
                 </div>
                 <div className="w-full flex justify-end">
-                  <button
-                    type="button"
+                  <Chip
+                    icon={<MdDescription className="size-3" />}
+                    label={`${row.measurement_count.toLocaleString()} assay${
+                      row.measurement_count === 1 ? "" : "s"
+                    }`}
+                    tone="outline"
+                    size="md"
                     onClick={() => setSelected(row)}
                     disabled={row.measurement_count === 0}
-                    className="font-mono italic text-xs px-2.5 py-0.5 rounded-full border border-light-700/60 text-light-300 hover:text-light-100 hover:border-light-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
-                  >
-                    View {row.measurement_count.toLocaleString()} →
-                  </button>
+                  />
                 </div>
               </div>
             );
@@ -530,25 +521,22 @@ const Row = ({ row, onOpen }: { row: InferredRow; onOpen: () => void }) => {
         </div>
       </td>
       <td className="py-1.5 px-4 text-right">
-        <div className="flex min-h-9 items-center justify-end tabular-nums text-light-200">
-          {row.measurement_count.toLocaleString()}
-        </div>
-      </td>
-      <td className="py-1.5 px-4 text-right">
         <div className="flex min-h-9 items-center justify-end font-mono text-xs text-light-200">
           {formatTopMeasurement(top)}
         </div>
       </td>
       <td className="py-1.5 pl-4 text-right">
         <div className="flex min-h-9 items-center justify-end">
-          <button
-            type="button"
+          <Chip
+            icon={<MdDescription className="size-3" />}
+            label={`${row.measurement_count.toLocaleString()} assay${
+              row.measurement_count === 1 ? "" : "s"
+            }`}
+            tone="outline"
+            size="md"
             onClick={onOpen}
             disabled={row.measurement_count === 0}
-            className="font-mono italic text-xs px-2.5 py-0.5 rounded-full border border-light-700/60 text-light-300 hover:text-light-100 hover:border-light-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
-          >
-            View {row.measurement_count.toLocaleString()} →
-          </button>
+          />
         </div>
       </td>
     </tr>

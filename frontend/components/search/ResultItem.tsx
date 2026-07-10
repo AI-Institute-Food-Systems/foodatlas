@@ -86,9 +86,9 @@ const ResultItem = ({ suggestion }: ResultItemProps) => {
             >
               {suggestion.entity_type}
             </Badge>
-            <div className="border-l h-[1rem] border-light-500 hidden md:visible" />
+            <div className="border-l h-[1rem] border-light-500 hidden sm:visible" />
             {/* ids (big screen) */}
-            <div className="gap-2 hidden md:flex">
+            <div className="gap-2 hidden sm:flex">
               {/* foodatlas id */}
               <div className="text-[0.7rem] flex gap-1 items-center">
                 <span className="italic text-light-400 font-mono leading-tight">
@@ -175,7 +175,7 @@ const ResultItem = ({ suggestion }: ResultItemProps) => {
           </div>
         )}
         {/* ids (small screen) */}
-        <div className="flex gap-2 md:hidden">
+        <div className="flex gap-2 sm:hidden">
           {/* foodatlas id */}
           <div className="text-[0.7rem] flex gap-1 items-center">
             <span className="italic text-light-400 font-mono leading-tight">

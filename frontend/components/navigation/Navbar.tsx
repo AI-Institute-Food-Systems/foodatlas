@@ -51,7 +51,16 @@ const Navbar = ({ className }: NavbarProps) => {
   const handleSearchButtonClick = () => {
     const hostsSearch = pathname === "/" || pathname.startsWith("/results");
     if (!hostsSearch) {
-      setOffsetTop(64);
+      // Anchor with a half-navbar gap under the navbar bottom —
+      // 48 + 24 = 72 mobile, 56 + 28 = 84 md+. SearchBar's fly-up
+      // class carries the same responsive top so docked + focused
+      // states line up.
+      setOffsetTop(
+        typeof window !== "undefined" &&
+          window.matchMedia("(min-width: 768px)").matches
+          ? 84
+          : 72,
+      );
     }
     setIsVisible(true);
     setIsFocused(true);
@@ -66,14 +75,18 @@ const Navbar = ({ className }: NavbarProps) => {
         // Base sits at z-40. When the mobile menu is open we bump to
         // z-[60] so the SearchBar portal (z-50) and its backdrop don't
         // punch through the menu.
-        "fixed top-0 w-[100vw] bg-[#0a0a09]/30 backdrop-blur-2xl saturate-200 px-3 md:px-12",
+        // min-w-[320px] mirrors the html rule in globals.css so the
+        // navbar stays as wide as the page when the viewport is
+        // narrower than 320 (fixed elements are sized against the
+        // viewport, not the html element).
+        "fixed top-0 w-[100vw] min-w-[320px] bg-[#0a0a09]/30 backdrop-blur-2xl saturate-200 px-4 md:px-24",
         isNavMenuOpen ? "z-[60]" : "z-40",
         isScrolled ? "border-b border-light-800" : "",
         className,
       )}
     >
       <div className="max-w-5xl mx-auto">
-        <div className="py-1.5 w-full h-11 sm:h-12 md:h-14 mx-auto flex justify-between items-center gap-3">
+        <div className="py-1.5 w-full h-12 md:h-14 mx-auto flex justify-between items-center gap-3">
           <Button
             className="relative flex-shrink-0 cursor-pointer min-h-9 min-w-9 p-1 m-0"
             isIconOnly
@@ -82,7 +95,7 @@ const Navbar = ({ className }: NavbarProps) => {
           >
             <FoodAtlasIcon height={30} width={120} color={"#FFFBF7"} />
           </Button>
-          <div className="hidden md:flex md:gap-5 lg:gap-8">
+          <div className="hidden sm:flex sm:gap-5 lg:gap-8">
             {NAV_ITEMS.map((navItem) => (
               <NavbarLink
                 key={navItem.href}
@@ -105,7 +118,7 @@ const Navbar = ({ className }: NavbarProps) => {
               <MdSearch className="w-5 h-5" />
             </Button>
             {/* Mobile menu */}
-            <div className="md:hidden">
+            <div className="sm:hidden">
               <Button
                 className="min-h-9 min-w-9"
                 onClick={handleNavButtonClick}
@@ -118,7 +131,7 @@ const Navbar = ({ className }: NavbarProps) => {
           </div>
         </div>
         {isNavMenuOpen && (
-          <div className="h-[calc(100dvh-2.75rem)] sm:h-[calc(100dvh-3rem)] overflow-y-auto pt-8 pb-1.5 pl-2 flex flex-col gap-4">
+          <div className="h-[calc(100dvh-3rem)] overflow-y-auto pt-8 pb-1.5 pl-2 flex flex-col gap-4">
             {NAV_ITEMS.map((navItem) => (
               <NavbarLink
                 key={navItem.href}
