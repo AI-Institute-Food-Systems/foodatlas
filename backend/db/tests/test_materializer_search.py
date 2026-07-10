@@ -185,11 +185,15 @@ class TestLoadAssocCounts:
         return conn
 
     def test_food_counts_from_composition(self):
+        # Composition queries filter DMD-only rows (WHERE fdc_evidences
+        # IS NOT NULL OR foodatlas_evidences IS NOT NULL) so match on
+        # the SELECT + FROM prefix; the GROUP BY still identifies which
+        # column drives the count.
         conn = self._conn_with_results(
             {
                 "food_foodatlas_id AS fid,"
-                " COUNT(*) AS n FROM mv_food_chemical_composition"
-                " GROUP BY food_foodatlas_id": [("f1", 3), ("f2", 5)],
+                " COUNT(*) AS n FROM mv_food_chemical_composition":
+                    [("f1", 3), ("f2", 5)],
             }
         )
         counts = _load_assoc_counts(conn)
@@ -199,9 +203,10 @@ class TestLoadAssocCounts:
     def test_chemical_sums_composition_and_correlation(self):
         conn = self._conn_with_results(
             {
+                # Composition query — filtered by evidence WHERE clause.
                 "chemical_foodatlas_id AS fid,"
-                " COUNT(*) AS n FROM mv_food_chemical_composition"
-                " GROUP BY chemical_foodatlas_id": [("c1", 4)],
+                " COUNT(*) AS n FROM mv_food_chemical_composition":
+                    [("c1", 4)],
                 "chemical_foodatlas_id AS fid,"
                 " COUNT(*) AS n FROM mv_chemical_disease_correlation"
                 " GROUP BY chemical_foodatlas_id": [("c1", 10)],
