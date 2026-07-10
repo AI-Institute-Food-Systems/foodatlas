@@ -5,6 +5,7 @@ import Badge from "@/components/basic/Badge";
 import AIIcon from "@/components/icons/AIIcon";
 import Heading from "@/components/basic/Heading";
 import HeroStatsLine from "@/components/landing/HeroStatsLine";
+import NewsNotification from "@/components/landing/NewsNotification";
 import SearchWrapper from "@/components/landing/SearchWrapper";
 
 // Hero is a single centred flex column. Each child sits in normal
@@ -26,20 +27,10 @@ const HeroSection = () => {
       <div className="relative min-h-[38rem] sm:min-h-[44rem] md:min-h-[48rem] flex flex-col justify-center px-4 md:px-24 py-10 sm:py-14 md:py-20">
         <div className="max-w-4xl w-full mx-auto flex flex-col items-center gap-6 md:gap-8">
           {/* News line — typeset (no chrome), accent eyebrow + serif
-           * italic body. Sits closest to the top edge. */}
-          <div className="flex items-center gap-2 md:gap-3 leading-none">
-            <span className="font-mono italic text-[10px] md:text-xs uppercase tracking-[0.22em] text-accent-500">
-              News
-            </span>
-            <span className="block h-3 w-px bg-accent-500/40" aria-hidden />
-            <span className="font-serif italic text-xs md:text-sm text-light-200">
-              FoodAtlas Knowledge Graph{" "}
-              <strong className="not-italic font-semibold text-white">
-                v4.1
-              </strong>{" "}
-              released
-            </span>
-          </div>
+           * italic body. Sits closest to the top edge. Version is
+           * derived from the downloads manifest so it stays in sync
+           * with the latest published bundle. */}
+          <NewsNotification />
 
           {/* Credentials */}
           <div className="flex gap-2 md:gap-3">
