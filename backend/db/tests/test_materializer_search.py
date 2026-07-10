@@ -192,8 +192,10 @@ class TestLoadAssocCounts:
         conn = self._conn_with_results(
             {
                 "food_foodatlas_id AS fid,"
-                " COUNT(*) AS n FROM mv_food_chemical_composition":
-                    [("f1", 3), ("f2", 5)],
+                " COUNT(*) AS n FROM mv_food_chemical_composition": [
+                    ("f1", 3),
+                    ("f2", 5),
+                ],
             }
         )
         counts = _load_assoc_counts(conn)
@@ -205,8 +207,7 @@ class TestLoadAssocCounts:
             {
                 # Composition query — filtered by evidence WHERE clause.
                 "chemical_foodatlas_id AS fid,"
-                " COUNT(*) AS n FROM mv_food_chemical_composition":
-                    [("c1", 4)],
+                " COUNT(*) AS n FROM mv_food_chemical_composition": [("c1", 4)],
                 "chemical_foodatlas_id AS fid,"
                 " COUNT(*) AS n FROM mv_chemical_disease_correlation"
                 " GROUP BY chemical_foodatlas_id": [("c1", 10)],
