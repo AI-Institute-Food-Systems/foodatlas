@@ -2,9 +2,7 @@ import { Metadata } from "next";
 
 import Person from "@/components/about/Person";
 import Card from "@/components/basic/Card";
-import Divider from "@/components/basic/Divider";
 import Heading from "@/components/basic/Heading";
-import SubHeading from "@/components/basic/SubHeading";
 import Link from "@/components/basic/Link";
 import { TeamMember } from "@/types";
 
@@ -80,11 +78,8 @@ const About = () => {
     <div>
       {/* heading & caption */}
       <div>
-        <Heading type="h1">About FoodAtlas</Heading>
-        <SubHeading>
-          Meet and connect with the team behind <i>FoodAtlas</i>
-        </SubHeading>
-        <p className="mt-8 text-base leading-relaxed text-light-200">
+        <Heading type="h1" variant="display">About FoodAtlas</Heading>
+        <p className="mt-6 text-base leading-relaxed text-light-200">
           <i>FoodAtlas</i> is an ongoing, USDA-NSF-funded research project
           dedicated to creating a comprehensive knowledge base where every piece
           of data is traceable back to its source. We use AI to survey the
@@ -112,15 +107,35 @@ const About = () => {
           .
         </p>
       </div>
-      <Divider />
+      {/* inner-workings pointer — a dedicated signpost for readers
+       * who came here for the how rather than the who. */}
+      <div className="mt-12">
+        <Heading type="h2" variant="chip">
+          Inner workings
+        </Heading>
+        <Card className="mt-10">
+          <p className="font-serif italic text-light-200 leading-relaxed">
+            Curious how FoodAtlas turns literature into a
+            knowledge graph? The background page walks through the
+            pipeline — filtering, extraction, entity linking, and
+            metadata injection.
+          </p>
+          <div className="mt-4">
+            <Link href="/technical-background" isExternal={false}>
+              Read the technical background →
+            </Link>
+          </div>
+        </Card>
+      </div>
+
       {/* team */}
-      <div className="mt-20 flex flex-col gap-16">
+      <div className="mt-16 flex flex-col gap-12">
         {/* researchers */}
         <div>
-          <Heading type="h2" variant="boxed">
+          <Heading type="h2" variant="chip">
             Research Team
           </Heading>
-          <div className="mt-10 grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-5 gap-y-10">
+          <div className="mt-10 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-5 gap-y-10">
             {TEAM.filter((member) => member.section === "research").map(
               (member) => (
                 <Person key={member.name} member={member} />
@@ -130,10 +145,10 @@ const About = () => {
         </div>
         {/* developers */}
         <div>
-          <Heading type="h2" variant="boxed">
+          <Heading type="h2" variant="chip">
             Software Engineering Team
           </Heading>
-          <div className="mt-10 grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-5 gap-y-10">
+          <div className="mt-10 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-5 gap-y-10">
             {TEAM.filter((member) => member.section === "development").map(
               (member) => (
                 <Person key={member.name} member={member} />
@@ -143,7 +158,7 @@ const About = () => {
         </div>
         {/* publications */}
         <div>
-          <Heading type="h2" variant="boxed">
+          <Heading type="h2" variant="chip">
             Publications
           </Heading>
           <Card className="mt-10">

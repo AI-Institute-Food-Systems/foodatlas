@@ -35,6 +35,7 @@ const BioactivityChemicalsSection = ({ commonName, anchorId }: Props) => {
         align: "left",
         width: "w-[22%]",
         sortable: true,
+        sortLabels: { asc: "Chemical A–Z", desc: "Chemical Z–A" },
         render: (row) => <NameLinkCell row={row} hrefPrefix="/chemical/" />,
       },
       {
@@ -54,6 +55,7 @@ const BioactivityChemicalsSection = ({ commonName, anchorId }: Props) => {
         align: "right",
         width: "w-[9%]",
         sortable: true,
+        sortLabels: { asc: "Fewest active", desc: "Most active" },
         render: (row) => (
           <NumberCell value={(row as BioactivityChemicalRow).active_count} />
         ),
@@ -64,6 +66,7 @@ const BioactivityChemicalsSection = ({ commonName, anchorId }: Props) => {
         align: "right",
         width: "w-[9%]",
         sortable: true,
+        sortLabels: { asc: "Fewest inactive", desc: "Most inactive" },
         render: (row) => (
           <NumberCell value={(row as BioactivityChemicalRow).inactive_count} />
         ),
@@ -74,6 +77,7 @@ const BioactivityChemicalsSection = ({ commonName, anchorId }: Props) => {
         align: "right",
         width: "w-[10%]",
         sortable: true,
+        sortLabels: { asc: "Fewest foods", desc: "Most foods" },
         render: (row) => (
           <NumberCell value={(row as BioactivityChemicalRow).n_foods ?? 0} />
         ),
@@ -91,6 +95,7 @@ const BioactivityChemicalsSection = ({ commonName, anchorId }: Props) => {
         align: "right",
         width: "w-[14%]",
         sortable: true,
+        sortLabels: { asc: "Fewest assays", desc: "Most assays" },
         render: (row, ctx) => <ViewAssaysCell row={row} ctx={ctx} />,
       },
     ],

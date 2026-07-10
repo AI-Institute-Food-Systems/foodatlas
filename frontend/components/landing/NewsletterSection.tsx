@@ -24,7 +24,7 @@ const NewsletterSection = () => {
 
   return (
     <section className="bg-light-1000 w-full">
-      <div className="px-3 md:px-12">
+      <div className="px-4 md:px-24">
         <div className="relative max-w-5xl mx-auto py-20 md:py-24">
           {/* top double rule — letterpress slip framing */}
           <div className="border-t-2 border-double border-light-700/60" />

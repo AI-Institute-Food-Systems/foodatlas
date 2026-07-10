@@ -15,6 +15,12 @@ html {
   color: #fff;
   padding: 0 !important;
   overflow-y: scroll !important;
+  /* Sub-320px viewports produce overflow / clipping in components
+   * that assume "at least a phone width" (chips, hero, tables). Pin
+   * html at 320 so the browser shows a horizontal scroll below that,
+   * instead of trying to render at, say, 200px. Only affects extreme
+   * edge cases (feature phones, split-screen modes). */
+  min-width: 320px;
 }
 
 /* Toggled by Modal.tsx to lock page scroll while a dialog is open.

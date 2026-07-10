@@ -148,7 +148,15 @@ const SearchBar = () => {
         );
       } else {
         if (searchTerm.length > 0) {
-          setOffsetTop(96);
+          // Intermediate hint before the results page's own useEffect
+          // takes over. Same half-navbar-gap values so the bar
+          // doesn't visibly jump during the navigation.
+          setOffsetTop(
+            typeof window !== "undefined" &&
+              window.matchMedia("(min-width: 768px)").matches
+              ? 84
+              : 72,
+          );
           router.push(`/results?term=${searchTerm}`);
         }
       }
@@ -217,13 +225,21 @@ const SearchBar = () => {
       aria-hidden={!isVisible}
     >
       <div
-        className={`z-50 w-full absolute px-3md:px-12 ${
-          isFocused ? "absolute inset-0 top-24 -right-4" : ""
+        className={`z-50 w-full absolute px-4 md:px-24 ${
+          // When focused, the overlay sits with a half-navbar-height
+          // gap under the navbar bottom — 48 + 24 = 72 mobile,
+          // 56 + 28 = 84 desktop. Tailwind `important: true` makes
+          // the class win over inline `top: offsetTop` on the docked
+          // state, so the same responsive values apply on every page.
+          isFocused ? "absolute inset-0 top-[72px] md:top-[84px] -right-4" : ""
         } ${isResultsPage ? "" : "duration-[250ms]"}`}
         ref={containerRef}
         style={{ top: offsetTop || 50 }}
       >
-          <div className="px-3 md:px-12">
+          {/* Outer wrapper already applies `px-3 md:px-12` (matches
+           * navbar / footer / page layout inset). The inner content
+           * only needs the max-width cap + centering. */}
+          <div>
             <div className="mx-auto max-w-5xl" id="search-component">
               {/* search input */}
               <div className="relative flex items-center select-none">
@@ -286,13 +302,11 @@ const SearchBar = () => {
                 {/* search input */}
                 <input
                   ref={inputRef}
-                  className={`pl-12 w-full h-12 rounded-lg border-[1.5px] border-light-600 bg-light-950/50 backdrop-blur-3xl saturate-150 hover:outline-white text-light-100 transition duration-100 ease-in-out outline-light-50/60 placeholder-light-500 ${
-                    isFocused &&
-                    cachedSuggestions.length > 0 &&
-                    autocompleteTerm.length > 0
-                      ? "rounded-b-none"
-                      : ""
-                  }`}
+                  // Suggestions live in their own rounded card below
+                  // the input now (with a gap), so the input stays
+                  // fully rounded at all times — used to drop the
+                  // bottom radius when suggestions were flush.
+                  className="pl-12 w-full h-12 rounded-lg border-[1.5px] border-light-600 bg-light-950/50 backdrop-blur-3xl saturate-150 hover:outline-white text-light-100 transition duration-100 ease-in-out outline-light-50/60 placeholder-light-500"
                   type="text"
                   value={searchTerm}
                   placeholder={placeholder}
@@ -304,11 +318,14 @@ const SearchBar = () => {
                   onKeyDown={handleKeyDown}
                 />
               </div>
-              {/* Try-out chips — always visible so the entry-points
-               * are discoverable even mid-session. */}
-              <div className="mt-3">
-                <TryChips />
-              </div>
+              {/* Try-out chips — only while the input is empty. Once
+               * the user starts typing, suggestions take the row so
+               * the two lists don't compete for the same visual slot. */}
+              {autocompleteTerm.length === 0 && (
+                <div className="mt-3">
+                  <TryChips />
+                </div>
+              )}
               {/* Suggestions appear below the chips when focused,
                * with a small gap so the two rows feel distinct. */}
               {isFocused && (

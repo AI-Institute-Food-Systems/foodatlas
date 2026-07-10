@@ -11,6 +11,7 @@ import { ReactNode, useEffect, useState } from "react";
 import {
   MdCheck,
   MdClose,
+  MdDescription,
   MdInfoOutline,
   MdKeyboardArrowDown,
   MdKeyboardArrowUp,
@@ -21,9 +22,11 @@ import {
 import { twMerge } from "tailwind-merge";
 
 import Card from "@/components/basic/Card";
+import Chip from "@/components/basic/Chip";
 import Link from "@/components/basic/Link";
 import LoadingCard from "@/components/basic/LoadingCard";
 import Pagination from "@/components/basic/Pagination";
+import SortListbox from "@/components/basic/SortListbox";
 import BioactivityMeasurementsModal from "@/components/entities/bioactivity/BioactivityMeasurementsModal";
 import { formatTopMeasurement, topMeasurementOf } from "@/components/entities/bioactivity/format";
 import { usePaginations } from "@/context/paginationsContext";
@@ -57,6 +60,11 @@ export type SortableColumn = {
   width: string;
   // Whether this column maps to a server-side sort_by key.
   sortable?: boolean;
+  // Human labels for asc/desc in the mobile sort dropdown. Arrows
+  // ("Chemical ↓") are ambiguous for text vs numeric columns, so each
+  // sortable column should supply a phrase like "Chemical A–Z" /
+  // "Highest concentration". Falls back to `${label} ↑ / ↓` if omitted.
+  sortLabels?: { asc: string; desc: string };
   // Renders the cell content for a row.
   render: (row: BioactivityRow, ctx: ColumnContext) => ReactNode;
 };
@@ -500,13 +508,41 @@ const BioactivityTable = ({
       <div className="flex flex-col gap-7">
       <div>
       {!isLoading && totalRows > 0 && (
-        <div className="mb-1.5 flex justify-end">
+        <div className="mb-1.5 flex justify-between md:justify-end items-center gap-3">
           <span className="font-mono italic text-[11px] text-light-500 tabular-nums">
             {totalRows.toLocaleString()} {totalRows === 1 ? "row" : "rows"}
           </span>
+          {/* Mobile sort — built from sortable columns × asc/desc. */}
+          {columns.some((c) => c.sortable) && (
+            <div className="md:hidden flex items-center gap-2">
+              <span className="font-mono italic text-[11px] text-light-500">
+                sort
+              </span>
+              <SortListbox
+                value={`${sort.by}|${sort.dir}`}
+                options={columns
+                  .filter((c) => c.sortable)
+                  .flatMap((c) => [
+                    {
+                      value: `${c.key}|desc`,
+                      label: c.sortLabels?.desc ?? `${c.label} ↓`,
+                    },
+                    {
+                      value: `${c.key}|asc`,
+                      label: c.sortLabels?.asc ?? `${c.label} ↑`,
+                    },
+                  ])}
+                onChange={(value) => {
+                  const [by, dir] = value.split("|");
+                  setSort({ by, dir: dir as SortDir });
+                  setTablePaginations(tableId, 1, 20);
+                }}
+              />
+            </div>
+          )}
         </div>
       )}
-      <div className="overflow-x-auto">
+      <div className="hidden md:block overflow-x-auto">
         <table className="w-full table-fixed">
           <colgroup>
             {columns.map((c) => (
@@ -585,6 +621,60 @@ const BioactivityTable = ({
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Card list — mobile. Walks the same `columns[]` spec: first
+       * column renders as the primary line (typically NameLinkCell),
+       * remaining columns become label:value rows with justify-between.
+       * That way every consumer (bioactivity chemicals / foods /
+       * measurements) gets a mobile view without a per-caller
+       * override. */}
+      <div className="md:hidden w-full flex flex-col divide-y divide-light-800">
+        {isLoading ? (
+          Array.from({ length: 8 }).map((_, i) => (
+            <div key={`l-${i}`} className="w-full py-3">
+              <LoadingCard className="h-5" />
+            </div>
+          ))
+        ) : showEmpty ? (
+          <div className="w-full py-6 flex items-center justify-center text-light-300 gap-2">
+            <MdInfoOutline /> {emptyMessage}
+          </div>
+        ) : (
+          rows.map((row) => {
+            const ctx: ColumnContext = { openModal: () => setSelected(row) };
+            const [primary, ...rest] = columns;
+            return (
+              <div
+                key={row.id}
+                className="w-full py-3 flex flex-col gap-2 text-sm"
+              >
+                <div className="w-full flex items-center gap-2 flex-wrap">
+                  {primary.render(row, ctx)}
+                </div>
+                {rest.map((c) => {
+                  const label =
+                    c.label === "Assays" && effectiveSourceKindParam
+                      ? `Assays (${effectiveSourceKindParam})`
+                      : c.label;
+                  return (
+                    <div
+                      key={c.key}
+                      className="w-full flex items-center justify-between gap-2"
+                    >
+                      <span className="font-mono italic text-[10px] uppercase tracking-wider text-light-500">
+                        {label}
+                      </span>
+                      <div className="text-right">
+                        {c.render(row, ctx)}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })
+        )}
       </div>
       </div>
 
@@ -769,14 +859,16 @@ export const ViewAssaysCell = ({
   row: BioactivityRow;
   ctx: ColumnContext;
 }) => (
-  <button
-    type="button"
+  <Chip
+    icon={<MdDescription className="size-3" />}
+    label={`${row.measurement_count.toLocaleString()} assay${
+      row.measurement_count === 1 ? "" : "s"
+    }`}
+    tone="outline"
+    size="md"
     onClick={ctx.openModal}
     disabled={row.measurement_count === 0}
-    className="font-mono italic text-xs px-2.5 py-0.5 rounded-full border border-light-700/60 text-light-300 hover:text-light-100 hover:border-light-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-  >
-    View {row.measurement_count.toLocaleString()} →
-  </button>
+  />
 );
 
 // Chemical classification (["flavonoid", "polyphenol"] → "flavonoid,

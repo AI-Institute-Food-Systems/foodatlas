@@ -79,6 +79,7 @@ const CorrelationEvidenceModal = ({
 
   return (
     <Modal
+      fullHeight
       title={"Publications (PMIDs)"}
       description={
         <div className="flex flex-col gap-4">

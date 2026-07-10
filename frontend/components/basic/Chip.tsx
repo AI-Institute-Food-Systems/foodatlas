@@ -29,6 +29,11 @@ interface ChipProps {
   tone?: ChipTone;
   size?: ChipSize;
   onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
+  // When set, the Chip renders as an <a> — used for download links and
+  // external references that need middle-click / open-in-new-tab.
+  href?: string;
+  target?: string;
+  rel?: string;
   title?: string;
   className?: string;
   disabled?: boolean;
@@ -67,12 +72,14 @@ const Chip = ({
   tone = "outline",
   size = "md",
   onClick,
+  href,
+  target,
+  rel,
   title,
   className,
   disabled,
   ...aria
 }: ChipProps) => {
-  const clickable = !!onClick;
   const commonClass = twMerge(
     "inline-flex items-center rounded-full font-mono italic font-medium whitespace-nowrap transition-colors",
     TONE_CLASSES[tone],
@@ -96,7 +103,21 @@ const Chip = ({
       )}
     </>
   );
-  if (clickable) {
+  if (href) {
+    return (
+      <a
+        href={href}
+        target={target}
+        rel={rel}
+        title={title}
+        className={commonClass}
+        {...aria}
+      >
+        {body}
+      </a>
+    );
+  }
+  if (onClick) {
     return (
       <button
         type="button"

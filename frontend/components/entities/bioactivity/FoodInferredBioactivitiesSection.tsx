@@ -13,6 +13,7 @@
 import { useEffect, useState } from "react";
 import {
   MdClose,
+  MdDescription,
   MdInfoOutline,
   MdKeyboardArrowDown,
   MdKeyboardArrowUp,
@@ -21,9 +22,11 @@ import {
 } from "react-icons/md";
 
 import Card from "@/components/basic/Card";
+import Chip from "@/components/basic/Chip";
 import Link from "@/components/basic/Link";
 import LoadingCard from "@/components/basic/LoadingCard";
 import Pagination from "@/components/basic/Pagination";
+import SortListbox from "@/components/basic/SortListbox";
 import BioactivityMeasurementsModal from "@/components/entities/bioactivity/BioactivityMeasurementsModal";
 import {
   formatTopMeasurement,
@@ -202,21 +205,43 @@ const FoodInferredBioactivitiesSection = ({
       )}
 
       {!isLoading && totalRows > 0 && (
-        <div className="mb-1.5 flex justify-end">
+        <div className="mb-1.5 flex justify-between md:justify-end items-center gap-3">
           <span className="font-mono italic text-[11px] text-light-500 tabular-nums">
             {totalRows.toLocaleString()} {totalRows === 1 ? "row" : "rows"}
           </span>
+          <div className="md:hidden flex items-center gap-2">
+            <span className="font-mono italic text-[11px] text-light-500">
+              sort
+            </span>
+            <SortListbox
+              value={`${sort.by}|${sort.dir}`}
+              options={[
+                { value: "bioactivity|asc", label: "Bioactivity A–Z" },
+                { value: "bioactivity|desc", label: "Bioactivity Z–A" },
+                { value: "chemical|asc", label: "Chemical A–Z" },
+                { value: "chemical|desc", label: "Chemical Z–A" },
+                { value: "concentration|desc", label: "Highest concentration" },
+                { value: "concentration|asc", label: "Lowest concentration" },
+                { value: "measurement_count|desc", label: "Most assays" },
+                { value: "measurement_count|asc", label: "Least assays" },
+              ]}
+              onChange={(value) => {
+                const [by, dir] = value.split("|");
+                setSort({ by, dir: dir as SortDir });
+                setTablePaginations(tableId, 1, 20);
+              }}
+            />
+          </div>
         </div>
       )}
-      <div className="overflow-x-auto">
+      <div className="hidden md:block overflow-x-auto">
         <table className="w-full table-fixed">
           <colgroup>
-            <col className="w-[22%]" />
-            <col className="w-[18%]" />
-            <col className="w-[16%]" />
-            <col className="w-[10%]" />
+            <col className="w-[24%]" />
             <col className="w-[20%]" />
-            <col className="w-[14%]" />
+            <col className="w-[18%]" />
+            <col className="w-[22%]" />
+            <col className="w-[16%]" />
           </colgroup>
           <thead className="text-light-400 text-left">
             <tr>
@@ -242,6 +267,11 @@ const FoodInferredBioactivitiesSection = ({
                 onClick={handleSortClick}
                 align="right"
               />
+              <th className="h-9 border-b border-light-700 leading-none py-1.5 px-4 text-right">
+                <span className="select-none uppercase text-xs font-medium text-light-400">
+                  Top measurement
+                </span>
+              </th>
               <SortableTh
                 label="Assays"
                 sortKey="measurement_count"
@@ -249,23 +279,13 @@ const FoodInferredBioactivitiesSection = ({
                 onClick={handleSortClick}
                 align="right"
               />
-              <th className="h-9 border-b border-light-700 leading-none py-1.5 px-4 text-right">
-                <span className="select-none uppercase text-xs font-medium text-light-400">
-                  Top measurement
-                </span>
-              </th>
-              <th className="h-9 border-b border-light-700 leading-none py-1.5 pl-4 text-right last:pr-0">
-                <span className="select-none uppercase text-xs font-medium text-light-400">
-                  Detail
-                </span>
-              </th>
             </tr>
           </thead>
           <tbody className="text-sm font-light">
             {isLoading ? (
               Array.from({ length: 20 }).map((_, i) => (
                 <tr key={`l-${i}`}>
-                  <td className="w-full py-1.5" colSpan={6}>
+                  <td className="w-full py-1.5" colSpan={5}>
                     <div className="h-9 flex items-center">
                       <LoadingCard className="h-5" />
                     </div>
@@ -274,7 +294,7 @@ const FoodInferredBioactivitiesSection = ({
               ))
             ) : showEmpty ? (
               <tr>
-                <td colSpan={6}>
+                <td colSpan={5}>
                   <div className="h-[10rem] flex items-center justify-center text-light-300 gap-2">
                     <MdInfoOutline /> No chemicals in this food have measured
                     bioactivities yet
@@ -292,6 +312,94 @@ const FoodInferredBioactivitiesSection = ({
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Card list — mobile. Primary line pairs Bioactivity → Chemical
+       * (the inference chain). Concentration + Assays + Top + View
+       * button sit below as label:value rows. */}
+      <div className="md:hidden w-full flex flex-col divide-y divide-light-800">
+        {isLoading ? (
+          Array.from({ length: 8 }).map((_, i) => (
+            <div key={`l-${i}`} className="w-full py-3">
+              <LoadingCard className="h-5" />
+            </div>
+          ))
+        ) : showEmpty ? (
+          <div className="w-full py-6 flex items-center justify-center text-light-300 gap-2">
+            <MdInfoOutline /> No chemicals in this food have measured
+            bioactivities yet
+          </div>
+        ) : (
+          rows.map((row, idx) => {
+            const conc = row.median_concentration;
+            const top = row.top_measurement;
+            return (
+              <div
+                key={`${row.chemical_id}-${row.bioactivity_id}-${idx}`}
+                className="w-full py-3 flex flex-col gap-2 text-sm"
+              >
+                <div className="w-full flex items-baseline gap-2 flex-wrap capitalize">
+                  <Link
+                    href={`/bioactivity/${encodeURIComponent(
+                      encodeSpace(row.bioactivity)
+                    )}`}
+                    isExternal={false}
+                  >
+                    {row.bioactivity}
+                  </Link>
+                  <span className="font-mono italic text-[10px] uppercase tracking-wider text-light-500">
+                    via
+                  </span>
+                  <Link
+                    href={`/chemical/${encodeURIComponent(
+                      encodeSpace(row.chemical)
+                    )}`}
+                    isExternal={false}
+                  >
+                    {row.chemical}
+                  </Link>
+                </div>
+                <div className="w-full flex items-baseline justify-between gap-2">
+                  <span className="font-mono italic text-[10px] uppercase tracking-wider text-light-500">
+                    Concentration
+                  </span>
+                  <span className="font-mono tabular-nums text-light-200 text-right">
+                    {conc?.value == null ? (
+                      <span className="text-light-600">—</span>
+                    ) : (
+                      <>
+                        {formatConcentrationValueAlt(conc.value)}
+                        <span className="ml-1 text-light-500">
+                          {conc.unit ?? ""}
+                        </span>
+                      </>
+                    )}
+                  </span>
+                </div>
+                <div className="w-full flex items-baseline justify-between gap-2">
+                  <span className="font-mono italic text-[10px] uppercase tracking-wider text-light-500">
+                    Top measurement
+                  </span>
+                  <span className="font-mono text-xs text-light-200 text-right">
+                    {formatTopMeasurement(top)}
+                  </span>
+                </div>
+                <div className="w-full flex justify-end">
+                  <Chip
+                    icon={<MdDescription className="size-3" />}
+                    label={`${row.measurement_count.toLocaleString()} assay${
+                      row.measurement_count === 1 ? "" : "s"
+                    }`}
+                    tone="outline"
+                    size="md"
+                    onClick={() => setSelected(row)}
+                    disabled={row.measurement_count === 0}
+                  />
+                </div>
+              </div>
+            );
+          })
+        )}
       </div>
 
       {showingPaginator && (
@@ -413,25 +521,22 @@ const Row = ({ row, onOpen }: { row: InferredRow; onOpen: () => void }) => {
         </div>
       </td>
       <td className="py-1.5 px-4 text-right">
-        <div className="flex min-h-9 items-center justify-end tabular-nums text-light-200">
-          {row.measurement_count.toLocaleString()}
-        </div>
-      </td>
-      <td className="py-1.5 px-4 text-right">
         <div className="flex min-h-9 items-center justify-end font-mono text-xs text-light-200">
           {formatTopMeasurement(top)}
         </div>
       </td>
       <td className="py-1.5 pl-4 text-right">
         <div className="flex min-h-9 items-center justify-end">
-          <button
-            type="button"
+          <Chip
+            icon={<MdDescription className="size-3" />}
+            label={`${row.measurement_count.toLocaleString()} assay${
+              row.measurement_count === 1 ? "" : "s"
+            }`}
+            tone="outline"
+            size="md"
             onClick={onOpen}
             disabled={row.measurement_count === 0}
-            className="font-mono italic text-xs px-2.5 py-0.5 rounded-full border border-light-700/60 text-light-300 hover:text-light-100 hover:border-light-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
-          >
-            View {row.measurement_count.toLocaleString()} →
-          </button>
+          />
         </div>
       </td>
     </tr>

@@ -21,6 +21,7 @@ import Chip from "@/components/basic/Chip";
 import Link from "@/components/basic/Link";
 import Pagination from "@/components/basic/Pagination";
 import LoadingCard from "@/components/basic/LoadingCard";
+import SortListbox from "@/components/basic/SortListbox";
 import { AmbiguityBadge } from "@/components/basic/Ambiguity";
 import { TrustBadge } from "@/components/basic/TrustBadge";
 import FoodCompositionEvidenceModal, {
@@ -129,6 +130,53 @@ const FoodCompositionSection = ({
     Record<string, number>
   >({});
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+
+  // Mobile card view sort options — mirror the sortable desktop
+  // columns. Each option encodes column|direction as a single value so
+  // the <select> can drive both dimensions in one interaction.
+  const MOBILE_SORT_OPTIONS: {
+    value: string;
+    label: string;
+    column: string;
+    direction: "asc" | "desc";
+  }[] = [
+    {
+      value: "median_concentration|desc",
+      label: "Highest concentration",
+      column: "median_concentration",
+      direction: "desc",
+    },
+    {
+      value: "median_concentration|asc",
+      label: "Lowest concentration",
+      column: "median_concentration",
+      direction: "asc",
+    },
+    {
+      value: "evidence_count|desc",
+      label: "Most evidence",
+      column: "evidence_count",
+      direction: "desc",
+    },
+    {
+      value: "evidence_count|asc",
+      label: "Least evidence",
+      column: "evidence_count",
+      direction: "asc",
+    },
+    {
+      value: "common_name|asc",
+      label: "Chemical A–Z",
+      column: "common_name",
+      direction: "asc",
+    },
+    {
+      value: "common_name|desc",
+      label: "Chemical Z–A",
+      column: "common_name",
+      direction: "desc",
+    },
+  ];
 
   // fetch source + classification counts in one call
   useEffect(() => {
@@ -584,7 +632,7 @@ const FoodCompositionSection = ({
           {/* Sub-1440 row: search visible on the left, Filters trigger
            * on the right. Search stays outside the drawer so the user
            * doesn't have to open a modal to type. */}
-          <div className="min-[1440px]:hidden mb-4 flex items-center gap-3">
+          <div className="min-[1440px]:hidden mb-1 flex items-center gap-3">
             <div className="flex-1 min-w-0 max-w-xs">{searchInput}</div>
             <button
               type="button"
@@ -599,16 +647,34 @@ const FoodCompositionSection = ({
           <div className="flex flex-col gap-7">
           <div>
           {!isLoading && numberOfRows > 0 && (
-            <div className="mb-1.5 mt-3 flex justify-end">
+            <div className="mb-1.5 mt-1 flex justify-between md:justify-end items-center gap-3">
               <span className="font-mono italic text-[11px] text-light-500 tabular-nums">
                 {numberOfRows.toLocaleString()} {numberOfRows === 1 ? "row" : "rows"}
               </span>
+              {/* Mobile sort — no column headers to click on card view. */}
+              <div className="md:hidden flex items-center gap-2">
+                <span className="font-mono italic text-[11px] text-light-500">
+                  sort
+                </span>
+                <SortListbox
+                  value={`${sort.column}|${sort.direction}`}
+                  options={MOBILE_SORT_OPTIONS}
+                  onChange={(value) => {
+                    const opt = MOBILE_SORT_OPTIONS.find(
+                      (o) => o.value === value
+                    );
+                    if (!opt) return;
+                    setSort({ column: opt.column, direction: opt.direction });
+                    setTablePaginations("food-composition-table", 1, 20);
+                  }}
+                />
+              </div>
             </div>
           )}
-          {/* table */}
+          {/* table — desktop only. Card list below covers mobile. */}
           <div
             ref={tableWrapperRef}
-            className="overflow-x-auto relative"
+            className="hidden md:block overflow-x-auto relative"
           >
             {highlightName && overlayRect && (
               <div
@@ -795,8 +861,15 @@ const FoodCompositionSection = ({
                                 <span className="font-mono text-xs text-light-200 whitespace-nowrap tabular-nums text-right min-w-[5rem]">
                                   {formatConcentrationValueAlt(v)}
                                 </span>
-                                <span className="font-mono text-xs text-light-500 whitespace-nowrap tabular-nums text-right min-w-[3.5rem]">
+                                {/* % of the food's mass — 1 mg/100g = 0.001% */}
+                                <span
+                                  className="font-mono text-xs text-light-500 whitespace-nowrap tabular-nums text-right min-w-[3.5rem]"
+                                  title="Percentage of the food's mass"
+                                >
                                   {fmtPct}
+                                  <span className="ml-1 text-light-600">
+                                    by mass
+                                  </span>
                                 </span>
                               </>
                             );
@@ -845,6 +918,140 @@ const FoodCompositionSection = ({
                   ))}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile card list — replaces the table below md:. Sort
+           * control lives in the row-count header above (no column
+           * headers to click in card view). */}
+          <div className="md:hidden">
+            <div className="w-full flex flex-col divide-y divide-light-800">
+              {isLoading ? (
+                Array.from({ length: 8 }, (_, index) => (
+                  <div key={index} className="w-full py-3">
+                    <LoadingCard className="h-5" />
+                  </div>
+                ))
+              ) : isError ? (
+                <div className="w-full py-6 flex items-center justify-center text-red-400 gap-2">
+                  <MdErrorOutline /> An error occurred fetching data, please
+                  refresh the page
+                </div>
+              ) : data.length > 0 ? (
+                data.map((row) => {
+                  const isHighlighted =
+                    !!highlightName &&
+                    (row.name.toLowerCase() === highlightName ||
+                      (row.id ?? "").toLowerCase() === highlightName);
+                  const v = row.median_concentration?.value;
+                  const unit = row.median_concentration?.unit;
+                  const isMgPer100g =
+                    !!unit &&
+                    unit.replace(/\s+/g, "").toLowerCase() === "mg/100g";
+                  const pct = v != null && isMgPer100g ? v / 1000 : null;
+                  const fmtPct =
+                    pct === null
+                      ? ""
+                      : pct >= 10
+                      ? `${pct.toFixed(0)}%`
+                      : pct >= 1
+                      ? `${pct.toFixed(1)}%`
+                      : `${pct.toFixed(2)}%`;
+                  const evidenceCount = getRowEvidenceCount(row);
+                  const classifications =
+                    row.chemical_classification.length > 0
+                      ? row.chemical_classification.join(", ")
+                      : "—";
+                  return (
+                    <div
+                      key={row.id}
+                      className={`w-full py-3 flex flex-col gap-2 ${
+                        isHighlighted
+                          ? "bg-accent-500/5 -mx-2 px-2 rounded"
+                          : ""
+                      }`}
+                    >
+                      {/* Name row — same on both variants */}
+                      <div className="flex items-center gap-2 flex-wrap capitalize">
+                        <Link
+                          href={`/chemical/${encodeURIComponent(
+                            encodeSpace(row.name)
+                          )}`}
+                          isExternal={false}
+                        >
+                          {row.name}
+                        </Link>
+                        <AmbiguityBadge
+                          ambiguousCount={getRowAmbiguousCount(row)}
+                          totalCount={evidenceCount}
+                          onClick={(e) =>
+                            handleAmbiguityBadgeClick(e, row.name)
+                          }
+                        />
+                        <TrustBadge
+                          lowTrustCount={getRowLowTrustCount(row)}
+                          totalCount={evidenceCount}
+                          onClick={(e) =>
+                            handleTrustBadgeClick(e, row.name)
+                          }
+                        />
+                      </div>
+
+                      {/* Concentration line + inline classification &
+                       * evidence row, both spanning full card width
+                       * via justify-between. The "by mass" tag on the
+                       * percentage matches the desktop table. */}
+                      <div className="w-full flex items-baseline justify-between gap-2 font-mono text-sm text-light-100 tabular-nums">
+                        {v == null ? (
+                          <span className="text-light-600">—</span>
+                        ) : (
+                          <>
+                            <span>
+                              {formatConcentrationValueAlt(v)}
+                              {unit && (
+                                <span className="text-light-500 text-xs ml-1">
+                                  {unit}
+                                </span>
+                              )}
+                            </span>
+                            {fmtPct && (
+                              <span className="text-light-500 text-xs">
+                                {fmtPct}
+                                <span
+                                  className="ml-1 not-italic text-light-600"
+                                  title="Percentage of the food's mass"
+                                >
+                                  by mass
+                                </span>
+                              </span>
+                            )}
+                          </>
+                        )}
+                      </div>
+                      <div className="w-full flex items-center justify-between gap-2 text-xs">
+                        <span className="text-light-400 capitalize">
+                          {classifications}
+                        </span>
+                        <Chip
+                          icon={<MdDescription className="size-3" />}
+                          label={`${evidenceCount} data point${
+                            evidenceCount === 1 ? "" : "s"
+                          }`}
+                          tone="outline"
+                          size="md"
+                          onClick={(event) =>
+                            handleEvidenceButtonClick(event, row.name)
+                          }
+                        />
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="w-full py-6 flex items-center justify-center text-light-300">
+                  No associations found
+                </div>
+              )}
+            </div>
           </div>
           </div>
           {/* pagination */}

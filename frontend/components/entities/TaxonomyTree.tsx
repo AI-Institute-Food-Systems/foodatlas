@@ -150,7 +150,10 @@ const TaxonomyTree = ({
         ))}
       </div>
       {collapsible && (
-        <div className="mt-2">
+        <div className="mt-2 flex items-center gap-2 flex-wrap">
+          <span className="font-mono italic text-[11px] text-light-500">
+            1 of {totalPaths} branches
+          </span>
           <Button
             variant="outlined"
             size="xs"

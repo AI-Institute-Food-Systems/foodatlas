@@ -117,6 +117,7 @@ const FoodCompositionEvidenceModal = ({
 
   return (
     <Modal
+      fullHeight
       title="Data Points"
       description={
         <div className="flex flex-col gap-3">

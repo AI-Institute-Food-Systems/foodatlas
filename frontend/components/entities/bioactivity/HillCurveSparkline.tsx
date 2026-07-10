@@ -40,10 +40,6 @@ const SAMPLES = 80;
 // Sweep 3 decades on each side of AC50 — captures the plateau-rise-plateau
 // shape for any sane slope (-3..+3 dose-effect range covers > 99% of fits).
 const DECADES = 3;
-// Reserved gutters for axis labels. Tuned for an 8-px serif/mono font.
-const PAD_LEFT = 22;
-const PAD_BOTTOM = 10;
-const PAD_TOP = 9;
 
 const fmtConc = (logX: number): string => {
   const v = 10 ** logX;
@@ -86,6 +82,20 @@ const HillCurveSparkline = ({
     return null;
   }
 
+  // Label sizes scale with the viewBox width so the sparkline default
+  // (160 wide) keeps its 7/8-unit ticks while the modal's expanded view
+  // (720 wide) gets ~18/20-unit labels — otherwise, in fluid mode the
+  // labels render at a few screen pixels on phones.
+  const majorFontSize = Math.max(8, Math.round(width / 36));
+  const minorFontSize = Math.max(7, Math.round(width / 40));
+  // Reserved gutters for axis labels — scale with the minor font size
+  // (label height) and allow ~3 characters of horizontal room for y
+  // labels ("-44", "1000", etc.). Hardcoded 22/10/9 constants only
+  // worked for the 8pt default; at the modal's 18pt they overlap the
+  // plot and clip the axis labels.
+  const PAD_LEFT = Math.max(22, Math.round(minorFontSize * 3));
+  const PAD_BOTTOM = Math.max(10, minorFontSize + 6);
+  const PAD_TOP = Math.max(9, majorFontSize + 6);
   const plotW = width - PAD_LEFT;
   const plotH = height - PAD_TOP - PAD_BOTTOM;
   const logXMin = logAC50 - DECADES;
@@ -132,6 +142,23 @@ const HillCurveSparkline = ({
     setHoverPx((e.clientX - rect.left) * scale);
   };
 
+  // Touch/pointer scrubbing on mobile — mirrors the mouse handler but
+  // reads from pointer/touch events. Prevent-default on the touch
+  // handler stops the page from scrolling while dragging on the curve.
+  const handlePointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const scale = width / rect.width;
+    setHoverPx((e.clientX - rect.left) * scale);
+  };
+  const handleTouchMove = (e: React.TouchEvent<SVGSVGElement>) => {
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect || e.touches.length === 0) return;
+    e.preventDefault();
+    const scale = width / rect.width;
+    setHoverPx((e.touches[0].clientX - rect.left) * scale);
+  };
+
   const readout =
     hoverLogX != null && hoverY != null
       ? `${fmtConc(hoverLogX)}${unit ? ` ${unit}` : ""} → ${fmtY(hoverY)}`
@@ -147,15 +174,28 @@ const HillCurveSparkline = ({
       viewBox={`0 0 ${width} ${height}`}
       role="img"
       aria-label={`Hill curve fit, AC50 at 10^${logAC50.toFixed(2)}, slope ${slope.toFixed(2)}`}
-      className="block cursor-crosshair"
+      // overflow:visible so text glyphs anchored at the right edge
+      // (x=width, textAnchor=end) don't get their trailing advance
+      // clipped by the SVG viewport — SVG defaults to overflow:hidden.
+      overflow="visible"
+      className="block cursor-crosshair touch-none select-none"
       onMouseMove={handleMove}
       onMouseLeave={() => setHoverPx(null)}
+      onPointerDown={handlePointerMove}
+      onPointerMove={(e) => {
+        if (e.buttons > 0 || e.pointerType === "touch") handlePointerMove(e);
+      }}
+      onPointerUp={() => setHoverPx(null)}
+      onPointerCancel={() => setHoverPx(null)}
+      onTouchStart={handleTouchMove}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={() => setHoverPx(null)}
     >
       {/* readout / AC50 label across the top — switches to live value on hover */}
       <text
         x={width}
         y={PAD_TOP - 2}
-        fontSize="8"
+        fontSize={majorFontSize}
         fontFamily={labelFont}
         fill="currentColor"
         fillOpacity={hoverLogX != null ? "0.9" : "0.6"}
@@ -164,26 +204,28 @@ const HillCurveSparkline = ({
         {readout}
       </text>
 
-      {/* y-axis labels (top + bottom of value range) on the left */}
+      {/* y-axis labels — anchored to the left edge (start) so long
+       * values ("1000") never overflow off-screen when the SVG is
+       * displayed on a narrow phone. */}
       <text
-        x={PAD_LEFT - 3}
+        x={0}
         y={PAD_TOP + 3}
-        fontSize="7"
+        fontSize={minorFontSize}
         fontFamily={labelFont}
         fill="currentColor"
         fillOpacity="0.5"
-        textAnchor="end"
+        textAnchor="start"
       >
         {fmtY(yMax)}
       </text>
       <text
-        x={PAD_LEFT - 3}
+        x={0}
         y={PAD_TOP + plotH}
-        fontSize="7"
+        fontSize={minorFontSize}
         fontFamily={labelFont}
         fill="currentColor"
         fillOpacity="0.5"
-        textAnchor="end"
+        textAnchor="start"
       >
         {fmtY(yMin)}
       </text>
@@ -192,7 +234,7 @@ const HillCurveSparkline = ({
       <text
         x={PAD_LEFT}
         y={height - 2}
-        fontSize="7"
+        fontSize={minorFontSize}
         fontFamily={labelFont}
         fill="currentColor"
         fillOpacity="0.5"
@@ -202,7 +244,7 @@ const HillCurveSparkline = ({
       <text
         x={width}
         y={height - 2}
-        fontSize="7"
+        fontSize={minorFontSize}
         fontFamily={labelFont}
         fill="currentColor"
         fillOpacity="0.5"
@@ -294,7 +336,7 @@ const HillCurveSparkline = ({
           <text
             x={toPx(hoverLogX)}
             y={height - 1}
-            fontSize="8"
+            fontSize={majorFontSize}
             fontFamily={labelFont}
             fill="currentColor"
             textAnchor="middle"
@@ -313,7 +355,7 @@ const HillCurveSparkline = ({
           <text
             x={PAD_LEFT - 4}
             y={toPy(hoverY) + 3}
-            fontSize="8"
+            fontSize={majorFontSize}
             fontFamily={labelFont}
             fill="currentColor"
             textAnchor="end"

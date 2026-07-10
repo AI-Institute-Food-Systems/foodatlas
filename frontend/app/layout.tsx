@@ -1,11 +1,17 @@
 import { Portal } from "@headlessui/react";
 import { GoogleAnalytics } from "@next/third-parties/google";
+import type { Viewport } from "next";
 import Script from "next/script";
 
 import Providers from "@/app/providers";
 import SearchBar from "@/components/search/SearchBar";
 import "@/styles/globals.css";
 import { fontMono, fontSans, fontSerif } from "@/styles/fonts";
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+};
 
 interface ClientLayoutProps {
   children: React.ReactNode;
