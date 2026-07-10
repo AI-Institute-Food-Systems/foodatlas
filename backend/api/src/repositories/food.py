@@ -100,6 +100,7 @@ async def get_composition_counts(
                 CASE WHEN foodatlas_evidences IS NOT NULL THEN 1 ELSE 0 END AS has_fa
             FROM mv_food_chemical_composition
             WHERE food_name = :name
+              AND (fdc_evidences IS NOT NULL OR foodatlas_evidences IS NOT NULL)
         """),
         {"name": common_name},
     )
@@ -245,7 +246,16 @@ def _build_query_parts(
     else:
         select_cols = BASE_SELECT + ", " + valid[0] + "_evidences"
 
-    conditions = ["food_name = :name"]
+    conditions = [
+        "food_name = :name",
+        # Filter DMD-only rows unconditionally — the public API stopped
+        # exposing dmd_evidences in the 2026-07-06 DMD removal (PR #249)
+        # so a row with only DMD evidence renders as an empty row on the
+        # composition table. Redundant with the single-source clause
+        # below when a user picks exactly one source, harmless when both
+        # are selected.
+        "(fdc_evidences IS NOT NULL OR foodatlas_evidences IS NOT NULL)",
+    ]
     params: dict = {"name": common_name}
 
     if len(valid) == 1:
