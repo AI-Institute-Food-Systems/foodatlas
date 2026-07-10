@@ -75,6 +75,12 @@ const foodRow: BioactivityFoodRow = {
   ],
 };
 
+// Every bioactivity section renders BOTH a desktop <table> and a mobile
+// card list; the two are toggled by `hidden md:block` / `md:hidden`
+// classes. JSDOM ignores those display rules, so any query that hits a
+// row value matches twice. Use *AllBy* variants + `.length` /
+// `[0]` assertions instead of the single-match helpers.
+
 describe("BioactivityChemicalsSection", () => {
   it("renders empty state when no chemicals", async () => {
     vi.mocked(getBioactivityChemicals).mockResolvedValueOnce({
@@ -82,9 +88,10 @@ describe("BioactivityChemicalsSection", () => {
       metadata: { row_count: 0 },
     });
     renderWithPagination(<BioactivityChemicalsSection commonName="antioxidant" />);
-    expect(
-      await screen.findByText(/no chemical-bioactivity measurements/i)
-    ).toBeInTheDocument();
+    const empties = await screen.findAllByText(
+      /no chemical-bioactivity measurements/i,
+    );
+    expect(empties.length).toBeGreaterThan(0);
   });
 
   it("renders rows with active/inactive counts and top measurement", async () => {
@@ -93,17 +100,17 @@ describe("BioactivityChemicalsSection", () => {
       metadata: { row_count: 1 },
     });
     renderWithPagination(<BioactivityChemicalsSection commonName="antioxidant" />);
-    expect(await screen.findByText(/quercetin/i)).toBeInTheDocument();
-    // Assays column is now a clickable numeric count that opens the
-    // measurements modal (replaced the "View N assays" pill during the
-    // sidebar-filter redesign). The count is rendered as its own text
-    // node with commas, so match on the exact label.
+    expect((await screen.findAllByText(/quercetin/i)).length).toBeGreaterThan(0);
+    // "755 assays" Chip pill — the visible action button on each row.
+    // Rendered once per view (desktop + mobile), so match all.
     expect(
-      screen.getByRole("button", { name: /View 755/i })
-    ).toBeInTheDocument();
-    expect(screen.getByText("83")).toBeInTheDocument();
-    expect(screen.getByText("261")).toBeInTheDocument();
-    expect(screen.getByText(/IC50: 17\.2 MICROMOLAR/)).toBeInTheDocument();
+      screen.getAllByRole("button", { name: /755 assays/i }).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText("83").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("261").length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/IC50: 17\.2 MICROMOLAR/).length,
+    ).toBeGreaterThan(0);
   });
 });
 
@@ -114,11 +121,13 @@ describe("BioactivityFoodsSection", () => {
       metadata: { row_count: 1 },
     });
     renderWithPagination(<BioactivityFoodsSection commonName="antioxidant" />);
-    expect(await screen.findByText(/snail/i)).toBeInTheDocument();
-    expect(screen.getByText(/Activity: 0\.519 mmol\/100g/)).toBeInTheDocument();
+    expect((await screen.findAllByText(/snail/i)).length).toBeGreaterThan(0);
     expect(
-      screen.getByRole("button", { name: /view 1/i })
-    ).toBeInTheDocument();
+      screen.getAllByText(/Activity: 0\.519 mmol\/100g/).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByRole("button", { name: /1 assay\b/i }).length,
+    ).toBeGreaterThan(0);
   });
 });
 
@@ -129,8 +138,12 @@ describe("ChemicalBioactivitiesSection", () => {
       metadata: { row_count: 1 },
     });
     renderWithPagination(<ChemicalBioactivitiesSection commonName="quercetin" />);
-    const link = await screen.findByRole("link", { name: /antioxidant/i });
-    expect(link).toHaveAttribute("href", "/bioactivity/antioxidant");
+    const links = await screen.findAllByRole("link", { name: /antioxidant/i });
+    expect(links.length).toBeGreaterThan(0);
+    // Every rendered link (desktop + mobile) targets the same href.
+    for (const l of links) {
+      expect(l).toHaveAttribute("href", "/bioactivity/antioxidant");
+    }
   });
 });
 
@@ -142,8 +155,10 @@ describe("FoodBioactivitiesSection", () => {
     });
     renderWithPagination(<FoodBioactivitiesSection commonName="snail" />);
     expect(
-      await screen.findByRole("link", { name: /antioxidant/i })
-    ).toBeInTheDocument();
-    expect(screen.getByText(/Activity: 0\.519 mmol\/100g/)).toBeInTheDocument();
+      (await screen.findAllByRole("link", { name: /antioxidant/i })).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/Activity: 0\.519 mmol\/100g/).length,
+    ).toBeGreaterThan(0);
   });
 });
