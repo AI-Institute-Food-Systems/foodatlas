@@ -117,6 +117,11 @@ def _load_assoc_counts(conn: Connection) -> dict[str, int]:
     bioactivity_foodatlas_id) so adding all groupings never cross-contaminates
     entity types.
 
+    Composition groupings filter out DMD-only rows so the autocomplete
+    `associations` count matches what the composition endpoint actually
+    returns (DMD was stripped from the public API in the 2026-07-06
+    DMD removal — see hotfix PR #249).
+
     Previously foods and chemicals were missing their bioactivity-edge counts:
     a food like tomato didn't get credit for the bioactivity measurements from
     mv_food_bioactivity, and a chemical like quercetin didn't get credit for its
@@ -126,9 +131,13 @@ def _load_assoc_counts(conn: Connection) -> dict[str, int]:
     queries = (
         # Composition: food ↔ chemical
         "SELECT food_foodatlas_id AS fid, COUNT(*) AS n"
-        " FROM mv_food_chemical_composition GROUP BY food_foodatlas_id",
+        " FROM mv_food_chemical_composition"
+        " WHERE fdc_evidences IS NOT NULL OR foodatlas_evidences IS NOT NULL"
+        " GROUP BY food_foodatlas_id",
         "SELECT chemical_foodatlas_id AS fid, COUNT(*) AS n"
-        " FROM mv_food_chemical_composition GROUP BY chemical_foodatlas_id",
+        " FROM mv_food_chemical_composition"
+        " WHERE fdc_evidences IS NOT NULL OR foodatlas_evidences IS NOT NULL"
+        " GROUP BY chemical_foodatlas_id",
         # Correlation: chemical ↔ disease
         "SELECT chemical_foodatlas_id AS fid, COUNT(*) AS n"
         " FROM mv_chemical_disease_correlation GROUP BY chemical_foodatlas_id",
