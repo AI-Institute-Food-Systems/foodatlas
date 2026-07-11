@@ -1,6 +1,7 @@
 "use client";
 
-import { useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { usePathname, useRouter } from "next/navigation";
 import { ThreeDot } from "react-loading-indicators";
 import { MdClose, MdSearch } from "react-icons/md";
@@ -103,6 +104,62 @@ const SearchBar = () => {
     }
   }, [pathname, isFocused, isVisible, setIsVisible]);
 
+  // Cooldown after an outside-tap dismiss. When the fly-up collapses
+  // the input snaps back to its docked position, and the residual
+  // tap can land on it and refocus. During the cooldown window,
+  // bounce any incoming focus by immediately blurring.
+  const outsideDismissRef = useRef(false);
+
+  // Dismiss on outside tap. iOS Safari is inconsistent: sometimes it
+  // dismisses the keyboard WITHOUT firing blur on the input, leaving
+  // the fly-up stuck open. Update `isFocused` directly here instead
+  // of relying on the blur-event chain. `preventDefault` blocks the
+  // subsequent mouse/click cascade so the residual tap can't land
+  // on the now-docked input and refocus it.
+  useEffect(() => {
+    if (!isFocused) return;
+    const dismiss = (e: Event) => {
+      const content = document.getElementById("search-component");
+      if (!content || content.contains(e.target as Node)) return;
+      e.preventDefault();
+      outsideDismissRef.current = true;
+      inputRef.current?.blur();
+      setSelectedSuggestion(-1);
+      setIsFocused(false);
+      window.setTimeout(() => {
+        outsideDismissRef.current = false;
+      }, 400);
+    };
+    document.addEventListener("pointerdown", dismiss);
+    return () => document.removeEventListener("pointerdown", dismiss);
+  }, [isFocused, inputRef, setIsFocused, setSelectedSuggestion]);
+
+  // Detect keyboard dismissal that happens OUTSIDE our webview — e.g.
+  // taps on Safari's URL bar or its side gutters, or the keyboard's
+  // own down-arrow key. Those never reach our pointerdown listener,
+  // but they do shrink+grow the visualViewport. Track "keyboard is
+  // open" via a viewport shrink, then dismiss the fly-up when it
+  // grows back to (approximately) the pre-keyboard height.
+  useEffect(() => {
+    if (!isFocused) return;
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const initialHeight = vv.height;
+    let keyboardOpen = false;
+    const onResize = () => {
+      const shrunk = initialHeight - vv.height;
+      if (shrunk > 100) {
+        keyboardOpen = true;
+      } else if (keyboardOpen && shrunk < 20) {
+        inputRef.current?.blur();
+        setSelectedSuggestion(-1);
+        setIsFocused(false);
+      }
+    };
+    vv.addEventListener("resize", onResize);
+    return () => vv.removeEventListener("resize", onResize);
+  }, [isFocused, inputRef, setIsFocused, setSelectedSuggestion]);
+
   // Set the static placeholder once. The SearchContext still owns the
   // value so the input can read it through the same prop as before;
   // removing the typewriter loop just leaves a single useEffect.
@@ -183,13 +240,46 @@ const SearchBar = () => {
   };
 
   const handleFocus = () => {
+    // If focus arrives during the outside-dismiss cooldown, it's the
+    // residual click from the same tap that just dismissed us —
+    // bounce it instead of re-opening the fly-up.
+    if (outsideDismissRef.current) {
+      inputRef.current?.blur();
+      return;
+    }
     // Track focus directly off the input's onFocus event. The previous
     // approach polled `document.activeElement` through a useEffect with
     // a non-reactive dependency, which only re-synced on unrelated
     // re-renders — so after a programmatic blur (Esc, X) clicking the
     // input back wouldn't re-flip `isFocused` until the user typed.
-    setSelectedSuggestion(-1);
-    setIsFocused(true);
+    //
+    // `flushSync` forces React to apply the fly-up class synchronously
+    // before this handler returns; without it iOS Safari sees the
+    // input at its pre-fly-up position when computing "scroll into
+    // view" and yanks the page down.
+    flushSync(() => {
+      setSelectedSuggestion(-1);
+      setIsFocused(true);
+    });
+    // Fallback: on iOS Safari the keyboard-appear animation still
+    // triggers a scroll even with `interactive-widget=resizes-content`
+    // (which only lands on iOS 16.4+). Reset scrollY across BOTH the
+    // window scroll event AND the visualViewport resize event — the
+    // latter is what fires when the soft keyboard opens.
+    if (typeof window !== "undefined") {
+      const y = window.scrollY;
+      const reset = () => {
+        if (window.scrollY !== y) window.scrollTo(0, y);
+      };
+      window.addEventListener("scroll", reset, { passive: true });
+      window.visualViewport?.addEventListener("resize", reset);
+      window.visualViewport?.addEventListener("scroll", reset);
+      window.setTimeout(() => {
+        window.removeEventListener("scroll", reset);
+        window.visualViewport?.removeEventListener("resize", reset);
+        window.visualViewport?.removeEventListener("scroll", reset);
+      }, 800);
+    }
   };
 
   const handleBlur = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -226,12 +316,16 @@ const SearchBar = () => {
     >
       <div
         className={`z-50 w-full absolute px-4 md:px-24 ${
-          // When focused, the overlay sits with a half-navbar-height
-          // gap under the navbar bottom — 48 + 24 = 72 mobile,
-          // 56 + 28 = 84 desktop. Tailwind `important: true` makes
-          // the class win over inline `top: offsetTop` on the docked
-          // state, so the same responsive values apply on every page.
-          isFocused ? "absolute inset-0 top-[72px] md:top-[84px] -right-4" : ""
+          // When focused, use `fixed` positioning so the overlay is
+          // tied to the viewport, not the document. iOS Safari's
+          // "scroll input into view" logic sees a fixed-positioned
+          // input as already-in-view at its viewport-space top,
+          // whereas an `absolute` input at the same visual position
+          // still has a document-space Y that Safari tries to scroll
+          // to — yanking the page down on tap. Same top values as
+          // before (72 mobile / 84 desktop = navbar bottom + half a
+          // navbar height).
+          isFocused ? "fixed inset-0 top-[72px] md:top-[84px] -right-4" : ""
         } ${isResultsPage ? "" : "duration-[250ms]"}`}
         ref={containerRef}
         style={{ top: offsetTop || 50 }}
@@ -313,6 +407,28 @@ const SearchBar = () => {
                   aria-label="Search foods, chemicals and diseases"
                   onChange={handleInputChange}
                   onFocus={handleFocus}
+                  // Chrome + Safari (desktop and mobile) both scroll
+                  // the focused input into view on click. That's what
+                  // makes the page appear to "fly up" — content shifts
+                  // under the fixed navbar. Preempt by preventing the
+                  // default (which is what triggers the focus + auto-
+                  // scroll) and calling focus manually with
+                  // `preventScroll: true`.
+                  onMouseDown={(e) => {
+                    if (document.activeElement === e.currentTarget) return;
+                    e.preventDefault();
+                    e.currentTarget.focus({ preventScroll: true });
+                  }}
+                  // iOS Safari's touch→focus path can bypass mousedown
+                  // entirely, so mirror the preempt here. preventDefault
+                  // on touchend (not touchstart) — touchstart preventDefault
+                  // kills scroll gestures, whereas touchend only blocks the
+                  // synthesized focus-triggered scroll.
+                  onTouchEnd={(e) => {
+                    if (document.activeElement === e.currentTarget) return;
+                    e.preventDefault();
+                    e.currentTarget.focus({ preventScroll: true });
+                  }}
                   // @ts-ignore
                   onBlur={handleBlur}
                   onKeyDown={handleKeyDown}

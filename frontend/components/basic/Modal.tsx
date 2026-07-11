@@ -64,18 +64,24 @@ const Modal = ({
       {/* backdrop   */}
       <div className="fixed inset-0 w-screen backdrop-blur-md bg-neutral-800/50" />
       {/* modal */}
-      <div className="fixed inset-0 overflow-y-auto p-3 sm:p-6 md:p-12">
+      <div className="fixed inset-0 overflow-y-auto sm:p-6 md:p-12">
         {/* center content */}
         <div className="flex min-h-full items-center justify-center">
           <DialogPanel
             className={twMerge(
-              "relative w-full max-w-5xl rounded-xl border border-light-50/5 bg-light-950 backdrop-blur-2xl shadow-inner shadow-light-700/20 p-5 md:p-7",
-              // Mobile: fill nearly the whole dynamic viewport (minus
-              // the wrapper's p-3 = 1.5rem). sm: use minus p-6 (3rem).
-              // Desktop: 85vh capped at 800px — leaves gutters for
-              // the sidebar affordance.
+              // Mobile (base): edge-to-edge sheet — no rounding, no
+              // border, min-h fills the dynamic viewport so the
+              // background hits the dynamic island / home indicator
+              // area instead of leaving a Safari-chrome gap. Safe-area
+              // padding keeps content clear of those regions.
+              // sm+: card style returns — rounded, bordered, gutters.
+              "relative w-full max-w-5xl bg-light-950 backdrop-blur-2xl shadow-inner shadow-light-700/20",
+              "min-h-[100dvh] sm:min-h-0 sm:rounded-xl sm:border sm:border-light-50/5",
+              "px-5 md:p-7",
+              "pt-[max(1.25rem,env(safe-area-inset-top))] sm:pt-5",
+              "pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:pb-5",
               fullHeight &&
-                "flex flex-col h-[calc(100dvh-1.5rem)] sm:h-[calc(100dvh-3rem)] md:h-[min(85vh,800px)]"
+                "flex flex-col h-[100dvh] sm:h-[calc(100dvh-3rem)] md:h-[min(85vh,800px)]"
             )}
           >
             {/* Sidebar hangs OUTSIDE the panel visually via absolute
