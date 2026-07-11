@@ -65,8 +65,13 @@ const Navbar = ({ className }: NavbarProps) => {
     setIsVisible(true);
     setIsFocused(true);
     setIsNavMenuOpen(false);
-    // Wait one paint so the fade-in / re-anchor has taken effect.
-    requestAnimationFrame(() => inputRef.current?.focus());
+    // Wait one paint so the fade-in / re-anchor has taken effect,
+    // then focus without letting Safari scroll the page to bring the
+    // input into view — we've already anchored it below the navbar,
+    // any Safari-driven scroll would just fight our position.
+    requestAnimationFrame(() =>
+      inputRef.current?.focus({ preventScroll: true }),
+    );
   };
 
   return (
