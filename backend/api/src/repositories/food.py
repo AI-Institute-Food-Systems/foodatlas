@@ -97,75 +97,156 @@ async def get_profile(session: AsyncSession, common_name: str) -> dict[str, obje
     return {"data": profile}
 
 
+def _collect_attestation_ids(row: dict) -> list[str]:
+    """All attestation_ids across a composition row's evidence lists."""
+    atts: list[str] = []
+    for ev_list in (row["fdc_evidences"], row["foodatlas_evidences"]):
+        for ev in ev_list or []:
+            for ext in ev.get("extraction") or []:
+                aid = ext.get("attestation_id")
+                if aid:
+                    atts.append(aid)
+    return atts
+
+
+def _annotate_composition_rows(
+    rows: list[dict], scores: dict[str, float], threshold: float
+) -> None:
+    """Precompute per-row facets used by the counts loops."""
+    for r in rows:
+        atts = _collect_attestation_ids(r)
+        r["_classifications"] = r["chemical_classification"] or []
+        r["_has_fdc"] = r["fdc_evidences"] is not None
+        r["_has_fa"] = r["foodatlas_evidences"] is not None
+        r["_has_conc"] = r["median_concentration"] is not None
+        r["_fully_low"] = bool(atts) and all(
+            aid in scores and scores[aid] <= threshold for aid in atts
+        )
+        r["_name_lower"] = (r["chemical_name"] or "").lower()
+
+
 async def get_composition_counts(
-    session: AsyncSession, common_name: str
+    session: AsyncSession,
+    common_name: str,
+    filter_source: str = "",
+    filter_classification: str = "",
+    show_all_rows: bool = True,
+    trust: TrustMode = "default",
+    search_term: str = "",
 ) -> dict[str, object]:
-    """Per-classification, per-source and per-toggle chemical counts.
+    """Faceted composition counts.
 
-    ``no_concentration_count`` — rows whose ``median_concentration`` is
-    NULL. Surfaced next to the "Include without concentration" toggle.
+    Each per-dimension count applies every *other* filter currently
+    active and reports how many rows the dimension governs — so as the
+    user narrows the view, each count answers "if I toggled this option
+    now, how many rows would change?".
 
-    ``low_trust_count`` — rows containing at least one extraction whose
-    latest ``llm_plausibility`` score is at or below the low-trust
-    threshold (unscored attestations are not low-trust; see trust_filter).
-    Surfaced next to the "Include low-trust data points" toggle.
+    - ``classification_counts`` — apply source + concentration + trust +
+      search; group by classification.
+    - ``source_counts`` — apply class + concentration + trust + search;
+      count rows per source (fdc / foodatlas).
+    - ``no_concentration_count`` — apply source + class + trust + search;
+      count rows whose median_concentration is NULL. This is the number
+      of rows the "Include without concentration" toggle governs.
+    - ``low_trust_count`` — apply source + class + concentration +
+      search; count rows the low-trust filter would drop. This is the
+      number of rows the "Include low-trust data points" toggle governs.
+      trust_filter._is_low treats unscored attestations (FDC, un-judged
+      lit2kg) as high-trust, so a row is only dropped when *every*
+      extraction is both scored AND at or below the threshold.
     """
     result = await session.execute(
         text("""
-            SELECT
-                id,
-                chemical_classification,
-                CASE WHEN fdc_evidences IS NOT NULL THEN 1 ELSE 0 END AS has_fdc,
-                CASE WHEN foodatlas_evidences IS NOT NULL THEN 1 ELSE 0 END AS has_fa,
-                CASE WHEN median_concentration IS NULL THEN 1 ELSE 0 END AS no_conc,
-                fdc_evidences,
-                foodatlas_evidences
+            SELECT id, chemical_name, chemical_classification,
+                   median_concentration, fdc_evidences, foodatlas_evidences
             FROM mv_food_chemical_composition
             WHERE food_name = :name
               AND (fdc_evidences IS NOT NULL OR foodatlas_evidences IS NOT NULL)
         """),
         {"name": common_name},
     )
+    rows = [dict(r._mapping) for r in result]
+
+    # One round-trip for all trust scores across all rows' extractions,
+    # then annotate each row with the facet flags the counts loops use.
+    all_att_ids: set[str] = {aid for r in rows for aid in _collect_attestation_ids(r)}
+    scores = (
+        await _fetch_trust_scores(session, list(all_att_ids)) if all_att_ids else {}
+    )
+    threshold = APISettings().trust_low_threshold
+    _annotate_composition_rows(rows, scores, threshold)
+
+    active_sources = (
+        {s for s in filter_source.split("+") if s}
+        if filter_source
+        else {"fdc", "foodatlas"}
+    )
+    active_classes = (
+        {c for c in filter_classification.split("+") if c}
+        if filter_classification
+        else set()
+    )
+    q = search_term.strip().lower()
+    trust_default = trust == "default"
+
+    def m_source(r: dict) -> bool:
+        return ("fdc" in active_sources and r["_has_fdc"]) or (
+            "foodatlas" in active_sources and r["_has_fa"]
+        )
+
+    def m_class(r: dict) -> bool:
+        if not active_classes:
+            return True
+        if "n/a" in active_classes and not r["_classifications"]:
+            return True
+        return any(cls in active_classes for cls in r["_classifications"])
+
+    def m_conc(r: dict) -> bool:
+        return show_all_rows or r["_has_conc"]
+
+    def m_trust(r: dict) -> bool:
+        return not trust_default or not r["_fully_low"]
+
+    def m_search(r: dict) -> bool:
+        return not q or q in r["_name_lower"]
+
+    # classification_counts — exclude class filter.
     cls_counts: dict[str, int] = {}
-    source_counts = {"fdc": 0, "foodatlas": 0}
-    no_concentration_count = 0
-    # (row_id, [attestation_ids]) so we can classify rows as low-trust
-    # after one round-trip to base_trust_signals.
-    row_atts: dict[int, list[str]] = {}
-    all_att_ids: set[str] = set()
-    for row in result:
-        mapping = row._mapping
-        if mapping["has_fdc"]:
-            source_counts["fdc"] += 1
-        if mapping["has_fa"]:
-            source_counts["foodatlas"] += 1
-        if mapping["no_conc"]:
-            no_concentration_count += 1
-        classifications = mapping["chemical_classification"] or []
+    for r in rows:
+        if not (m_source(r) and m_conc(r) and m_trust(r) and m_search(r)):
+            continue
+        classifications = r["_classifications"]
         if not classifications:
             cls_counts["n/a"] = cls_counts.get("n/a", 0) + 1
         else:
             for cls in classifications:
                 cls_counts[cls] = cls_counts.get(cls, 0) + 1
-        # Collect attestation_ids per row for low-trust classification.
-        atts: list[str] = []
-        for ev_list in (mapping["fdc_evidences"], mapping["foodatlas_evidences"]):
-            for ev in ev_list or []:
-                for ext in ev.get("extraction") or []:
-                    aid = ext.get("attestation_id")
-                    if aid:
-                        atts.append(aid)
-                        all_att_ids.add(aid)
-        row_atts[mapping["id"]] = atts
 
-    scores = (
-        await _fetch_trust_scores(session, list(all_att_ids)) if all_att_ids else {}
+    # source_counts — exclude source filter.
+    source_counts = {"fdc": 0, "foodatlas": 0}
+    for r in rows:
+        if not (m_class(r) and m_conc(r) and m_trust(r) and m_search(r)):
+            continue
+        if r["_has_fdc"]:
+            source_counts["fdc"] += 1
+        if r["_has_fa"]:
+            source_counts["foodatlas"] += 1
+
+    # Toggle counts — exclude the toggle's own filter, count rows the
+    # toggle governs.
+    no_concentration_count = sum(
+        1
+        for r in rows
+        if m_source(r)
+        and m_class(r)
+        and m_trust(r)
+        and m_search(r)
+        and not r["_has_conc"]
     )
-    threshold = APISettings().trust_low_threshold
     low_trust_count = sum(
         1
-        for atts in row_atts.values()
-        if any(aid in scores and scores[aid] <= threshold for aid in atts)
+        for r in rows
+        if m_source(r) and m_class(r) and m_conc(r) and m_search(r) and r["_fully_low"]
     )
 
     return {

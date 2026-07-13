@@ -172,10 +172,43 @@ export async function getFoodCompositionData(
   return data;
 }
 
-// fetch food composition counts (classification + source counts in one call)
-export async function getFoodCompositionCounts(commonName: string) {
+// fetch faceted composition counts. Every filter mirrors what
+// /food/composition takes; each count in the response reflects the
+// dimension's rows given every *other* filter — so the sidebar updates
+// as the user narrows the view.
+interface CompositionCountsFilters {
+  sourceFilters?: string[];
+  classificationFilters?: string[];
+  showAllConcentrations?: boolean;
+  showLowTrust?: boolean;
+  searchTerm?: string;
+}
+
+export async function getFoodCompositionCounts(
+  commonName: string,
+  filters: CompositionCountsFilters = {}
+) {
+  const params = new URLSearchParams({ common_name: commonName });
+  if (filters.sourceFilters && filters.sourceFilters.length > 0) {
+    params.set("filter_source", filters.sourceFilters.join("+"));
+  }
+  if (
+    filters.classificationFilters &&
+    filters.classificationFilters.length > 0
+  ) {
+    params.set("filter_classification", filters.classificationFilters.join("+"));
+  }
+  if (filters.showAllConcentrations === false) {
+    params.set("show_all_rows", "false");
+  }
+  if (filters.showLowTrust) {
+    params.set("trust", "show_all");
+  }
+  if (filters.searchTerm) {
+    params.set("search", filters.searchTerm);
+  }
   const response = await fetch(
-    `${apiBase()}/food/composition/counts?common_name=${encodeURIComponent(commonName)}`,
+    `${apiBase()}/food/composition/counts?${params.toString()}`,
     {
       headers: {
         Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
