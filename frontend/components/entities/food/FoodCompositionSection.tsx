@@ -29,6 +29,7 @@ import FoodCompositionEvidenceModal, {
 } from "@/components/entities/food/FoodCompositionEvidenceModal";
 import { usePaginations } from "@/context/paginationsContext";
 import { useLoadingGate } from "@/context/pageReadyContext";
+import { usePublishTabCount } from "@/context/tabCountsContext";
 import { encodeSpace, formatConcentrationValueAlt } from "@/utils/utils";
 import {
   getFoodCompositionCounts,
@@ -104,6 +105,10 @@ const FoodCompositionSection = ({
   const tableWrapperRef = useRef<HTMLDivElement | null>(null);
   const [numberOfPages, setNumberOfPages] = useState(-1);
   const [numberOfRows, setNumberOfRows] = useState(-1);
+  // Publish the current filtered row count to the Composition tab
+  // badge. -1 = "unknown" (initial state) → the badge falls back to
+  // the server-prefetched static count until the first fetch resolves.
+  usePublishTabCount("composition", numberOfRows >= 0 ? numberOfRows : null);
   const [searchTerm, setSearchTerm] = useState(
     searchParams.get("search") ?? ""
   );
@@ -727,29 +732,26 @@ const FoodCompositionSection = ({
 
           <div className="flex flex-col gap-7">
           <div>
+          {/* Row-count line dropped — the Composition tab badge now
+           * reflects the filtered total via usePublishTabCount. Mobile
+           * sort stays here (no column headers to click on card view). */}
           {!isLoading && numberOfRows > 0 && (
-            <div className="mb-1.5 mt-1 flex justify-between md:justify-end items-center gap-3">
-              <span className="font-mono italic text-[11px] text-light-500 tabular-nums">
-                {numberOfRows.toLocaleString()} {numberOfRows === 1 ? "row" : "rows"}
+            <div className="mb-1.5 mt-1 md:hidden flex justify-end items-center gap-2">
+              <span className="font-mono italic text-[11px] text-light-500">
+                sort
               </span>
-              {/* Mobile sort — no column headers to click on card view. */}
-              <div className="md:hidden flex items-center gap-2">
-                <span className="font-mono italic text-[11px] text-light-500">
-                  sort
-                </span>
-                <SortListbox
-                  value={`${sort.column}|${sort.direction}`}
-                  options={MOBILE_SORT_OPTIONS}
-                  onChange={(value) => {
-                    const opt = MOBILE_SORT_OPTIONS.find(
-                      (o) => o.value === value
-                    );
-                    if (!opt) return;
-                    setSort({ column: opt.column, direction: opt.direction });
-                    setTablePaginations("food-composition-table", 1, 20);
-                  }}
-                />
-              </div>
+              <SortListbox
+                value={`${sort.column}|${sort.direction}`}
+                options={MOBILE_SORT_OPTIONS}
+                onChange={(value) => {
+                  const opt = MOBILE_SORT_OPTIONS.find(
+                    (o) => o.value === value
+                  );
+                  if (!opt) return;
+                  setSort({ column: opt.column, direction: opt.direction });
+                  setTablePaginations("food-composition-table", 1, 20);
+                }}
+              />
             </div>
           )}
           {/* table — desktop only. Card list below covers mobile. */}

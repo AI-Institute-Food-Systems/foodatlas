@@ -3,6 +3,7 @@ import EntityTabs, {
   EntityType,
   TabSpec,
 } from "@/components/entities/EntityTabs";
+import { TabCountsProvider } from "@/context/tabCountsContext";
 
 interface Props {
   entityType: EntityType;
@@ -18,15 +19,17 @@ const EntityDetailLayout = ({
   return (
     <div className="mt-6">
       <section className="min-w-0">
-        {tabs.length === 1 ? (
-          <Card>{tabs[0].content}</Card>
-        ) : (
-          <EntityTabs
-            entityType={entityType}
-            tabs={tabs}
-            defaultTabId={defaultTabId}
-          />
-        )}
+        <TabCountsProvider>
+          {tabs.length === 1 ? (
+            <Card>{tabs[0].content}</Card>
+          ) : (
+            <EntityTabs
+              entityType={entityType}
+              tabs={tabs}
+              defaultTabId={defaultTabId}
+            />
+          )}
+        </TabCountsProvider>
       </section>
     </div>
   );
