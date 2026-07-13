@@ -6,7 +6,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.config import APISettings
 
 from .formatting import format_external_ids
-from .trust_filter import TrustMode, apply_trust_filter, _fetch_trust_scores
+from .trust_filter import (
+    TrustMode,
+    _fetch_trust_scores,
+    apply_trust_filter,
+)
 
 ROWS_PER_PAGE = 25
 
@@ -154,7 +158,11 @@ async def get_composition_counts(
                         all_att_ids.add(aid)
         row_atts[mapping["id"]] = atts
 
-    scores = await _fetch_trust_scores(session, list(all_att_ids)) if all_att_ids else {}
+    scores = (
+        await _fetch_trust_scores(session, list(all_att_ids))
+        if all_att_ids
+        else {}
+    )
     threshold = APISettings().trust_low_threshold
     low_trust_count = sum(
         1
