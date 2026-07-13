@@ -25,7 +25,7 @@ interface HeaderSectionSuspenseProps {
   entityType: "food" | "chemical" | "disease" | "bioactivity";
 }
 
-const HeaderSectionSuspense = async ({
+const HeaderSectionSuspense = ({
   entityType,
 }: HeaderSectionSuspenseProps) => {
   return (
@@ -39,7 +39,10 @@ const HeaderSectionSuspense = async ({
           {entityType}
         </Badge>
         <LoadingCard className="h-9 md:h-10 w-56" />
-        <span className="absolute right-0 top-1/2 -translate-y-1/2">
+        <span className="absolute right-0 top-1/2 -translate-y-1/2 flex items-baseline gap-1.5 whitespace-nowrap">
+          <span className="font-mono italic text-[10px] uppercase tracking-[0.12em] text-light-500">
+            FoodAtlas ID
+          </span>
           <LoadingCard className="w-14 h-3" />
         </span>
       </div>

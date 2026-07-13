@@ -21,6 +21,12 @@ type SearchContextValue = {
   setIsSearchFocussed: (focussed: boolean) => void;
   offsetTop: number;
   setOffsetTop: (offset: number) => void;
+  // When true, the bar container's top-transition is disabled so a
+  // just-measured offsetTop lands without animating from a stale value
+  // (e.g. the 72/84 pinned during a previous /results submission). The
+  // SearchWrapper flips this on mount and re-enables after one rAF.
+  suppressTransition: boolean;
+  setSuppressTransition: (v: boolean) => void;
 };
 
 export const SearchContext = createContext<SearchContextValue>({
@@ -42,6 +48,8 @@ export const SearchContext = createContext<SearchContextValue>({
   setIsSearchFocussed: () => {},
   offsetTop: 0,
   setOffsetTop: () => {},
+  suppressTransition: false,
+  setSuppressTransition: () => {},
 });
 
 interface SearchContextProviderProps {
@@ -59,6 +67,7 @@ export const SearchProvider = ({ children }: SearchContextProviderProps) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isSearchFocussed, setIsSearchFocussed] = useState<boolean>(false);
   const [offsetTop, setOffsetTop] = useState<number>(0);
+  const [suppressTransition, setSuppressTransition] = useState<boolean>(false);
 
   const value: SearchContextValue = {
     selectedSuggestion,
@@ -79,6 +88,8 @@ export const SearchProvider = ({ children }: SearchContextProviderProps) => {
     setIsSearchFocussed,
     offsetTop,
     setOffsetTop,
+    suppressTransition,
+    setSuppressTransition,
   };
 
   return (

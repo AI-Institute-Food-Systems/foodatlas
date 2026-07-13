@@ -28,6 +28,7 @@ import FoodCompositionEvidenceModal, {
   EvidenceFilter,
 } from "@/components/entities/food/FoodCompositionEvidenceModal";
 import { usePaginations } from "@/context/paginationsContext";
+import { useLoadingGate } from "@/context/pageReadyContext";
 import { encodeSpace, formatConcentrationValueAlt } from "@/utils/utils";
 import {
   getFoodCompositionCounts,
@@ -83,6 +84,7 @@ const FoodCompositionSection = ({
   const searchParams = useSearchParams();
   const [data, setData] = useState<FoodCompositionData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  useLoadingGate(isLoading);
   const [isError, setIsError] = useState(false);
   const { getTablePaginations, setTablePaginations } = usePaginations();
   const { currentPage } = getTablePaginations("food-composition-table");
@@ -129,6 +131,15 @@ const FoodCompositionSection = ({
   const [classificationCounts, setClassificationCounts] = useState<
     Record<string, number>
   >({});
+  // Counterfactual counts for the Options toggle switches. Undefined
+  // while loading OR when the API hasn't returned the field yet (round-2
+  // backend addition; frontend gracefully hides the count in that case).
+  const [noConcentrationCount, setNoConcentrationCount] = useState<
+    number | undefined
+  >(undefined);
+  const [lowTrustCount, setLowTrustCount] = useState<number | undefined>(
+    undefined,
+  );
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   // Mobile card view sort options — mirror the sortable desktop
@@ -185,9 +196,13 @@ const FoodCompositionSection = ({
         const counts = await getFoodCompositionCounts(commonName);
         setSourceCounts(counts.source_counts);
         setClassificationCounts(counts.classification_counts);
+        setNoConcentrationCount(counts.no_concentration_count);
+        setLowTrustCount(counts.low_trust_count);
       } catch {
         setSourceCounts({});
         setClassificationCounts({});
+        setNoConcentrationCount(undefined);
+        setLowTrustCount(undefined);
       }
     };
     fetchCounts();
@@ -490,9 +505,9 @@ const FoodCompositionSection = ({
     );
   };
 
-  const visibleClassOptions = CLASSIFICATION_OPTIONS.filter(
-    (cls) => (classificationCounts[cls] ?? 0) > 0
-  );
+  // Render every classification option so the sidebar space is stable;
+  // rows with count=0 render disabled (see FilterListItem).
+  const visibleClassOptions = CLASSIFICATION_OPTIONS;
 
   // Search field is used in three places: inside the sidebar (with
   // filters), inside the mobile drawer's sidebar copy, and on its own
@@ -527,16 +542,24 @@ const FoodCompositionSection = ({
   const filtersOnlyPanel = (
     <div className="flex flex-col gap-5">
       {/* options — binary switches (not multi-select) so they stay as
-       * toggles rather than checkbox rows. */}
+       * toggles rather than checkbox rows.
+       *
+       * TODO(round-2): the composition/counts endpoint doesn't yet
+       * return a per-toggle counterfactual (rows without concentration;
+       * low-trust extractions). Once available, surface each as a small
+       * "(+N)"-style count next to the label so the "every filter has a
+       * count, disabled at 0" convention holds here too. */}
       <FilterGroup label="Options">
         <div className="flex flex-col gap-2 pt-0.5">
           <ToggleSwitch
-            label="Include without concentration"
+            label="Without concentration"
+            count={noConcentrationCount}
             checked={showAllConcentrations}
             onChange={handleConcentrationSwitchChange}
           />
           <ToggleSwitch
-            label="Include low-trust data points"
+            label="Low-trust data points"
+            count={lowTrustCount}
             checked={showLowTrust}
             onChange={handleLowTrustSwitchChange}
           />
@@ -546,52 +569,58 @@ const FoodCompositionSection = ({
       {/* source — checkbox list, one row per source */}
       <FilterGroup label="Source">
         <FilterList>
-          {SOURCE_OPTIONS.map((opt) => (
-            <FilterListItem
-              key={opt.value}
-              label={opt.label}
-              count={sourceCounts[opt.value]}
-              selected={sourceFilters.includes(opt.value)}
-              onClick={() => toggleSource(opt.value)}
-            />
-          ))}
+          {SOURCE_OPTIONS.map((opt) => {
+            const c = sourceCounts[opt.value];
+            return (
+              <FilterListItem
+                key={opt.value}
+                label={opt.label}
+                count={c}
+                selected={sourceFilters.includes(opt.value)}
+                onClick={() => toggleSource(opt.value)}
+                disabled={c === 0}
+              />
+            );
+          })}
         </FilterList>
       </FilterGroup>
 
       {/* nutrient classification — same checklist chrome; 15+ options
        * scrolls internally if the list would push the sticky sidebar
        * past the viewport. */}
-      {visibleClassOptions.length > 0 && (
-        <FilterGroup
-          label="Class"
-          action={
-            classificationFilter.length > 0 ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setTablePaginations("food-composition-table", 1, 20);
-                  setClassificationFilter([]);
-                }}
-                className="text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
-              >
-                clear
-              </button>
-            ) : null
-          }
-        >
-          <FilterList maxHeightClass="max-h-72">
-            {visibleClassOptions.map((cls) => (
+      <FilterGroup
+        label="Class"
+        action={
+          classificationFilter.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => {
+                setTablePaginations("food-composition-table", 1, 20);
+                setClassificationFilter([]);
+              }}
+              className="text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
+            >
+              clear
+            </button>
+          ) : null
+        }
+      >
+        <FilterList maxHeightClass="max-h-72">
+          {visibleClassOptions.map((cls) => {
+            const c = classificationCounts[cls] ?? 0;
+            return (
               <FilterListItem
                 key={cls}
                 label={cls === "n/a" ? "unclassified" : cls}
-                count={classificationCounts[cls]}
+                count={c}
                 selected={classificationFilter.includes(cls)}
                 onClick={() => toggleClassification(cls)}
+                disabled={c === 0}
               />
-            ))}
-          </FilterList>
-        </FilterGroup>
-      )}
+            );
+          })}
+        </FilterList>
+      </FilterGroup>
     </div>
   );
 
@@ -1139,10 +1168,14 @@ const FilterRowLabel = ({ children }: { children: React.ReactNode }) => (
 
 const ToggleSwitch = ({
   label,
+  count,
   checked,
   onChange,
 }: {
   label: string;
+  // Count of rows the toggle governs (e.g. rows without concentration).
+  // Rendered as a right-aligned mono badge; omitted when undefined.
+  count?: number;
   checked: boolean;
   onChange: () => void;
 }) => (
@@ -1156,12 +1189,22 @@ const ToggleSwitch = ({
     </Switch>
     <span
       className={twMerge(
-        "text-xs transition-colors",
+        "text-xs transition-colors flex-1 min-w-0 leading-tight",
         checked ? "text-light-100" : "text-light-400"
       )}
     >
       {label}
     </span>
+    {typeof count === "number" && (
+      <span
+        className={twMerge(
+          "tabular-nums text-[10px] flex-shrink-0",
+          checked ? "text-light-400" : "text-light-500"
+        )}
+      >
+        {count.toLocaleString()}
+      </span>
+    )}
   </label>
 );
 
@@ -1208,26 +1251,35 @@ const FilterList = ({
 // One row in the filter list. Full-width click target, checkbox affordance
 // on the left, label in the middle, count right-aligned. Full-row hover
 // state makes the whole thing feel tappable.
+//
+// When count is 0 the row renders `disabled` — visible but greyed and
+// non-interactive — instead of being hidden, so the filter space keeps
+// the same shape whatever the pivot entity has evidence for.
 const FilterListItem = ({
   label,
   count,
   selected,
   onClick,
+  disabled,
 }: {
   label: string;
   count?: number;
   selected: boolean;
   onClick: () => void;
+  disabled?: boolean;
 }) => (
   <button
     type="button"
     onClick={onClick}
+    disabled={disabled}
     aria-pressed={selected}
+    aria-disabled={disabled || undefined}
     className={twMerge(
       "group w-full flex items-center gap-2 pl-1 pr-2 py-1 rounded transition-colors text-left",
       selected
         ? "text-light-100 hover:bg-light-900/70"
-        : "text-light-400 hover:text-light-100 hover:bg-light-900/50"
+        : "text-light-400 hover:text-light-100 hover:bg-light-900/50",
+      disabled && "opacity-40 cursor-not-allowed hover:bg-transparent hover:text-light-400"
     )}
   >
     <span
@@ -1236,7 +1288,8 @@ const FilterListItem = ({
         "w-3.5 h-3.5 rounded-[3px] border flex-shrink-0 flex items-center justify-center transition-colors",
         selected
           ? "border-accent-600 bg-accent-600/20 text-accent-600"
-          : "border-light-700 group-hover:border-light-500"
+          : "border-light-700 group-hover:border-light-500",
+        disabled && "group-hover:border-light-700"
       )}
     >
       {selected && <MdCheck className="w-3 h-3" />}

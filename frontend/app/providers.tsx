@@ -4,6 +4,7 @@ import { Analytics } from "@vercel/analytics/react";
 
 import { PaginationsProvider } from "@/context/paginationsContext";
 import { AutocompleteProvider } from "@/context/autocompleteContext";
+import { NavigationProvider } from "@/context/navigationContext";
 import { SearchProvider } from "@/context/searchContext";
 
 interface ProvidersProps {
@@ -12,14 +13,16 @@ interface ProvidersProps {
 
 const Providers = ({ children }: ProvidersProps) => {
   return (
-    <PaginationsProvider>
-      <AutocompleteProvider>
-        <SearchProvider>
-          <Analytics />
-          {children}
-        </SearchProvider>
-      </AutocompleteProvider>
-    </PaginationsProvider>
+    <NavigationProvider>
+      <PaginationsProvider>
+        <AutocompleteProvider>
+          <SearchProvider>
+            <Analytics />
+            {children}
+          </SearchProvider>
+        </AutocompleteProvider>
+      </PaginationsProvider>
+    </NavigationProvider>
   );
 };
 

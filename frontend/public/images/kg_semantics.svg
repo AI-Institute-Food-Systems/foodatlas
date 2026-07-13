@@ -48,7 +48,7 @@
 
       .edge-line  { stroke: #575451; stroke-width: 1.5; fill: none; }
       .edge-pos   { stroke: #84cc16; }
-      .edge-neg   { stroke: #f43f5e; stroke-dasharray: 5 3; }
+      .edge-neg   { stroke: #f43f5e; }
 
       .edge-label-bg { fill: #151414; }
       .edge-label    { font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-size: 10px; fill: #dad3cb; }
@@ -68,20 +68,24 @@
     <text class="edge-label" x="260" y="85" text-anchor="middle">CONTAINS</text>
   </g>
 
-  <!-- r3: Chemical → Disease (green solid = positive correlation) -->
+  <!-- r3 & r4: Chemical → Disease. Draw both lines first, THEN both
+       label blocks — otherwise the later line (r4) paints on top of
+       the earlier group's label rect where they cross at x=425. -->
+  <line class="edge-line edge-neg" x1="395" y1="105" x2="395" y2="235" marker-end="url(#arr-red)" />
+  <line class="edge-line edge-pos" x1="425" y1="105" x2="425" y2="235" marker-end="url(#arr-lime)" />
+
+  <!-- r3 label (red = worsens health outcome) -->
   <g>
-    <line class="edge-line edge-pos" x1="395" y1="105" x2="395" y2="235" marker-end="url(#arr-lime)" />
     <rect class="edge-label-bg" x="410" y="135" width="95" height="18" rx="4" />
     <text class="edge-code"  x="418" y="148" text-anchor="start">r3</text>
-    <text class="edge-label" x="435" y="148" text-anchor="start">POS. CORR.</text>
+    <text class="edge-label" x="435" y="148" text-anchor="start">WORSENS</text>
   </g>
 
-  <!-- r4: Chemical → Disease (dashed red = negative correlation) -->
+  <!-- r4 label (green = improves health outcome) -->
   <g>
-    <line class="edge-line edge-neg" x1="425" y1="105" x2="425" y2="235" marker-end="url(#arr-red)" />
     <rect class="edge-label-bg" x="410" y="160" width="95" height="18" rx="4" />
     <text class="edge-code"  x="418" y="173" text-anchor="start">r4</text>
-    <text class="edge-label" x="435" y="173" text-anchor="start">NEG. CORR.</text>
+    <text class="edge-label" x="435" y="173" text-anchor="start">IMPROVES</text>
   </g>
 
   <!-- r5: Food → Bioactivity (left vertical) -->

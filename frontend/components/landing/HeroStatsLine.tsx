@@ -20,7 +20,7 @@ const fmtCompact = (n: number): string => {
 // block, bioactivities goes first per the same ordering rule used in
 // the search placeholder + the `<TryChips>` row.
 const ITEMS: {
-  key: keyof Awaited<ReturnType<typeof useLandingStats>>;
+  key: keyof NonNullable<ReturnType<typeof useLandingStats>>;
   label: string;
   compact?: boolean;
 }[] = [
@@ -34,6 +34,7 @@ const ITEMS: {
 
 const HeroStatsLine = () => {
   const stats = useLandingStats();
+  const isLoading = stats === null;
   return (
     <div className="flex justify-center">
       <div
@@ -49,14 +50,32 @@ const HeroStatsLine = () => {
         }
       >
         {ITEMS.map((item) => {
-          const value = stats[item.key];
+          const value = stats?.[item.key];
           return (
             <div
               key={item.key}
-              className="flex flex-col items-center leading-none whitespace-nowrap"
+              // min-width reserves enough space for the loaded number,
+              // so the column doesn't grow/shrink between the skeleton
+              // and the value — otherwise the parent inline-flex row
+              // re-centers and every column jitters horizontally.
+              className="flex flex-col items-center leading-none whitespace-nowrap min-w-[4rem] md:min-w-[4.5rem]"
             >
               <span className="text-white text-base md:text-lg font-semibold tabular-nums">
-                {item.compact ? fmtCompact(value) : fmt(value)}
+                {isLoading ? (
+                  // Skeleton sits in the same styled outer span so the
+                  // line box has identical font-metrics in both states.
+                  // h-[1em] = font-size (16px base, 18px md) matching
+                  // the text's exact rendered height, so the column
+                  // doesn't jitter when values land.
+                  <span
+                    aria-hidden
+                    className="inline-block h-[1em] w-10 md:w-12 rounded bg-light-800/60 animate-pulse align-middle"
+                  />
+                ) : (
+                  <>
+                    {item.compact ? fmtCompact(value ?? 0) : fmt(value ?? 0)}
+                  </>
+                )}
               </span>
               <span className="mt-1.5 font-mono italic text-[10px] md:text-xs uppercase tracking-wider text-light-300">
                 {item.label}

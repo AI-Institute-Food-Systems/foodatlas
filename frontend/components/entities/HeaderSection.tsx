@@ -53,8 +53,13 @@ const HeaderSection = async ({
         >
           {commonName}
         </Heading>
-        <span className="absolute right-0 top-1/2 -translate-y-1/2 font-mono italic text-xs text-light-300 whitespace-nowrap">
-          {data?.id ?? "—"}
+        <span className="absolute right-0 top-1/2 -translate-y-1/2 flex items-baseline gap-1.5 whitespace-nowrap">
+          <span className="font-mono italic text-[10px] uppercase tracking-[0.12em] text-light-500">
+            FoodAtlas ID
+          </span>
+          <span className="font-mono italic text-xs text-light-300">
+            {data?.id ?? "—"}
+          </span>
         </span>
       </div>
       <EntityAmbiguityBanner

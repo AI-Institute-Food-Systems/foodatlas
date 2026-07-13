@@ -6,6 +6,7 @@ import BioactivityIcon from "@/components/icons/BioactivityIcon";
 import ChemicalIcon from "@/components/icons/ChemicalIcon";
 import DiseaseIcon from "@/components/icons/DiseaseIcon";
 import FoodIcon from "@/components/icons/FoodIcon";
+import { useNavigationSignal } from "@/context/navigationContext";
 import { Suggestion } from "@/types/Suggestion";
 import { encodeSpace } from "@/utils/utils";
 
@@ -30,12 +31,14 @@ const SuggestionItem = ({
   onMouseMove,
 }: SuggestionItemProps) => {
   const router = useRouter();
+  const { startNav } = useNavigationSignal();
   const icon = entityIcon[suggestion.entity_type] ?? null;
 
   const navigate = () => {
     // Let SearchBar's route-change effect handle isVisible teardown —
     // doing it here fires before navigation and causes the bar to
     // morph back to its compact position mid-fade.
+    startNav();
     router.push(
       `/${suggestion.entity_type}/${encodeURIComponent(
         encodeSpace(suggestion.common_name)

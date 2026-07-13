@@ -194,6 +194,14 @@ export async function getFoodCompositionCounts(commonName: string) {
   return data.data as {
     classification_counts: Record<string, number>;
     source_counts: Record<string, number>;
+    // Count of composition rows whose median_concentration is NULL —
+    // surfaced next to the "Include without concentration" toggle.
+    // Optional so older API builds without the field still parse.
+    no_concentration_count?: number;
+    // Count of composition rows containing at least one low-trust
+    // extraction (llm_plausibility score ≤ threshold) — surfaced next
+    // to the "Include low-trust data points" toggle.
+    low_trust_count?: number;
   };
 }
 
@@ -533,6 +541,45 @@ export async function getBioactivityCategoryOptions(
     return (payload?.data ?? []) as { category: string; count: number }[];
   } catch {
     return [];
+  }
+}
+
+// Per-source-kind row counts for the sidebar Assay Source filter.
+// Backend classifies rows by evidence_source prefix (exp*/pred*/comp*),
+// same as `_apply_source_kind_filter` on the paginated queries.
+export type BioactivitySourceKindCounts = {
+  both: number;
+  experimental: number;
+  predicted: number;
+};
+
+export async function getBioactivitySourceKindCounts(
+  commonName: string,
+  direction: string
+): Promise<BioactivitySourceKindCounts | null> {
+  try {
+    const res = await fetch(
+      `${apiBase()}/bioactivity/source_kinds?common_name=${encodeURIComponent(
+        commonName
+      )}&direction=${encodeURIComponent(direction)}`,
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
+        },
+        next: { revalidate: 86400 },
+      }
+    );
+    if (!res.ok) return null;
+    const payload = await res.json();
+    const d = payload?.data;
+    if (!d) return null;
+    return {
+      both: Number(d.both ?? 0),
+      experimental: Number(d.experimental ?? 0),
+      predicted: Number(d.predicted ?? 0),
+    };
+  } catch {
+    return null;
   }
 }
 

@@ -8,6 +8,8 @@
 "use client";
 
 import { ReactNode, useEffect, useState } from "react";
+
+import { useLoadingGate } from "@/context/pageReadyContext";
 import {
   MdCheck,
   MdClose,
@@ -34,6 +36,8 @@ import { encodeSpace } from "@/utils/utils";
 import {
   getBioactivityCategoryOptions,
   getBioactivityEndpointOptions,
+  getBioactivitySourceKindCounts,
+  type BioactivitySourceKindCounts,
   type BioactivityDirection,
   type BioactivityListParams,
 } from "@/utils/fetching";
@@ -229,6 +233,7 @@ const BioactivityTable = ({
   const [totalPages, setTotalPages] = useState(0);
   const [totalRows, setTotalRows] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  useLoadingGate(isLoading);
 
   // Chemical Category options come from a dedicated endpoint that
   // aggregates classifications across ALL matching chemicals for the
@@ -247,6 +252,26 @@ const BioactivityTable = ({
     (async () => {
       const opts = await getBioactivityCategoryOptions(pivotName);
       if (!cancelled) setCategoryOptions(opts);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [direction, pivotName]);
+
+  // Sidebar Assay Source counts. Aggregate across ALL matching rows
+  // (not just the current page) so the counts stay stable when the user
+  // paginates or applies other filters.
+  const [sourceKindCounts, setSourceKindCounts] =
+    useState<BioactivitySourceKindCounts | null>(null);
+  useEffect(() => {
+    if (!direction || !pivotName) {
+      setSourceKindCounts(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const counts = await getBioactivitySourceKindCounts(pivotName, direction);
+      if (!cancelled) setSourceKindCounts(counts);
     })();
     return () => {
       cancelled = true;
@@ -455,14 +480,26 @@ const BioactivityTable = ({
           role="radiogroup"
           aria-label="Assay Source"
         >
-          {SOURCE_KINDS.map(({ key, label }) => (
-            <SourceKindRow
-              key={label}
-              label={label}
-              selected={selectedSourceKind === key}
-              onClick={() => chooseSourceKind(key)}
-            />
-          ))}
+          {SOURCE_KINDS.map(({ key, label }) => {
+            const c =
+              sourceKindCounts === null
+                ? undefined
+                : key === ""
+                ? sourceKindCounts.both
+                : key === "experimental"
+                ? sourceKindCounts.experimental
+                : sourceKindCounts.predicted;
+            return (
+              <SourceKindRow
+                key={label}
+                label={label}
+                count={c}
+                selected={selectedSourceKind === key}
+                disabled={typeof c === "number" && key !== "" && c === 0}
+                onClick={() => chooseSourceKind(key)}
+              />
+            );
+          })}
         </div>
       </div>
     </div>
@@ -908,21 +945,26 @@ const UnitRow = ({
   count,
   selected,
   onClick,
+  disabled,
 }: {
   unit: string;
   count: number;
   selected: boolean;
   onClick: () => void;
+  disabled?: boolean;
 }) => (
   <button
     type="button"
     onClick={onClick}
+    disabled={disabled}
     aria-pressed={selected}
+    aria-disabled={disabled || undefined}
     className={twMerge(
       "group w-full flex items-center gap-2 pl-1 pr-2 py-1 rounded transition-colors text-left",
       selected
         ? "text-light-100 hover:bg-light-900/70"
-        : "text-light-400 hover:text-light-100 hover:bg-light-900/50"
+        : "text-light-400 hover:text-light-100 hover:bg-light-900/50",
+      disabled && "opacity-40 cursor-not-allowed hover:bg-transparent hover:text-light-400"
     )}
   >
     <span
@@ -931,7 +973,8 @@ const UnitRow = ({
         "w-3.5 h-3.5 rounded-[3px] border flex-shrink-0 flex items-center justify-center transition-colors",
         selected
           ? "border-accent-600 bg-accent-600/20 text-accent-600"
-          : "border-light-700 group-hover:border-light-500"
+          : "border-light-700 group-hover:border-light-500",
+        disabled && "group-hover:border-light-700"
       )}
     >
       {selected && <MdCheck className="w-3 h-3" />}
@@ -948,28 +991,38 @@ const UnitRow = ({
   </button>
 );
 
-// One row in the Source-kind picker — same chrome as UnitRow but
-// without the numeric count (kinds are exhaustive, count is implicit
-// via row filtering).
+// One row in the Source-kind picker — same chrome as UnitRow with an
+// optional numeric count. Kinds are an exhaustive set (both / exp /
+// pred), so the row still renders when count=0 but goes `disabled`
+// (per the "every filter has a count, disabled at 0" convention).
+// TODO(round-2): the API doesn't yet return per-source-kind aggregates;
+// wire the count through once the backend adds it.
 const SourceKindRow = ({
   label,
+  count,
   selected,
   onClick,
+  disabled,
 }: {
   label: string;
+  count?: number;
   selected: boolean;
   onClick: () => void;
+  disabled?: boolean;
 }) => (
   <button
     type="button"
     role="radio"
     aria-checked={selected}
     onClick={onClick}
+    disabled={disabled}
+    aria-disabled={disabled || undefined}
     className={twMerge(
       "group w-full flex items-center gap-2 pl-1 pr-2 py-1 rounded transition-colors text-left",
       selected
         ? "text-light-100 hover:bg-light-900/70"
-        : "text-light-400 hover:text-light-100 hover:bg-light-900/50"
+        : "text-light-400 hover:text-light-100 hover:bg-light-900/50",
+      disabled && "opacity-40 cursor-not-allowed hover:bg-transparent hover:text-light-400"
     )}
   >
     <span
@@ -978,7 +1031,8 @@ const SourceKindRow = ({
         "w-3.5 h-3.5 rounded-full border flex-shrink-0 flex items-center justify-center transition-colors",
         selected
           ? "border-accent-600 bg-accent-600/20"
-          : "border-light-700 group-hover:border-light-500"
+          : "border-light-700 group-hover:border-light-500",
+        disabled && "group-hover:border-light-700"
       )}
     >
       {selected && (
@@ -986,6 +1040,16 @@ const SourceKindRow = ({
       )}
     </span>
     <span className="font-mono italic text-xs capitalize flex-1">{label}</span>
+    {typeof count === "number" && (
+      <span
+        className={twMerge(
+          "tabular-nums text-[10px] flex-shrink-0",
+          selected ? "text-light-400" : "text-light-500"
+        )}
+      >
+        {count.toLocaleString()}
+      </span>
+    )}
   </button>
 );
 

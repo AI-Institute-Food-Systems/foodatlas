@@ -127,41 +127,49 @@ const FoodCompositionEvidenceModal = ({
             contains{" "}
             <span className="capitalize font-semibold">{chemicalName}</span>
           </p>
+          {/* Ambiguity + low-trust chips: rendered even when the
+           * relevant count is 0 so the chip row keeps the same shape
+           * across chemicals; count=0 renders `disabled` (visible,
+           * greyed, non-interactive). */}
           <div className="flex flex-wrap gap-2">
-            {ambiguousCount > 0 && (
-              <button
-                type="button"
-                onClick={cycleAmbiguityFilter}
-                className={twMerge(
-                  "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium w-fit transition-colors",
-                  filter === "ambiguous"
-                    ? "text-amber-300 border-amber-400 bg-amber-500/20 hover:bg-amber-500/30"
-                    : filter === "not-ambiguous"
-                    ? "text-light-300 border-light-400 bg-light-400/15 hover:bg-light-400/25"
-                    : "text-light-300 border-light-500 bg-light-500/10 hover:bg-light-500/20"
-                )}
-                aria-label="Cycle ambiguity filter"
-              >
-                <MdCallSplit className="size-3.5 rotate-90" />
-                {ambiguityLabel}
-              </button>
-            )}
-            {lowTrustCount > 0 && (
-              <button
-                type="button"
-                onClick={cycleLowTrustFilter}
-                className={twMerge(
-                  "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium w-fit transition-colors",
-                  filter === "low-trust"
-                    ? "text-rose-300 border-rose-400 bg-rose-500/20 hover:bg-rose-500/30"
-                    : "text-light-300 border-light-500 bg-light-500/10 hover:bg-light-500/20"
-                )}
-                aria-label="Cycle low-trust filter"
-              >
-                <MdWarningAmber className="size-3.5" />
-                {lowTrustLabel}
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={cycleAmbiguityFilter}
+              disabled={ambiguousCount === 0}
+              aria-disabled={ambiguousCount === 0 || undefined}
+              className={twMerge(
+                "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium w-fit transition-colors",
+                filter === "ambiguous"
+                  ? "text-amber-300 border-amber-400 bg-amber-500/20 hover:bg-amber-500/30"
+                  : filter === "not-ambiguous"
+                  ? "text-light-300 border-light-400 bg-light-400/15 hover:bg-light-400/25"
+                  : "text-light-300 border-light-500 bg-light-500/10 hover:bg-light-500/20",
+                ambiguousCount === 0 &&
+                  "opacity-40 cursor-not-allowed hover:bg-transparent"
+              )}
+              aria-label="Cycle ambiguity filter"
+            >
+              <MdCallSplit className="size-3.5 rotate-90" />
+              {ambiguityLabel}
+            </button>
+            <button
+              type="button"
+              onClick={cycleLowTrustFilter}
+              disabled={lowTrustCount === 0}
+              aria-disabled={lowTrustCount === 0 || undefined}
+              className={twMerge(
+                "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium w-fit transition-colors",
+                filter === "low-trust"
+                  ? "text-rose-300 border-rose-400 bg-rose-500/20 hover:bg-rose-500/30"
+                  : "text-light-300 border-light-500 bg-light-500/10 hover:bg-light-500/20",
+                lowTrustCount === 0 &&
+                  "opacity-40 cursor-not-allowed hover:bg-transparent"
+              )}
+              aria-label="Cycle low-trust filter"
+            >
+              <MdWarningAmber className="size-3.5" />
+              {lowTrustLabel}
+            </button>
           </div>
         </div>
       }

@@ -14,7 +14,10 @@ import { twMerge } from "tailwind-merge";
 import Card from "@/components/basic/Card";
 import FoodBioactivitiesSection from "@/components/entities/bioactivity/FoodBioactivitiesSection";
 import FoodInferredBioactivitiesSection from "@/components/entities/bioactivity/FoodInferredBioactivitiesSection";
-import { getBioactivityEndpointOptions } from "@/utils/fetching";
+import {
+  getBioactivityEndpointOptions,
+  getBioactivitySourceKindCounts,
+} from "@/utils/fetching";
 
 interface Props {
   commonName: string;
@@ -38,6 +41,43 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
     { unit: string; count: number }[]
   >([]);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+
+  // Source-kind counts for the sidebar Assay Source picker. Aggregated
+  // across BOTH the direct (food-bioactivities) and inferred
+  // (food-inferred-bioactivities) directions since the sidebar drives
+  // both tables — same treatment as the Unit filter above.
+  const [sourceKindCounts, setSourceKindCounts] = useState<{
+    both: number;
+    experimental: number;
+    predicted: number;
+  } | null>(null);
+  useEffect(() => {
+    if (!commonName) return;
+    let cancelled = false;
+    (async () => {
+      const [direct, inferred] = await Promise.all([
+        getBioactivitySourceKindCounts(commonName, "food-bioactivities"),
+        getBioactivitySourceKindCounts(
+          commonName,
+          "food-inferred-bioactivities"
+        ),
+      ]);
+      if (cancelled) return;
+      if (!direct && !inferred) {
+        setSourceKindCounts(null);
+        return;
+      }
+      setSourceKindCounts({
+        both: (direct?.both ?? 0) + (inferred?.both ?? 0),
+        experimental:
+          (direct?.experimental ?? 0) + (inferred?.experimental ?? 0),
+        predicted: (direct?.predicted ?? 0) + (inferred?.predicted ?? 0),
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [commonName]);
 
   const sourceKindParam = selectedSourceKind;
   const unitParam = selectedUnits.join("+");
@@ -125,18 +165,31 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
       >
         {SOURCE_KINDS.map(({ key, label }) => {
           const selected = selectedSourceKind === key;
+          const c =
+            sourceKindCounts === null
+              ? undefined
+              : key === ""
+              ? sourceKindCounts.both
+              : key === "experimental"
+              ? sourceKindCounts.experimental
+              : sourceKindCounts.predicted;
+          const disabled = typeof c === "number" && key !== "" && c === 0;
           return (
             <button
               key={label}
               type="button"
               role="radio"
               aria-checked={selected}
+              disabled={disabled}
+              aria-disabled={disabled || undefined}
               onClick={() => chooseSourceKind(key)}
               className={twMerge(
                 "group w-full flex items-center gap-2 pl-1 pr-2 py-1 rounded transition-colors text-left",
                 selected
                   ? "text-light-100 hover:bg-light-900/70"
-                  : "text-light-400 hover:text-light-100 hover:bg-light-900/50"
+                  : "text-light-400 hover:text-light-100 hover:bg-light-900/50",
+                disabled &&
+                  "opacity-40 cursor-not-allowed hover:bg-transparent hover:text-light-400"
               )}
             >
               <span
@@ -145,7 +198,8 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
                   "w-3.5 h-3.5 rounded-full border flex-shrink-0 flex items-center justify-center transition-colors",
                   selected
                     ? "border-accent-600 bg-accent-600/20"
-                    : "border-light-700 group-hover:border-light-500"
+                    : "border-light-700 group-hover:border-light-500",
+                  disabled && "group-hover:border-light-700"
                 )}
               >
                 {selected && (
@@ -158,6 +212,16 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
               <span className="font-mono italic text-xs capitalize flex-1">
                 {label}
               </span>
+              {typeof c === "number" && (
+                <span
+                  className={twMerge(
+                    "tabular-nums text-[10px] flex-shrink-0",
+                    selected ? "text-light-400" : "text-light-500"
+                  )}
+                >
+                  {c.toLocaleString()}
+                </span>
+              )}
             </button>
           );
         })}

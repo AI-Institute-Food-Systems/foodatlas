@@ -23,10 +23,12 @@ const EMPTY: LandingStats = {
 };
 
 // Shared client-side stats fetch for the landing variants. Returns
-// zeros on any error so the page still renders cleanly (per the
-// graceful-failure rule in memory).
-export const useLandingStats = (): LandingStats => {
-  const [stats, setStats] = useState<LandingStats>(EMPTY);
+// null while loading so the UI can render skeleton placeholders instead
+// of a flash of zeros, and falls back to EMPTY on error so the page
+// still renders cleanly if the API is down (per the graceful-failure
+// rule in memory).
+export const useLandingStats = (): LandingStats | null => {
+  const [stats, setStats] = useState<LandingStats | null>(null);
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -36,7 +38,10 @@ export const useLandingStats = (): LandingStats => {
             Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
           },
         });
-        if (!res.ok) return;
+        if (!res.ok) {
+          if (!cancelled) setStats(EMPTY);
+          return;
+        }
         const json = await res.json();
         const s = json?.data?.statistics ?? {};
         if (cancelled) return;
@@ -49,7 +54,7 @@ export const useLandingStats = (): LandingStats => {
           publications: s.publications ?? 0,
         });
       } catch {
-        // Keep zeros.
+        if (!cancelled) setStats(EMPTY);
       }
     })();
     return () => {

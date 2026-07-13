@@ -138,12 +138,21 @@ const EntityTabs = ({ tabs, defaultTabId }: Props) => {
             key={tab.id}
             className={({ selected }) =>
               twMerge(
-                "relative z-10 px-3 md:px-4 py-1.5 -mb-[2px]",
-                "font-mono italic text-xs md:text-sm min-w-[7rem] md:min-w-[9.5rem] font-medium",
-                "rounded-t-md transition-colors outline-none border-t-[1.5px] border-x-[1.5px]",
+                // Explicit height locks the tab strip against badge/
+                // no-badge height perception drift. -mb-[1.5px] pulls
+                // tabs down exactly the card border's thickness so
+                // they cover the card's top border in the tab's width
+                // and don't leave side-border "legs" hanging into the
+                // card content.
+                "relative z-10 flex items-center justify-center h-7 md:h-8 px-3 md:px-4",
+                "font-mono italic text-[11px] md:text-xs min-w-[7rem] md:min-w-[9.5rem] font-medium",
+                "rounded-t-lg transition-colors outline-none border-t-[1.5px] border-x-[1.5px]",
                 selected
                   ? "bg-light-200 text-light-900 border-light-200 shadow-[inset_0_1px_2px_rgba(255,249,242,0.5)]"
-                  : "bg-light-950/50 border-light-600/60 text-light-300 hover:text-light-100 hover:border-light-400 hover:bg-light-900/70"
+                  : // Border tone matched to the Card's light-50/[0.08]
+                    // so side edges read as one continuous line with
+                    // the cabinet's top border instead of clashing.
+                    "bg-light-950/50 border-light-50/[0.15] text-light-300 hover:text-light-100 hover:border-light-50/25 hover:bg-light-900/70"
               )
             }
           >

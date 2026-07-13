@@ -61,8 +61,10 @@ const HeroSection = () => {
 
           <div className="w-32 md:w-48 h-[0.1rem] md:h-1 rounded-full bg-gradient-to-r from-accent-400/50 via-accent-600/80 to-accent-400/50 border border-accent-500" />
 
-          {/* Subhead */}
-          <p className="max-w-xl lg:max-w-3xl text-lg md:text-2xl text-light-300 text-center">
+          {/* Subhead — serif to echo the News eyebrow and the newsletter
+           * apothecary vocabulary; sans at text-2xl felt too close in
+           * weight to the h1 above. */}
+          <p className="max-w-xl lg:max-w-3xl font-serif text-base md:text-xl font-normal text-light-200 text-center leading-relaxed">
             Search bioactivities, foods, chemicals &amp; diseases &mdash; every
             link traced to peer-reviewed sources.
           </p>

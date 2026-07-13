@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.config import APISettings
 
 from .formatting import format_external_ids
-from .trust_filter import TrustMode, apply_trust_filter
+from .trust_filter import TrustMode, apply_trust_filter, _fetch_trust_scores
 
 ROWS_PER_PAGE = 25
 
@@ -96,13 +96,26 @@ async def get_profile(session: AsyncSession, common_name: str) -> dict[str, obje
 async def get_composition_counts(
     session: AsyncSession, common_name: str
 ) -> dict[str, object]:
-    """Get per-classification and per-source chemical counts."""
+    """Per-classification, per-source and per-toggle chemical counts.
+
+    ``no_concentration_count`` — rows whose ``median_concentration`` is
+    NULL. Surfaced next to the "Include without concentration" toggle.
+
+    ``low_trust_count`` — rows containing at least one extraction whose
+    latest ``llm_plausibility`` score is at or below the low-trust
+    threshold (unscored attestations are not low-trust; see trust_filter).
+    Surfaced next to the "Include low-trust data points" toggle.
+    """
     result = await session.execute(
         text("""
             SELECT
+                id,
                 chemical_classification,
                 CASE WHEN fdc_evidences IS NOT NULL THEN 1 ELSE 0 END AS has_fdc,
-                CASE WHEN foodatlas_evidences IS NOT NULL THEN 1 ELSE 0 END AS has_fa
+                CASE WHEN foodatlas_evidences IS NOT NULL THEN 1 ELSE 0 END AS has_fa,
+                CASE WHEN median_concentration IS NULL THEN 1 ELSE 0 END AS no_conc,
+                fdc_evidences,
+                foodatlas_evidences
             FROM mv_food_chemical_composition
             WHERE food_name = :name
               AND (fdc_evidences IS NOT NULL OR foodatlas_evidences IS NOT NULL)
@@ -111,22 +124,50 @@ async def get_composition_counts(
     )
     cls_counts: dict[str, int] = {}
     source_counts = {"fdc": 0, "foodatlas": 0}
+    no_concentration_count = 0
+    # (row_id, [attestation_ids]) so we can classify rows as low-trust
+    # after one round-trip to base_trust_signals.
+    row_atts: dict[int, list[str]] = {}
+    all_att_ids: set[str] = set()
     for row in result:
         mapping = row._mapping
         if mapping["has_fdc"]:
             source_counts["fdc"] += 1
         if mapping["has_fa"]:
             source_counts["foodatlas"] += 1
+        if mapping["no_conc"]:
+            no_concentration_count += 1
         classifications = mapping["chemical_classification"] or []
         if not classifications:
             cls_counts["n/a"] = cls_counts.get("n/a", 0) + 1
         else:
             for cls in classifications:
                 cls_counts[cls] = cls_counts.get(cls, 0) + 1
+        # Collect attestation_ids per row for low-trust classification.
+        atts: list[str] = []
+        for ev_list in (mapping["fdc_evidences"], mapping["foodatlas_evidences"]):
+            for ev in ev_list or []:
+                for ext in ev.get("extraction") or []:
+                    aid = ext.get("attestation_id")
+                    if aid:
+                        atts.append(aid)
+                        all_att_ids.add(aid)
+        row_atts[mapping["id"]] = atts
+
+    scores = await _fetch_trust_scores(session, list(all_att_ids)) if all_att_ids else {}
+    threshold = APISettings().trust_low_threshold
+    low_trust_count = sum(
+        1
+        for atts in row_atts.values()
+        if any(aid in scores and scores[aid] <= threshold for aid in atts)
+    )
+
     return {
         "data": {
             "classification_counts": cls_counts,
             "source_counts": source_counts,
+            "no_concentration_count": no_concentration_count,
+            "low_trust_count": low_trust_count,
         }
     }
 

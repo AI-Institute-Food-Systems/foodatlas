@@ -52,11 +52,6 @@ const SOURCES: {
     href: "https://www.ebi.ac.uk/chembl/",
   },
   { name: "FlavorDB", domain: "Flavor descriptors", href: "https://cosylab.iiitd.edu.in/flavordb/" },
-  {
-    name: "HSDB",
-    domain: "Hazardous substances",
-    href: "https://www.nlm.nih.gov/toxnet/index.html",
-  },
 ];
 
 // One entry per typed edge in the graph. Rendered as a small table so
@@ -86,19 +81,19 @@ const RELATIONS: {
   },
   {
     code: "r3",
-    label: "POSITIVELY_CORRELATES_WITH",
+    label: "WORSENS",
     from: "Chemical",
     to: "Disease",
     description:
-      "Peer-reviewed evidence that the chemical worsens or is positively correlated with the disease.",
+      "Peer-reviewed evidence that the chemical worsens the disease's health outcomes or increases risk of onset.",
   },
   {
     code: "r4",
-    label: "NEGATIVELY_CORRELATES_WITH",
+    label: "IMPROVES",
     from: "Chemical",
     to: "Disease",
     description:
-      "Peer-reviewed evidence that the chemical improves or is negatively correlated with the disease.",
+      "Peer-reviewed evidence that the chemical improves the disease's health outcomes or reduces risk of onset.",
   },
   {
     code: "r5",
@@ -131,7 +126,7 @@ const KGC_STAGES = [
   { title: "Ingest", text: "Parse each source into standardised parquet files (nodes / edges / cross-references)." },
   { title: "Entities", text: "Three-pass entity resolution → stable `foodatlas_id`s that survive across releases. Ambiguities are recorded on attestations, not silently collapsed." },
   { title: "Triplets", text: "Build typed edges (r1–r6) from source data. Duplicates merge; ambiguous resolutions explode into candidates for later review." },
-  { title: "IE fold-in", text: "Concentration parser normalises IE output to mg/100g. Chemical + food names resolved through the entity registry." },
+  { title: "Extraction fold-in", text: "Concentration parser normalises the information extraction pipeline's output to mg/100g. Chemical + food names resolved through the entity registry." },
   { title: "Enrichment", text: "Add derived metadata: chemical/food classifications, flavor descriptors, common names, display grouping." },
   { title: "Trust", text: "Per-attestation plausibility signals from a Gemini 3.1 Flash-Lite LLM judge. Emits a 0–1 score and a short justification per triplet." },
   { title: "Evaluation", text: "Diagnostics on the finished graph — orphan detection, unclassified entities, per-source coverage." },
@@ -152,10 +147,10 @@ const TechnicalBackground = () => {
           is traceable to a public source or a peer-reviewed publication.
         </p>
         <p className="mt-3 text-base leading-relaxed text-light-200">
-          The graph is rebuilt from two pipelines: an{" "}
-          <b>information-extraction (IE)</b> pipeline that pulls
+          The graph is built from two pipelines: an{" "}
+          <b>information extraction</b> pipeline that pulls
           food–chemical relations from PubMed / PMC literature, and a{" "}
-          <b>knowledge-graph-construction (KGC)</b> pipeline that ingests
+          <b>knowledge graph construction</b> pipeline that ingests
           public databases, resolves entities, and stitches everything into
           the released graph. For the full study, see the{" "}
           <Link
@@ -181,35 +176,41 @@ const TechnicalBackground = () => {
               className="object-contain"
               fill
               src="/images/kg_semantics.svg"
-              alt="Diagram of the FoodAtlas graph semantics: Food, Chemical, Disease, and Bioactivity nodes connected by CONTAINS, IS_A, POSITIVELY/NEGATIVELY_CORRELATES_WITH, EXHIBITS, and MEASURED edges."
+              alt="Diagram of the FoodAtlas graph semantics: Food, Chemical, Disease, and Bioactivity nodes connected by CONTAINS, IS_A, WORSENS, IMPROVES, EXHIBITS, and MEASURED edges."
             />
           </div>
           <div className="md:w-1/2 flex flex-col gap-4 leading-relaxed text-light-300">
             <p>
               A <b>node</b> is a <Code>Food</Code>, <Code>Chemical</Code>,{" "}
               <Code>Disease</Code>, or <Code>Bioactivity</Code>. An{" "}
-              <b>edge</b> is a typed relationship between two nodes.
+              <b>edge</b> informs about the relationship between two nodes.
             </p>
             <p>
               Every edge carries an <i>attestation</i> — the supporting
               evidence, source, and any measurement metadata (concentration
-              values, assay outcomes, Hill-curve fits, per-triplet trust
-              signals). That way a chemical-in-food record isn&apos;t just a
-              yes/no; it&apos;s a specific number tied to a specific paper or
-              database row.
-            </p>
-            <p>
-              The vocabulary is small on purpose. Six typed edges (
-              <Code>r1</Code>–<Code>r6</Code>) cover food composition,
-              ontology hierarchies, chemical–disease correlation (both
-              directions), and the bioactivity axis. New evidence layers on
-              top of these edges rather than inventing new relation types.
+              values, assay outcomes, Hill-curve fits).
             </p>
           </div>
         </div>
 
         <Card className="mt-6">
           <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-light-700">
+                <th className="py-2 pr-3 text-left font-mono italic text-[11px] uppercase tracking-wider text-light-500 font-medium whitespace-nowrap">
+                  Code
+                </th>
+                <th className="py-2 pr-3 text-left font-mono italic text-[11px] uppercase tracking-wider text-light-500 font-medium whitespace-nowrap">
+                  Relation
+                </th>
+                <th className="py-2 pr-3 text-left font-mono italic text-[11px] uppercase tracking-wider text-light-500 font-medium whitespace-nowrap">
+                  Between
+                </th>
+                <th className="py-2 text-left font-mono italic text-[11px] uppercase tracking-wider text-light-500 font-medium">
+                  Description
+                </th>
+              </tr>
+            </thead>
             <tbody className="divide-y divide-light-800">
               {RELATIONS.map((r) => (
                 <tr key={r.code}>
@@ -239,10 +240,10 @@ const TechnicalBackground = () => {
         </Heading>
         <Card className="mt-6">
           <p className="leading-relaxed text-light-300">
-            The KGC ingest stage integrates <b>ten public sources</b> spanning
-            ontologies, composition tables, and bioassay repositories. The IE
-            pipeline layers additional food–chemical relations on top by
-            reading peer-reviewed literature from{" "}
+            The knowledge graph integrates <b>nine public sources</b> spanning
+            ontologies, composition tables, and bioassay repositories. The
+            information extraction pipeline layers additional food–chemical
+            relations on top by reading peer-reviewed literature from{" "}
             <Link href="https://pubmed.ncbi.nlm.nih.gov/" isExternal>
               PubMed
             </Link>{" "}
@@ -271,10 +272,12 @@ const TechnicalBackground = () => {
           How it&apos;s built
         </Heading>
         <p className="mt-6 text-base leading-relaxed text-light-300 font-light">
-          Two pipelines run independently and their outputs converge in the
-          KGC <i>IE fold-in</i> stage. IE turns literature into structured
-          triplets; KGC turns triplets + public databases into the released
-          graph.
+          Our pipeline uses state-of-the-art AI models to extract and
+          quantify food connections. The two major steps are (a){" "}
+          <b>knowledge extraction</b>, i.e., converting literature into
+          food–chemical relations, and (b) <b>knowledge graph construction</b>,
+          which adds meta-information and new information to our knowledge
+          base.
         </p>
 
         {/* Step 1: Information Extraction — full width horizontal flow. */}
