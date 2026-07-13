@@ -47,9 +47,30 @@ async def food_profile(
 @router.get("/composition/counts")
 async def food_composition_counts(
     common_name: str = Query(...),
+    filter_source: str = Query(""),
+    filter_classification: str = Query(""),
+    show_all_rows: str = Query("true"),
+    trust: str = Query("default"),
+    search: str = Query(""),
     db: AsyncSession = Depends(get_db),
 ):
-    return await food.get_composition_counts(db, common_name)
+    """Faceted composition counts.
+
+    Every filter parameter matches the shape /food/composition takes so
+    the counts endpoint can mirror the same view — each per-dimension
+    count applies the *other* filters and reports how many rows the
+    dimension currently governs.
+    """
+    trust_mode = cast("TrustMode", trust if trust in _VALID_TRUST_MODES else "default")
+    return await food.get_composition_counts(
+        db,
+        common_name,
+        filter_source=filter_source,
+        filter_classification=filter_classification,
+        show_all_rows=show_all_rows.lower() != "false",
+        trust=trust_mode,
+        search_term=search,
+    )
 
 
 @router.get("/composition")

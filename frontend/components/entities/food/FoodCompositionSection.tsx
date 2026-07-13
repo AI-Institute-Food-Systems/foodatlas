@@ -189,16 +189,28 @@ const FoodCompositionSection = ({
     },
   ];
 
-  // fetch source + classification counts in one call
+  // Faceted counts — refetched whenever any filter changes. Each
+  // dimension in the response reflects the other active filters, so
+  // the sidebar numbers update as the user narrows the view (e.g.
+  // deselecting Source drops the per-Class counts to just what's left).
   useEffect(() => {
+    let cancelled = false;
     const fetchCounts = async () => {
       try {
-        const counts = await getFoodCompositionCounts(commonName);
+        const counts = await getFoodCompositionCounts(commonName, {
+          sourceFilters,
+          classificationFilters: classificationFilter,
+          showAllConcentrations,
+          showLowTrust,
+          searchTerm,
+        });
+        if (cancelled) return;
         setSourceCounts(counts.source_counts);
         setClassificationCounts(counts.classification_counts);
         setNoConcentrationCount(counts.no_concentration_count);
         setLowTrustCount(counts.low_trust_count);
       } catch {
+        if (cancelled) return;
         setSourceCounts({});
         setClassificationCounts({});
         setNoConcentrationCount(undefined);
@@ -206,7 +218,17 @@ const FoodCompositionSection = ({
       }
     };
     fetchCounts();
-  }, [commonName]);
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    commonName,
+    sourceFilters,
+    classificationFilter,
+    showAllConcentrations,
+    showLowTrust,
+    searchTerm,
+  ]);
 
   // data fetching
   useEffect(() => {
