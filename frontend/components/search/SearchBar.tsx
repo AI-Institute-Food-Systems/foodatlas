@@ -10,6 +10,7 @@ import Button from "@/components/basic/Button";
 import SearchSuggestions from "@/components/search/SearchSuggestions";
 import TryChips from "@/components/search/TryChips";
 import { AutocompleteContext } from "@/context/autocompleteContext";
+import { useNavigationSignal } from "@/context/navigationContext";
 import { SearchContext } from "@/context/searchContext";
 import useSearchAutocompleteOptions from "@/hooks/useSearchAutocompleteOptions";
 import { usePaginations } from "@/context/paginationsContext";
@@ -17,8 +18,11 @@ import { encodeSpace } from "@/utils/utils";
 
 // Static placeholder — replaces the previous typewriter-cycler effect.
 // Curated examples now live in the `<TryChips>` row below the input.
-const SEARCH_PLACEHOLDER =
+// Shorter variant on phones since the full placeholder overflows the
+// input width. Kept in sync with the SSR preview in <SearchWrapper/>.
+const SEARCH_PLACEHOLDER_MD =
   "Search bioactivities, foods, chemicals, diseases…";
+const SEARCH_PLACEHOLDER_SM = "Search FoodAtlas…";
 
 const SearchBar = () => {
   const router = useRouter();
@@ -40,10 +44,12 @@ const SearchBar = () => {
     cachedSuggestions,
     isVisible,
     setIsVisible,
+    suppressTransition,
   } = useContext(SearchContext);
   const { isLoading } = useSearchAutocompleteOptions();
   const { setTablePaginations, getTablePaginations } = usePaginations();
   const { autocompleteTerm } = useContext(AutocompleteContext);
+  const { startNav } = useNavigationSignal();
 
   // useEffect(() => {
   //   const handleScroll = () => {
@@ -160,11 +166,19 @@ const SearchBar = () => {
     return () => vv.removeEventListener("resize", onResize);
   }, [isFocused, inputRef, setIsFocused, setSelectedSuggestion]);
 
-  // Set the static placeholder once. The SearchContext still owns the
-  // value so the input can read it through the same prop as before;
-  // removing the typewriter loop just leaves a single useEffect.
+  // Track viewport width so we can swap the placeholder between the
+  // short mobile variant and the full desktop variant. matchMedia
+  // handles resize + orientation change; `change` event fires once
+  // per breakpoint cross so it's cheap.
   useEffect(() => {
-    setPlaceholder(SEARCH_PLACEHOLDER);
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(min-width: 768px)");
+    const apply = () => {
+      setPlaceholder(mq.matches ? SEARCH_PLACEHOLDER_MD : SEARCH_PLACEHOLDER_SM);
+    };
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
   }, [setPlaceholder]);
 
   // @ts-ignore
@@ -187,6 +201,7 @@ const SearchBar = () => {
     setIsFocused(false);
     setSelectedSuggestion(-1);
     inputRef.current?.blur();
+    startNav();
     router.push(`/results?term=${searchTerm}`);
   };
 
@@ -196,6 +211,7 @@ const SearchBar = () => {
       event.currentTarget.blur();
       if (selectedSuggestion !== -1) {
         setIsVisible(false);
+        startNav();
         router.push(
           `/${
             cachedSuggestions[selectedSuggestion].entity_type
@@ -214,6 +230,7 @@ const SearchBar = () => {
               ? 84
               : 72,
           );
+          startNav();
           router.push(`/results?term=${searchTerm}`);
         }
       }
@@ -326,7 +343,7 @@ const SearchBar = () => {
           // before (72 mobile / 84 desktop = navbar bottom + half a
           // navbar height).
           isFocused ? "fixed inset-0 top-[72px] md:top-[84px] -right-4" : ""
-        } ${isResultsPage ? "" : "duration-[250ms]"}`}
+        } ${isResultsPage || suppressTransition ? "" : "duration-[250ms]"}`}
         ref={containerRef}
         style={{ top: offsetTop || 50 }}
       >
@@ -396,11 +413,13 @@ const SearchBar = () => {
                 {/* search input */}
                 <input
                   ref={inputRef}
-                  // Suggestions live in their own rounded card below
-                  // the input now (with a gap), so the input stays
-                  // fully rounded at all times — used to drop the
-                  // bottom radius when suggestions were flush.
-                  className="pl-12 w-full h-12 rounded-lg border-[1.5px] border-light-600 bg-light-950/50 backdrop-blur-3xl saturate-150 hover:outline-white text-light-100 transition duration-100 ease-in-out outline-light-50/60 placeholder-light-500"
+                  // Apothecary/cabinet vocab: same thin light-tint
+                  // border + subtle inset shadow the Card uses, serif-
+                  // italic placeholder that echoes the News eyebrow and
+                  // subhead, and an accent focus ring instead of the
+                  // gray browser outline. Kept the input body sans so
+                  // the typed query stays legible at glance.
+                  className="pl-12 pr-4 w-full h-12 rounded-xl border-[1.5px] border-light-50/[0.08] bg-light-950/70 backdrop-blur-2xl saturate-150 shadow-[inset_0_2px_4px_rgba(255,249,242,0.03)] text-light-100 placeholder:font-serif placeholder:italic placeholder:text-light-500 transition-colors duration-200 hover:border-light-50/20 focus:outline-none focus:border-accent-500/50 focus:shadow-[inset_0_2px_4px_rgba(255,249,242,0.03),0_0_0_3px_rgba(255,87,34,0.12)]"
                   type="text"
                   value={searchTerm}
                   placeholder={placeholder}

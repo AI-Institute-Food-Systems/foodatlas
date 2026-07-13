@@ -8,6 +8,7 @@ import Link from "@/components/basic/Link";
 import Synonyms from "@/components/entities/food/Synonyms";
 import { Metadata } from "@/types";
 import type { EntityType } from "@/components/entities/EntityTabs";
+import { encodeSpace } from "@/utils/utils";
 
 interface Props {
   entityType: EntityType;
@@ -126,6 +127,28 @@ const OverviewCardCatalog = ({ entityType, data, naked }: Props) => {
             <span className="capitalize">{classification.join(", ")}</span>
           </Section>
         )}
+
+        {entityType === "bioactivity" &&
+          data.parents &&
+          data.parents.length > 0 && (
+            <Section label="Parents">
+              <div className="flex flex-wrap gap-x-3 gap-y-1.5">
+                {data.parents.map((p) => (
+                  <Link
+                    key={p.foodatlas_id}
+                    href={`/bioactivity/${encodeURIComponent(
+                      encodeSpace(p.common_name)
+                    )}`}
+                  >
+                    <span className="capitalize">{p.common_name}</span>
+                    <span className="ml-1.5 font-mono text-[10px] text-light-500">
+                      {p.foodatlas_id}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </Section>
+          )}
 
         {data.flavor_descriptors && data.flavor_descriptors.length > 0 && (
           <Section label="Flavor">

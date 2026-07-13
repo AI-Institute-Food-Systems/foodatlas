@@ -33,6 +33,7 @@ import {
   topMeasurementOf,
 } from "@/components/entities/bioactivity/format";
 import { usePaginations } from "@/context/paginationsContext";
+import { useLoadingGate } from "@/context/pageReadyContext";
 import { getFoodInferredBioactivities } from "@/utils/fetching";
 import { encodeSpace, formatConcentrationValueAlt } from "@/utils/utils";
 import type {
@@ -95,6 +96,7 @@ const FoodInferredBioactivitiesSection = ({
   const [totalPages, setTotalPages] = useState(0);
   const [totalRows, setTotalRows] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  useLoadingGate(isLoading);
   const [selected, setSelected] = useState<InferredRow | null>(null);
 
   useEffect(() => {

@@ -167,15 +167,42 @@ const BioactivityMeasurementsModal = ({
     setExpandedKey(null);
   }, [isOpen, selectedId]);
 
-  // Outcomes computed from the FULL row set (not filtered) so the chip
-  // row doesn't reflow when filters apply.
-  const availableOutcomes = useMemo<OutcomeFilter[]>(() => {
-    const present = new Set<string>();
+  // Per-outcome counts from the FULL row set (not the filtered set) so
+  // each row's count reflects what the pivot chemical/food actually has
+  // available, and the filter chrome stays stable regardless of what
+  // the user currently has selected.
+  const outcomeCounts = useMemo<Record<OutcomeFilter, number>>(() => {
+    const counts: Record<OutcomeFilter, number> = {
+      all: rows.length,
+      active: 0,
+      inactive: 0,
+      unspecified: 0,
+      inconclusive: 0,
+    };
     rows.forEach((r) => {
-      const o = r.outcome?.toLowerCase().trim();
-      if (o) present.add(o);
+      const o = r.outcome?.toLowerCase().trim() as OutcomeFilter | undefined;
+      if (o && o in counts && o !== "all") counts[o] += 1;
     });
-    return OUTCOME_OPTIONS.filter((o) => o === "all" || present.has(o));
+    return counts;
+  }, [rows]);
+
+  // Per-source-kind counts computed the same way as `matchesSourceKind`
+  // so the filter chrome and the actual filter behavior stay in sync.
+  const sourceKindCounts = useMemo<Record<string, number>>(() => {
+    const counts: Record<string, number> = {
+      "": rows.length, // "both"
+      experimental: 0,
+      predicted: 0,
+    };
+    rows.forEach((r) => {
+      if (matchesSourceKind(r.evidence_source, "experimental")) {
+        counts.experimental += 1;
+      }
+      if (matchesSourceKind(r.evidence_source, "predicted")) {
+        counts.predicted += 1;
+      }
+    });
+    return counts;
   }, [rows]);
 
   const filtered = useMemo(() => {
@@ -251,7 +278,8 @@ const BioactivityMeasurementsModal = ({
   const filtersOnlyPanel = (
     <FiltersOnlyPanel
       outcomeFilter={outcomeFilter}
-      availableOutcomes={availableOutcomes}
+      outcomeCounts={outcomeCounts}
+      sourceKindCounts={sourceKindCounts}
       onOutcomeChange={(o) => {
         setOutcomeFilter(o);
         setCurrentPage(1);
@@ -453,47 +481,52 @@ const SearchInput = ({
   </div>
 );
 
-// Non-search filters — Outcome (hidden when only one outcome present)
-// + Assay Source. Rendered inside the sidebar (min-[1440px]) and inside
-// the drawer (sub-1440px).
+// Non-search filters — Outcome + Assay Source. Renders every option
+// (including zero-count ones) so the filter chrome stays stable; each
+// row's count reflects the FULL row set. Rendered inside the sidebar
+// (min-[1440px]) and inside the drawer (sub-1440px).
 const FiltersOnlyPanel = ({
   outcomeFilter,
-  availableOutcomes,
+  outcomeCounts,
+  sourceKindCounts,
   onOutcomeChange,
   sourceFilter,
   onSourceChange,
   showSkeleton,
 }: {
   outcomeFilter: OutcomeFilter;
-  availableOutcomes: OutcomeFilter[];
+  outcomeCounts: Record<OutcomeFilter, number>;
+  sourceKindCounts: Record<string, number>;
   onOutcomeChange: (o: OutcomeFilter) => void;
   sourceFilter: string;
   onSourceChange: (s: string) => void;
   showSkeleton: boolean;
 }) => (
   <div className="flex flex-col gap-5">
-    {availableOutcomes.length > 1 && (
-      <div className="flex flex-col gap-1.5">
-        <span className="font-mono italic text-[11px] uppercase tracking-wider text-light-400">
-          Outcome
-        </span>
-        <div
-          className="flex flex-col -mx-1"
-          role="radiogroup"
-          aria-label="Outcome"
-        >
-          {availableOutcomes.map((opt) => (
+    <div className="flex flex-col gap-1.5">
+      <span className="font-mono italic text-[11px] uppercase tracking-wider text-light-400">
+        Outcome
+      </span>
+      <div
+        className="flex flex-col -mx-1"
+        role="radiogroup"
+        aria-label="Outcome"
+      >
+        {OUTCOME_OPTIONS.map((opt) => {
+          const c = outcomeCounts[opt];
+          return (
             <RadioRow
               key={opt}
               label={opt}
+              count={c}
               selected={outcomeFilter === opt}
-              disabled={showSkeleton}
+              disabled={showSkeleton || (opt !== "all" && c === 0)}
               onClick={() => onOutcomeChange(opt)}
             />
-          ))}
-        </div>
+          );
+        })}
       </div>
-    )}
+    </div>
     <div className="flex flex-col gap-1.5">
       <span className="font-mono italic text-[11px] uppercase tracking-wider text-light-400">
         Assay Source
@@ -503,15 +536,22 @@ const FiltersOnlyPanel = ({
         role="radiogroup"
         aria-label="Assay Source"
       >
-        {SOURCE_KINDS.map(({ key, label }) => (
-          <RadioRow
-            key={label}
-            label={label}
-            selected={sourceFilter === key}
-            disabled={showSkeleton}
-            onClick={() => onSourceChange(key)}
-          />
-        ))}
+        {/* Counts derived client-side from the modal's row set via
+         * `matchesSourceKind` so the chip counts match the filter
+         * behavior exactly. */}
+        {SOURCE_KINDS.map(({ key, label }) => {
+          const c = sourceKindCounts[key] ?? 0;
+          return (
+            <RadioRow
+              key={label}
+              label={label}
+              count={c}
+              selected={sourceFilter === key}
+              disabled={showSkeleton || (key !== "" && c === 0)}
+              onClick={() => onSourceChange(key)}
+            />
+          );
+        })}
       </div>
     </div>
   </div>
@@ -519,11 +559,13 @@ const FiltersOnlyPanel = ({
 
 const RadioRow = ({
   label,
+  count,
   selected,
   disabled,
   onClick,
 }: {
   label: string;
+  count?: number;
   selected: boolean;
   disabled?: boolean;
   onClick: () => void;
@@ -533,9 +575,10 @@ const RadioRow = ({
     role="radio"
     aria-checked={selected}
     disabled={disabled}
+    aria-disabled={disabled || undefined}
     onClick={onClick}
     className={twMerge(
-      "group w-full flex items-center gap-2 pl-1 pr-2 py-1 rounded transition-colors text-left disabled:opacity-60",
+      "group w-full flex items-center gap-2 pl-1 pr-2 py-1 rounded transition-colors text-left disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent",
       selected
         ? "text-light-100 hover:bg-light-900/70"
         : "text-light-400 hover:text-light-100 hover:bg-light-900/50",
@@ -557,6 +600,16 @@ const RadioRow = ({
     <span className="font-mono italic text-xs capitalize flex-1">
       {label}
     </span>
+    {typeof count === "number" && (
+      <span
+        className={twMerge(
+          "tabular-nums text-[10px] flex-shrink-0",
+          selected ? "text-light-400" : "text-light-500"
+        )}
+      >
+        {count.toLocaleString()}
+      </span>
+    )}
   </button>
 );
 

@@ -14,8 +14,16 @@ import BioactivityIcon from "@/components/icons/BioactivityIcon";
 import ChemicalIcon from "@/components/icons/ChemicalIcon";
 import DiseaseIcon from "@/components/icons/DiseaseIcon";
 import FoodIcon from "@/components/icons/FoodIcon";
+import { useNavigationSignal } from "@/context/navigationContext";
 import { SearchContext } from "@/context/searchContext";
 import { encodeSpace } from "@/utils/utils";
+
+// While the search fly-up is open, the container above uses
+// `position: fixed`. If a chip click blurs the input first, `isFocused`
+// flips to false, the container drops back to `position: absolute` mid-
+// click, the button moves out from under the cursor, and the click
+// never lands. We preventDefault on mousedown to keep focus on the
+// input so layout stays stable through mouseup + click.
 
 type EntityType = "food" | "chemical" | "bioactivity" | "disease";
 
@@ -53,10 +61,13 @@ const EXAMPLES: {
 
 const TryChips = () => {
   const router = useRouter();
-  const { setIsVisible } = useContext(SearchContext);
+  const { inputRef, setIsVisible } = useContext(SearchContext);
+  const { startNav } = useNavigationSignal();
 
   const go = (type: EntityType, slug: string) => {
+    inputRef.current?.blur();
     setIsVisible(false);
+    startNav();
     router.push(`/${type}/${encodeURIComponent(encodeSpace(slug))}`);
   };
 
@@ -69,6 +80,7 @@ const TryChips = () => {
         <button
           key={ex.type}
           type="button"
+          onMouseDown={(e) => e.preventDefault()}
           onClick={() => go(ex.type, ex.slug)}
           className={twMerge(
             "inline-flex items-center gap-1.5 pl-1.5 pr-2.5 py-1 rounded-full border border-white/10",

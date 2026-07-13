@@ -739,6 +739,105 @@ async def get_category_options(
     return {"data": data, "metadata": {"row_count": len(data)}}
 
 
+# Per-direction (mv, name_col) mapping for the source-kind counts
+# endpoint. Same MVs the paginated queries hit, filtered on the same
+# pivot column, so the counts match what the table would return with
+# the corresponding source-kind filter applied.
+_SOURCE_KIND_DIRECTIONS: dict[str, tuple[str, str]] = {
+    "bioactivity-chemicals": ("mv_chemical_bioactivity", "bioactivity_name"),
+    "bioactivity-foods": ("mv_food_bioactivity", "bioactivity_name"),
+    "chemical-bioactivities": ("mv_chemical_bioactivity", "chemical_name"),
+    "food-bioactivities": ("mv_food_bioactivity", "food_name"),
+}
+
+
+async def get_source_kind_counts(
+    session: AsyncSession, common_name: str, direction: str
+) -> dict[str, object]:
+    """Row counts per assay-source kind for the sidebar Assay Source filter.
+
+    "experimental" = rows containing at least one measurement whose
+    ``evidence_source`` starts with ``exp``; "predicted" = rows whose
+    source starts with ``pred`` or ``comp``; "both" (empty key) = total.
+    Same classification the paginated filter uses (see
+    ``_apply_source_kind_filter``), so the counts reflect exactly what
+    the table would return under each filter.
+
+    ``food-inferred-bioactivities`` uses the same join the paginated
+    inferred query does (``mv_food_chemical_composition`` ⨝
+    ``mv_chemical_bioactivity`` on chemical id), so the count matches
+    the inferred table's row set exactly.
+    """
+    if direction == "food-inferred-bioactivities":
+        result = await session.execute(
+            text("""
+                SELECT
+                    COUNT(*) AS both,
+                    COUNT(*) FILTER (
+                        WHERE EXISTS (
+                            SELECT 1 FROM jsonb_array_elements(cb.measurements) m
+                            WHERE (m->>'evidence_source') ILIKE 'exp%'
+                        )
+                    ) AS experimental,
+                    COUNT(*) FILTER (
+                        WHERE EXISTS (
+                            SELECT 1 FROM jsonb_array_elements(cb.measurements) m
+                            WHERE (m->>'evidence_source') ILIKE 'pred%'
+                               OR (m->>'evidence_source') ILIKE 'comp%'
+                        )
+                    ) AS predicted
+                FROM mv_food_chemical_composition fcc
+                JOIN mv_chemical_bioactivity cb
+                  ON cb.chemical_foodatlas_id = fcc.chemical_foodatlas_id
+                WHERE fcc.food_name = :name
+            """),
+            {"name": common_name},
+        )
+        row = result.first()
+        return {
+            "data": {
+                "both": int(row.both or 0) if row else 0,
+                "experimental": int(row.experimental or 0) if row else 0,
+                "predicted": int(row.predicted or 0) if row else 0,
+            }
+        }
+
+    info = _SOURCE_KIND_DIRECTIONS.get(direction)
+    if info is None:
+        return {"data": {"both": 0, "experimental": 0, "predicted": 0}}
+    mv, name_col = info
+    result = await session.execute(
+        text(f"""
+            SELECT
+                COUNT(*) AS both,
+                COUNT(*) FILTER (
+                    WHERE EXISTS (
+                        SELECT 1 FROM jsonb_array_elements(measurements) m
+                        WHERE (m->>'evidence_source') ILIKE 'exp%'
+                    )
+                ) AS experimental,
+                COUNT(*) FILTER (
+                    WHERE EXISTS (
+                        SELECT 1 FROM jsonb_array_elements(measurements) m
+                        WHERE (m->>'evidence_source') ILIKE 'pred%'
+                           OR (m->>'evidence_source') ILIKE 'comp%'
+                    )
+                ) AS predicted
+            FROM {mv}
+            WHERE {name_col} = :name
+        """),
+        {"name": common_name},
+    )
+    row = result.first()
+    return {
+        "data": {
+            "both": int(row.both or 0) if row else 0,
+            "experimental": int(row.experimental or 0) if row else 0,
+            "predicted": int(row.predicted or 0) if row else 0,
+        }
+    }
+
+
 # ---------------------------------------------------------------------
 # Unbounded measurements endpoint (no MV cap)
 # ---------------------------------------------------------------------

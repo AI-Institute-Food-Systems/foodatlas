@@ -106,6 +106,23 @@ async def bioactivity_category_options(
     return await bioactivity.get_category_options(db, common_name)
 
 
+@router.get("/source_kinds")
+async def bioactivity_source_kind_counts(
+    common_name: str = Query(...),
+    direction: str = Query(
+        ...,
+        description=(
+            "Pivot+relationship combo. Same set as /bioactivity/endpoints: "
+            "bioactivity-chemicals, bioactivity-foods, chemical-bioactivities, "
+            "food-bioactivities."
+        ),
+    ),
+    db: AsyncSession = Depends(get_db),
+):
+    """Per-source-kind row counts for the sidebar Assay Source filter."""
+    return await bioactivity.get_source_kind_counts(db, common_name, direction)
+
+
 @router.get("/measurements")
 async def bioactivity_measurements(
     head_id: str = Query(..., description="Chemical or food foodatlas_id"),
