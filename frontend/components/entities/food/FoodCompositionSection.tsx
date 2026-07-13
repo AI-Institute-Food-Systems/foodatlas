@@ -409,6 +409,27 @@ const FoodCompositionSection = ({
     setSourceFilters(sources);
   };
 
+  // Default state per the useState initializers above. `isFiltersDirty`
+  // is true when the current view differs from a fresh page load; the
+  // Reset button only renders in that case so it's not just visual noise.
+  const isFiltersDirty =
+    searchTerm !== "" ||
+    sourceFilters.length !== 2 ||
+    !sourceFilters.includes("fdc") ||
+    !sourceFilters.includes("foodatlas") ||
+    classificationFilter.length > 0 ||
+    !showAllConcentrations ||
+    showLowTrust;
+
+  const resetAllFilters = () => {
+    setSearchTerm("");
+    setSourceFilters(["fdc", "foodatlas"]);
+    setClassificationFilter([]);
+    setShowAllConcentrations(true);
+    setShowLowTrust(false);
+    setTablePaginations("food-composition-table", 1, 20);
+  };
+
   // handle evidence button click
   const handleEvidenceButtonClick = (
     event: React.MouseEvent<HTMLButtonElement>,
@@ -563,14 +584,23 @@ const FoodCompositionSection = ({
   // drawer per user request).
   const filtersOnlyPanel = (
     <div className="flex flex-col gap-5">
+      {/* Reset link — only appears when the view differs from a fresh
+       * page load, so it's not just visual clutter. Clears search +
+       * every filter to default and snaps pagination back to page 1. */}
+      {isFiltersDirty && (
+        <div className="flex justify-end -mb-3">
+          <button
+            type="button"
+            onClick={resetAllFilters}
+            className="text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
+          >
+            reset all
+          </button>
+        </div>
+      )}
+
       {/* options — binary switches (not multi-select) so they stay as
-       * toggles rather than checkbox rows.
-       *
-       * TODO(round-2): the composition/counts endpoint doesn't yet
-       * return a per-toggle counterfactual (rows without concentration;
-       * low-trust extractions). Once available, surface each as a small
-       * "(+N)"-style count next to the label so the "every filter has a
-       * count, disabled at 0" convention holds here too. */}
+       * toggles rather than checkbox rows. */}
       <FilterGroup label="Options">
         <div className="flex flex-col gap-2 pt-0.5">
           <ToggleSwitch
