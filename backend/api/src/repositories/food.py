@@ -159,9 +159,7 @@ async def get_composition_counts(
         row_atts[mapping["id"]] = atts
 
     scores = (
-        await _fetch_trust_scores(session, list(all_att_ids))
-        if all_att_ids
-        else {}
+        await _fetch_trust_scores(session, list(all_att_ids)) if all_att_ids else {}
     )
     threshold = APISettings().trust_low_threshold
     low_trust_count = sum(
