@@ -7,7 +7,7 @@ interface Props {
 }
 
 const STRIPE: Record<EntityType, string> = {
-  food: "bg-amber-600",
+  food: "bg-amber-500",
   chemical: "bg-cyan-600",
   disease: "bg-purple-500",
   bioactivity: "bg-emerald-500",

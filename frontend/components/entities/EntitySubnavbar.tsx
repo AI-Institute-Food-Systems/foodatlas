@@ -19,7 +19,7 @@ interface Props {
 // styles work via inline `style` — bypasses any Tailwind class
 // merging that was making the food (amber) badge render wrong.
 const HEX: Record<EntityType, string> = {
-  food: "#d97706", // amber-600
+  food: "#f59e0b", // amber-500 — brighter, more yellow-orange
   chemical: "#0891b2", // cyan-600
   disease: "#a855f7", // purple-500
   bioactivity: "#10b981", // emerald-500

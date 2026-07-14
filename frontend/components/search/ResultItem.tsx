@@ -15,7 +15,7 @@ import { Suggestion } from "@/types/Suggestion";
 import { encodeSpace } from "@/utils/utils";
 
 const colorScheme = {
-  food: "text-amber-600 border-amber-600 bg-amber-600/10 shadow-amber-600/50",
+  food: "text-amber-500 border-amber-500 bg-amber-500/10 shadow-amber-500/50",
   chemical: "text-cyan-600 border-cyan-600 bg-cyan-600/10 shadow-cyan-600/50",
   disease:
     "text-purple-500 border-purple-500 bg-purple-500/10 shadow-purple-500/50",
@@ -24,7 +24,7 @@ const colorScheme = {
 };
 
 const icon = {
-  food: <FoodIcon color="#d97706" />,
+  food: <FoodIcon color="#f59e0b" />,
   chemical: <ChemicalIcon color="#0891b2" />,
   disease: <DiseaseIcon color="#a855f7" />,
   bioactivity: <BioactivityIcon color="#10b981" />,
