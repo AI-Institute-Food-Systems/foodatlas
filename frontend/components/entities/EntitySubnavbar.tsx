@@ -11,18 +11,10 @@ import { getMetaData } from "@/utils/fetching";
 import { encodeSpace } from "@/utils/utils";
 
 import type { EntityType } from "./EntityTabs";
-import SubnavbarTabSelector, {
-  type SubnavTabSpec,
-} from "./SubnavbarTabSelector";
 
 interface Props {
   commonName: string;
   entityType: EntityType;
-  // Compact tab list for the sticky selector. Optional so pages that
-  // don't render tabs (or non-entity pages that reuse this bar) can
-  // still use it. When present, defaultTabId must also be provided.
-  tabs?: SubnavTabSpec[];
-  defaultTabId?: string;
 }
 
 const colorScheme: Record<EntityType, string> = {
@@ -41,12 +33,7 @@ const icon: Record<EntityType, React.ReactNode> = {
   bioactivity: <BioactivityIcon color="#10b981" />,
 };
 
-const EntitySubnavbar = async ({
-  commonName,
-  entityType,
-  tabs,
-  defaultTabId,
-}: Props) => {
+const EntitySubnavbar = async ({ commonName, entityType }: Props) => {
   const data = await getMetaData(commonName, entityType);
   if (!data) return null;
   const siblings = data.ambiguity_siblings ?? [];
@@ -98,12 +85,6 @@ const EntitySubnavbar = async ({
                 ))}
               </ul>
             </div>
-          </div>
-        )}
-
-        {tabs && defaultTabId && (
-          <div className="flex-shrink-0">
-            <SubnavbarTabSelector tabs={tabs} defaultTabId={defaultTabId} />
           </div>
         )}
 

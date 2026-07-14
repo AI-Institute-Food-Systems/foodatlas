@@ -81,60 +81,52 @@ const FoodPage = async ({ params }: FoodPageProps) => {
       ? null
       : (directBio ?? 0) + (inferredBio ?? 0);
 
-  const defaultTabId = "composition";
-  const tabs = [
-    {
-      id: "composition",
-      label: "Composition",
-      count: compositionCount,
-      content: <FoodCompositionSection commonName={commonName} />,
-    },
-    {
-      id: "bioactivities",
-      label: "Bioactivities",
-      count: bioactivitiesCount,
-      content: (
-        <FoodBioactivitiesTab commonName={commonName} anchorId={anchorId} />
-      ),
-    },
-    {
-      id: "overview",
-      label: "IDs & Metadata",
-      content: (
-        <Suspense
-          fallback={<EntityOverviewPanelSuspense entityType={entityType} />}
-        >
-          <EntityOverviewPanel
-            commonName={commonName}
-            entityType={entityType}
-          />
-        </Suspense>
-      ),
-    },
-  ];
-  const subnavTabs = tabs.map(({ id, label, count }) => ({
-    id,
-    label,
-    count: count ?? null,
-  }));
-
   return (
-    <EntityPageGate entityType={entityType} tabCount={tabs.length}>
+    <EntityPageGate entityType={entityType} tabCount={3}>
       <Suspense fallback={<HeaderSectionSuspense entityType={entityType} />}>
         <HeaderSection commonName={commonName} entityType={entityType} />
       </Suspense>
       <StickyOnScrollPast targetId="entity-tab-strip-sentinel">
-        <EntitySubnavbar
-          commonName={commonName}
-          entityType={entityType}
-          tabs={subnavTabs}
-          defaultTabId={defaultTabId}
-        />
+        <EntitySubnavbar commonName={commonName} entityType={entityType} />
       </StickyOnScrollPast>
       <EntityDetailLayout
         entityType={entityType}
-        defaultTabId={defaultTabId}
-        tabs={tabs}
+        defaultTabId="composition"
+        tabs={[
+          {
+            id: "composition",
+            label: "Composition",
+            count: compositionCount,
+            content: <FoodCompositionSection commonName={commonName} />,
+          },
+          {
+            id: "bioactivities",
+            label: "Bioactivities",
+            count: bioactivitiesCount,
+            content: (
+              <FoodBioactivitiesTab
+                commonName={commonName}
+                anchorId={anchorId}
+              />
+            ),
+          },
+          {
+            id: "overview",
+            label: "IDs & Metadata",
+            content: (
+              <Suspense
+                fallback={
+                  <EntityOverviewPanelSuspense entityType={entityType} />
+                }
+              >
+                <EntityOverviewPanel
+                  commonName={commonName}
+                  entityType={entityType}
+                />
+              </Suspense>
+            ),
+          },
+        ]}
       />
     </EntityPageGate>
   );

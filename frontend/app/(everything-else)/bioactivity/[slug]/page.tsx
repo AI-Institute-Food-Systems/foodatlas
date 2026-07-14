@@ -56,68 +56,57 @@ const BioactivityPage = async ({ params }: BioactivityPageProps) => {
     (foodPayload?.metadata?.total_rows as number | undefined) ?? null;
   const anchorId = metaPayload?.id ?? null;
 
-  const defaultTabId = "chemicals";
-  const tabs = [
-    {
-      id: "chemicals",
-      label: "Chemicals Measured",
-      count: chemicalsCount,
-      content: (
-        <BioactivityChemicalsSection
-          commonName={commonName}
-          anchorId={anchorId}
-        />
-      ),
-    },
-    {
-      id: "foods",
-      label: "Foods Exhibiting",
-      count: foodsCount,
-      content: (
-        <BioactivityFoodsSection
-          commonName={commonName}
-          anchorId={anchorId}
-        />
-      ),
-    },
-    {
-      id: "overview",
-      label: "IDs & Metadata",
-      content: (
-        <Suspense
-          fallback={<EntityOverviewPanelSuspense entityType={entityType} />}
-        >
-          <EntityOverviewPanel
-            commonName={commonName}
-            entityType={entityType}
-          />
-        </Suspense>
-      ),
-    },
-  ];
-  const subnavTabs = tabs.map(({ id, label, count }) => ({
-    id,
-    label,
-    count: count ?? null,
-  }));
-
   return (
-    <EntityPageGate entityType={entityType} tabCount={tabs.length}>
+    <EntityPageGate entityType={entityType} tabCount={3}>
       <Suspense fallback={<HeaderSectionSuspense entityType={entityType} />}>
         <HeaderSection commonName={commonName} entityType={entityType} />
       </Suspense>
       <StickyOnScrollPast targetId="entity-tab-strip-sentinel">
-        <EntitySubnavbar
-          commonName={commonName}
-          entityType={entityType}
-          tabs={subnavTabs}
-          defaultTabId={defaultTabId}
-        />
+        <EntitySubnavbar commonName={commonName} entityType={entityType} />
       </StickyOnScrollPast>
       <EntityDetailLayout
         entityType={entityType}
-        defaultTabId={defaultTabId}
-        tabs={tabs}
+        defaultTabId="chemicals"
+        tabs={[
+          {
+            id: "chemicals",
+            label: "Chemicals Measured",
+            count: chemicalsCount,
+            content: (
+              <BioactivityChemicalsSection
+                commonName={commonName}
+                anchorId={anchorId}
+              />
+            ),
+          },
+          {
+            id: "foods",
+            label: "Foods Exhibiting",
+            count: foodsCount,
+            content: (
+              <BioactivityFoodsSection
+                commonName={commonName}
+                anchorId={anchorId}
+              />
+            ),
+          },
+          {
+            id: "overview",
+            label: "IDs & Metadata",
+            content: (
+              <Suspense
+                fallback={
+                  <EntityOverviewPanelSuspense entityType={entityType} />
+                }
+              >
+                <EntityOverviewPanel
+                  commonName={commonName}
+                  entityType={entityType}
+                />
+              </Suspense>
+            ),
+          },
+        ]}
       />
     </EntityPageGate>
   );
