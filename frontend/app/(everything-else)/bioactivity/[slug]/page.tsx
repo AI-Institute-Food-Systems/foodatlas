@@ -61,7 +61,7 @@ const BioactivityPage = async ({ params }: BioactivityPageProps) => {
       <Suspense fallback={<HeaderSectionSuspense entityType={entityType} />}>
         <HeaderSection commonName={commonName} entityType={entityType} />
       </Suspense>
-      <StickyOnScrollPast targetId="entity-page-header">
+      <StickyOnScrollPast targetId="entity-tab-strip-sentinel">
         <EntitySubnavbar commonName={commonName} entityType={entityType} />
       </StickyOnScrollPast>
       <EntityDetailLayout

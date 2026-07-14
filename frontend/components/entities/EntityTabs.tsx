@@ -90,6 +90,11 @@ const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
 
   return (
     <TabGroup selectedIndex={selectedIndex} onChange={handleChange}>
+      {/* Sentinel used by <StickyOnScrollPast> — its viewport-y position
+       * matches the tab strip's natural top, so subnav reveal fires at
+       * the same scroll depth as the tabs sticking. */}
+      <div id="entity-tab-strip-sentinel" aria-hidden />
+
       {/* Tabs sit on top of the card as apothecary-jar labels: cream chips
        * affixed to the top of a dark cabinet. Selected chip = cream fill,
        * unselected = dark slab with a visible border. -mb-[2px] pulls all

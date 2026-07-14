@@ -1,40 +1,48 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 interface Props {
-  // Element id to watch — when this element scrolls out of the viewport
-  // top, the children are revealed (fixed position). When it comes back
-  // into view, children are hidden. Typically the entity page header.
+  // Element id to watch — the subnavbar reveals as soon as the target's
+  // viewport-top position drops at or below `threshold`. Set the id on
+  // the element that represents "the point where the sticky tab strip
+  // would start sticking" so subnav appears in lockstep with the tabs.
   targetId: string;
+  // Pixel threshold: subnav shown when target.getBoundingClientRect().top
+  // <= threshold. Match the tab strip's sticky-top offset (100 for the
+  // desktop layout; mobile picker at 88 arrives a few px earlier).
+  threshold?: number;
   children: React.ReactNode;
 }
 
-// Client wrapper that reveals its children (fixed-positioned) only
-// once the watched target scrolls out of view. Used to gate the
-// EntitySubnavbar so it doesn't stack on top of a fully-visible
-// HeaderSection at the top of every entity page.
-const StickyOnScrollPast = ({ targetId, children }: Props) => {
+// Client wrapper that reveals its children (fixed-positioned) once the
+// watched target scrolls up past `threshold`. Uses a scroll listener so
+// the state syncs precisely with the sticky-tab trigger — plain
+// IntersectionObserver on the target won't fire at the same scroll
+// depth (it fires when the element enters/exits the viewport, not when
+// it hits an arbitrary y).
+const StickyOnScrollPast = ({
+  targetId,
+  threshold = 100,
+  children,
+}: Props) => {
   const [visible, setVisible] = useState(false);
-  const observerRef = useRef<IntersectionObserver | null>(null);
 
   useEffect(() => {
     const target = document.getElementById(targetId);
     if (!target) return;
-    observerRef.current = new IntersectionObserver(
-      (entries) => {
-        const entry = entries[0];
-        // Show once the target has fully scrolled above the viewport.
-        setVisible(!entry.isIntersecting);
-      },
-      { threshold: 0 },
-    );
-    observerRef.current.observe(target);
-    return () => {
-      observerRef.current?.disconnect();
-      observerRef.current = null;
+    const check = () => {
+      const rect = target.getBoundingClientRect();
+      setVisible(rect.top <= threshold);
     };
-  }, [targetId]);
+    check();
+    window.addEventListener("scroll", check, { passive: true });
+    window.addEventListener("resize", check);
+    return () => {
+      window.removeEventListener("scroll", check);
+      window.removeEventListener("resize", check);
+    };
+  }, [targetId, threshold]);
 
   return (
     <div
