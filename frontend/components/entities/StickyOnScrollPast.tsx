@@ -44,14 +44,11 @@ const StickyOnScrollPast = ({
     };
   }, [targetId, threshold]);
 
+  // No opacity transition — user found the fade distracting. Snap
+  // between hidden and visible.
+  if (!visible) return null;
   return (
-    <div
-      className={
-        "fixed left-0 right-0 top-12 md:top-14 z-40 transition-opacity duration-150 " +
-        (visible ? "opacity-100" : "opacity-0 pointer-events-none")
-      }
-      aria-hidden={!visible}
-    >
+    <div className="fixed left-0 right-0 top-12 md:top-14 z-40">
       {children}
     </div>
   );
