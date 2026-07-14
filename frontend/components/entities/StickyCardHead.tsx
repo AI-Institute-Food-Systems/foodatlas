@@ -75,7 +75,13 @@ const StickyCardHead = ({ children, className }: Props) => {
       <div
         className={twMerge(
           "hidden md:block sticky top-[100px] md:top-[112px] z-30",
-          "-mx-5 md:-mx-6 -mt-3 md:-mt-4",
+          // Negative margins extend by an extra 1.5px on each escaped
+          // side beyond Card's padding — that shifts our outer edge
+          // out to Card's OUTER edge (not just the post-border edge),
+          // so our 1.5px border overlaps Card's 1.5px border into a
+          // single visible line. Prevents the 1.5px step where
+          // StickyCardHead ends and Card body continues.
+          "-mx-[21.5px] md:-mx-[25.5px] -mt-[13.5px] md:-mt-[17.5px]",
           "rounded-t-xl border-[1.5px] border-b-0 border-light-50/[0.08]",
           "bg-light-950 px-5 md:px-6 pt-3 md:pt-4",
           className,
