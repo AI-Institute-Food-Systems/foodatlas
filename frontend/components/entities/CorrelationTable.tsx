@@ -102,7 +102,7 @@ const CorrelationTable = ({
     <>
       <div>
         {/* table — desktop */}
-        <div className="hidden md:block overflow-x-auto">
+        <div className="hidden md:block">
           <table className="w-full table-fixed">
             {/* table headers */}
             <thead className="text-light-400 text-left sticky top-[140px] z-20 bg-light-950">

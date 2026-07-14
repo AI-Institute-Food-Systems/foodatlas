@@ -56,12 +56,11 @@ const BioactivityPage = async ({ params }: BioactivityPageProps) => {
   const anchorId = metaPayload?.id ?? null;
 
   return (
-    <>
+    <EntityPageGate entityType={entityType} tabCount={3}>
+      <Suspense fallback={<HeaderSectionSuspense entityType={entityType} />}>
+        <HeaderSection commonName={commonName} entityType={entityType} />
+      </Suspense>
       <EntitySubnavbar commonName={commonName} entityType={entityType} />
-      <EntityPageGate entityType={entityType} tabCount={3}>
-        <Suspense fallback={<HeaderSectionSuspense entityType={entityType} />}>
-          <HeaderSection commonName={commonName} entityType={entityType} />
-        </Suspense>
       <EntityDetailLayout
         entityType={entityType}
         defaultTabId="chemicals"
@@ -106,8 +105,7 @@ const BioactivityPage = async ({ params }: BioactivityPageProps) => {
           },
         ]}
       />
-      </EntityPageGate>
-    </>
+    </EntityPageGate>
   );
 };
 

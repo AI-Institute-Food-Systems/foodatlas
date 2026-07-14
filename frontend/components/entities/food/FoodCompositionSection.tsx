@@ -757,7 +757,7 @@ const FoodCompositionSection = ({
           {/* table — desktop only. Card list below covers mobile. */}
           <div
             ref={tableWrapperRef}
-            className="hidden md:block overflow-x-auto relative"
+            className="hidden md:block relative"
           >
             {highlightName && overlayRect && (
               <div

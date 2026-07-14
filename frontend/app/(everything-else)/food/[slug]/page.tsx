@@ -81,12 +81,11 @@ const FoodPage = async ({ params }: FoodPageProps) => {
       : (directBio ?? 0) + (inferredBio ?? 0);
 
   return (
-    <>
+    <EntityPageGate entityType={entityType} tabCount={3}>
+      <Suspense fallback={<HeaderSectionSuspense entityType={entityType} />}>
+        <HeaderSection commonName={commonName} entityType={entityType} />
+      </Suspense>
       <EntitySubnavbar commonName={commonName} entityType={entityType} />
-      <EntityPageGate entityType={entityType} tabCount={3}>
-        <Suspense fallback={<HeaderSectionSuspense entityType={entityType} />}>
-          <HeaderSection commonName={commonName} entityType={entityType} />
-        </Suspense>
       <EntityDetailLayout
         entityType={entityType}
         defaultTabId="composition"
@@ -126,8 +125,7 @@ const FoodPage = async ({ params }: FoodPageProps) => {
           },
         ]}
       />
-      </EntityPageGate>
-    </>
+    </EntityPageGate>
   );
 };
 

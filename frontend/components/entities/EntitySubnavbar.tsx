@@ -33,10 +33,10 @@ const ICON: Record<EntityType, React.ReactNode> = {
   bioactivity: <BioactivityIcon color="#10b981" />,
 };
 
-// Compact entity bar fixed just below the primary Navbar. Always
-// visible on entity pages so the user knows what they're looking at
-// once they scroll past the big HeaderSection. Contains the entity
-// type badge, common name, FoodAtlas id, and (when applicable) an
+// Compact entity bar that sits in the page flow AFTER HeaderSection.
+// Sticky positioning (top = Navbar height) so it only appears when
+// the user scrolls past the big header. Contains the entity type
+// badge, common name, FoodAtlas id, and (when applicable) an
 // ambiguity marker that surfaces sibling entities on hover.
 const EntitySubnavbar = async ({ commonName, entityType }: Props) => {
   const data = await getMetaData(commonName, entityType);
@@ -47,16 +47,17 @@ const EntitySubnavbar = async ({ commonName, entityType }: Props) => {
   return (
     <div
       className={
-        // fixed just below the Navbar (h-12 mobile, h-14 desktop) so
-        // the bar stays glued to the primary chrome regardless of
-        // scroll. Same horizontal inset as the Navbar for alignment.
-        "fixed left-0 right-0 top-12 md:top-14 z-40 " +
-        "border-b border-light-50/[0.08] bg-[#0a0a09]/60 backdrop-blur-2xl saturate-150 " +
-        "px-4 md:px-24"
+        // Sticky just below the Navbar (h-12 mobile / h-14 desktop).
+        // -mx-4 md:-mx-24 breaks out of the page's max-w-5xl content
+        // column so the dark backdrop spans the full viewport when
+        // stuck, matching the Navbar's horizontal inset.
+        "sticky top-12 md:top-14 z-40 " +
+        "border-b border-light-50/[0.08] bg-[#0a0a09]/70 backdrop-blur-2xl saturate-150 " +
+        "-mx-4 md:-mx-24 px-4 md:px-24"
       }
     >
-      <div className="mx-auto max-w-5xl h-9 md:h-10 flex items-center gap-3 min-w-0">
-        <Badge color={COLOR[entityType]} leftIcon={ICON[entityType]} size="sm">
+      <div className="mx-auto max-w-5xl h-10 md:h-11 flex items-center gap-3 min-w-0">
+        <Badge color={COLOR[entityType]} leftIcon={ICON[entityType]} size="md">
           {entityType}
         </Badge>
         <span className="capitalize text-sm md:text-base font-semibold text-light-100 truncate min-w-0 flex-1">
