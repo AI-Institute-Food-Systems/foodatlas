@@ -17,6 +17,7 @@ import {
 import { twMerge } from "tailwind-merge";
 
 import Card from "@/components/basic/Card";
+import StickyCardHead from "@/components/entities/StickyCardHead";
 import Chip from "@/components/basic/Chip";
 import Link from "@/components/basic/Link";
 import Pagination from "@/components/basic/Pagination";
@@ -754,25 +755,14 @@ const FoodCompositionSection = ({
               />
             </div>
           )}
-          {/* table — desktop only. Card list below covers mobile. */}
-          <div
-            ref={tableWrapperRef}
-            className="hidden md:block relative"
-          >
-            {highlightName && overlayRect && (
-              <div
-                aria-hidden
-                className={
-                  isDismissing
-                    ? "row-highlight-overlay is-dismissing"
-                    : "row-highlight-overlay"
-                }
-                style={{
-                  top: overlayRect.top - 3,
-                  height: overlayRect.height + 6,
-                }}
-              />
-            )}
+          {/* Sticky "top-of-card" chip carrying the column headers.
+           * Escapes the outer Card's padding via -mx/-mt inside
+           * StickyCardHead so its rounded corners + border align
+           * with the Card frame. Renders its own mini-table (colgroup
+           * + thead only) that mirrors the widths of the body table
+           * below via matching <colgroup>. Only md+; mobile has no
+           * column headers (uses a divided card list). */}
+          <StickyCardHead>
             <table className="w-full table-fixed border-separate border-spacing-0">
               <colgroup>
                 <col className="w-[28%]" />
@@ -780,24 +770,16 @@ const FoodCompositionSection = ({
                 <col className="w-[37%]" />
                 <col className="w-[20%]" />
               </colgroup>
-              {/* shadow-[0_-12px_0_0_#0a0a09] projects a 12px solid strip
-               * of page-bg color above the pinned thead so the card's
-               * top border + first rows don't ghost through the
-               * breathing gap between subnav and thead. */}
-              <thead className="text-light-400 text-left sticky top-[100px] md:top-[112px] z-20 bg-light-950 shadow-[0_-12px_0_0_#0a0a09]">
+              <thead className="text-light-400 text-left">
                 <tr>
-                  {/* table headers — first/last th get rounded top
-                   * corners so the pinned thead reads as the top of a
-                   * rounded card (the actual card top has scrolled
-                   * past). */}
                   {TABLE_HEADERS.map((header, index) => (
                     <th
                       key={index}
-                      className={`h-9 border-t-[1.5px] border-t-light-50/[0.08] border-b border-b-light-700 leading-none break-all md:break-normal py-1.5 ${
+                      className={`h-9 border-b border-b-light-700 leading-none break-all md:break-normal py-1.5 ${
                         index === 0
-                          ? "pr-4 rounded-tl-xl"
+                          ? "pr-4"
                           : index === TABLE_HEADERS.length - 1
-                          ? "pl-4 rounded-tr-xl"
+                          ? "pl-4"
                           : "px-4"
                       } ${header.align === "right" ? "text-right" : "text-left"}`}
                     >
@@ -835,6 +817,36 @@ const FoodCompositionSection = ({
                   ))}
                 </tr>
               </thead>
+            </table>
+          </StickyCardHead>
+
+          {/* Body table — desktop only. Card list below covers mobile.
+           * Mirrors the sticky head's colgroup widths so columns align. */}
+          <div
+            ref={tableWrapperRef}
+            className="hidden md:block relative"
+          >
+            {highlightName && overlayRect && (
+              <div
+                aria-hidden
+                className={
+                  isDismissing
+                    ? "row-highlight-overlay is-dismissing"
+                    : "row-highlight-overlay"
+                }
+                style={{
+                  top: overlayRect.top - 3,
+                  height: overlayRect.height + 6,
+                }}
+              />
+            )}
+            <table className="w-full table-fixed border-separate border-spacing-0">
+              <colgroup>
+                <col className="w-[28%]" />
+                <col className="w-[15%]" />
+                <col className="w-[37%]" />
+                <col className="w-[20%]" />
+              </colgroup>
               <tbody className="text-sm font-light">
                 {isLoading ? (
                   // loading skeleton
