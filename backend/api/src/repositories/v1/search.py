@@ -30,7 +30,11 @@ async def search(
         return [], 0
 
     where = ["substr_auto LIKE :pattern"]
-    params: dict[str, object] = {"pattern": f"%{word}%", "word": word}
+    params: dict[str, object] = {
+        "pattern": f"%{word}%",
+        "prefix": f"{word}%",
+        "word": word,
+    }
     if entity_type:
         where.append("entity_type = :etype")
         params["etype"] = entity_type
@@ -44,6 +48,9 @@ async def search(
 
     params["limit"] = page_size
     params["offset"] = _offset(page, page_size)
+    # Bucketed ranking: exact token → prefix token → substring. See
+    # ``repositories/search.py`` for the rationale — kept identical here so
+    # /search and /v1/search rank results the same way.
     sql = f"""
         SELECT
             foodatlas_id AS id,
@@ -54,7 +61,13 @@ async def search(
         FROM mv_search_auto_complete
         WHERE {where_sql}
         ORDER BY
-            CASE WHEN exact_auto @> ARRAY[:word] THEN 1 ELSE 2 END,
+            CASE
+                WHEN exact_auto @> ARRAY[:word] THEN 1
+                WHEN EXISTS (
+                    SELECT 1 FROM unnest(exact_auto) AS t WHERE t LIKE :prefix
+                ) THEN 2
+                ELSE 3
+            END,
             associations DESC,
             similarity(substr_auto, :word) DESC
         OFFSET :offset ROWS FETCH FIRST :limit ROWS ONLY
