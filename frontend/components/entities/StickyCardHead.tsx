@@ -37,9 +37,13 @@ const StickyCardHead = ({ children, className }: Props) => {
     // Using the larger (112) is safe — on mobile the sentinel just
     // switches slightly earlier, which is imperceptible against the
     // already-sticky subnav layout.
+    // -128px rootMargin fires the stuck state a few pixels *before*
+    // the chip fully reaches its 112px sticky offset — feels sharper
+    // than waiting for the exact crossing. (More negative = earlier
+    // trigger: sentinel exits a taller shrunk root sooner.)
     const obs = new IntersectionObserver(
       ([entry]) => setStuck(entry.intersectionRatio === 0),
-      { threshold: [0, 1], rootMargin: "-112px 0px 0px 0px" },
+      { threshold: [0, 1], rootMargin: "-128px 0px 0px 0px" },
     );
     obs.observe(el);
     return () => obs.disconnect();
@@ -52,19 +56,21 @@ const StickyCardHead = ({ children, className }: Props) => {
        * chip isn't stuck. Once it scrolls out (above y=112) the chip
        * is stuck and we can safely paint the gap-filling backdrop. */}
       <div ref={sentinelRef} aria-hidden className="hidden md:block h-0" />
-      {/* Full-viewport black rectangle that appears once stuck. Sits
-       * *behind* the chip (z-20 vs the chip's z-30) and spans
-       * subnav-bottom through the chip's bottom, edge-to-edge — hides
-       * anything scrolling in the outer padding zones (filter
-       * sidebar corners, tab strip remnants, etc). pointer-events-none
-       * so header clicks still land on the chip. Height is generous
-       * enough (h-16 = 64px) to cover the chip's ~53px chrome plus
-       * the 12px gap without overshooting into the tbody. */}
+      {/* Black rectangle that appears once stuck. Sits *behind* the
+       * chip (z-20 vs the chip's z-30) and spans subnav-bottom
+       * through the chip's bottom. Constrained to the card's own
+       * horizontal bounds so the outer padding zones (filter sidebar,
+       * page edges) stay visible. Outer div carries the page's
+       * horizontal padding + fixed positioning; inner div is the
+       * actual max-w-5xl centered black slab. pointer-events-none so
+       * header clicks still reach the chip. */}
       {stuck && (
         <div
           aria-hidden
-          className="fixed inset-x-0 top-[88px] md:top-[100px] h-16 bg-[#0a0a09] z-20 pointer-events-none"
-        />
+          className="fixed inset-x-0 top-[88px] md:top-[100px] px-4 md:px-24 h-16 z-20 pointer-events-none"
+        >
+          <div className="mx-auto max-w-5xl h-full bg-[#0a0a09]" />
+        </div>
       )}
       <div
         className={twMerge(
