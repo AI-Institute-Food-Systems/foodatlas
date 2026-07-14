@@ -60,11 +60,11 @@ const HeaderSection = async ({
             {commonName}
           </Heading>
         </div>
-        <span className="flex-shrink-0 flex items-baseline gap-1.5 whitespace-nowrap">
-          <span className="hidden md:inline font-mono italic text-[10px] uppercase tracking-[0.12em] text-light-500">
+        <span className="flex flex-wrap items-baseline gap-x-1.5 justify-end">
+          <span className="hidden md:inline font-mono italic text-[10px] uppercase tracking-[0.12em] text-light-500 whitespace-nowrap">
             FoodAtlas ID
           </span>
-          <span className="font-mono italic text-xs text-light-300">
+          <span className="font-mono italic text-xs text-light-300 whitespace-nowrap">
             {data?.id ?? "—"}
           </span>
         </span>
