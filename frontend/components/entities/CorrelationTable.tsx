@@ -105,7 +105,7 @@ const CorrelationTable = ({
         <div className="hidden md:block">
           <table className="w-full table-fixed border-separate border-spacing-0">
             {/* table headers */}
-            <thead className="text-light-400 text-left sticky top-[140px] z-20 bg-light-950">
+            <thead className="text-light-400 text-left sticky top-[88px] md:top-[100px] z-20 bg-light-950">
               <tr>
                 {headers.map((header, index) => (
                   <th

@@ -186,7 +186,7 @@ const FoodInferredBioactivitiesSection = ({
        * parent (FoodBioactivitiesTab) hosts the shared chrome. */}
       {!hideChrome && (
         <aside className="hidden min-[1440px]:block absolute right-full mr-10 -top-[17px] bottom-0 w-48">
-          <div className="sticky top-[140px]">
+          <div className="sticky top-[88px] md:top-[100px]">
             <Card>{searchInput}</Card>
           </div>
         </aside>
@@ -250,7 +250,7 @@ const FoodInferredBioactivitiesSection = ({
             <col className="w-[22%]" />
             <col className="w-[16%]" />
           </colgroup>
-          <thead className="text-light-400 text-left sticky top-[140px] z-20 bg-light-950">
+          <thead className="text-light-400 text-left sticky top-[88px] md:top-[100px] z-20 bg-light-950">
             <tr>
               <SortableTh
                 label="Bioactivity"
