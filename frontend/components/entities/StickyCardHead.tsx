@@ -52,16 +52,18 @@ const StickyCardHead = ({ children, className }: Props) => {
        * chip isn't stuck. Once it scrolls out (above y=112) the chip
        * is stuck and we can safely paint the gap-filling backdrop. */}
       <div ref={sentinelRef} aria-hidden className="hidden md:block h-0" />
-      {/* Full-viewport-width backdrop that only appears once stuck.
-       * Fills the 12px breathing gap between subnav bottom and this
-       * chip's top edge, edge-to-edge — hides tab chips, filter
-       * sidebar rounded corners, and anything else scrolling past.
-       * A local box-shadow on the chip only covered the card-width
-       * slice, leaving the outer padding zones visibly leaking. */}
+      {/* Full-viewport black rectangle that appears once stuck. Sits
+       * *behind* the chip (z-20 vs the chip's z-30) and spans
+       * subnav-bottom through the chip's bottom, edge-to-edge — hides
+       * anything scrolling in the outer padding zones (filter
+       * sidebar corners, tab strip remnants, etc). pointer-events-none
+       * so header clicks still land on the chip. Height is generous
+       * enough (h-16 = 64px) to cover the chip's ~53px chrome plus
+       * the 12px gap without overshooting into the tbody. */}
       {stuck && (
         <div
           aria-hidden
-          className="fixed inset-x-0 top-[88px] md:top-[100px] h-3 bg-[#0a0a09] z-30"
+          className="fixed inset-x-0 top-[88px] md:top-[100px] h-16 bg-[#0a0a09] z-20 pointer-events-none"
         />
       )}
       <div
