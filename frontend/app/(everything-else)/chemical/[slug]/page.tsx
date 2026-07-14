@@ -59,61 +59,72 @@ const ChemicalPage = async ({ params }: ChemicalPageProps) => {
     (bioPayload?.metadata?.total_rows as number | undefined) ?? null;
   const anchorId = metaPayload?.id ?? null;
 
+  const defaultTabId = "composition";
+  const tabs = [
+    {
+      id: "composition",
+      label: "Foods Containing",
+      count: compositionCount,
+      content: (
+        <Suspense fallback={<ChemicalCompositionSectionSuspense />}>
+          <ChemicalCompositionSection commonName={commonName} />
+        </Suspense>
+      ),
+    },
+    {
+      id: "health",
+      label: "Health Impacts",
+      content: <ChemicalCorrelationSection commonName={commonName} />,
+    },
+    {
+      id: "bioactivities",
+      label: "Bioactivities",
+      count: bioactivitiesCount,
+      content: (
+        <ChemicalBioactivitiesSection
+          commonName={commonName}
+          anchorId={anchorId}
+        />
+      ),
+    },
+    {
+      id: "overview",
+      label: "IDs & Metadata",
+      content: (
+        <Suspense
+          fallback={<EntityOverviewPanelSuspense entityType={entityType} />}
+        >
+          <EntityOverviewPanel
+            commonName={commonName}
+            entityType={entityType}
+          />
+        </Suspense>
+      ),
+    },
+  ];
+  const subnavTabs = tabs.map(({ id, label, count }) => ({
+    id,
+    label,
+    count: count ?? null,
+  }));
+
   return (
-    <EntityPageGate entityType={entityType} tabCount={4}>
+    <EntityPageGate entityType={entityType} tabCount={tabs.length}>
       <Suspense fallback={<HeaderSectionSuspense entityType={entityType} />}>
         <HeaderSection commonName={commonName} entityType={entityType} />
       </Suspense>
       <StickyOnScrollPast targetId="entity-tab-strip-sentinel">
-        <EntitySubnavbar commonName={commonName} entityType={entityType} />
+        <EntitySubnavbar
+          commonName={commonName}
+          entityType={entityType}
+          tabs={subnavTabs}
+          defaultTabId={defaultTabId}
+        />
       </StickyOnScrollPast>
       <EntityDetailLayout
         entityType={entityType}
-        defaultTabId="composition"
-        tabs={[
-          {
-            id: "composition",
-            label: "Foods Containing",
-            count: compositionCount,
-            content: (
-              <Suspense fallback={<ChemicalCompositionSectionSuspense />}>
-                <ChemicalCompositionSection commonName={commonName} />
-              </Suspense>
-            ),
-          },
-          {
-            id: "health",
-            label: "Health Impacts",
-            content: <ChemicalCorrelationSection commonName={commonName} />,
-          },
-          {
-            id: "bioactivities",
-            label: "Bioactivities",
-            count: bioactivitiesCount,
-            content: (
-              <ChemicalBioactivitiesSection
-                commonName={commonName}
-                anchorId={anchorId}
-              />
-            ),
-          },
-          {
-            id: "overview",
-            label: "IDs & Metadata",
-            content: (
-              <Suspense
-                fallback={
-                  <EntityOverviewPanelSuspense entityType={entityType} />
-                }
-              >
-                <EntityOverviewPanel
-                  commonName={commonName}
-                  entityType={entityType}
-                />
-              </Suspense>
-            ),
-          },
-        ]}
+        defaultTabId={defaultTabId}
+        tabs={tabs}
       />
     </EntityPageGate>
   );

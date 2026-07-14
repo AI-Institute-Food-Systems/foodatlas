@@ -105,12 +105,11 @@ const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
        * left, and we can't fix that from CSS. Listbox gives full
        * control of trigger and popup positioning. Options carry the
        * count as "· 42" (matching the chip badges) and zero-count
-       * options are disabled. */}
-      {/* Mobile tab picker sticks below the navbar + EntitySubnavbar
-       * (navbar h-12 = 48px + subnav h-10 = 40px = 88px). Same dark
-       * backdrop as the subnavbar so content scrolling behind stays
-       * legible. */}
-      <div className="sm:hidden sticky top-[88px] z-30 -mx-4 px-4 mb-2 pt-2 pb-2 bg-[#0a0a09]/85 backdrop-blur-xl">
+       * options are disabled.
+       *
+       * No sticky: <SubnavbarTabSelector> in <EntitySubnavbar> takes
+       * over "which tab" once the user scrolls past this strip. */}
+      <div className="sm:hidden mb-2">
         <Listbox value={selectedIndex} onChange={handleChange}>
           <div className="relative">
             <ListboxButton className="w-full font-mono italic text-sm font-medium bg-light-200 text-light-900 rounded-md pl-3 pr-9 py-2 border-[1.5px] border-light-200 shadow-[inset_0_1px_2px_rgba(255,249,242,0.5)] focus:outline-none focus:ring-1 focus:ring-accent-500 text-left">
@@ -152,14 +151,11 @@ const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
         </Listbox>
       </div>
 
-      {/* Desktop tab strip — sticks below navbar h-14 + EntitySubnavbar
-       * h-11 (56 + 44 = 100px). No horizontal -mx escape: the earlier
-       * `-mx-4 md:-mx-24` gave the strip a page-wide dark scrim, but at
-       * >=1440px that also covered the filter sidebar hanging in the
-       * parent padding (see BioactivityTable's `absolute right-full`
-       * <aside>). Card-width scrim is enough — nothing scrolls under
-       * the strip beyond the card's own edges. */}
-      <div className="hidden sm:block sticky top-[100px] z-30 pt-2 bg-[#0a0a09]/85 backdrop-blur-xl">
+      {/* Desktop tab strip — non-sticky, sits atop the Card so the
+       * cabinet-chip metaphor stays intact. Once the user scrolls past,
+       * <SubnavbarTabSelector> inside <EntitySubnavbar> becomes the
+       * "which tab am I on / switch to another" affordance instead. */}
+      <div className="hidden sm:block">
         <div className="mx-auto max-w-5xl">
           <TabList className="flex items-end gap-1.5 pl-3">
         {tabs.map((tab) => (

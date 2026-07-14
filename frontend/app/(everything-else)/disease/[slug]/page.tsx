@@ -40,40 +40,51 @@ const DiseasePage = async ({ params }: DiseasePageProps) => {
   const commonName = decodeSpace(decodeURIComponent(slug));
   const entityType = "disease" as const;
 
+  const defaultTabId = "health";
+  const tabs = [
+    {
+      id: "health",
+      label: "Health Impacts",
+      content: <DiseaseCorrelationsSection commonName={commonName} />,
+    },
+    {
+      id: "overview",
+      label: "IDs & Metadata",
+      content: (
+        <Suspense
+          fallback={<EntityOverviewPanelSuspense entityType={entityType} />}
+        >
+          <EntityOverviewPanel
+            commonName={commonName}
+            entityType={entityType}
+          />
+        </Suspense>
+      ),
+    },
+  ];
+  const subnavTabs = tabs.map(({ id, label }) => ({
+    id,
+    label,
+    count: null,
+  }));
+
   return (
-    <EntityPageGate entityType={entityType} tabCount={2}>
+    <EntityPageGate entityType={entityType} tabCount={tabs.length}>
       <Suspense fallback={<HeaderSectionSuspense entityType={entityType} />}>
         <HeaderSection commonName={commonName} entityType={entityType} />
       </Suspense>
       <StickyOnScrollPast targetId="entity-tab-strip-sentinel">
-        <EntitySubnavbar commonName={commonName} entityType={entityType} />
+        <EntitySubnavbar
+          commonName={commonName}
+          entityType={entityType}
+          tabs={subnavTabs}
+          defaultTabId={defaultTabId}
+        />
       </StickyOnScrollPast>
       <EntityDetailLayout
         entityType={entityType}
-        defaultTabId="health"
-        tabs={[
-          {
-            id: "health",
-            label: "Health Impacts",
-            content: <DiseaseCorrelationsSection commonName={commonName} />,
-          },
-          {
-            id: "overview",
-            label: "IDs & Metadata",
-            content: (
-              <Suspense
-                fallback={
-                  <EntityOverviewPanelSuspense entityType={entityType} />
-                }
-              >
-                <EntityOverviewPanel
-                  commonName={commonName}
-                  entityType={entityType}
-                />
-              </Suspense>
-            ),
-          },
-        ]}
+        defaultTabId={defaultTabId}
+        tabs={tabs}
       />
     </EntityPageGate>
   );
