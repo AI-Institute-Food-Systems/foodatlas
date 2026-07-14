@@ -50,15 +50,26 @@ const StickyCardHead = ({ children, className }: Props) => {
       {/* Sentinel: 0-height sibling immediately above. When it's
        * intersecting the (viewport shifted down 112px) region, the
        * chip isn't stuck. Once it scrolls out (above y=112) the chip
-       * is stuck and we can safely paint the gap-filling shadow. */}
+       * is stuck and we can safely paint the gap-filling backdrop. */}
       <div ref={sentinelRef} aria-hidden className="hidden md:block h-0" />
+      {/* Full-viewport-width backdrop that only appears once stuck.
+       * Fills the 12px breathing gap between subnav bottom and this
+       * chip's top edge, edge-to-edge — hides tab chips, filter
+       * sidebar rounded corners, and anything else scrolling past.
+       * A local box-shadow on the chip only covered the card-width
+       * slice, leaving the outer padding zones visibly leaking. */}
+      {stuck && (
+        <div
+          aria-hidden
+          className="fixed inset-x-0 top-[88px] md:top-[100px] h-3 bg-[#0a0a09] z-30"
+        />
+      )}
       <div
         className={twMerge(
           "hidden md:block sticky top-[100px] md:top-[112px] z-30",
           "-mx-5 md:-mx-6 -mt-3 md:-mt-4",
           "rounded-t-xl border-[1.5px] border-b-0 border-light-50/[0.08]",
           "bg-light-950 px-5 md:px-6 pt-3 md:pt-4",
-          stuck && "shadow-[0_-12px_0_0_#0a0a09]",
           className,
         )}
       >
