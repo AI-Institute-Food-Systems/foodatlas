@@ -10,6 +10,7 @@ import EntityOverviewPanelSuspense from "@/components/entities/EntityOverviewPan
 import HeaderSectionSuspense from "@/components/entities/HeaderSectionSuspense";
 import EntityPageGate from "@/components/entities/EntityPageGate";
 import EntitySubnavbar from "@/components/entities/EntitySubnavbar";
+import StickyOnScrollPast from "@/components/entities/StickyOnScrollPast";
 import { getMetaData } from "@/utils/fetching";
 import { decodeSpace, toTitleCase } from "@/utils/utils";
 
@@ -44,7 +45,9 @@ const DiseasePage = async ({ params }: DiseasePageProps) => {
       <Suspense fallback={<HeaderSectionSuspense entityType={entityType} />}>
         <HeaderSection commonName={commonName} entityType={entityType} />
       </Suspense>
-      <EntitySubnavbar commonName={commonName} entityType={entityType} />
+      <StickyOnScrollPast targetId="entity-page-header">
+        <EntitySubnavbar commonName={commonName} entityType={entityType} />
+      </StickyOnScrollPast>
       <EntityDetailLayout
         entityType={entityType}
         defaultTabId="health"

@@ -657,7 +657,7 @@ const BioactivityTable = ({
         </div>
       )}
       <div className="hidden md:block">
-        <table className="w-full table-fixed">
+        <table className="w-full table-fixed border-separate border-spacing-0">
           <colgroup>
             {columns.map((c) => (
               <col key={c.key} className={c.width} />

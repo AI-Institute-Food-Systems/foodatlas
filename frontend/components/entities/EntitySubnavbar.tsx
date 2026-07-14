@@ -33,11 +33,10 @@ const ICON: Record<EntityType, React.ReactNode> = {
   bioactivity: <BioactivityIcon color="#10b981" />,
 };
 
-// Compact entity bar that sits in the page flow AFTER HeaderSection.
-// Sticky positioning (top = Navbar height) so it only appears when
-// the user scrolls past the big header. Contains the entity type
-// badge, common name, FoodAtlas id, and (when applicable) an
-// ambiguity marker that surfaces sibling entities on hover.
+// Compact entity bar. Rendered inside <StickyOnScrollPast> so it only
+// appears when the primary HeaderSection has scrolled out of view.
+// This file just renders the bar's inner content — the wrapper owns
+// positioning + show/hide behavior.
 const EntitySubnavbar = async ({ commonName, entityType }: Props) => {
   const data = await getMetaData(commonName, entityType);
   if (!data) return null;
@@ -47,13 +46,8 @@ const EntitySubnavbar = async ({ commonName, entityType }: Props) => {
   return (
     <div
       className={
-        // Sticky just below the Navbar (h-12 mobile / h-14 desktop).
-        // -mx-4 md:-mx-24 breaks out of the page's max-w-5xl content
-        // column so the dark backdrop spans the full viewport when
-        // stuck, matching the Navbar's horizontal inset.
-        "sticky top-12 md:top-14 z-40 " +
         "border-b border-light-50/[0.08] bg-[#0a0a09]/70 backdrop-blur-2xl saturate-150 " +
-        "-mx-4 md:-mx-24 px-4 md:px-24"
+        "px-4 md:px-24"
       }
     >
       <div className="mx-auto max-w-5xl h-10 md:h-11 flex items-center gap-3 min-w-0">

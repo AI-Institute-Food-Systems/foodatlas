@@ -773,7 +773,7 @@ const FoodCompositionSection = ({
                 }}
               />
             )}
-            <table className="w-full table-fixed">
+            <table className="w-full table-fixed border-separate border-spacing-0">
               <colgroup>
                 <col className="w-[28%]" />
                 <col className="w-[15%]" />

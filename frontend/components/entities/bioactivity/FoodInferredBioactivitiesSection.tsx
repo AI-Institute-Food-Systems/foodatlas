@@ -242,7 +242,7 @@ const FoodInferredBioactivitiesSection = ({
         </div>
       )}
       <div className="hidden md:block">
-        <table className="w-full table-fixed">
+        <table className="w-full table-fixed border-separate border-spacing-0">
           <colgroup>
             <col className="w-[24%]" />
             <col className="w-[20%]" />

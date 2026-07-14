@@ -35,10 +35,14 @@ const HeaderSection = async ({
   const data = await getMetaData(commonName, entityType);
 
   return (
-    <div>
+    <div id="entity-page-header">
       {/* one-line header band: badge left, entity name beside it, FoodAtlas
        * id pinned right. items-center vertically aligns the smaller badge
-       * with the H1's optical center (not horizontally centered). */}
+       * with the H1's optical center (not horizontally centered).
+       *
+       * `id="entity-page-header"` is watched by <StickyOnScrollPast>
+       * (wrapping <EntitySubnavbar>) so the subnavbar only appears
+       * once this section has scrolled out of the viewport. */}
       <div className="relative flex items-center gap-x-4 gap-y-2 flex-wrap pr-16 md:pr-24">
         <Badge
           color={colorScheme[entityType]}
