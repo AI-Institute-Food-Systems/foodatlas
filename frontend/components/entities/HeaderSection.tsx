@@ -60,7 +60,7 @@ const HeaderSection = async ({
             {commonName}
           </Heading>
         </div>
-        <span className="flex flex-wrap items-baseline gap-x-1.5 justify-end">
+        <span className="flex flex-col items-end leading-tight">
           <span className="hidden md:inline font-mono italic text-[10px] uppercase tracking-[0.12em] text-light-500 whitespace-nowrap">
             FoodAtlas ID
           </span>
