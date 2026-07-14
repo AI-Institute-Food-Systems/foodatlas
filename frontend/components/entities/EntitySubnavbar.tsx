@@ -1,5 +1,7 @@
 import { MdInfoOutline } from "react-icons/md";
 
+import Badge from "@/components/basic/Badge";
+import Heading from "@/components/basic/Heading";
 import Link from "@/components/basic/Link";
 import BioactivityIcon from "@/components/icons/BioactivityIcon";
 import ChemicalIcon from "@/components/icons/ChemicalIcon";
@@ -15,37 +17,22 @@ interface Props {
   entityType: EntityType;
 }
 
-// Hex values (same tokens the icons + HeaderSection use) so the badge
-// styles work via inline `style` — bypasses any Tailwind class
-// merging that was making the food (amber) badge render wrong.
-const HEX: Record<EntityType, string> = {
-  food: "#f59e0b", // amber-500 — brighter, more yellow-orange
-  chemical: "#0891b2", // cyan-600
-  disease: "#a855f7", // purple-500
-  bioactivity: "#10b981", // emerald-500
+const colorScheme: Record<EntityType, string> = {
+  food: "text-amber-500 border-amber-500 bg-amber-500/10 shadow-amber-500/50",
+  chemical: "text-cyan-600 border-cyan-600 bg-cyan-600/10 shadow-cyan-600/50",
+  disease:
+    "text-purple-500 border-purple-500 bg-purple-500/10 shadow-purple-500/50",
+  bioactivity:
+    "text-emerald-500 border-emerald-500 bg-emerald-500/10 shadow-emerald-500/50",
 };
 
-const ICON: Record<EntityType, React.ReactNode> = {
-  food: <FoodIcon color={HEX.food} />,
-  chemical: <ChemicalIcon color={HEX.chemical} />,
-  disease: <DiseaseIcon color={HEX.disease} />,
-  bioactivity: <BioactivityIcon color={HEX.bioactivity} />,
+const icon: Record<EntityType, React.ReactNode> = {
+  food: <FoodIcon color="#f59e0b" />,
+  chemical: <ChemicalIcon color="#0891b2" />,
+  disease: <DiseaseIcon color="#a855f7" />,
+  bioactivity: <BioactivityIcon color="#10b981" />,
 };
 
-// Convert a #rrggbb into `rgba(r, g, b, alpha)` for the 10 %-tinted
-// background — same visual as `bg-<color>/10` in HeaderSection but
-// applied via inline `background` so it survives any class merge.
-const withAlpha = (hex: string, alpha: number): string => {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-};
-
-// Compact entity bar. Rendered inside <StickyOnScrollPast> so it only
-// appears when the primary HeaderSection has scrolled out of view.
-// This file just renders the bar's inner content — the wrapper owns
-// positioning + show/hide behavior.
 const EntitySubnavbar = async ({ commonName, entityType }: Props) => {
   const data = await getMetaData(commonName, entityType);
   if (!data) return null;
@@ -55,27 +42,24 @@ const EntitySubnavbar = async ({ commonName, entityType }: Props) => {
   return (
     <div
       className={
-        // Match the primary Navbar's translucency: bg-[#0a0a09]/30,
-        // backdrop-blur-2xl, saturate-200.
         "border-b border-light-50/[0.08] bg-[#0a0a09]/30 backdrop-blur-2xl saturate-200 " +
         "px-4 md:px-24"
       }
     >
       <div className="mx-auto max-w-5xl h-10 md:h-11 flex items-center gap-3 min-w-0">
-        <div
-          className="rounded-full flex items-center gap-1.5 px-2.5 py-1 md:px-3.5 md:py-1 text-[0.72rem] md:text-[0.85rem] font-mono font-medium md:font-semibold capitalize border-[1.5px] whitespace-nowrap shadow-[inset_0_1px_6px_rgba(0,0,0,0.5)]"
-          style={{
-            color: HEX[entityType],
-            borderColor: HEX[entityType],
-            backgroundColor: withAlpha(HEX[entityType], 0.1),
-          }}
+        <Badge
+          color={colorScheme[entityType]}
+          leftIcon={icon[entityType]}
+          size="md"
         >
-          {ICON[entityType]}
           {entityType}
-        </div>
-        <span className="capitalize text-sm md:text-base font-semibold text-light-100 truncate min-w-0 flex-1">
+        </Badge>
+        <Heading
+          type="h2"
+          className="capitalize text-sm md:text-base font-semibold text-light-100 truncate min-w-0 flex-1 leading-none"
+        >
           {commonName}
-        </span>
+        </Heading>
 
         {hasAmbiguity && (
           <div className="relative flex-shrink-0 group">
@@ -104,8 +88,8 @@ const EntitySubnavbar = async ({ commonName, entityType }: Props) => {
           </div>
         )}
 
-        <span className="hidden md:flex items-baseline gap-1.5 flex-shrink-0 whitespace-nowrap">
-          <span className="font-mono italic text-[10px] uppercase tracking-[0.12em] text-light-500">
+        <span className="flex items-baseline gap-1.5 flex-shrink-0 whitespace-nowrap">
+          <span className="hidden md:inline font-mono italic text-[10px] uppercase tracking-[0.12em] text-light-500">
             FoodAtlas ID
           </span>
           <span className="font-mono italic text-xs text-light-300">
