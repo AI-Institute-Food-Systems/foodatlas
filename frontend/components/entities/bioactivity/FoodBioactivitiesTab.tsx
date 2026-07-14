@@ -367,7 +367,7 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
       {/* Desktop shared sidebar for BOTH tables — same geometry as
        * FoodCompositionSection / BioactivityTable. */}
       <aside className="hidden min-[1440px]:block absolute right-full mr-10 -top-[17px] bottom-0 w-48">
-        <div className="sticky top-[88px] md:top-[100px]">
+        <div className="sticky top-[100px] md:top-[112px]">
           <Card>{filterPanel}</Card>
         </div>
       </aside>
