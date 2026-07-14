@@ -4,7 +4,6 @@ from unittest.mock import AsyncMock, patch
 
 from fastapi.testclient import TestClient
 
-
 # -- /bioactivity/categories ----------------------------------------------
 
 CATEGORY_SAMPLE = {
@@ -17,9 +16,7 @@ CATEGORY_SAMPLE = {
 
 
 class TestBioactivityCategoryOptions:
-    def test_returns_categories(
-        self, client: TestClient, mock_db: AsyncMock
-    ) -> None:
+    def test_returns_categories(self, client: TestClient, mock_db: AsyncMock) -> None:
         with patch(
             "src.repositories.bioactivity.get_category_options",
             return_value=CATEGORY_SAMPLE,
