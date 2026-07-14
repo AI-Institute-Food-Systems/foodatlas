@@ -36,29 +36,32 @@ const HeaderSection = async ({
 
   return (
     <div id="entity-page-header">
-      {/* one-line header band: badge left, entity name beside it, FoodAtlas
-       * id pinned right. items-center vertically aligns the smaller badge
-       * with the H1's optical center (not horizontally centered).
+      {/* Two flex children so the ID pill can never overlap the name:
+       * left group takes remaining space with min-w-0 (lets break-words
+       * actually wrap on long chemical names), right group holds the ID
+       * and refuses to shrink.
        *
        * `id="entity-page-header"` is watched by <StickyOnScrollPast>
        * (wrapping <EntitySubnavbar>) so the subnavbar only appears
        * once this section has scrolled out of the viewport. */}
-      <div className="relative flex items-center gap-x-4 gap-y-2 flex-wrap pr-16 md:pr-24">
-        <Badge
-          color={colorScheme[entityType]}
-          leftIcon={icon[entityType]}
-          size="md"
-        >
-          {entityType}
-        </Badge>
-        <Heading
-          type="h1"
-          className="capitalize text-3xl md:text-4xl font-semibold break-words leading-none"
-        >
-          {commonName}
-        </Heading>
-        <span className="absolute right-0 top-1/2 -translate-y-1/2 flex items-baseline gap-1.5 whitespace-nowrap">
-          <span className="font-mono italic text-[10px] uppercase tracking-[0.12em] text-light-500">
+      <div className="flex items-center gap-4">
+        <div className="flex-1 min-w-0 flex items-center gap-x-4 gap-y-2 flex-wrap">
+          <Badge
+            color={colorScheme[entityType]}
+            leftIcon={icon[entityType]}
+            size="md"
+          >
+            {entityType}
+          </Badge>
+          <Heading
+            type="h1"
+            className="capitalize text-3xl md:text-4xl font-semibold break-words leading-none min-w-0"
+          >
+            {commonName}
+          </Heading>
+        </div>
+        <span className="flex-shrink-0 flex items-baseline gap-1.5 whitespace-nowrap">
+          <span className="hidden md:inline font-mono italic text-[10px] uppercase tracking-[0.12em] text-light-500">
             FoodAtlas ID
           </span>
           <span className="font-mono italic text-xs text-light-300">
