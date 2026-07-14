@@ -42,7 +42,7 @@ const EntitySubnavbar = async ({ commonName, entityType }: Props) => {
   return (
     <div
       className={
-        "border-b border-light-50/[0.08] bg-[#0a0a09]/30 backdrop-blur-2xl saturate-200 " +
+        "border-b border-light-50/[0.08] bg-[#0a0a09]/30 backdrop-blur-2xl backdrop-saturate-200 " +
         "px-4 md:px-24"
       }
     >

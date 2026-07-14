@@ -33,14 +33,27 @@ const StickyOnScrollPast = ({
     if (!target) return;
     const check = () => {
       const rect = target.getBoundingClientRect();
+      // display:none ancestors (e.g. EntityPageGate before ready) collapse
+      // the sentinel to a zero box at the origin. Without this guard the
+      // initial check would see top=0, flip visible=true, and the state
+      // would stick through the reveal because no scroll event follows.
+      if (rect.width === 0 && rect.height === 0) {
+        setVisible(false);
+        return;
+      }
       setVisible(rect.top <= threshold);
     };
     check();
     window.addEventListener("scroll", check, { passive: true });
     window.addEventListener("resize", check);
+    // Re-check when the sentinel's box changes — covers the gate flip
+    // from display:none to visible after PageReadyContext becomes ready.
+    const ro = new ResizeObserver(check);
+    ro.observe(target);
     return () => {
       window.removeEventListener("scroll", check);
       window.removeEventListener("resize", check);
+      ro.disconnect();
     };
   }, [targetId, threshold]);
 
