@@ -9,6 +9,7 @@ import EntityOverviewPanel from "@/components/entities/EntityOverviewPanel";
 import EntityOverviewPanelSuspense from "@/components/entities/EntityOverviewPanelSuspense";
 import HeaderSectionSuspense from "@/components/entities/HeaderSectionSuspense";
 import EntityPageGate from "@/components/entities/EntityPageGate";
+import EntitySubnavbar from "@/components/entities/EntitySubnavbar";
 import { getMetaData } from "@/utils/fetching";
 import { decodeSpace, toTitleCase } from "@/utils/utils";
 
@@ -39,10 +40,12 @@ const DiseasePage = async ({ params }: DiseasePageProps) => {
   const entityType = "disease" as const;
 
   return (
-    <EntityPageGate entityType={entityType} tabCount={2}>
-      <Suspense fallback={<HeaderSectionSuspense entityType={entityType} />}>
-        <HeaderSection commonName={commonName} entityType={entityType} />
-      </Suspense>
+    <>
+      <EntitySubnavbar commonName={commonName} entityType={entityType} />
+      <EntityPageGate entityType={entityType} tabCount={2}>
+        <Suspense fallback={<HeaderSectionSuspense entityType={entityType} />}>
+          <HeaderSection commonName={commonName} entityType={entityType} />
+        </Suspense>
       <EntityDetailLayout
         entityType={entityType}
         defaultTabId="health"
@@ -70,7 +73,8 @@ const DiseasePage = async ({ params }: DiseasePageProps) => {
           },
         ]}
       />
-    </EntityPageGate>
+      </EntityPageGate>
+    </>
   );
 };
 

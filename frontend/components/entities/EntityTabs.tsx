@@ -101,7 +101,11 @@ const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
        * control of trigger and popup positioning. Options carry the
        * count as "· 42" (matching the chip badges) and zero-count
        * options are disabled. */}
-      <div className="sm:hidden mb-2 pl-1">
+      {/* Mobile tab picker sticks below the navbar + EntitySubnavbar
+       * (navbar h-12 = 48px, subnav h-9 = 36px → top-[84px]). Same
+       * dark backdrop as the subnavbar so content scrolling behind
+       * stays legible. */}
+      <div className="sm:hidden sticky top-[84px] z-30 -mx-4 px-4 mb-2 pt-2 pb-2 bg-[#0a0a09]/85 backdrop-blur-xl">
         <Listbox value={selectedIndex} onChange={handleChange}>
           <div className="relative">
             <ListboxButton className="w-full font-mono italic text-sm font-medium bg-light-200 text-light-900 rounded-md pl-3 pr-9 py-2 border-[1.5px] border-light-200 shadow-[inset_0_1px_2px_rgba(255,249,242,0.5)] focus:outline-none focus:ring-1 focus:ring-accent-500 text-left">
@@ -143,7 +147,13 @@ const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
         </Listbox>
       </div>
 
-      <TabList className="hidden sm:flex items-end gap-1.5 pl-3">
+      {/* Desktop tab strip — sticks below navbar h-14 + EntitySubnavbar
+       * h-10 (56 + 40 = 96px). Wrapped in a container so the sticky
+       * frame has its own backdrop and can carry a bit of vertical
+       * breathing room. */}
+      <div className="hidden sm:block sticky top-[96px] z-30 -mx-4 md:-mx-24 px-4 md:px-24 pt-2 bg-[#0a0a09]/85 backdrop-blur-xl">
+        <div className="mx-auto max-w-5xl">
+          <TabList className="flex items-end gap-1.5 pl-3">
         {tabs.map((tab) => (
           <Tab
             key={tab.id}
@@ -190,7 +200,9 @@ const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
             )}
           </Tab>
         ))}
-      </TabList>
+          </TabList>
+        </div>
+      </div>
 
       <Card>
         <TabPanels>

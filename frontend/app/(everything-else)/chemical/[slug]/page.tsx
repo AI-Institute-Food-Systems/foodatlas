@@ -11,6 +11,7 @@ import EntityOverviewPanel from "@/components/entities/EntityOverviewPanel";
 import EntityOverviewPanelSuspense from "@/components/entities/EntityOverviewPanelSuspense";
 import ChemicalCompositionSectionSuspense from "@/components/entities/chemical/ChemicalCompositionSectionSuspense";
 import EntityPageGate from "@/components/entities/EntityPageGate";
+import EntitySubnavbar from "@/components/entities/EntitySubnavbar";
 import {
   getChemicalBioactivities,
   getChemicalCompositionData,
@@ -58,10 +59,12 @@ const ChemicalPage = async ({ params }: ChemicalPageProps) => {
   const anchorId = metaPayload?.id ?? null;
 
   return (
-    <EntityPageGate entityType={entityType} tabCount={4}>
-      <Suspense fallback={<HeaderSectionSuspense entityType={entityType} />}>
-        <HeaderSection commonName={commonName} entityType={entityType} />
-      </Suspense>
+    <>
+      <EntitySubnavbar commonName={commonName} entityType={entityType} />
+      <EntityPageGate entityType={entityType} tabCount={4}>
+        <Suspense fallback={<HeaderSectionSuspense entityType={entityType} />}>
+          <HeaderSection commonName={commonName} entityType={entityType} />
+        </Suspense>
       <EntityDetailLayout
         entityType={entityType}
         defaultTabId="composition"
@@ -110,7 +113,8 @@ const ChemicalPage = async ({ params }: ChemicalPageProps) => {
           },
         ]}
       />
-    </EntityPageGate>
+      </EntityPageGate>
+    </>
   );
 };
 

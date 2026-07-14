@@ -710,7 +710,7 @@ const FoodCompositionSection = ({
              * Wrapping the inner box in <Card> matches the tab card's
              * exact border/shadow/rounded so the sidebar and the
              * table frame read as siblings. */}
-            <div className="sticky top-4">
+            <div className="sticky top-[140px]">
               <Card>{filterPanel}</Card>
             </div>
           </aside>
@@ -780,7 +780,7 @@ const FoodCompositionSection = ({
                 <col className="w-[37%]" />
                 <col className="w-[20%]" />
               </colgroup>
-              <thead className="text-light-400 text-left">
+              <thead className="text-light-400 text-left sticky top-[140px] z-20 bg-light-950">
                 <tr>
                   {/* table headers */}
                   {TABLE_HEADERS.map((header, index) => (
