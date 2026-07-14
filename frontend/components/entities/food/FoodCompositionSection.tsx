@@ -710,7 +710,7 @@ const FoodCompositionSection = ({
              * Wrapping the inner box in <Card> matches the tab card's
              * exact border/shadow/rounded so the sidebar and the
              * table frame read as siblings. */}
-            <div className="sticky top-[108px] md:top-[120px]">
+            <div className="sticky top-[100px] md:top-[112px]">
               <Card>{filterPanel}</Card>
             </div>
           </aside>
@@ -784,7 +784,7 @@ const FoodCompositionSection = ({
                * of page-bg color above the pinned thead so the card's
                * top border + first rows don't ghost through the
                * breathing gap between subnav and thead. */}
-              <thead className="text-light-400 text-left sticky top-[108px] md:top-[120px] z-20 bg-light-950 shadow-[0_-12px_0_0_#0a0a09]">
+              <thead className="text-light-400 text-left sticky top-[100px] md:top-[112px] z-20 bg-light-950 shadow-[0_-12px_0_0_#0a0a09]">
                 <tr>
                   {/* table headers — first/last th get rounded top
                    * corners so the pinned thead reads as the top of a
@@ -793,7 +793,7 @@ const FoodCompositionSection = ({
                   {TABLE_HEADERS.map((header, index) => (
                     <th
                       key={index}
-                      className={`h-9 border-b border-light-700 leading-none break-all md:break-normal py-1.5 ${
+                      className={`h-9 border-t-[1.5px] border-t-light-50/[0.08] border-b border-b-light-700 leading-none break-all md:break-normal py-1.5 ${
                         index === 0
                           ? "pr-4 rounded-tl-xl"
                           : index === TABLE_HEADERS.length - 1
