@@ -42,15 +42,16 @@ const EntitySubnavbar = async ({ commonName, entityType }: Props) => {
   return (
     <div
       className={
-        "border-b border-light-50/[0.08] bg-[#0a0a09]/30 backdrop-blur-2xl backdrop-saturate-200 " +
-        "px-4 md:px-24 pb-3"
+        // Higher opacity + stronger blur than the primary Navbar: this
+        // bar sits above scrolling table rows, and /30 + blur-2xl left
+        // enough of the row text readable through the glass to look
+        // like a ghost stripe. Cranking to /70 + blur-[40px] keeps the
+        // frosted feel while blurring text past the point of
+        // recognition.
+        "border-b border-light-50/[0.08] bg-[#0a0a09]/70 backdrop-blur-[40px] backdrop-saturate-200 " +
+        "px-4 md:px-24"
       }
     >
-      {/* Content locked to h-10/h-11; the extra pb-3 on the outer bar
-       * (see parent div's className) extends the dark glass 12px
-       * below the content so sticky theads/sidebars pinned at
-       * top-[100px] md:top-[112px] have an opaque backdrop and data
-       * rows don't ghost through the gap. */}
       <div className="mx-auto max-w-5xl h-10 md:h-11 flex items-center gap-3 min-w-0">
         <Badge
           color={colorScheme[entityType]}
