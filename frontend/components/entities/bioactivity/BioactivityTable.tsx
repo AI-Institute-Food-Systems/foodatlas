@@ -10,6 +10,7 @@
 import { ReactNode, useEffect, useState } from "react";
 
 import { useLoadingGate } from "@/context/pageReadyContext";
+import { usePublishTabCount } from "@/context/tabCountsContext";
 import {
   MdCheck,
   MdClose,
@@ -134,6 +135,14 @@ interface Props {
     // row's MV-nested sample only.
     anchorId?: string | null;
   };
+  // When set, the table publishes its current filtered totalRows to
+  // the tab-count context under this key — the tab badge picks it up
+  // and overrides the server-prefetched static count.
+  tabIdForCount?: string;
+  // Alternative to tabIdForCount for wrappers that aggregate multiple
+  // tables into one tab count (e.g. FoodBioactivitiesTab summing
+  // direct + inferred). Fires whenever totalRows changes.
+  onTotalRowsChange?: (total: number) => void;
 }
 
 const BioactivityTable = ({
@@ -151,6 +160,8 @@ const BioactivityTable = ({
   externalSourceKind,
   externalUnit,
   hideChrome = false,
+  tabIdForCount,
+  onTotalRowsChange,
 }: Props) => {
   const { getTablePaginations, setTablePaginations } = usePaginations();
   const { currentPage } = getTablePaginations(tableId);
@@ -234,6 +245,15 @@ const BioactivityTable = ({
   const [totalRows, setTotalRows] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   useLoadingGate(isLoading);
+  // Publish filtered total to the tab-count context OR bubble to a
+  // wrapper via callback (never both — pick one at the call site).
+  usePublishTabCount(
+    tabIdForCount ?? "",
+    tabIdForCount && !isLoading ? totalRows : null,
+  );
+  useEffect(() => {
+    if (onTotalRowsChange && !isLoading) onTotalRowsChange(totalRows);
+  }, [onTotalRowsChange, totalRows, isLoading]);
 
   // Chemical Category options come from a dedicated endpoint that
   // aggregates classifications across ALL matching chemicals for the
@@ -250,17 +270,30 @@ const BioactivityTable = ({
     }
     let cancelled = false;
     (async () => {
-      const opts = await getBioactivityCategoryOptions(pivotName);
+      // Category counts exclude the Category dimension itself, but apply
+      // every other filter so the counts stay in sync with the visible
+      // table as the user narrows the view.
+      const opts = await getBioactivityCategoryOptions(pivotName, {
+        filterUnit: effectiveUnitParam,
+        filterSourceKind: effectiveSourceKindParam,
+        search: effectiveSearchTerm,
+      });
       if (!cancelled) setCategoryOptions(opts);
     })();
     return () => {
       cancelled = true;
     };
-  }, [direction, pivotName]);
+  }, [
+    direction,
+    pivotName,
+    effectiveUnitParam,
+    effectiveSourceKindParam,
+    effectiveSearchTerm,
+  ]);
 
   // Sidebar Assay Source counts. Aggregate across ALL matching rows
-  // (not just the current page) so the counts stay stable when the user
-  // paginates or applies other filters.
+  // (not just the current page) and apply every other active filter so
+  // the counts stay in sync with the visible table.
   const [sourceKindCounts, setSourceKindCounts] =
     useState<BioactivitySourceKindCounts | null>(null);
   useEffect(() => {
@@ -270,13 +303,27 @@ const BioactivityTable = ({
     }
     let cancelled = false;
     (async () => {
-      const counts = await getBioactivitySourceKindCounts(pivotName, direction);
+      const counts = await getBioactivitySourceKindCounts(
+        pivotName,
+        direction,
+        {
+          filterUnit: effectiveUnitParam,
+          filterCategory: categoryFilterParam,
+          search: effectiveSearchTerm,
+        },
+      );
       if (!cancelled) setSourceKindCounts(counts);
     })();
     return () => {
       cancelled = true;
     };
-  }, [direction, pivotName]);
+  }, [
+    direction,
+    pivotName,
+    effectiveUnitParam,
+    categoryFilterParam,
+    effectiveSearchTerm,
+  ]);
 
   const toggleCategory = (category: string) => {
     setTablePaginations(tableId, 1, 20);
@@ -387,10 +434,44 @@ const BioactivityTable = ({
     </div>
   );
 
+  // True when any filter differs from a fresh page load. Drives the
+  // Reset link visibility so it's only there when there's something
+  // to reset.
+  const isFiltersDirty =
+    searchTerm !== "" ||
+    selectedUnits.length > 0 ||
+    selectedCategories.length > 0 ||
+    selectedSourceKind !== "" ||
+    sort.by !== defaultSortBy ||
+    sort.dir !== defaultSortDir;
+
+  const resetAllFilters = () => {
+    setTablePaginations(tableId, 1, 20);
+    setSearchTerm("");
+    setSelectedUnits([]);
+    setSelectedCategories([]);
+    setSelectedSourceKind("");
+    setSort({ by: defaultSortBy, dir: defaultSortDir });
+  };
+
   // Non-search filters — currently just Unit. Drawer on small viewports
   // uses this alone (search stays visible outside the drawer).
   const filtersOnlyPanel = (
     <div className="flex flex-col gap-5">
+      {/* Reset link — only appears when the view differs from a fresh
+       * load so it's not just visual clutter. */}
+      {isFiltersDirty && (
+        <div className="flex justify-end -mb-3">
+          <button
+            type="button"
+            onClick={resetAllFilters}
+            className="text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
+          >
+            reset all
+          </button>
+        </div>
+      )}
+
       {unitOptions.length > 0 && (
         <div className="flex flex-col gap-1.5">
           <div className="flex items-baseline justify-between gap-2">
@@ -544,39 +625,35 @@ const BioactivityTable = ({
 
       <div className="flex flex-col gap-7">
       <div>
-      {!isLoading && totalRows > 0 && (
-        <div className="mb-1.5 flex justify-between md:justify-end items-center gap-3">
-          <span className="font-mono italic text-[11px] text-light-500 tabular-nums">
-            {totalRows.toLocaleString()} {totalRows === 1 ? "row" : "rows"}
+      {/* Row-count caption dropped — the tab badge now carries the
+       * filtered total via usePublishTabCount / onTotalRowsChange.
+       * Mobile sort listbox stays here (no clickable column headers on
+       * card view). */}
+      {!isLoading && totalRows > 0 && columns.some((c) => c.sortable) && (
+        <div className="mb-1.5 md:hidden flex justify-end items-center gap-2">
+          <span className="font-mono italic text-[11px] text-light-500">
+            sort
           </span>
-          {/* Mobile sort — built from sortable columns × asc/desc. */}
-          {columns.some((c) => c.sortable) && (
-            <div className="md:hidden flex items-center gap-2">
-              <span className="font-mono italic text-[11px] text-light-500">
-                sort
-              </span>
-              <SortListbox
-                value={`${sort.by}|${sort.dir}`}
-                options={columns
-                  .filter((c) => c.sortable)
-                  .flatMap((c) => [
-                    {
-                      value: `${c.key}|desc`,
-                      label: c.sortLabels?.desc ?? `${c.label} ↓`,
-                    },
-                    {
-                      value: `${c.key}|asc`,
-                      label: c.sortLabels?.asc ?? `${c.label} ↑`,
-                    },
-                  ])}
-                onChange={(value) => {
-                  const [by, dir] = value.split("|");
-                  setSort({ by, dir: dir as SortDir });
-                  setTablePaginations(tableId, 1, 20);
-                }}
-              />
-            </div>
-          )}
+          <SortListbox
+            value={`${sort.by}|${sort.dir}`}
+            options={columns
+              .filter((c) => c.sortable)
+              .flatMap((c) => [
+                {
+                  value: `${c.key}|desc`,
+                  label: c.sortLabels?.desc ?? `${c.label} ↓`,
+                },
+                {
+                  value: `${c.key}|asc`,
+                  label: c.sortLabels?.asc ?? `${c.label} ↑`,
+                },
+              ])}
+            onChange={(value) => {
+              const [by, dir] = value.split("|");
+              setSort({ by, dir: dir as SortDir });
+              setTablePaginations(tableId, 1, 20);
+            }}
+          />
         </div>
       )}
       <div className="hidden md:block overflow-x-auto">

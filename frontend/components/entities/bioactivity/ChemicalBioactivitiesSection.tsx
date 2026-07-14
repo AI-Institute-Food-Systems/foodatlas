@@ -94,6 +94,7 @@ const ChemicalBioactivitiesSection = ({ commonName, anchorId }: Props) => {
         relationship: "r6",
         anchorId,
       }}
+      tabIdForCount="bioactivities"
     />
   );
 };

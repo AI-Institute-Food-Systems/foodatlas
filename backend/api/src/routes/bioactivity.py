@@ -96,14 +96,24 @@ async def bioactivity_endpoint_options(
 @router.get("/categories")
 async def bioactivity_category_options(
     common_name: str = Query(..., description="Bioactivity common_name"),
+    filter_unit: str = Query(""),
+    filter_source_kind: str = Query(""),
+    search: str = Query(""),
     db: AsyncSession = Depends(get_db),
 ):
-    """Global (category, count) counts for the bioactivity's chemicals.
+    """Faceted (category, count) counts for the bioactivity's chemicals.
 
-    Powers the chemicals-table sidebar Category filter with counts that
-    reflect ALL matching chemicals rather than only the current page.
+    Every other active filter (unit, source kind, search) is applied so
+    the counts reflect what the table would render under each category
+    selection.
     """
-    return await bioactivity.get_category_options(db, common_name)
+    return await bioactivity.get_category_options(
+        db,
+        common_name,
+        filter_unit=filter_unit,
+        filter_source_kind=filter_source_kind,
+        search=search,
+    )
 
 
 @router.get("/source_kinds")
@@ -117,10 +127,20 @@ async def bioactivity_source_kind_counts(
             "food-bioactivities."
         ),
     ),
+    filter_unit: str = Query(""),
+    filter_category: str = Query(""),
+    search: str = Query(""),
     db: AsyncSession = Depends(get_db),
 ):
-    """Per-source-kind row counts for the sidebar Assay Source filter."""
-    return await bioactivity.get_source_kind_counts(db, common_name, direction)
+    """Faceted per-source-kind row counts for the sidebar Assay Source filter."""
+    return await bioactivity.get_source_kind_counts(
+        db,
+        common_name,
+        direction,
+        filter_unit=filter_unit,
+        filter_category=filter_category,
+        search=search,
+    )
 
 
 @router.get("/measurements")

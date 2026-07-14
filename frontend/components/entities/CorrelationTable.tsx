@@ -26,6 +26,9 @@ interface DiseaseTableProps {
   tableLocation: string;
   correlationType: "positive" | "negative";
   headers: { label: string }[];
+  // Fires whenever totalRows changes so a wrapper can sum positive +
+  // negative for the "health" tab badge.
+  onTotalRowsChange?: (total: number) => void;
 }
 
 const CorrelationTable = ({
@@ -33,6 +36,7 @@ const CorrelationTable = ({
   tableLocation,
   correlationType,
   headers,
+  onTotalRowsChange,
 }: DiseaseTableProps) => {
   const tableId = tableLocation + "-" + correlationType + "-table";
   const [data, setData] = useState<ChemicalCorrelation[]>([]);
@@ -40,6 +44,10 @@ const CorrelationTable = ({
   useLoadingGate(isLoading);
   const [isError, setIsError] = useState(false);
   const [numberOfPages, setNumberOfPages] = useState(1);
+  const [totalRows, setTotalRows] = useState<number | null>(null);
+  useEffect(() => {
+    if (onTotalRowsChange && totalRows !== null) onTotalRowsChange(totalRows);
+  }, [onTotalRowsChange, totalRows]);
   const { getTablePaginations } = usePaginations();
   const { currentPage } = getTablePaginations(tableId);
   const [selectedRowIdx, setSelectedRowIdx] = useState(-1);
@@ -60,6 +68,7 @@ const CorrelationTable = ({
         setData(data.data[dataAccessor]);
         // FIXME backend: metadata is not returning correct total_pages per correlation type but combined?
         setNumberOfPages(data.metadata.total_pages);
+        setTotalRows(Number(data.metadata.total_rows ?? 0));
       } catch (error) {
         console.log(error);
         setIsError(true);
