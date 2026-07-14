@@ -663,7 +663,7 @@ const BioactivityTable = ({
               <col key={c.key} className={c.width} />
             ))}
           </colgroup>
-          <thead className="text-light-400 text-left sticky top-[108px] md:top-[120px] z-20 bg-light-950">
+          <thead className="text-light-400 text-left sticky top-[108px] md:top-[120px] z-20 bg-light-950 shadow-[0_-12px_0_0_#0a0a09]">
             <tr>
               {columns.map((c, idx) => {
                 // The Assays column gets a "(experimental)" /
@@ -680,9 +680,9 @@ const BioactivityTable = ({
                     key={c.key}
                     className={`h-9 border-b border-light-700 leading-none break-all md:break-normal py-1.5 ${
                       idx === 0
-                        ? "pr-4"
+                        ? "pr-4 rounded-tl-xl"
                         : idx === columns.length - 1
-                        ? "pl-4"
+                        ? "pl-4 rounded-tr-xl"
                         : "px-4"
                     } ${c.align === "right" ? "text-right" : "text-left"}`}
                   >

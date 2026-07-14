@@ -780,17 +780,24 @@ const FoodCompositionSection = ({
                 <col className="w-[37%]" />
                 <col className="w-[20%]" />
               </colgroup>
-              <thead className="text-light-400 text-left sticky top-[108px] md:top-[120px] z-20 bg-light-950">
+              {/* shadow-[0_-12px_0_0_#0a0a09] projects a 12px solid strip
+               * of page-bg color above the pinned thead so the card's
+               * top border + first rows don't ghost through the
+               * breathing gap between subnav and thead. */}
+              <thead className="text-light-400 text-left sticky top-[108px] md:top-[120px] z-20 bg-light-950 shadow-[0_-12px_0_0_#0a0a09]">
                 <tr>
-                  {/* table headers */}
+                  {/* table headers — first/last th get rounded top
+                   * corners so the pinned thead reads as the top of a
+                   * rounded card (the actual card top has scrolled
+                   * past). */}
                   {TABLE_HEADERS.map((header, index) => (
                     <th
                       key={index}
                       className={`h-9 border-b border-light-700 leading-none break-all md:break-normal py-1.5 ${
                         index === 0
-                          ? "pr-4"
+                          ? "pr-4 rounded-tl-xl"
                           : index === TABLE_HEADERS.length - 1
-                          ? "pl-4"
+                          ? "pl-4 rounded-tr-xl"
                           : "px-4"
                       } ${header.align === "right" ? "text-right" : "text-left"}`}
                     >

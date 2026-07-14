@@ -250,7 +250,7 @@ const FoodInferredBioactivitiesSection = ({
             <col className="w-[22%]" />
             <col className="w-[16%]" />
           </colgroup>
-          <thead className="text-light-400 text-left sticky top-[108px] md:top-[120px] z-20 bg-light-950">
+          <thead className="text-light-400 text-left sticky top-[108px] md:top-[120px] z-20 bg-light-950 shadow-[0_-12px_0_0_#0a0a09]">
             <tr>
               <SortableTh
                 label="Bioactivity"
@@ -285,6 +285,7 @@ const FoodInferredBioactivitiesSection = ({
                 sort={sort}
                 onClick={handleSortClick}
                 align="right"
+                last
               />
             </tr>
           </thead>
@@ -442,6 +443,7 @@ const SortableTh = ({
   onClick,
   align,
   first,
+  last,
 }: {
   label: string;
   sortKey: string;
@@ -449,12 +451,13 @@ const SortableTh = ({
   onClick: (k: string) => void;
   align: "left" | "right";
   first?: boolean;
+  last?: boolean;
 }) => {
   const active = sort.by === sortKey;
   return (
     <th
       className={`h-9 border-b border-light-700 leading-none py-1.5 ${
-        first ? "pr-4" : "px-4"
+        first ? "pr-4 rounded-tl-xl" : last ? "px-4 rounded-tr-xl" : "px-4"
       } ${align === "right" ? "text-right" : "text-left"}`}
     >
       <button

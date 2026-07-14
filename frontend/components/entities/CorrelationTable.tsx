@@ -105,16 +105,16 @@ const CorrelationTable = ({
         <div className="hidden md:block">
           <table className="w-full table-fixed border-separate border-spacing-0">
             {/* table headers */}
-            <thead className="text-light-400 text-left sticky top-[108px] md:top-[120px] z-20 bg-light-950">
+            <thead className="text-light-400 text-left sticky top-[108px] md:top-[120px] z-20 bg-light-950 shadow-[0_-12px_0_0_#0a0a09]">
               <tr>
                 {headers.map((header, index) => (
                   <th
                     key={index}
                     className={`h-9 border-b border-light-700 leading-none break-all md:break-normal py-1.5 ${
                       index === 0
-                        ? "pr-4"
+                        ? "pr-4 rounded-tl-xl"
                         : index === headers.length - 1
-                        ? "pl-4 text-right"
+                        ? "pl-4 text-right rounded-tr-xl"
                         : "px-4"
                     }`}
                   >
