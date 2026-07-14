@@ -40,19 +40,14 @@ const EntitySubnavbar = async ({ commonName, entityType }: Props) => {
   const hasAmbiguity = siblings.length > 0;
 
   return (
-    <div
-      className={
-        // Higher opacity + stronger blur than the primary Navbar: this
-        // bar sits above scrolling table rows, and /30 + blur-2xl left
-        // enough of the row text readable through the glass to look
-        // like a ghost stripe. Cranking to /70 + blur-[40px] keeps the
-        // frosted feel while blurring text past the point of
-        // recognition.
-        "border-b border-light-50/[0.08] bg-[#0a0a09]/70 backdrop-blur-[40px] backdrop-saturate-200 " +
-        "px-4 md:px-24"
-      }
-    >
-      <div className="mx-auto max-w-5xl h-10 md:h-11 flex items-center gap-3 min-w-0">
+    // Floating pill layout: outer wrapper spans full viewport width
+    // (via <StickyOnScrollPast>'s fixed positioning) but only aligns +
+    // pads. The pill itself is a self-contained rounded rectangle so
+    // scrolling table rows never bleed through — the earlier
+    // edge-to-edge translucent bar showed row text through the glass.
+    <div className="px-4 md:px-24 pt-2">
+      <div className="mx-auto max-w-5xl">
+        <div className="h-10 md:h-11 flex items-center gap-3 min-w-0 rounded-xl border-[1.5px] border-light-50/[0.08] bg-light-950 shadow-lg shadow-black/40 px-3 md:px-4">
         <Badge
           color={colorScheme[entityType]}
           leftIcon={icon[entityType]}
@@ -102,6 +97,7 @@ const EntitySubnavbar = async ({ commonName, entityType }: Props) => {
             {data.id}
           </span>
         </span>
+        </div>
       </div>
     </div>
   );
