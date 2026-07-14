@@ -43,9 +43,14 @@ const EntitySubnavbar = async ({ commonName, entityType }: Props) => {
     <div
       className={
         "border-b border-light-50/[0.08] bg-[#0a0a09]/30 backdrop-blur-2xl backdrop-saturate-200 " +
-        "px-4 md:px-24"
+        "px-4 md:px-24 pb-3"
       }
     >
+      {/* Content locked to h-10/h-11; the extra pb-3 on the outer bar
+       * (see parent div's className) extends the dark glass 12px
+       * below the content so sticky theads/sidebars pinned at
+       * top-[100px] md:top-[112px] have an opaque backdrop and data
+       * rows don't ghost through the gap. */}
       <div className="mx-auto max-w-5xl h-10 md:h-11 flex items-center gap-3 min-w-0">
         <Badge
           color={colorScheme[entityType]}
