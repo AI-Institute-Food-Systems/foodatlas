@@ -29,18 +29,20 @@ const HeaderSectionSuspense = ({
   entityType,
 }: HeaderSectionSuspenseProps) => {
   return (
-    <div>
-      <div className="relative flex items-center gap-x-4 gap-y-2 flex-wrap pr-16 md:pr-24">
-        <Badge
-          color={colorScheme[entityType]}
-          leftIcon={icon[entityType]}
-          size="md"
-        >
-          {entityType}
-        </Badge>
-        <LoadingCard className="h-9 md:h-10 w-56" />
-        <span className="absolute right-0 top-1/2 -translate-y-1/2 flex items-baseline gap-1.5 whitespace-nowrap">
-          <span className="font-mono italic text-[10px] uppercase tracking-[0.12em] text-light-500">
+    <div id="entity-page-header">
+      <div className="flex items-center gap-4">
+        <div className="flex-1 min-w-0 flex items-center gap-x-4 gap-y-2 flex-wrap">
+          <Badge
+            color={colorScheme[entityType]}
+            leftIcon={icon[entityType]}
+            size="md"
+          >
+            {entityType}
+          </Badge>
+          <LoadingCard className="h-9 md:h-10 w-56" />
+        </div>
+        <span className="flex flex-col items-end leading-tight">
+          <span className="hidden md:inline font-mono italic text-[10px] uppercase tracking-[0.12em] text-light-500 whitespace-nowrap">
             FoodAtlas ID
           </span>
           <LoadingCard className="w-14 h-3" />
