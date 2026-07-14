@@ -153,8 +153,13 @@ const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
       </div>
 
       {/* Desktop tab strip — sticks below navbar h-14 + EntitySubnavbar
-       * h-11 (56 + 44 = 100px). */}
-      <div className="hidden sm:block sticky top-[100px] z-30 -mx-4 md:-mx-24 px-4 md:px-24 pt-2 bg-[#0a0a09]/85 backdrop-blur-xl">
+       * h-11 (56 + 44 = 100px). No horizontal -mx escape: the earlier
+       * `-mx-4 md:-mx-24` gave the strip a page-wide dark scrim, but at
+       * >=1440px that also covered the filter sidebar hanging in the
+       * parent padding (see BioactivityTable's `absolute right-full`
+       * <aside>). Card-width scrim is enough — nothing scrolls under
+       * the strip beyond the card's own edges. */}
+      <div className="hidden sm:block sticky top-[100px] z-30 pt-2 bg-[#0a0a09]/85 backdrop-blur-xl">
         <div className="mx-auto max-w-5xl">
           <TabList className="flex items-end gap-1.5 pl-3">
         {tabs.map((tab) => (
