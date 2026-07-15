@@ -27,35 +27,37 @@ interface Props {
 // below. `table-layout: fixed` + identical colgroups keep both tables
 // column-aligned.
 const StickyCardHead = ({ children, className }: Props) => {
-  const sentinelRef = useRef<HTMLDivElement>(null);
+  const chipRef = useRef<HTMLDivElement>(null);
   const [stuck, setStuck] = useState(false);
 
   useEffect(() => {
-    const el = sentinelRef.current;
+    const el = chipRef.current;
     if (!el) return;
-    // Root margin matches the sticky top: mobile 100px, desktop 112px.
-    // Using the larger (112) is safe — on mobile the sentinel just
-    // switches slightly earlier, which is imperceptible against the
-    // already-sticky subnav layout.
-    // -128px rootMargin fires the stuck state a few pixels *before*
-    // the chip fully reaches its 112px sticky offset — feels sharper
-    // than waiting for the exact crossing. (More negative = earlier
-    // trigger: sentinel exits a taller shrunk root sooner.)
-    const obs = new IntersectionObserver(
-      ([entry]) => setStuck(entry.intersectionRatio === 0),
-      { threshold: [0, 1], rootMargin: "-128px 0px 0px 0px" },
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
+    // Chip is pinned by `position: sticky; top: 112px`. It's actually
+    // "stuck" only while its rect.top === 112: before scroll reaches
+    // the card it sits below (rect.top > 112), and after the card's
+    // bottom scrolls above the sticky offset the browser lets the chip
+    // ride up with its parent (rect.top < 112). A sentinel above the
+    // chip can only detect the first transition — it latches true and
+    // never releases when the card scrolls out below, so the fixed
+    // backdrop lingered past the table. Reading the chip's own rect
+    // catches both edges.
+    const OFFSET = 112;
+    const check = () => {
+      const rect = el.getBoundingClientRect();
+      setStuck(Math.abs(rect.top - OFFSET) < 1);
+    };
+    check();
+    window.addEventListener("scroll", check, { passive: true });
+    window.addEventListener("resize", check);
+    return () => {
+      window.removeEventListener("scroll", check);
+      window.removeEventListener("resize", check);
+    };
   }, []);
 
   return (
     <>
-      {/* Sentinel: 0-height sibling immediately above. When it's
-       * intersecting the (viewport shifted down 112px) region, the
-       * chip isn't stuck. Once it scrolls out (above y=112) the chip
-       * is stuck and we can safely paint the gap-filling backdrop. */}
-      <div ref={sentinelRef} aria-hidden className="hidden md:block h-0" />
       {/* Black rectangle that appears once stuck. Sits *behind* the
        * chip (z-20 vs the chip's z-30) and spans subnav-bottom
        * through the chip's bottom. Constrained to the card's own
@@ -73,6 +75,7 @@ const StickyCardHead = ({ children, className }: Props) => {
         </div>
       )}
       <div
+        ref={chipRef}
         className={twMerge(
           "hidden md:block sticky top-[100px] md:top-[112px] z-30",
           // Negative margins extend by an extra 1.5px on each escaped
