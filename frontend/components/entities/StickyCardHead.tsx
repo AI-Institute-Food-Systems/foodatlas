@@ -15,12 +15,11 @@ interface Props {
 // chip stays pinned at top-[100px] md:top-[112px] (flush against the
 // subnavbar + 12px breathing gap) while the Card body scrolls behind.
 //
-// The 12px page-bg box-shadow above the chip is applied *only when
-// stuck* — at natural position it would overlap the tab chips sitting
-// on the Card's top edge and cover their bottom pixels. A sentinel
-// div right above the chip is observed with rootMargin matching the
-// stuck top offset; when the sentinel scrolls out of the intersection
-// region, the chip is stuck → shadow on.
+// When stuck we paint a 12px black slab *anchored to the chip* right
+// above it, so the gap between subnav-bottom and chip-top doesn't
+// reveal scrolling content. Because it's an absolutely positioned
+// child (not fixed) it rides up with the chip when the card scrolls
+// past — no lingering rectangle over content below the table.
 //
 // Column-alignment note: the caller renders its own `<table>` with
 // matching `<colgroup>` widths here AND in the tbody-only body table
@@ -33,15 +32,11 @@ const StickyCardHead = ({ children, className }: Props) => {
   useEffect(() => {
     const el = chipRef.current;
     if (!el) return;
-    // Chip is pinned by `position: sticky; top: 112px`. It's actually
-    // "stuck" only while its rect.top === 112: before scroll reaches
-    // the card it sits below (rect.top > 112), and after the card's
-    // bottom scrolls above the sticky offset the browser lets the chip
-    // ride up with its parent (rect.top < 112). A sentinel above the
-    // chip can only detect the first transition — it latches true and
-    // never releases when the card scrolls out below, so the fixed
-    // backdrop lingered past the table. Reading the chip's own rect
-    // catches both edges.
+    // Sticky pins the chip at top: 112px. It's actually "stuck" only
+    // while rect.top === 112 — before scroll reaches the card it sits
+    // below (rect.top > 112), and once the card's bottom scrolls above
+    // the offset the chip rides up with its parent (rect.top < 112).
+    // Reading the chip's own rect catches both edges cleanly.
     const OFFSET = 112;
     const check = () => {
       const rect = el.getBoundingClientRect();
@@ -57,42 +52,40 @@ const StickyCardHead = ({ children, className }: Props) => {
   }, []);
 
   return (
-    <>
-      {/* Black rectangle that appears once stuck. Sits *behind* the
-       * chip (z-20 vs the chip's z-30) and spans subnav-bottom
-       * through the chip's bottom. Constrained to the card's own
-       * horizontal bounds so the outer padding zones (filter sidebar,
-       * page edges) stay visible. Outer div carries the page's
-       * horizontal padding + fixed positioning; inner div is the
-       * actual max-w-5xl centered black slab. pointer-events-none so
-       * header clicks still reach the chip. */}
+    <div
+      ref={chipRef}
+      className={twMerge(
+        "hidden md:block sticky top-[100px] md:top-[112px] z-30",
+        // Negative margins extend by an extra 1.5px on each escaped
+        // side beyond Card's padding — that shifts our outer edge
+        // out to Card's OUTER edge (not just the post-border edge),
+        // so our 1.5px border overlaps Card's 1.5px border into a
+        // single visible line. Prevents the 1.5px step where
+        // StickyCardHead ends and Card body continues.
+        "-mx-[21.5px] md:-mx-[25.5px] -mt-[13.5px] md:-mt-[17.5px]",
+        "border-x-[1.5px] border-b-0 border-light-50/[0.08]",
+        // When stuck the visual top of the chip is 12px higher (the
+        // anchored slab below extends upward). Move rounding + border
+        // + shadow onto that slab so the composite looks like one
+        // taller flat-topped-then-rounded shape.
+        stuck
+          ? "rounded-t-none border-t-0"
+          : "rounded-t-xl border-t-[1.5px]",
+        "bg-light-950 px-5 md:px-6 pt-3 md:pt-4",
+        className,
+      )}
+    >
+      {/* 12px extension anchored to the chip. Fills the subnav↔chip
+       * gap without a separate fixed layer, so it disappears in
+       * lockstep with the chip when the card scrolls past. */}
       {stuck && (
         <div
           aria-hidden
-          className="fixed inset-x-0 top-[88px] md:top-[100px] px-4 md:px-24 h-16 z-20 pointer-events-none"
-        >
-          <div className="mx-auto max-w-5xl h-full bg-[#0a0a09]" />
-        </div>
+          className="absolute inset-x-0 -top-3 h-3 rounded-t-xl bg-light-950 border-x-[1.5px] border-t-[1.5px] border-light-50/[0.08] pointer-events-none"
+        />
       )}
-      <div
-        ref={chipRef}
-        className={twMerge(
-          "hidden md:block sticky top-[100px] md:top-[112px] z-30",
-          // Negative margins extend by an extra 1.5px on each escaped
-          // side beyond Card's padding — that shifts our outer edge
-          // out to Card's OUTER edge (not just the post-border edge),
-          // so our 1.5px border overlaps Card's 1.5px border into a
-          // single visible line. Prevents the 1.5px step where
-          // StickyCardHead ends and Card body continues.
-          "-mx-[21.5px] md:-mx-[25.5px] -mt-[13.5px] md:-mt-[17.5px]",
-          "rounded-t-xl border-[1.5px] border-b-0 border-light-50/[0.08]",
-          "bg-light-950 px-5 md:px-6 pt-3 md:pt-4",
-          className,
-        )}
-      >
-        {children}
-      </div>
-    </>
+      {children}
+    </div>
   );
 };
 
