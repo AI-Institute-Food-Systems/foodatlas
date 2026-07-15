@@ -73,11 +73,18 @@ const StickyCardHead = ({ children, className }: Props) => {
        * the gap still *looks* like page background — its only job is
        * to stop scrolling content from bleeding through the gap.
        * Anchored to the chip so it rides up and vanishes together
-       * with it when the card scrolls past. */}
+       * with it when the card scrolls past.
+       *
+       * Horizontal `-inset-x-2` gives ~8px overhang past the chip's
+       * borders so the mask fully swallows AA halo on the chip's
+       * outer edge. Extra height `h-6` (24px) reaches 12px down into
+       * the chip — enough to cover its `rounded-t-xl` corners, which
+       * otherwise leave transparent triangles that reveal scrolling
+       * content behind the sticky head. */}
       {stuck && (
         <div
           aria-hidden
-          className="absolute inset-x-0 -top-3 h-3 bg-[#0a0a09] pointer-events-none"
+          className="absolute -inset-x-2 -top-3 h-6 bg-[#0a0a09] pointer-events-none"
         />
       )}
       {children}
