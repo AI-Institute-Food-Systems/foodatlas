@@ -84,7 +84,7 @@ const StickyCardHead = ({ children, className }: Props) => {
       {stuck && (
         <div
           aria-hidden
-          className="absolute -inset-x-2 -top-3 h-6 bg-[#0a0a09] pointer-events-none"
+          className="absolute -inset-x-2 -top-3 h-6 -z-10 bg-[#0a0a09] pointer-events-none"
         />
       )}
       {children}
