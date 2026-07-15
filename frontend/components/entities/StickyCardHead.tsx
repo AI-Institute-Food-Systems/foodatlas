@@ -63,25 +63,21 @@ const StickyCardHead = ({ children, className }: Props) => {
         // single visible line. Prevents the 1.5px step where
         // StickyCardHead ends and Card body continues.
         "-mx-[21.5px] md:-mx-[25.5px] -mt-[13.5px] md:-mt-[17.5px]",
-        "border-x-[1.5px] border-b-0 border-light-50/[0.08]",
-        // When stuck the visual top of the chip is 12px higher (the
-        // anchored slab below extends upward). Move rounding + border
-        // + shadow onto that slab so the composite looks like one
-        // taller flat-topped-then-rounded shape.
-        stuck
-          ? "rounded-t-none border-t-0"
-          : "rounded-t-xl border-t-[1.5px]",
+        "rounded-t-xl border-[1.5px] border-b-0 border-light-50/[0.08]",
         "bg-light-950 px-5 md:px-6 pt-3 md:pt-4",
         className,
       )}
     >
-      {/* 12px extension anchored to the chip. Fills the subnav↔chip
-       * gap without a separate fixed layer, so it disappears in
-       * lockstep with the chip when the card scrolls past. */}
+      {/* Invisible page-bg mask filling the 12px gap between the
+       * subnav bottom and the chip's top. Same color as body bg so
+       * the gap still *looks* like page background — its only job is
+       * to stop scrolling content from bleeding through the gap.
+       * Anchored to the chip so it rides up and vanishes together
+       * with it when the card scrolls past. */}
       {stuck && (
         <div
           aria-hidden
-          className="absolute inset-x-0 -top-3 h-3 rounded-t-xl bg-light-950 border-x-[1.5px] border-t-[1.5px] border-light-50/[0.08] pointer-events-none"
+          className="absolute inset-x-0 -top-3 h-3 bg-[#0a0a09] pointer-events-none"
         />
       )}
       {children}
