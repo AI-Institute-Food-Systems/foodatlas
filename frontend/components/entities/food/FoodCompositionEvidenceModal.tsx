@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { MdCallSplit, MdWarningAmber } from "react-icons/md";
 import { twMerge } from "tailwind-merge";
 
-import FoodAtlasEvidence from "@/components/entities/food/FoodAtlasEvidence";
-import FdcEvidence from "@/components/entities/food/FdcEvidence";
+import EvidenceTable from "@/components/entities/food/EvidenceTable";
 import Modal from "@/components/basic/Modal";
 import { FoodEvidence, FoodEvidenceExtraction } from "@/types/Evidence";
 
@@ -48,56 +47,62 @@ const FoodCompositionEvidenceModal = ({
     if (isOpen) setFilter(initialFilter);
   }, [isOpen, initialFilter]);
 
-  // sort all evidences by their highest converted concentration value
-  const sortedEvidences = evidences?.slice().sort((a, b) => {
-    const maxValueA = Math.max(
-      ...a.extraction.map((e) => e.converted_concentration.value || 0)
-    );
-    const maxValueB = Math.max(
-      ...b.extraction.map((e) => e.converted_concentration.value || 0)
-    );
-    return maxValueB - maxValueA; // sort in descending order
-  });
+  // Extraction-level counts now that the table renders one row per
+  // extraction — chip labels stay in sync with what the table actually
+  // shows after filtering.
+  const { totalCount, ambiguousCount, notAmbiguousCount, lowTrustCount } =
+    useMemo(() => {
+      let total = 0;
+      let ambig = 0;
+      let low = 0;
+      evidences?.forEach((ev) => {
+        ev.extraction.forEach((ex) => {
+          total += 1;
+          if (isCounterpartAmbiguous(ex)) ambig += 1;
+          if (isLowTrust(ex)) low += 1;
+        });
+      });
+      return {
+        totalCount: total,
+        ambiguousCount: ambig,
+        notAmbiguousCount: total - ambig,
+        lowTrustCount: low,
+      };
+    }, [evidences]);
 
-  // counts at the evidence ("data point") level — matches the row badge count
-  const totalCount = sortedEvidences?.length ?? 0;
-  const ambiguousCount =
-    sortedEvidences?.filter((ev) =>
-      ev.extraction.some(isCounterpartAmbiguous)
-    ).length ?? 0;
-  const notAmbiguousCount = totalCount - ambiguousCount;
-  const lowTrustCount =
-    sortedEvidences?.filter((ev) => ev.extraction.some(isLowTrust)).length ?? 0;
-
-  const cycleAmbiguityFilter = () => {
+  const cycleAmbiguityFilter = () =>
     setFilter((f) => {
       const idx = AMBIGUITY_CYCLE.indexOf(f);
-      // If we're not on the ambiguity axis, jump to the first non-"all" state.
       if (idx === -1) return AMBIGUITY_CYCLE[1];
       return AMBIGUITY_CYCLE[(idx + 1) % AMBIGUITY_CYCLE.length];
     });
-  };
 
-  const cycleLowTrustFilter = () => {
+  const cycleLowTrustFilter = () =>
     setFilter((f) => {
       const idx = LOW_TRUST_CYCLE.indexOf(f);
       if (idx === -1) return LOW_TRUST_CYCLE[1];
       return LOW_TRUST_CYCLE[(idx + 1) % LOW_TRUST_CYCLE.length];
     });
-  };
 
-  const displayedEvidences =
-    filter === "ambiguous"
-      ? sortedEvidences?.filter((ev) =>
-          ev.extraction.some(isCounterpartAmbiguous)
-        )
-      : filter === "not-ambiguous"
-      ? sortedEvidences?.filter(
-          (ev) => !ev.extraction.some(isCounterpartAmbiguous)
-        )
-      : filter === "low-trust"
-      ? sortedEvidences?.filter((ev) => ev.extraction.some(isLowTrust))
-      : sortedEvidences;
+  // Filter is applied at the extraction level so the table's row set
+  // exactly matches the active chip's count. Evidences with no rows
+  // remaining after the extraction filter are dropped so their paper
+  // header doesn't dangle empty in the expanded row.
+  const displayedEvidences = useMemo(() => {
+    if (!evidences || filter === "all") return evidences;
+    const predicate = (ex: FoodEvidenceExtraction) => {
+      if (filter === "ambiguous") return isCounterpartAmbiguous(ex);
+      if (filter === "not-ambiguous") return !isCounterpartAmbiguous(ex);
+      if (filter === "low-trust") return isLowTrust(ex);
+      return true;
+    };
+    return evidences
+      .map((ev) => ({
+        ...ev,
+        extraction: ev.extraction.filter(predicate),
+      }))
+      .filter((ev) => ev.extraction.length > 0);
+  }, [evidences, filter]);
 
   const ambiguityLabel =
     filter === "ambiguous"
@@ -111,10 +116,6 @@ const FoodCompositionEvidenceModal = ({
       ? `Only low-trust (${lowTrustCount})`
       : `All (${totalCount})`;
 
-  const handleModalClose = () => {
-    onClose();
-  };
-
   return (
     <Modal
       fullHeight
@@ -127,10 +128,6 @@ const FoodCompositionEvidenceModal = ({
             contains{" "}
             <span className="capitalize font-semibold">{chemicalName}</span>
           </p>
-          {/* Ambiguity + low-trust chips: rendered even when the
-           * relevant count is 0 so the chip row keeps the same shape
-           * across chemicals; count=0 renders `disabled` (visible,
-           * greyed, non-interactive). */}
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
@@ -174,17 +171,12 @@ const FoodCompositionEvidenceModal = ({
         </div>
       }
       isOpen={isOpen}
-      onClose={handleModalClose}
+      onClose={onClose}
     >
-      <div className="flex flex-col gap-4">
-        {displayedEvidences?.map((evidence, id) =>
-          evidence.reference.source_name === "FoodAtlas" ? (
-            <FoodAtlasEvidence key={id} evidence={evidence} />
-          ) : evidence.reference.source_name === "FDC" ? (
-            <FdcEvidence key={id} evidence={evidence} />
-          ) : null
-        )}
-      </div>
+      <EvidenceTable
+        evidences={displayedEvidences}
+        chemicalName={chemicalName}
+      />
     </Modal>
   );
 };
