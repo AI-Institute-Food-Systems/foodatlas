@@ -104,23 +104,27 @@ const EvidenceTable = ({ evidences, chemicalName }: Props) => {
         <table className="w-full table-fixed text-xs">
           <colgroup>
             <col className="w-[10%]" />
-            <col className="w-[30%]" />
-            <col className="w-[28%]" />
-            <col className="w-[18%]" />
-            <col className="w-[14%]" />
+            <col className="w-[26%]" />
+            <col className="w-[26%]" />
+            <col className="w-[16%]" />
+            <col className="w-[22%]" />
           </colgroup>
           <thead className="text-light-400 text-left">
             <tr className="border-b border-light-700">
-              {["Source", "Chemical", "Concentration", "Method", ""].map(
-                (h) => (
-                  <th
-                    key={h}
-                    className="h-9 leading-none py-1.5 px-2 first:pl-0 last:pr-0 select-none uppercase text-[11px] font-medium"
-                  >
-                    {h}
-                  </th>
-                )
-              )}
+              {[
+                "Source",
+                "Chemical",
+                "Concentration",
+                "Method",
+                "Reference",
+              ].map((h) => (
+                <th
+                  key={h}
+                  className="h-9 leading-none py-1.5 px-2 first:pl-0 last:pr-0 select-none uppercase text-[11px] font-medium"
+                >
+                  {h}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody className="text-sm font-light">
@@ -334,46 +338,47 @@ const RowActions = ({
   expandable: boolean;
   expanded: boolean;
   onToggle: () => void;
-}) => (
-  <div className="flex items-center justify-end gap-1">
-    <a
-      href={row.evidence.reference.url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="inline-flex items-center justify-center w-6 h-6 rounded text-light-400 hover:text-light-100 hover:bg-light-900/60 transition-colors"
-      onClick={(e) => e.stopPropagation()}
-      aria-label={
-        row.evidence.reference.source_name === "FDC"
-          ? "Open FDC source"
-          : "Open paper"
-      }
-      title={row.evidence.reference.display_name}
-    >
-      <MdOpenInNew className="size-3.5" />
-    </a>
-    {expandable && (
-      <Chip
-        icon={
-          <MdChevronRight
-            className={twMerge(
-              "size-3.5 transition-transform duration-150",
-              expanded && "rotate-90"
-            )}
-          />
-        }
-        label={expanded ? "Hide" : "Premise"}
-        tone={expanded ? "cream" : "outline"}
-        size="sm"
-        onClick={(e) => {
-          e.stopPropagation();
-          onToggle();
-        }}
-        aria-label={expanded ? "Hide premise" : "Show premise"}
-        aria-pressed={expanded}
-      />
-    )}
-  </div>
-);
+}) => {
+  const isFdc = row.evidence.reference.source_name === "FDC";
+  const linkLabel = isFdc ? "View source" : "View paper";
+  return (
+    <div className="flex items-center justify-end gap-2 flex-wrap">
+      <a
+        href={row.evidence.reference.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1 text-xs font-mono italic text-light-300 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
+        onClick={(e) => e.stopPropagation()}
+        aria-label={linkLabel}
+        title={row.evidence.reference.display_name}
+      >
+        {linkLabel}
+        <MdOpenInNew className="size-3 shrink-0" aria-hidden />
+      </a>
+      {expandable && (
+        <Chip
+          icon={
+            <MdChevronRight
+              className={twMerge(
+                "size-3.5 transition-transform duration-150",
+                expanded && "rotate-90"
+              )}
+            />
+          }
+          label={expanded ? "Hide" : "Premise"}
+          tone={expanded ? "cream" : "outline"}
+          size="sm"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggle();
+          }}
+          aria-label={expanded ? "Hide premise" : "Show premise"}
+          aria-pressed={expanded}
+        />
+      )}
+    </div>
+  );
+};
 
 const ExpandedPremise = ({ row }: { row: EvidenceRow }) => {
   const { evidence } = row;
