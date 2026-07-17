@@ -14,14 +14,19 @@
 // - responsive: desktop table falls back to a card list <md, sharing
 //   the same source-of-truth column/spec
 
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import {
   MdChevronRight,
+  MdKeyboardArrowLeft,
+  MdKeyboardArrowRight,
+  MdKeyboardDoubleArrowLeft,
+  MdKeyboardDoubleArrowRight,
   MdOpenInNew,
   MdWarningAmber,
 } from "react-icons/md";
 import { twMerge } from "tailwind-merge";
 
+import Button from "@/components/basic/Button";
 import Chip from "@/components/basic/Chip";
 import { AmbiguityIcon } from "@/components/basic/Ambiguity";
 import {
@@ -73,8 +78,11 @@ const flattenEvidences = (
   return rows;
 };
 
+const PAGE_SIZE = 20;
+
 const EvidenceTable = ({ evidences, chemicalName }: Props) => {
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
   const toggle = (k: string) =>
     setExpandedKey((prev) => (prev === k ? null : k));
 
@@ -89,16 +97,40 @@ const EvidenceTable = ({ evidences, chemicalName }: Props) => {
     });
   }, [evidences]);
 
+  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  // Filter change (or expand-collapse of last row of a filtered subset)
+  // can shrink the row set below the current page — snap back to page 1
+  // so we don't render an empty page.
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(1);
+  }, [currentPage, totalPages]);
+  // Any filter-driven change to the row set also collapses the active
+  // expand — the previously expanded row may not even be present.
+  useEffect(() => {
+    setExpandedKey(null);
+  }, [rows]);
+
+  const pagedRows = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return rows.slice(start, start + PAGE_SIZE);
+  }, [rows, currentPage]);
+
   if (rows.length === 0) {
     return (
-      <div className="rounded-md border border-dashed border-light-700/60 p-6 text-center text-sm text-light-400">
-        No evidence available.
+      <div className="flex-1 min-h-0 flex items-center justify-center">
+        <div className="rounded-md border border-dashed border-light-700/60 px-6 py-4 text-center text-sm text-light-400">
+          No evidence available.
+        </div>
       </div>
     );
   }
 
   return (
-    <>
+    // `flex-1 min-h-0` lets us take exactly the space the fullHeight
+    // Modal offers; the inner scroll region keeps overflow inside the
+    // modal instead of pushing the body past the panel bottom.
+    <div className="flex-1 min-h-0 flex flex-col">
+      <div className="flex-1 min-h-0 overflow-y-auto">
       {/* Desktop table -------------------------------------------------- */}
       <div className="hidden md:block">
         <table className="w-full table-fixed text-xs">
@@ -128,7 +160,7 @@ const EvidenceTable = ({ evidences, chemicalName }: Props) => {
             </tr>
           </thead>
           <tbody className="text-sm font-light">
-            {rows.map((r) => {
+            {pagedRows.map((r) => {
               const expandable = r.evidence.premise?.length > 0;
               const isExpanded = expandedKey === r.key;
               return (
@@ -185,7 +217,7 @@ const EvidenceTable = ({ evidences, chemicalName }: Props) => {
 
       {/* Mobile card list ---------------------------------------------- */}
       <div className="md:hidden w-full flex flex-col divide-y divide-light-800">
-        {rows.map((r) => {
+        {pagedRows.map((r) => {
           const expandable = r.evidence.premise?.length > 0;
           const isExpanded = expandedKey === r.key;
           return (
@@ -232,7 +264,53 @@ const EvidenceTable = ({ evidences, chemicalName }: Props) => {
           );
         })}
       </div>
-    </>
+      </div>
+      {totalPages > 1 && (
+        <div className="mt-3 shrink-0 max-w-xl w-full mx-auto flex items-center justify-between text-light-300">
+          <Button
+            isIconOnly
+            isSquared
+            isDisabled={currentPage === 1}
+            onClick={() => setCurrentPage(1)}
+            aria-label="First page"
+          >
+            <MdKeyboardDoubleArrowLeft />
+          </Button>
+          <Button
+            isIconOnly
+            isSquared
+            isDisabled={currentPage === 1}
+            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            aria-label="Previous page"
+          >
+            <MdKeyboardArrowLeft />
+          </Button>
+          <span className="w-40 text-center text-sm">
+            Page {currentPage} of {totalPages}
+          </span>
+          <Button
+            isIconOnly
+            isSquared
+            isDisabled={currentPage === totalPages}
+            onClick={() =>
+              setCurrentPage((p) => Math.min(totalPages, p + 1))
+            }
+            aria-label="Next page"
+          >
+            <MdKeyboardArrowRight />
+          </Button>
+          <Button
+            isIconOnly
+            isSquared
+            isDisabled={currentPage === totalPages}
+            onClick={() => setCurrentPage(totalPages)}
+            aria-label="Last page"
+          >
+            <MdKeyboardDoubleArrowRight />
+          </Button>
+        </div>
+      )}
+    </div>
   );
 };
 
