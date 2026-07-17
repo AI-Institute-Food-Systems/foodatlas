@@ -551,17 +551,44 @@ export async function getBioactivityEndpointOptions(
   }
 }
 
-// Global chemical-classification counts for the bioactivity-chemicals
-// sidebar. Only the bioactivity → chemicals direction has a category
-// filter, so a single fetcher covers all its consumers.
+// Faceted chemical-classification counts for the bioactivity-chemicals
+// sidebar. Accepts the other active filters (unit, source kind, search)
+// so the counts reflect what the table would render under each category
+// selection.
+interface BioactivitySidebarFilters {
+  filterUnit?: string;
+  filterCategory?: string;
+  filterSourceKind?: string;
+  search?: string;
+}
+
+const buildBioactivitySidebarParams = (
+  base: URLSearchParams,
+  filters: BioactivitySidebarFilters,
+  { skipUnit = false, skipCategory = false, skipSourceKind = false } = {},
+) => {
+  if (!skipUnit && filters.filterUnit) {
+    base.set("filter_unit", filters.filterUnit);
+  }
+  if (!skipCategory && filters.filterCategory) {
+    base.set("filter_category", filters.filterCategory);
+  }
+  if (!skipSourceKind && filters.filterSourceKind) {
+    base.set("filter_source_kind", filters.filterSourceKind);
+  }
+  if (filters.search) base.set("search", filters.search);
+};
+
 export async function getBioactivityCategoryOptions(
-  commonName: string
+  commonName: string,
+  filters: BioactivitySidebarFilters = {},
 ): Promise<{ category: string; count: number }[]> {
   try {
+    const params = new URLSearchParams({ common_name: commonName });
+    // Categories excludes its own dimension (category) — apply all others.
+    buildBioactivitySidebarParams(params, filters, { skipCategory: true });
     const res = await fetch(
-      `${apiBase()}/bioactivity/categories?common_name=${encodeURIComponent(
-        commonName
-      )}`,
+      `${apiBase()}/bioactivity/categories?${params.toString()}`,
       {
         headers: {
           Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
@@ -588,13 +615,18 @@ export type BioactivitySourceKindCounts = {
 
 export async function getBioactivitySourceKindCounts(
   commonName: string,
-  direction: string
+  direction: string,
+  filters: BioactivitySidebarFilters = {},
 ): Promise<BioactivitySourceKindCounts | null> {
   try {
+    const params = new URLSearchParams({
+      common_name: commonName,
+      direction,
+    });
+    // Source kinds excludes its own dimension — apply all others.
+    buildBioactivitySidebarParams(params, filters, { skipSourceKind: true });
     const res = await fetch(
-      `${apiBase()}/bioactivity/source_kinds?common_name=${encodeURIComponent(
-        commonName
-      )}&direction=${encodeURIComponent(direction)}`,
+      `${apiBase()}/bioactivity/source_kinds?${params.toString()}`,
       {
         headers: {
           Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,

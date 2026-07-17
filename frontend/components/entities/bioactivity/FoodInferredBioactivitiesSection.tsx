@@ -67,6 +67,9 @@ interface Props {
   externalSourceKind?: string;
   externalUnit?: string;
   hideChrome?: boolean;
+  // Fires whenever the filtered totalRows changes so a wrapper (the
+  // Food Bioactivities tab) can sum direct + inferred for its tab badge.
+  onTotalRowsChange?: (total: number) => void;
 }
 
 const TABLE_ID_PREFIX = "food-inferred-bioact";
@@ -77,6 +80,7 @@ const FoodInferredBioactivitiesSection = ({
   externalSourceKind,
   externalUnit,
   hideChrome = false,
+  onTotalRowsChange,
 }: Props) => {
   const tableId = `${TABLE_ID_PREFIX}-${commonName}`;
   const { getTablePaginations, setTablePaginations } = usePaginations();
@@ -97,6 +101,9 @@ const FoodInferredBioactivitiesSection = ({
   const [totalRows, setTotalRows] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   useLoadingGate(isLoading);
+  useEffect(() => {
+    if (onTotalRowsChange && !isLoading) onTotalRowsChange(totalRows);
+  }, [onTotalRowsChange, totalRows, isLoading]);
   const [selected, setSelected] = useState<InferredRow | null>(null);
 
   useEffect(() => {
@@ -206,34 +213,32 @@ const FoodInferredBioactivitiesSection = ({
         </div>
       )}
 
+      {/* Row-count caption dropped — the tab badge is the canonical
+       * total via the wrapper's onTotalRowsChange. Mobile sort listbox
+       * stays here (no clickable column headers on card view). */}
       {!isLoading && totalRows > 0 && (
-        <div className="mb-1.5 flex justify-between md:justify-end items-center gap-3">
-          <span className="font-mono italic text-[11px] text-light-500 tabular-nums">
-            {totalRows.toLocaleString()} {totalRows === 1 ? "row" : "rows"}
+        <div className="mb-1.5 md:hidden flex justify-end items-center gap-2">
+          <span className="font-mono italic text-[11px] text-light-500">
+            sort
           </span>
-          <div className="md:hidden flex items-center gap-2">
-            <span className="font-mono italic text-[11px] text-light-500">
-              sort
-            </span>
-            <SortListbox
-              value={`${sort.by}|${sort.dir}`}
-              options={[
-                { value: "bioactivity|asc", label: "Bioactivity A–Z" },
-                { value: "bioactivity|desc", label: "Bioactivity Z–A" },
-                { value: "chemical|asc", label: "Chemical A–Z" },
-                { value: "chemical|desc", label: "Chemical Z–A" },
-                { value: "concentration|desc", label: "Highest concentration" },
-                { value: "concentration|asc", label: "Lowest concentration" },
-                { value: "measurement_count|desc", label: "Most assays" },
-                { value: "measurement_count|asc", label: "Least assays" },
-              ]}
-              onChange={(value) => {
-                const [by, dir] = value.split("|");
-                setSort({ by, dir: dir as SortDir });
-                setTablePaginations(tableId, 1, 20);
-              }}
-            />
-          </div>
+          <SortListbox
+            value={`${sort.by}|${sort.dir}`}
+            options={[
+              { value: "bioactivity|asc", label: "Bioactivity A–Z" },
+              { value: "bioactivity|desc", label: "Bioactivity Z–A" },
+              { value: "chemical|asc", label: "Chemical A–Z" },
+              { value: "chemical|desc", label: "Chemical Z–A" },
+              { value: "concentration|desc", label: "Highest concentration" },
+              { value: "concentration|asc", label: "Lowest concentration" },
+              { value: "measurement_count|desc", label: "Most assays" },
+              { value: "measurement_count|asc", label: "Least assays" },
+            ]}
+            onChange={(value) => {
+              const [by, dir] = value.split("|");
+              setSort({ by, dir: dir as SortDir });
+              setTablePaginations(tableId, 1, 20);
+            }}
+          />
         </div>
       )}
       <div className="hidden md:block overflow-x-auto">

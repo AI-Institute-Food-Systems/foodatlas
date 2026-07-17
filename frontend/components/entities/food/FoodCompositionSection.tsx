@@ -29,6 +29,7 @@ import FoodCompositionEvidenceModal, {
 } from "@/components/entities/food/FoodCompositionEvidenceModal";
 import { usePaginations } from "@/context/paginationsContext";
 import { useLoadingGate } from "@/context/pageReadyContext";
+import { usePublishTabCount } from "@/context/tabCountsContext";
 import { encodeSpace, formatConcentrationValueAlt } from "@/utils/utils";
 import {
   getFoodCompositionCounts,
@@ -104,6 +105,10 @@ const FoodCompositionSection = ({
   const tableWrapperRef = useRef<HTMLDivElement | null>(null);
   const [numberOfPages, setNumberOfPages] = useState(-1);
   const [numberOfRows, setNumberOfRows] = useState(-1);
+  // Publish the current filtered row count to the Composition tab
+  // badge. -1 = "unknown" (initial state) → the badge falls back to
+  // the server-prefetched static count until the first fetch resolves.
+  usePublishTabCount("composition", numberOfRows >= 0 ? numberOfRows : null);
   const [searchTerm, setSearchTerm] = useState(
     searchParams.get("search") ?? ""
   );
@@ -409,6 +414,27 @@ const FoodCompositionSection = ({
     setSourceFilters(sources);
   };
 
+  // Default state per the useState initializers above. `isFiltersDirty`
+  // is true when the current view differs from a fresh page load; the
+  // Reset button only renders in that case so it's not just visual noise.
+  const isFiltersDirty =
+    searchTerm !== "" ||
+    sourceFilters.length !== 2 ||
+    !sourceFilters.includes("fdc") ||
+    !sourceFilters.includes("foodatlas") ||
+    classificationFilter.length > 0 ||
+    !showAllConcentrations ||
+    showLowTrust;
+
+  const resetAllFilters = () => {
+    setSearchTerm("");
+    setSourceFilters(["fdc", "foodatlas"]);
+    setClassificationFilter([]);
+    setShowAllConcentrations(true);
+    setShowLowTrust(false);
+    setTablePaginations("food-composition-table", 1, 20);
+  };
+
   // handle evidence button click
   const handleEvidenceButtonClick = (
     event: React.MouseEvent<HTMLButtonElement>,
@@ -563,14 +589,23 @@ const FoodCompositionSection = ({
   // drawer per user request).
   const filtersOnlyPanel = (
     <div className="flex flex-col gap-5">
+      {/* Reset link — only appears when the view differs from a fresh
+       * page load, so it's not just visual clutter. Clears search +
+       * every filter to default and snaps pagination back to page 1. */}
+      {isFiltersDirty && (
+        <div className="flex justify-end -mb-3">
+          <button
+            type="button"
+            onClick={resetAllFilters}
+            className="text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
+          >
+            reset all
+          </button>
+        </div>
+      )}
+
       {/* options — binary switches (not multi-select) so they stay as
-       * toggles rather than checkbox rows.
-       *
-       * TODO(round-2): the composition/counts endpoint doesn't yet
-       * return a per-toggle counterfactual (rows without concentration;
-       * low-trust extractions). Once available, surface each as a small
-       * "(+N)"-style count next to the label so the "every filter has a
-       * count, disabled at 0" convention holds here too. */}
+       * toggles rather than checkbox rows. */}
       <FilterGroup label="Options">
         <div className="flex flex-col gap-2 pt-0.5">
           <ToggleSwitch
@@ -697,29 +732,26 @@ const FoodCompositionSection = ({
 
           <div className="flex flex-col gap-7">
           <div>
+          {/* Row-count line dropped — the Composition tab badge now
+           * reflects the filtered total via usePublishTabCount. Mobile
+           * sort stays here (no column headers to click on card view). */}
           {!isLoading && numberOfRows > 0 && (
-            <div className="mb-1.5 mt-1 flex justify-between md:justify-end items-center gap-3">
-              <span className="font-mono italic text-[11px] text-light-500 tabular-nums">
-                {numberOfRows.toLocaleString()} {numberOfRows === 1 ? "row" : "rows"}
+            <div className="mb-1.5 mt-1 md:hidden flex justify-end items-center gap-2">
+              <span className="font-mono italic text-[11px] text-light-500">
+                sort
               </span>
-              {/* Mobile sort — no column headers to click on card view. */}
-              <div className="md:hidden flex items-center gap-2">
-                <span className="font-mono italic text-[11px] text-light-500">
-                  sort
-                </span>
-                <SortListbox
-                  value={`${sort.column}|${sort.direction}`}
-                  options={MOBILE_SORT_OPTIONS}
-                  onChange={(value) => {
-                    const opt = MOBILE_SORT_OPTIONS.find(
-                      (o) => o.value === value
-                    );
-                    if (!opt) return;
-                    setSort({ column: opt.column, direction: opt.direction });
-                    setTablePaginations("food-composition-table", 1, 20);
-                  }}
-                />
-              </div>
+              <SortListbox
+                value={`${sort.column}|${sort.direction}`}
+                options={MOBILE_SORT_OPTIONS}
+                onChange={(value) => {
+                  const opt = MOBILE_SORT_OPTIONS.find(
+                    (o) => o.value === value
+                  );
+                  if (!opt) return;
+                  setSort({ column: opt.column, direction: opt.direction });
+                  setTablePaginations("food-composition-table", 1, 20);
+                }}
+              />
             </div>
           )}
           {/* table — desktop only. Card list below covers mobile. */}

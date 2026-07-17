@@ -167,34 +167,58 @@ const BioactivityMeasurementsModal = ({
     setExpandedKey(null);
   }, [isOpen, selectedId]);
 
-  // Per-outcome counts from the FULL row set (not the filtered set) so
-  // each row's count reflects what the pivot chemical/food actually has
-  // available, and the filter chrome stays stable regardless of what
-  // the user currently has selected.
+  // Faceted counts — each dimension applies every OTHER active filter
+  // (excluding its own) so the numbers stay in sync with what the modal
+  // would render under each selection. Kills the "count says 5 but
+  // filter changes row count by 3" mismatch the composition sidebar had
+  // before we made its counts faceted server-side.
   const outcomeCounts = useMemo<Record<OutcomeFilter, number>>(() => {
+    const q = searchTerm.trim().toLowerCase();
     const counts: Record<OutcomeFilter, number> = {
-      all: rows.length,
+      all: 0,
       active: 0,
       inactive: 0,
       unspecified: 0,
       inconclusive: 0,
     };
+    // Apply source + search; exclude outcome. Then group by outcome.
     rows.forEach((r) => {
+      if (sourceFilter && !matchesSourceKind(r.evidence_source, sourceFilter)) {
+        return;
+      }
+      if (
+        q &&
+        !`${r.assay ?? ""} ${r.endpoint ?? ""}`.toLowerCase().includes(q)
+      ) {
+        return;
+      }
+      counts.all += 1;
       const o = r.outcome?.toLowerCase().trim() as OutcomeFilter | undefined;
       if (o && o in counts && o !== "all") counts[o] += 1;
     });
     return counts;
-  }, [rows]);
+  }, [rows, sourceFilter, searchTerm]);
 
-  // Per-source-kind counts computed the same way as `matchesSourceKind`
-  // so the filter chrome and the actual filter behavior stay in sync.
   const sourceKindCounts = useMemo<Record<string, number>>(() => {
+    const q = searchTerm.trim().toLowerCase();
     const counts: Record<string, number> = {
-      "": rows.length, // "both"
+      "": 0,
       experimental: 0,
       predicted: 0,
     };
+    // Apply outcome + search; exclude source_kind. Then group by kind.
     rows.forEach((r) => {
+      if (outcomeFilter !== "all") {
+        const o = r.outcome?.toLowerCase().trim() ?? "";
+        if (o !== outcomeFilter) return;
+      }
+      if (
+        q &&
+        !`${r.assay ?? ""} ${r.endpoint ?? ""}`.toLowerCase().includes(q)
+      ) {
+        return;
+      }
+      counts[""] += 1;
       if (matchesSourceKind(r.evidence_source, "experimental")) {
         counts.experimental += 1;
       }
@@ -203,7 +227,7 @@ const BioactivityMeasurementsModal = ({
       }
     });
     return counts;
-  }, [rows]);
+  }, [rows, outcomeFilter, searchTerm]);
 
   const filtered = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();

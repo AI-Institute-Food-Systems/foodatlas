@@ -17,6 +17,7 @@ import { MdCheck, MdKeyboardArrowDown } from "react-icons/md";
 import { twMerge } from "tailwind-merge";
 
 import Card from "@/components/basic/Card";
+import { useTabCounts } from "@/context/tabCountsContext";
 
 export type EntityType = "food" | "chemical" | "disease" | "bioactivity";
 
@@ -40,10 +41,20 @@ interface Props {
   defaultTabId: string;
 }
 
-const EntityTabs = ({ tabs, defaultTabId }: Props) => {
+const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { counts: dynamicCounts } = useTabCounts();
+
+  // Merge dynamic counts published by tab contents (via
+  // usePublishTabCount) over the static server-prefetched counts, so
+  // the badge reflects the current filtered view.
+  const tabs: TabSpec[] = rawTabs.map((t) => {
+    const dyn = dynamicCounts[t.id];
+    if (dyn === undefined || dyn === null) return t;
+    return { ...t, count: dyn };
+  });
 
   // Derive initial index from URL, then hold local state so the tab
   // switches immediately on click. Previously this was derived from

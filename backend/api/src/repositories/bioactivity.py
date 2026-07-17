@@ -643,6 +643,12 @@ async def get_endpoint_options(
     every chemical's measurements. Used by the food page's shared
     bioactivities sidebar so its unit list isn't limited to the direct
     (food-level) measurements alone.
+
+    TODO: this endpoint should also become faceted (accept filter_category,
+    filter_source_kind, search) and return per-row unit counts so the
+    Unit chip count stays in sync when other filters are applied. Blocked
+    on rewriting the attestation-based aggregate as an MV-based row-count
+    query without regressing the completeness of the unit list.
     """
     if direction == "food-inferred-bioactivities":
         rows_result = await session.execute(
@@ -711,29 +717,38 @@ async def get_endpoint_options(
 
 
 async def get_category_options(
-    session: AsyncSession, common_name: str
+    session: AsyncSession,
+    common_name: str,
+    filter_unit: str = "",
+    filter_source_kind: str = "",
+    search: str = "",
 ) -> dict[str, object]:
     """Global chemical-classification counts for the bioactivity-chemicals
-    direction — so the sidebar's Category filter can show counts across
-    ALL matching chemicals, not just the ones on the current page.
-
-    Only meaningful when the pivot is a bioactivity and rows are chemicals
-    (mv_chemical_bioactivity); other directions have no per-row
-    classification. Returns an empty list for those.
+    direction — the sidebar's Category filter shows counts across ALL
+    matching chemicals with every other active filter (unit, source
+    kind, search) applied so the counts stay in sync with the table.
     """
+    extras, extra_params = _sidebar_extra_where(
+        mv_alias="mv",
+        filter_unit=filter_unit,
+        filter_source_kind=filter_source_kind,
+        search=search,
+        search_col="mv.chemical_name",
+        include_category=False,
+    )
+    where = ["mv.bioactivity_name = :name", "category <> ''", *extras]
     rows_result = await session.execute(
-        text("""
+        text(f"""
             SELECT category, COUNT(*) AS count
             FROM mv_chemical_bioactivity mv
             JOIN mv_chemical_entities ce
               ON ce.foodatlas_id = mv.chemical_foodatlas_id
             CROSS JOIN LATERAL UNNEST(ce.chemical_classification) AS category
-            WHERE mv.bioactivity_name = :name
-              AND category <> ''
+            WHERE {" AND ".join(where)}
             GROUP BY category
             ORDER BY COUNT(*) DESC
         """),
-        {"name": common_name},
+        {"name": common_name, **extra_params},
     )
     data = [dict(r._mapping) for r in rows_result]
     return {"data": data, "metadata": {"row_count": len(data)}}
@@ -750,27 +765,102 @@ _SOURCE_KIND_DIRECTIONS: dict[str, tuple[str, str]] = {
     "food-bioactivities": ("mv_food_bioactivity", "food_name"),
 }
 
+# Column the sidebar search filter applies to for each direction —
+# the row-facing name, i.e. what the paginated query treats as the
+# table's chemical/food/bioactivity label.
+_SEARCH_COL_BY_DIRECTION: dict[str, str] = {
+    "bioactivity-chemicals": "mv.chemical_name",
+    "bioactivity-foods": "mv.food_name",
+    "chemical-bioactivities": "mv.bioactivity_name",
+    "food-bioactivities": "mv.bioactivity_name",
+}
+
+
+def _search_col_for(direction: str) -> str:
+    return _SEARCH_COL_BY_DIRECTION.get(direction, "")
+
+
+def _sidebar_extra_where(
+    *,
+    mv_alias: str,
+    filter_unit: str = "",
+    filter_category: str = "",
+    filter_source_kind: str = "",
+    search: str = "",
+    search_col: str = "",
+    include_unit: bool = True,
+    include_category: bool = True,
+    include_source_kind: bool = True,
+) -> tuple[list[str], dict]:
+    """Build the sidebar-count WHERE fragments applying every OTHER filter.
+
+    Callers pass ``include_<dim>=False`` for whichever dimension they're
+    counting — that dimension's own filter is skipped so each row count
+    reflects "what would this bucket have if I picked it right now?".
+    Filters mirror _apply_*_filter helpers used by the paginated query.
+    """
+    where: list[str] = []
+    params: dict = {}
+    if include_unit and filter_unit:
+        units = [u for u in filter_unit.split("+") if u]
+        if units:
+            where.append(
+                f"EXISTS (SELECT 1 FROM jsonb_array_elements({mv_alias}.measurements) m"
+                " WHERE m->>'unit' = ANY(:units))"
+            )
+            params["units"] = units
+    if include_category and filter_category:
+        cats = [c for c in filter_category.split("+") if c]
+        if cats:
+            where.append(
+                "EXISTS (SELECT 1 FROM mv_chemical_entities ce"
+                f" WHERE ce.foodatlas_id = {mv_alias}.chemical_foodatlas_id"
+                " AND ce.chemical_classification && :cats)"
+            )
+            params["cats"] = cats
+    if include_source_kind and filter_source_kind == "experimental":
+        where.append(
+            f"EXISTS (SELECT 1 FROM jsonb_array_elements({mv_alias}.measurements) m"
+            " WHERE (m->>'evidence_source') ILIKE 'exp%')"
+        )
+    elif include_source_kind and filter_source_kind == "predicted":
+        where.append(
+            f"EXISTS (SELECT 1 FROM jsonb_array_elements({mv_alias}.measurements) m"
+            " WHERE (m->>'evidence_source') ILIKE 'pred%'"
+            " OR (m->>'evidence_source') ILIKE 'comp%')"
+        )
+    if search and search_col:
+        where.append(f"{search_col} ILIKE :sq")
+        params["sq"] = f"%{search}%"
+    return where, params
+
 
 async def get_source_kind_counts(
-    session: AsyncSession, common_name: str, direction: str
+    session: AsyncSession,
+    common_name: str,
+    direction: str,
+    filter_unit: str = "",
+    filter_category: str = "",
+    search: str = "",
 ) -> dict[str, object]:
     """Row counts per assay-source kind for the sidebar Assay Source filter.
 
-    "experimental" = rows containing at least one measurement whose
-    ``evidence_source`` starts with ``exp``; "predicted" = rows whose
-    source starts with ``pred`` or ``comp``; "both" (empty key) = total.
-    Same classification the paginated filter uses (see
-    ``_apply_source_kind_filter``), so the counts reflect exactly what
-    the table would return under each filter.
-
-    ``food-inferred-bioactivities`` uses the same join the paginated
-    inferred query does (``mv_food_chemical_composition`` ⨝
-    ``mv_chemical_bioactivity`` on chemical id), so the count matches
-    the inferred table's row set exactly.
+    Every other active filter (unit, category, search) is applied so
+    the counts stay in sync with what the table would render under
+    each source-kind selection.
     """
     if direction == "food-inferred-bioactivities":
+        extras, extra_params = _sidebar_extra_where(
+            mv_alias="cb",
+            filter_unit=filter_unit,
+            filter_category=filter_category,
+            search=search,
+            search_col="(cb.bioactivity_name || ' ' || fcc.chemical_name)",
+            include_source_kind=False,
+        )
+        where = ["fcc.food_name = :name", *extras]
         result = await session.execute(
-            text("""
+            text(f"""
                 SELECT
                     COUNT(*) AS both,
                     COUNT(*) FILTER (
@@ -789,9 +879,9 @@ async def get_source_kind_counts(
                 FROM mv_food_chemical_composition fcc
                 JOIN mv_chemical_bioactivity cb
                   ON cb.chemical_foodatlas_id = fcc.chemical_foodatlas_id
-                WHERE fcc.food_name = :name
+                WHERE {" AND ".join(where)}
             """),
-            {"name": common_name},
+            {"name": common_name, **extra_params},
         )
         row = result.first()
         return {
@@ -806,27 +896,40 @@ async def get_source_kind_counts(
     if info is None:
         return {"data": {"both": 0, "experimental": 0, "predicted": 0}}
     mv, name_col = info
+    # Only bioactivity-chemicals rows carry a chemical_foodatlas_id we
+    # can join to mv_chemical_entities for the Category filter; other
+    # directions ignore the category dim.
+    can_category = direction == "bioactivity-chemicals"
+    extras, extra_params = _sidebar_extra_where(
+        mv_alias="mv",
+        filter_unit=filter_unit,
+        filter_category=filter_category if can_category else "",
+        search=search,
+        search_col=_search_col_for(direction),
+        include_source_kind=False,
+    )
+    where = [f"mv.{name_col} = :name", *extras]
     result = await session.execute(
         text(f"""
             SELECT
                 COUNT(*) AS both,
                 COUNT(*) FILTER (
                     WHERE EXISTS (
-                        SELECT 1 FROM jsonb_array_elements(measurements) m
+                        SELECT 1 FROM jsonb_array_elements(mv.measurements) m
                         WHERE (m->>'evidence_source') ILIKE 'exp%'
                     )
                 ) AS experimental,
                 COUNT(*) FILTER (
                     WHERE EXISTS (
-                        SELECT 1 FROM jsonb_array_elements(measurements) m
+                        SELECT 1 FROM jsonb_array_elements(mv.measurements) m
                         WHERE (m->>'evidence_source') ILIKE 'pred%'
                            OR (m->>'evidence_source') ILIKE 'comp%'
                     )
                 ) AS predicted
-            FROM {mv}
-            WHERE {name_col} = :name
+            FROM {mv} mv
+            WHERE {" AND ".join(where)}
         """),
-        {"name": common_name},
+        {"name": common_name, **extra_params},
     )
     row = result.first()
     return {

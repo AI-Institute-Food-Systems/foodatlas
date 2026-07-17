@@ -23,6 +23,10 @@ interface Props {
   externalSourceKind?: string;
   externalUnit?: string;
   hideChrome?: boolean;
+  // Passthrough to the underlying BioactivityTable so a parent can
+  // aggregate direct + inferred totals for the tab badge.
+  onTotalRowsChange?: (total: number) => void;
+  tabIdForCount?: string;
 }
 
 const FoodBioactivitiesSection = ({
@@ -32,6 +36,8 @@ const FoodBioactivitiesSection = ({
   externalSourceKind,
   externalUnit,
   hideChrome,
+  onTotalRowsChange,
+  tabIdForCount,
 }: Props) => {
   const fetcher = useCallback(
     (params: BioactivityListParams) => getFoodBioactivities(commonName, params),
@@ -101,6 +107,8 @@ const FoodBioactivitiesSection = ({
           relationship: "r5",
           anchorId,
         }}
+        onTotalRowsChange={onTotalRowsChange}
+        tabIdForCount={tabIdForCount}
       />
     </div>
   );

@@ -18,6 +18,7 @@ import {
   getBioactivityEndpointOptions,
   getBioactivitySourceKindCounts,
 } from "@/utils/fetching";
+import { usePublishTabCount } from "@/context/tabCountsContext";
 
 interface Props {
   commonName: string;
@@ -42,6 +43,18 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
   >([]);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
+  // Aggregated filtered totals from direct + inferred tables → the
+  // "Bioactivities" tab badge. Each sub-table reports null while its
+  // fetch is in flight; we publish the SUM once at least one has
+  // reported, so the badge starts refreshing as soon as data lands.
+  const [directTotal, setDirectTotal] = useState<number | null>(null);
+  const [inferredTotal, setInferredTotal] = useState<number | null>(null);
+  const combinedTotal =
+    directTotal === null && inferredTotal === null
+      ? null
+      : (directTotal ?? 0) + (inferredTotal ?? 0);
+  usePublishTabCount("bioactivities", combinedTotal);
+
   // Source-kind counts for the sidebar Assay Source picker. Aggregated
   // across BOTH the direct (food-bioactivities) and inferred
   // (food-inferred-bioactivities) directions since the sidebar drives
@@ -54,12 +67,24 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
   useEffect(() => {
     if (!commonName) return;
     let cancelled = false;
+    // Apply the tab's current search + unit filter (no category filter
+    // on the food-bioactivities/inferred directions today) so the source
+    // kind counts stay in sync with the visible tables.
+    const filters = {
+      filterUnit: selectedUnits.join("+"),
+      search: searchTerm,
+    };
     (async () => {
       const [direct, inferred] = await Promise.all([
-        getBioactivitySourceKindCounts(commonName, "food-bioactivities"),
         getBioactivitySourceKindCounts(
           commonName,
-          "food-inferred-bioactivities"
+          "food-bioactivities",
+          filters,
+        ),
+        getBioactivitySourceKindCounts(
+          commonName,
+          "food-inferred-bioactivities",
+          filters,
         ),
       ]);
       if (cancelled) return;
@@ -77,7 +102,7 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
     return () => {
       cancelled = true;
     };
-  }, [commonName]);
+  }, [commonName, selectedUnits, searchTerm]);
 
   const sourceKindParam = selectedSourceKind;
   const unitParam = selectedUnits.join("+");
@@ -308,9 +333,30 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
     </div>
   );
 
+  const isFiltersDirty =
+    searchTerm !== "" ||
+    selectedUnits.length > 0 ||
+    selectedSourceKind !== "";
+  const resetAllFilters = () => {
+    setSearchTerm("");
+    setSelectedUnits([]);
+    setSelectedSourceKind("");
+  };
+
   const filterPanel = (
     <div className="flex flex-col gap-5">
       {searchInput}
+      {isFiltersDirty && (
+        <div className="flex justify-end -mt-3 -mb-3">
+          <button
+            type="button"
+            onClick={resetAllFilters}
+            className="text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
+          >
+            reset all
+          </button>
+        </div>
+      )}
       {unitFilter}
       {sourceFilter}
     </div>
@@ -347,6 +393,7 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
         externalSourceKind={sourceKindParam}
         externalUnit={unitParam}
         hideChrome
+        onTotalRowsChange={setDirectTotal}
       />
       <div className="border-t-2 border-double border-light-700/60" />
       <FoodInferredBioactivitiesSection
@@ -355,6 +402,7 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
         externalSourceKind={sourceKindParam}
         externalUnit={unitParam}
         hideChrome
+        onTotalRowsChange={setInferredTotal}
       />
 
       {mobileFiltersOpen && (

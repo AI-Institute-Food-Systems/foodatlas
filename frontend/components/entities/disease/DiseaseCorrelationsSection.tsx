@@ -1,7 +1,12 @@
+"use client";
+
+import { useState } from "react";
+
 import CorrelationTable from "@/components/entities/CorrelationTable";
 import Heading from "@/components/basic/Heading";
 import InfoBanner from "@/components/basic/InfoBanner";
 import Link from "@/components/basic/Link";
+import { usePublishTabCount } from "@/context/tabCountsContext";
 
 interface DiseaseCorrelationsSectionProps {
   commonName: string;
@@ -10,6 +15,16 @@ interface DiseaseCorrelationsSectionProps {
 const DiseaseCorrelationsSection = ({
   commonName,
 }: DiseaseCorrelationsSectionProps) => {
+  // Aggregated Improves + Worsens totals → the "Health Impacts" tab badge.
+  const [posTotal, setPosTotal] = useState<number | null>(null);
+  const [negTotal, setNegTotal] = useState<number | null>(null);
+  usePublishTabCount(
+    "health",
+    posTotal === null && negTotal === null
+      ? null
+      : (posTotal ?? 0) + (negTotal ?? 0),
+  );
+
   return (
     <div className="flex flex-col gap-7">
       <InfoBanner
@@ -50,6 +65,7 @@ const DiseaseCorrelationsSection = ({
             tableLocation={"disease"}
             correlationType={"positive"}
             headers={[{ label: "Chemical" }, { label: "Publication (PMID)" }]}
+            onTotalRowsChange={setPosTotal}
           />
         </div>
         <div className="flex flex-col gap-4">
@@ -72,6 +88,7 @@ const DiseaseCorrelationsSection = ({
             tableLocation={"disease"}
             correlationType={"negative"}
             headers={[{ label: "Chemical" }, { label: "Publication (PMID)" }]}
+            onTotalRowsChange={setNegTotal}
           />
         </div>
       </div>

@@ -69,6 +69,7 @@ const BioactivityFoodsSection = ({ commonName, anchorId }: Props) => {
         relationship: "r5",
         anchorId,
       }}
+      tabIdForCount="foods"
     />
   );
 };
