@@ -37,6 +37,7 @@ import { encodeSpace } from "@/utils/utils";
 import {
   getBioactivityCategoryOptions,
   getBioactivityEndpointOptions,
+  getBioactivityEvidenceTypeCounts,
   getBioactivitySourceKindCounts,
   type BioactivitySourceKindCounts,
   type BioactivityDirection,
@@ -88,6 +89,7 @@ interface Props {
   externalSearch?: string;
   externalSourceKind?: string;
   externalUnit?: string;
+  externalEvidenceType?: string;
   hideChrome?: boolean;
   // Stable identifier for pagination context — e.g. "food-bioact-foodId".
   tableId: string;
@@ -159,6 +161,7 @@ const BioactivityTable = ({
   externalSearch,
   externalSourceKind,
   externalUnit,
+  externalEvidenceType,
   hideChrome = false,
   tabIdForCount,
   onTotalRowsChange,
@@ -178,6 +181,12 @@ const BioactivityTable = ({
     { unit: string; count: number }[]
   >([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  // Multi-select Evidence filter. Values are the NPASS-style buckets
+  // returned by /bioactivity/evidence_types (typically molecular-level /
+  // in vitro / in vivo / adme-tox). Backend accepts them '+'-joined.
+  const [selectedEvidenceTypes, setSelectedEvidenceTypes] = useState<string[]>(
+    []
+  );
   // Single-select Assay Source filter. Value is one of:
   //   "" — "both" (no filter, default)
   //   "experimental"
@@ -185,15 +194,20 @@ const BioactivityTable = ({
   const [selectedSourceKind, setSelectedSourceKind] = useState<string>("");
   const unitFilterParam = selectedUnits.join("+");
   const categoryFilterParam = selectedCategories.join("+");
+  const evidenceTypeFilterParam = selectedEvidenceTypes.join("+");
   // External overrides win when present so a parent (e.g. the food
-  // page's Bioactivities tab) can drive search + source kind + unit
-  // for its tables from one shared sidebar.
+  // page's Bioactivities tab) can drive search + source kind + unit +
+  // evidence type for its tables from one shared sidebar.
   const effectiveSearchTerm =
     externalSearch !== undefined ? externalSearch : searchTerm;
   const effectiveSourceKindParam =
     externalSourceKind !== undefined ? externalSourceKind : selectedSourceKind;
   const effectiveUnitParam =
     externalUnit !== undefined ? externalUnit : unitFilterParam;
+  const effectiveEvidenceTypeParam =
+    externalEvidenceType !== undefined
+      ? externalEvidenceType
+      : evidenceTypeFilterParam;
 
   // Fetch the endpoint options once per (direction, pivotName). We
   // aggregate to distinct UNITS + summed counts across endpoints, then
@@ -325,6 +339,28 @@ const BioactivityTable = ({
     effectiveSearchTerm,
   ]);
 
+  // Sidebar Evidence counts. Same aggregate-across-all-rows semantics
+  // as source-kind + category counts. Endpoint returns one row per
+  // distinct evidence_type present in the pivot's data, sorted by
+  // count desc — so the sidebar surfaces the biggest bucket first.
+  const [evidenceTypeOptions, setEvidenceTypeOptions] = useState<
+    { evidence_type: string; count: number }[]
+  >([]);
+  useEffect(() => {
+    if (!direction || !pivotName) {
+      setEvidenceTypeOptions([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const opts = await getBioactivityEvidenceTypeCounts(pivotName, direction);
+      if (!cancelled) setEvidenceTypeOptions(opts);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [direction, pivotName]);
+
   const toggleCategory = (category: string) => {
     setTablePaginations(tableId, 1, 20);
     setSelectedCategories((prev) =>
@@ -336,6 +372,17 @@ const BioactivityTable = ({
   const clearCategories = () => {
     setTablePaginations(tableId, 1, 20);
     setSelectedCategories([]);
+  };
+
+  const toggleEvidenceType = (etype: string) => {
+    setTablePaginations(tableId, 1, 20);
+    setSelectedEvidenceTypes((prev) =>
+      prev.includes(etype) ? prev.filter((e) => e !== etype) : [...prev, etype]
+    );
+  };
+  const clearEvidenceTypes = () => {
+    setTablePaginations(tableId, 1, 20);
+    setSelectedEvidenceTypes([]);
   };
 
   // Single-select Assay Source. "both" (key="") is the default = no
@@ -368,6 +415,7 @@ const BioactivityTable = ({
         filterUnit: effectiveUnitParam || undefined,
         filterCategory: categoryFilterParam || undefined,
         filterSourceKind: effectiveSourceKindParam || undefined,
+        filterEvidenceType: effectiveEvidenceTypeParam || undefined,
       });
       if (cancelled) return;
       setRows(payload?.data ?? []);
@@ -386,6 +434,7 @@ const BioactivityTable = ({
     effectiveUnitParam,
     categoryFilterParam,
     effectiveSourceKindParam,
+    effectiveEvidenceTypeParam,
   ]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -544,6 +593,36 @@ const BioactivityTable = ({
                 count={count}
                 selected={selectedCategories.includes(category)}
                 onClick={() => toggleCategory(category)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {evidenceTypeOptions.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="font-mono italic text-[11px] uppercase tracking-wider text-light-400 min-w-[3.5rem]">
+              Evidence
+            </span>
+            {selectedEvidenceTypes.length > 0 && (
+              <button
+                type="button"
+                onClick={clearEvidenceTypes}
+                className="text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
+              >
+                clear
+              </button>
+            )}
+          </div>
+          <div className="flex flex-col -mx-1">
+            {evidenceTypeOptions.map(({ evidence_type, count }) => (
+              <UnitRow
+                key={evidence_type}
+                unit={evidence_type}
+                count={count}
+                selected={selectedEvidenceTypes.includes(evidence_type)}
+                onClick={() => toggleEvidenceType(evidence_type)}
               />
             ))}
           </div>

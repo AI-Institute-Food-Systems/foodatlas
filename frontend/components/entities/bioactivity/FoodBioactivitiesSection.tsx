@@ -22,6 +22,7 @@ interface Props {
   externalSearch?: string;
   externalSourceKind?: string;
   externalUnit?: string;
+  externalEvidenceType?: string;
   hideChrome?: boolean;
   // Passthrough to the underlying BioactivityTable so a parent can
   // aggregate direct + inferred totals for the tab badge.
@@ -35,6 +36,7 @@ const FoodBioactivitiesSection = ({
   externalSearch,
   externalSourceKind,
   externalUnit,
+  externalEvidenceType,
   hideChrome,
   onTotalRowsChange,
   tabIdForCount,
@@ -100,6 +102,7 @@ const FoodBioactivitiesSection = ({
         externalSearch={externalSearch}
         externalSourceKind={externalSourceKind}
         externalUnit={externalUnit}
+        externalEvidenceType={externalEvidenceType}
         hideChrome={hideChrome}
         modalConfig={{
           anchorLabel: commonName,

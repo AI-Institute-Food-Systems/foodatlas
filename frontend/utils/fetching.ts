@@ -346,10 +346,11 @@ export type BioactivityListParams = {
   // across matching measurements).
   filterEndpoint?: string;
   filterUnit?: string;
-  // Narrows rows to those whose `measurements` sample contains at least
-  // one entry with the given `evidence_type`. Per-row top_measurement
-  // is also recomputed from the filtered sample, so it reflects the
-  // active filter.
+  // Multi-select evidence-type filter ('+'-separated). Row qualifies
+  // if its `measurements` sample carries at least one entry with an
+  // `evidence_type` in the selected set (values: molecular-level,
+  // in vitro, in vivo, adme-tox). Per-row top_measurement is also
+  // recomputed from the filtered sample, so it reflects the filter.
   filterEvidenceType?: string;
   // Multi-select chemical classification filter ('+'-separated) applied
   // by /bioactivity/chemicals only; other list endpoints ignore it.
@@ -645,6 +646,35 @@ export async function getBioactivitySourceKindCounts(
     };
   } catch {
     return null;
+  }
+}
+
+// Per-evidence_type row counts for the sidebar Evidence filter. The
+// backend counts rows that carry at least one measurement of each
+// evidence type (NPASS-style: molecular-level / in vitro / in vivo /
+// adme-tox), same semantics as `_apply_evidence_type_filter` on the
+// paginated queries.
+export async function getBioactivityEvidenceTypeCounts(
+  commonName: string,
+  direction: string
+): Promise<{ evidence_type: string; count: number }[]> {
+  try {
+    const res = await fetch(
+      `${apiBase()}/bioactivity/evidence_types?common_name=${encodeURIComponent(
+        commonName
+      )}&direction=${encodeURIComponent(direction)}`,
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
+        },
+        next: { revalidate: 86400 },
+      }
+    );
+    if (!res.ok) return [];
+    const payload = await res.json();
+    return (payload?.data ?? []) as { evidence_type: string; count: number }[];
+  } catch {
+    return [];
   }
 }
 

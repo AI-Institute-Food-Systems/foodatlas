@@ -19,6 +19,7 @@
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 import {
+  MdCheck,
   MdChevronRight,
   MdClose,
   MdInfoOutline,
@@ -150,6 +151,10 @@ const BioactivityMeasurementsModal = ({
   const [searchTerm, setSearchTerm] = useState("");
   const [outcomeFilter, setOutcomeFilter] = useState<OutcomeFilter>("all");
   const [sourceFilter, setSourceFilter] = useState<string>("");
+  // Multi-select evidence-type filter. Values are whatever the backend
+  // labels rows with (NPASS-style: molecular-level / in vitro / in vivo
+  // / adme-tox). Empty array = no filter (show all).
+  const [evidenceTypeFilter, setEvidenceTypeFilter] = useState<string[]>([]);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   // Accordion expansion — at most one row open at a time. Stored by
@@ -162,6 +167,7 @@ const BioactivityMeasurementsModal = ({
     setSearchTerm("");
     setOutcomeFilter("all");
     setSourceFilter("");
+    setEvidenceTypeFilter([]);
     setMobileFiltersOpen(false);
     setCurrentPage(1);
     setExpandedKey(null);
@@ -229,8 +235,26 @@ const BioactivityMeasurementsModal = ({
     return counts;
   }, [rows, outcomeFilter, searchTerm]);
 
+  // Per-evidence_type row counts derived from the full row set. Sorted
+  // by count desc so the biggest bucket surfaces first — same ordering
+  // as the sidebar chip counts on the big BioactivityTable.
+  const evidenceTypeOptions = useMemo<
+    { evidence_type: string; count: number }[]
+  >(() => {
+    const counts = new Map<string, number>();
+    rows.forEach((r) => {
+      const et = (r.evidence_type ?? "").trim();
+      if (!et) return;
+      counts.set(et, (counts.get(et) ?? 0) + 1);
+    });
+    return Array.from(counts.entries())
+      .map(([evidence_type, count]) => ({ evidence_type, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [rows]);
+
   const filtered = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
+    const wantedEvidence = new Set(evidenceTypeFilter);
     return rows.filter((r) => {
       if (outcomeFilter !== "all") {
         const o = r.outcome?.toLowerCase().trim() ?? "";
@@ -239,13 +263,17 @@ const BioactivityMeasurementsModal = ({
       if (sourceFilter && !matchesSourceKind(r.evidence_source, sourceFilter)) {
         return false;
       }
+      if (wantedEvidence.size > 0) {
+        const et = (r.evidence_type ?? "").trim();
+        if (!wantedEvidence.has(et)) return false;
+      }
       if (term) {
         const haystack = `${r.assay ?? ""} ${r.endpoint ?? ""}`.toLowerCase();
         if (!haystack.includes(term)) return false;
       }
       return true;
     });
-  }, [rows, searchTerm, outcomeFilter, sourceFilter]);
+  }, [rows, searchTerm, outcomeFilter, sourceFilter, evidenceTypeFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   // Snap to page 1 when filters shrink the result set below the current page.
@@ -299,6 +327,16 @@ const BioactivityMeasurementsModal = ({
       }}
     />
   );
+  const toggleEvidenceType = (etype: string) => {
+    setEvidenceTypeFilter((prev) =>
+      prev.includes(etype) ? prev.filter((e) => e !== etype) : [...prev, etype]
+    );
+    setCurrentPage(1);
+  };
+  const clearEvidenceTypes = () => {
+    setEvidenceTypeFilter([]);
+    setCurrentPage(1);
+  };
   const filtersOnlyPanel = (
     <FiltersOnlyPanel
       outcomeFilter={outcomeFilter}
@@ -313,6 +351,10 @@ const BioactivityMeasurementsModal = ({
         setSourceFilter(s);
         setCurrentPage(1);
       }}
+      evidenceTypeOptions={evidenceTypeOptions}
+      selectedEvidenceTypes={evidenceTypeFilter}
+      onToggleEvidenceType={toggleEvidenceType}
+      onClearEvidenceTypes={clearEvidenceTypes}
       showSkeleton={showSkeleton}
     />
   );
@@ -505,10 +547,10 @@ const SearchInput = ({
   </div>
 );
 
-// Non-search filters — Outcome + Assay Source. Renders every option
-// (including zero-count ones) so the filter chrome stays stable; each
-// row's count reflects the FULL row set. Rendered inside the sidebar
-// (min-[1440px]) and inside the drawer (sub-1440px).
+// Non-search filters — Outcome + Evidence + Assay Source. Renders
+// every option (including zero-count ones) so the filter chrome stays
+// stable; each row's count reflects the FULL row set. Rendered inside
+// the sidebar (min-[1440px]) and inside the drawer (sub-1440px).
 const FiltersOnlyPanel = ({
   outcomeFilter,
   outcomeCounts,
@@ -516,6 +558,10 @@ const FiltersOnlyPanel = ({
   onOutcomeChange,
   sourceFilter,
   onSourceChange,
+  evidenceTypeOptions,
+  selectedEvidenceTypes,
+  onToggleEvidenceType,
+  onClearEvidenceTypes,
   showSkeleton,
 }: {
   outcomeFilter: OutcomeFilter;
@@ -524,6 +570,10 @@ const FiltersOnlyPanel = ({
   onOutcomeChange: (o: OutcomeFilter) => void;
   sourceFilter: string;
   onSourceChange: (s: string) => void;
+  evidenceTypeOptions: { evidence_type: string; count: number }[];
+  selectedEvidenceTypes: string[];
+  onToggleEvidenceType: (etype: string) => void;
+  onClearEvidenceTypes: () => void;
   showSkeleton: boolean;
 }) => (
   <div className="flex flex-col gap-5">
@@ -551,6 +601,36 @@ const FiltersOnlyPanel = ({
         })}
       </div>
     </div>
+    {evidenceTypeOptions.length > 0 && (
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="font-mono italic text-[11px] uppercase tracking-wider text-light-400">
+            Evidence
+          </span>
+          {selectedEvidenceTypes.length > 0 && (
+            <button
+              type="button"
+              onClick={onClearEvidenceTypes}
+              className="text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
+            >
+              clear
+            </button>
+          )}
+        </div>
+        <div className="flex flex-col -mx-1">
+          {evidenceTypeOptions.map(({ evidence_type, count }) => (
+            <CheckRow
+              key={evidence_type}
+              label={evidence_type}
+              count={count}
+              selected={selectedEvidenceTypes.includes(evidence_type)}
+              disabled={showSkeleton}
+              onClick={() => onToggleEvidenceType(evidence_type)}
+            />
+          ))}
+        </div>
+      </div>
+    )}
     <div className="flex flex-col gap-1.5">
       <span className="font-mono italic text-[11px] uppercase tracking-wider text-light-400">
         Assay Source
@@ -637,6 +717,57 @@ const RadioRow = ({
   </button>
 );
 
+const CheckRow = ({
+  label,
+  count,
+  selected,
+  disabled,
+  onClick,
+}: {
+  label: string;
+  count?: number;
+  selected: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    disabled={disabled}
+    aria-pressed={selected}
+    aria-disabled={disabled || undefined}
+    className={twMerge(
+      "group w-full flex items-center gap-2 pl-1 pr-2 py-1 rounded transition-colors text-left disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent",
+      selected
+        ? "text-light-100 hover:bg-light-900/70"
+        : "text-light-400 hover:text-light-100 hover:bg-light-900/50",
+    )}
+  >
+    <span
+      aria-hidden
+      className={twMerge(
+        "w-3.5 h-3.5 rounded-[3px] border flex-shrink-0 flex items-center justify-center transition-colors",
+        selected
+          ? "border-accent-600 bg-accent-600/20 text-accent-600"
+          : "border-light-700 group-hover:border-light-500",
+      )}
+    >
+      {selected && <MdCheck className="w-3 h-3" />}
+    </span>
+    <span className="font-mono text-xs flex-1 min-w-0 truncate">{label}</span>
+    {typeof count === "number" && (
+      <span
+        className={twMerge(
+          "tabular-nums text-[10px] flex-shrink-0",
+          selected ? "text-light-400" : "text-light-500",
+        )}
+      >
+        {count.toLocaleString()}
+      </span>
+    )}
+  </button>
+);
+
 const MeasurementsTable = ({
   rows,
   placeholderCount,
@@ -669,21 +800,22 @@ const MeasurementsTable = ({
     {/* Desktop table */}
     <table className="hidden md:table w-full table-fixed">
       <colgroup>
-        <col className="w-[28%]" />
-        <col className="w-[16%]" />
+        <col className="w-[24%]" />
+        <col className="w-[14%]" />
         <col className="w-[10%]" />
         <col className="w-[12%]" />
-        <col className="w-[34%]" />
+        <col className="w-[14%]" />
+        <col className="w-[26%]" />
       </colgroup>
       <thead className="text-light-400 text-left sticky top-0 z-10 bg-light-950">
         <tr>
-          {["Assay", "Endpoint", "Outcome", "Source", "Value"].map(
-            (h, idx) => (
+          {["Assay", "Endpoint", "Outcome", "Source", "Evidence", "Value"].map(
+            (h, idx, arr) => (
               <th
                 key={h}
                 className={twMerge(
                   "h-9 border-b border-light-700 leading-none py-1.5 px-2 first:pl-0 last:pr-0 bg-light-950",
-                  idx === 4 && "text-right",
+                  idx === arr.length - 1 && "text-right",
                 )}
               >
                 <span className="select-none uppercase text-xs font-medium">
@@ -721,6 +853,15 @@ const MeasurementsTable = ({
                 </td>
                 <td className="py-1.5 px-2 align-top">
                   <SourceBadge source={m.evidence_source} />
+                </td>
+                <td className="py-1.5 px-2 align-top text-light-200">
+                  {m.evidence_type ? (
+                    <span className="font-mono text-xs capitalize">
+                      {m.evidence_type}
+                    </span>
+                  ) : (
+                    <span className="text-light-600">—</span>
+                  )}
                 </td>
                 <td className="py-1.5 pl-2 align-top">
                   <div className="flex items-center justify-between gap-3">
@@ -767,7 +908,7 @@ const MeasurementsTable = ({
               {isExpanded && (
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={6}
                     className="py-3 px-3 bg-light-900/30 border-l-2 border-l-accent-600 border-b border-light-700/40"
                   >
                     <ExpandedHillFit m={m} />
@@ -779,7 +920,7 @@ const MeasurementsTable = ({
         })}
         {Array.from({ length: padCount }).map((_, i) => (
           <tr key={`pad-${i}`}>
-            <td className="py-1.5 pr-2" colSpan={5}>
+            <td className="py-1.5 pr-2" colSpan={6}>
               {skeleton ? (
                 <LoadingCard className="h-5" />
               ) : (
@@ -844,6 +985,14 @@ const MeasurementsTable = ({
                     Source
                   </span>
                   <SourceBadge source={m.evidence_source} />
+                </div>
+                <div className="w-full flex items-baseline justify-between gap-2">
+                  <span className="font-mono italic text-[10px] uppercase tracking-wider text-light-500">
+                    Evidence
+                  </span>
+                  <span className="text-light-200 text-right font-mono text-xs capitalize">
+                    {m.evidence_type || "—"}
+                  </span>
                 </div>
                 {canExpand && (
                   <div className="w-full flex justify-end">
