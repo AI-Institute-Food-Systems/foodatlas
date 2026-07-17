@@ -112,9 +112,11 @@ def _attach_top_measurement(
         # itself is already filtered in the SQL via EXISTS, so this is
         # purely display.
         if evidence_type:
-            cleaned = [
-                m for m in cleaned if (m.get("evidence_type") or "") == evidence_type
-            ]
+            wanted = {t.strip() for t in evidence_type.split("+") if t.strip()}
+            if wanted:
+                cleaned = [
+                    m for m in cleaned if (m.get("evidence_type") or "") in wanted
+                ]
         # Same treatment for the single-select Assay Source filter:
         # keep only measurements matching the selected kind so the
         # displayed "N assays" (and top_measurement, and the modal
@@ -191,13 +193,22 @@ def _apply_evidence_type_filter(
     filter_evidence_type: str,
     measurements_col: str = "measurements",
 ) -> None:
+    """Multi-select evidence-type filter ('+'-separated).
+
+    Row qualifies when its measurements sample carries at least one
+    entry whose ``evidence_type`` is in the selected set (e.g.
+    ``in vitro+in vivo``). A single value still works (one-element set).
+    """
     if not filter_evidence_type:
+        return
+    types = [t.strip() for t in filter_evidence_type.split("+") if t.strip()]
+    if not types:
         return
     where_parts.append(
         f"EXISTS (SELECT 1 FROM jsonb_array_elements({measurements_col}) m"
-        " WHERE m->>'evidence_type' = :et)"
+        " WHERE m->>'evidence_type' = ANY(:ets))"
     )
-    params["et"] = filter_evidence_type
+    params["ets"] = types
 
 
 def _apply_source_kind_filter(
@@ -544,6 +555,7 @@ async def get_food_inferred_bioactivities(
     rows_per_page: int = ROWS_PER_PAGE_DEFAULT,
     filter_source_kind: str = "",
     filter_unit: str = "",
+    filter_evidence_type: str = "",
 ) -> dict[str, object]:
     """Bioactivities of the chemicals found in this food (transitive)."""
     sort_col = _INFERRED_SORT.get(sort_by, _INFERRED_SORT["concentration"])
@@ -557,6 +569,9 @@ async def get_food_inferred_bioactivities(
         )
         params["q"] = f"%{search}%"
     _apply_source_kind_filter(where_parts, filter_source_kind, "cb.measurements")
+    _apply_evidence_type_filter(
+        where_parts, params, filter_evidence_type, "cb.measurements"
+    )
     _apply_endpoint_unit_filter(
         where_parts,
         params,
@@ -601,6 +616,7 @@ async def get_food_inferred_bioactivities(
     )
     data = _attach_top_measurement(
         [dict(r._mapping) for r in rows_result],
+        evidence_type=filter_evidence_type,
         source_kind=filter_source_kind,
     )
     return {
@@ -939,6 +955,73 @@ async def get_source_kind_counts(
             "predicted": int(row.predicted or 0) if row else 0,
         }
     }
+
+
+async def get_evidence_type_counts(
+    session: AsyncSession, common_name: str, direction: str
+) -> dict[str, object]:
+    """Per-evidence_type row counts for the sidebar Evidence filter.
+
+    Evidence types come from the NPASS-style heuristic column
+    (``evidence_type`` on ``base_attestations_bioactivity``): typical
+    values are "molecular-level", "in vitro", "in vivo", "adme/tox".
+    Counts are how many rows the paginated MV would return that have
+    AT LEAST ONE measurement of that evidence type — same semantics as
+    ``_apply_evidence_type_filter`` so the chip counts and the filter
+    behavior stay in sync.
+
+    ``food-inferred-bioactivities`` uses the same
+    ``mv_food_chemical_composition`` ⨝ ``mv_chemical_bioactivity`` join
+    the paginated inferred query does so its counts match that row set
+    exactly.
+    """
+    if direction == "food-inferred-bioactivities":
+        result = await session.execute(
+            text("""
+                SELECT evidence_type, COUNT(*) AS count
+                FROM (
+                    SELECT DISTINCT
+                        fcc.food_foodatlas_id,
+                        cb.chemical_foodatlas_id,
+                        cb.bioactivity_foodatlas_id,
+                        m->>'evidence_type' AS evidence_type
+                    FROM mv_food_chemical_composition fcc
+                    JOIN mv_chemical_bioactivity cb
+                      ON cb.chemical_foodatlas_id
+                       = fcc.chemical_foodatlas_id,
+                    LATERAL jsonb_array_elements(cb.measurements) AS m
+                    WHERE fcc.food_name = :name
+                ) AS x
+                WHERE evidence_type IS NOT NULL AND evidence_type <> ''
+                GROUP BY evidence_type
+                ORDER BY count DESC
+            """),
+            {"name": common_name},
+        )
+    else:
+        info = _SOURCE_KIND_DIRECTIONS.get(direction)
+        if info is None:
+            return {"data": [], "metadata": {"row_count": 0}}
+        mv, name_col = info
+        result = await session.execute(
+            text(f"""
+                SELECT evidence_type, COUNT(*) AS count
+                FROM (
+                    SELECT DISTINCT
+                        mv.ctid,
+                        m->>'evidence_type' AS evidence_type
+                    FROM {mv} AS mv,
+                    LATERAL jsonb_array_elements(mv.measurements) AS m
+                    WHERE mv.{name_col} = :name
+                ) AS x
+                WHERE evidence_type IS NOT NULL AND evidence_type <> ''
+                GROUP BY evidence_type
+                ORDER BY count DESC
+            """),
+            {"name": common_name},
+        )
+    data = [dict(r._mapping) for r in result]
+    return {"data": data, "metadata": {"row_count": len(data)}}
 
 
 # ---------------------------------------------------------------------

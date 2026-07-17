@@ -20,6 +20,7 @@ vi.mock("@/utils/fetching", () => ({
   getBioactivitySourceKindCounts: vi
     .fn()
     .mockResolvedValue({ both: 0, experimental: 0, predicted: 0 }),
+  getBioactivityEvidenceTypeCounts: vi.fn().mockResolvedValue([]),
 }));
 
 // next/navigation isn't mounted in the vitest jsdom env; Button uses

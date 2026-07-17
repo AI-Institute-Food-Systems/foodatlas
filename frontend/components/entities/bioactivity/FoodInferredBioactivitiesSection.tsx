@@ -66,6 +66,7 @@ interface Props {
   externalSearch?: string;
   externalSourceKind?: string;
   externalUnit?: string;
+  externalEvidenceType?: string;
   hideChrome?: boolean;
   // Fires whenever the filtered totalRows changes so a wrapper (the
   // Food Bioactivities tab) can sum direct + inferred for its tab badge.
@@ -79,6 +80,7 @@ const FoodInferredBioactivitiesSection = ({
   externalSearch,
   externalSourceKind,
   externalUnit,
+  externalEvidenceType,
   hideChrome = false,
   onTotalRowsChange,
 }: Props) => {
@@ -91,6 +93,7 @@ const FoodInferredBioactivitiesSection = ({
     externalSearch !== undefined ? externalSearch : searchTerm;
   const effectiveSourceKind = externalSourceKind ?? "";
   const effectiveUnit = externalUnit ?? "";
+  const effectiveEvidenceType = externalEvidenceType ?? "";
   const [sort, setSort] = useState<{ by: string; dir: SortDir }>({
     by: "concentration",
     dir: "desc",
@@ -117,6 +120,7 @@ const FoodInferredBioactivitiesSection = ({
         sortDir: sort.dir,
         filterSourceKind: effectiveSourceKind || undefined,
         filterUnit: effectiveUnit || undefined,
+        filterEvidenceType: effectiveEvidenceType || undefined,
       });
       if (cancelled) return;
       setRows((payload?.data as InferredRow[] | undefined) ?? []);
@@ -133,6 +137,7 @@ const FoodInferredBioactivitiesSection = ({
     effectiveSearchTerm,
     effectiveSourceKind,
     effectiveUnit,
+    effectiveEvidenceType,
     sort,
   ]);
 

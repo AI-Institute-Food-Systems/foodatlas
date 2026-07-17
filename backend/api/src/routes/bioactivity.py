@@ -143,6 +143,23 @@ async def bioactivity_source_kind_counts(
     )
 
 
+@router.get("/evidence_types")
+async def bioactivity_evidence_type_counts(
+    common_name: str = Query(...),
+    direction: str = Query(
+        ...,
+        description=(
+            "Pivot+relationship combo. Same set as /bioactivity/source_kinds: "
+            "bioactivity-chemicals, bioactivity-foods, chemical-bioactivities, "
+            "food-bioactivities, food-inferred-bioactivities."
+        ),
+    ),
+    db: AsyncSession = Depends(get_db),
+):
+    """Per-evidence_type row counts for the sidebar Evidence filter."""
+    return await bioactivity.get_evidence_type_counts(db, common_name, direction)
+
+
 @router.get("/measurements")
 async def bioactivity_measurements(
     head_id: str = Query(..., description="Chemical or food foodatlas_id"),
