@@ -130,6 +130,8 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
         ),
       ]);
       if (cancelled) return;
+      // eslint-disable-next-line no-console
+      console.log("[evidence-types]", { commonName, direct, inferred });
       const totals = new Map<string, number>();
       for (const o of [...direct, ...inferred]) {
         const t = (o.evidence_type ?? "").trim();
