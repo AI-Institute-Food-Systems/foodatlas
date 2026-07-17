@@ -8,7 +8,7 @@ import EntityAmbiguityBanner from "@/components/entities/EntityAmbiguityBanner";
 import { getMetaData } from "@/utils/fetching";
 
 const colorScheme = {
-  food: "text-amber-500 border-amber-500 bg-amber-500/10 shadow-amber-500/50",
+  food: "text-amber-600 border-amber-600 bg-amber-600/10 shadow-amber-600/50",
   chemical: "text-cyan-600 border-cyan-600 bg-cyan-600/10 shadow-cyan-600/50",
   disease:
     "text-purple-500 border-purple-500 bg-purple-500/10 shadow-purple-500/50",
@@ -17,7 +17,7 @@ const colorScheme = {
 };
 
 const icon = {
-  food: <FoodIcon color="#f59e0b" />,
+  food: <FoodIcon color="#d97706" />,
   chemical: <ChemicalIcon color="#0891b2" />,
   disease: <DiseaseIcon color="#a855f7" />,
   bioactivity: <BioactivityIcon color="#10b981" />,
@@ -35,36 +35,29 @@ const HeaderSection = async ({
   const data = await getMetaData(commonName, entityType);
 
   return (
-    <div id="entity-page-header">
-      {/* Two flex children so the ID pill can never overlap the name:
-       * left group takes remaining space with min-w-0 (lets break-words
-       * actually wrap on long chemical names), right group holds the ID
-       * and refuses to shrink.
-       *
-       * `id="entity-page-header"` is watched by <StickyOnScrollPast>
-       * (wrapping <EntitySubnavbar>) so the subnavbar only appears
-       * once this section has scrolled out of the viewport. */}
-      <div className="flex items-center gap-4">
-        <div className="flex-1 min-w-0 flex items-center gap-x-4 gap-y-2 flex-wrap">
-          <Badge
-            color={colorScheme[entityType]}
-            leftIcon={icon[entityType]}
-            size="md"
-          >
-            {entityType}
-          </Badge>
-          <Heading
-            type="h1"
-            className="capitalize text-3xl md:text-4xl font-semibold break-words leading-none min-w-0"
-          >
-            {commonName}
-          </Heading>
-        </div>
-        <span className="flex flex-col items-end leading-tight">
-          <span className="hidden md:inline font-mono italic text-[10px] uppercase tracking-[0.12em] text-light-500 whitespace-nowrap">
+    <div>
+      {/* one-line header band: badge left, entity name beside it, FoodAtlas
+       * id pinned right. items-center vertically aligns the smaller badge
+       * with the H1's optical center (not horizontally centered). */}
+      <div className="relative flex items-center gap-x-4 gap-y-2 flex-wrap pr-16 md:pr-24">
+        <Badge
+          color={colorScheme[entityType]}
+          leftIcon={icon[entityType]}
+          size="md"
+        >
+          {entityType}
+        </Badge>
+        <Heading
+          type="h1"
+          className="capitalize text-3xl md:text-4xl font-semibold break-words leading-none"
+        >
+          {commonName}
+        </Heading>
+        <span className="absolute right-0 top-1/2 -translate-y-1/2 flex items-baseline gap-1.5 whitespace-nowrap">
+          <span className="font-mono italic text-[10px] uppercase tracking-[0.12em] text-light-500">
             FoodAtlas ID
           </span>
-          <span className="font-mono italic text-xs text-light-300 whitespace-nowrap">
+          <span className="font-mono italic text-xs text-light-300">
             {data?.id ?? "—"}
           </span>
         </span>

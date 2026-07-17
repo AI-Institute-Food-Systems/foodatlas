@@ -17,7 +17,6 @@ import {
 import { twMerge } from "tailwind-merge";
 
 import Card from "@/components/basic/Card";
-import StickyCardHead from "@/components/entities/StickyCardHead";
 import Chip from "@/components/basic/Chip";
 import Link from "@/components/basic/Link";
 import Pagination from "@/components/basic/Pagination";
@@ -711,7 +710,7 @@ const FoodCompositionSection = ({
              * Wrapping the inner box in <Card> matches the tab card's
              * exact border/shadow/rounded so the sidebar and the
              * table frame read as siblings. */}
-            <div className="sticky top-[100px] md:top-[112px]">
+            <div className="sticky top-4">
               <Card>{filterPanel}</Card>
             </div>
           </aside>
@@ -755,15 +754,26 @@ const FoodCompositionSection = ({
               />
             </div>
           )}
-          {/* Sticky "top-of-card" chip carrying the column headers.
-           * Escapes the outer Card's padding via -mx/-mt inside
-           * StickyCardHead so its rounded corners + border align
-           * with the Card frame. Renders its own mini-table (colgroup
-           * + thead only) that mirrors the widths of the body table
-           * below via matching <colgroup>. Only md+; mobile has no
-           * column headers (uses a divided card list). */}
-          <StickyCardHead>
-            <table className="w-full table-fixed border-separate border-spacing-0">
+          {/* table — desktop only. Card list below covers mobile. */}
+          <div
+            ref={tableWrapperRef}
+            className="hidden md:block overflow-x-auto relative"
+          >
+            {highlightName && overlayRect && (
+              <div
+                aria-hidden
+                className={
+                  isDismissing
+                    ? "row-highlight-overlay is-dismissing"
+                    : "row-highlight-overlay"
+                }
+                style={{
+                  top: overlayRect.top - 3,
+                  height: overlayRect.height + 6,
+                }}
+              />
+            )}
+            <table className="w-full table-fixed">
               <colgroup>
                 <col className="w-[28%]" />
                 <col className="w-[15%]" />
@@ -772,10 +782,11 @@ const FoodCompositionSection = ({
               </colgroup>
               <thead className="text-light-400 text-left">
                 <tr>
+                  {/* table headers */}
                   {TABLE_HEADERS.map((header, index) => (
                     <th
                       key={index}
-                      className={`h-9 border-b border-b-light-700 leading-none break-all md:break-normal py-1.5 ${
+                      className={`h-9 border-b border-light-700 leading-none break-all md:break-normal py-1.5 ${
                         index === 0
                           ? "pr-4"
                           : index === TABLE_HEADERS.length - 1
@@ -817,36 +828,6 @@ const FoodCompositionSection = ({
                   ))}
                 </tr>
               </thead>
-            </table>
-          </StickyCardHead>
-
-          {/* Body table — desktop only. Card list below covers mobile.
-           * Mirrors the sticky head's colgroup widths so columns align. */}
-          <div
-            ref={tableWrapperRef}
-            className="hidden md:block relative"
-          >
-            {highlightName && overlayRect && (
-              <div
-                aria-hidden
-                className={
-                  isDismissing
-                    ? "row-highlight-overlay is-dismissing"
-                    : "row-highlight-overlay"
-                }
-                style={{
-                  top: overlayRect.top - 3,
-                  height: overlayRect.height + 6,
-                }}
-              />
-            )}
-            <table className="w-full table-fixed border-separate border-spacing-0">
-              <colgroup>
-                <col className="w-[28%]" />
-                <col className="w-[15%]" />
-                <col className="w-[37%]" />
-                <col className="w-[20%]" />
-              </colgroup>
               <tbody className="text-sm font-light">
                 {isLoading ? (
                   // loading skeleton

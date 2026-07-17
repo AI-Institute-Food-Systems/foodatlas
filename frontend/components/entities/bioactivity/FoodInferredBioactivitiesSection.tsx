@@ -186,7 +186,7 @@ const FoodInferredBioactivitiesSection = ({
        * parent (FoodBioactivitiesTab) hosts the shared chrome. */}
       {!hideChrome && (
         <aside className="hidden min-[1440px]:block absolute right-full mr-10 -top-[17px] bottom-0 w-48">
-          <div className="sticky top-[100px] md:top-[112px]">
+          <div className="sticky top-4">
             <Card>{searchInput}</Card>
           </div>
         </aside>
@@ -241,8 +241,8 @@ const FoodInferredBioactivitiesSection = ({
           />
         </div>
       )}
-      <div className="hidden md:block">
-        <table className="w-full table-fixed border-separate border-spacing-0">
+      <div className="hidden md:block overflow-x-auto">
+        <table className="w-full table-fixed">
           <colgroup>
             <col className="w-[24%]" />
             <col className="w-[20%]" />
@@ -250,7 +250,7 @@ const FoodInferredBioactivitiesSection = ({
             <col className="w-[22%]" />
             <col className="w-[16%]" />
           </colgroup>
-          <thead className="text-light-400 text-left sticky top-[100px] md:top-[112px] z-20 bg-light-950 shadow-[0_-12px_0_0_#0a0a09]">
+          <thead className="text-light-400 text-left">
             <tr>
               <SortableTh
                 label="Bioactivity"
@@ -274,7 +274,7 @@ const FoodInferredBioactivitiesSection = ({
                 onClick={handleSortClick}
                 align="right"
               />
-              <th className="h-9 border-t-[1.5px] border-t-light-50/[0.08] border-b border-b-light-700 leading-none py-1.5 px-4 text-right">
+              <th className="h-9 border-b border-light-700 leading-none py-1.5 px-4 text-right">
                 <span className="select-none uppercase text-xs font-medium text-light-400">
                   Top measurement
                 </span>
@@ -285,7 +285,6 @@ const FoodInferredBioactivitiesSection = ({
                 sort={sort}
                 onClick={handleSortClick}
                 align="right"
-                last
               />
             </tr>
           </thead>
@@ -443,7 +442,6 @@ const SortableTh = ({
   onClick,
   align,
   first,
-  last,
 }: {
   label: string;
   sortKey: string;
@@ -451,13 +449,12 @@ const SortableTh = ({
   onClick: (k: string) => void;
   align: "left" | "right";
   first?: boolean;
-  last?: boolean;
 }) => {
   const active = sort.by === sortKey;
   return (
     <th
-      className={`h-9 border-t-[1.5px] border-t-light-50/[0.08] border-b border-b-light-700 leading-none py-1.5 ${
-        first ? "pr-4 rounded-tl-xl" : last ? "px-4 rounded-tr-xl" : "px-4"
+      className={`h-9 border-b border-light-700 leading-none py-1.5 ${
+        first ? "pr-4" : "px-4"
       } ${align === "right" ? "text-right" : "text-left"}`}
     >
       <button

@@ -48,7 +48,7 @@ const FoodAtlasEvidence = ({ evidence }: FoodAtlasEvidenceProps) => {
 
             if (matchesWithGreek(part, matchingExtraction?.extracted_food_name)) {
               return (
-                <span key={index} className="text-amber-500 bg-amber-500/10">
+                <span key={index} className="text-amber-600 bg-amber-600/10">
                   {part}
                 </span>
               );

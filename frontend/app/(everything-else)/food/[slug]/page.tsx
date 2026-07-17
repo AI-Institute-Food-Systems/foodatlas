@@ -10,8 +10,6 @@ import EntityDetailLayout from "@/components/entities/EntityDetailLayout";
 import EntityOverviewPanel from "@/components/entities/EntityOverviewPanel";
 import EntityOverviewPanelSuspense from "@/components/entities/EntityOverviewPanelSuspense";
 import EntityPageGate from "@/components/entities/EntityPageGate";
-import EntitySubnavbar from "@/components/entities/EntitySubnavbar";
-import StickyOnScrollPast from "@/components/entities/StickyOnScrollPast";
 import {
   getFoodBioactivities,
   getFoodCompositionData,
@@ -86,9 +84,6 @@ const FoodPage = async ({ params }: FoodPageProps) => {
       <Suspense fallback={<HeaderSectionSuspense entityType={entityType} />}>
         <HeaderSection commonName={commonName} entityType={entityType} />
       </Suspense>
-      <StickyOnScrollPast targetId="entity-tab-strip-sentinel">
-        <EntitySubnavbar commonName={commonName} entityType={entityType} />
-      </StickyOnScrollPast>
       <EntityDetailLayout
         entityType={entityType}
         defaultTabId="composition"

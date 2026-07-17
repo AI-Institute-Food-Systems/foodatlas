@@ -601,7 +601,7 @@ const BioactivityTable = ({
        * hosts the shared search+filter chrome (hideChrome). */}
       {!hideChrome && (
         <aside className="hidden min-[1440px]:block absolute right-full mr-10 -top-[17px] bottom-0 w-48">
-          <div className="sticky top-[100px] md:top-[112px]">
+          <div className="sticky top-4">
             <Card>{filterPanel}</Card>
           </div>
         </aside>
@@ -656,14 +656,14 @@ const BioactivityTable = ({
           />
         </div>
       )}
-      <div className="hidden md:block">
-        <table className="w-full table-fixed border-separate border-spacing-0">
+      <div className="hidden md:block overflow-x-auto">
+        <table className="w-full table-fixed">
           <colgroup>
             {columns.map((c) => (
               <col key={c.key} className={c.width} />
             ))}
           </colgroup>
-          <thead className="text-light-400 text-left sticky top-[100px] md:top-[112px] z-20 bg-light-950 shadow-[0_-12px_0_0_#0a0a09]">
+          <thead className="text-light-400 text-left">
             <tr>
               {columns.map((c, idx) => {
                 // The Assays column gets a "(experimental)" /
@@ -678,11 +678,11 @@ const BioactivityTable = ({
                 return (
                   <th
                     key={c.key}
-                    className={`h-9 border-t-[1.5px] border-t-light-50/[0.08] border-b border-b-light-700 leading-none break-all md:break-normal py-1.5 ${
+                    className={`h-9 border-b border-light-700 leading-none break-all md:break-normal py-1.5 ${
                       idx === 0
-                        ? "pr-4 rounded-tl-xl"
+                        ? "pr-4"
                         : idx === columns.length - 1
-                        ? "pl-4 rounded-tr-xl"
+                        ? "pl-4"
                         : "px-4"
                     } ${c.align === "right" ? "text-right" : "text-left"}`}
                   >

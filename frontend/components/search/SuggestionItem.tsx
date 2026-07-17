@@ -13,7 +13,7 @@ import { encodeSpace } from "@/utils/utils";
 // Same icon colours as HeaderSection so the type marker in the search
 // dropdown reads as the same visual language as the entity page.
 const entityIcon: Record<string, React.ReactNode> = {
-  food:        <FoodIcon color="#f59e0b" />,
+  food:        <FoodIcon color="#d97706" />,
   chemical:    <ChemicalIcon color="#0891b2" />,
   disease:     <DiseaseIcon color="#a855f7" />,
   bioactivity: <BioactivityIcon color="#10b981" />,

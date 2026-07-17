@@ -39,7 +39,7 @@
 
     <style>
       /* Node pills — outline + tinted fill + inset shadow like Badge.tsx */
-      .node-food      { fill: rgba(245,158,11,0.10); stroke: #f59e0b; color: #f59e0b; }
+      .node-food      { fill: rgba(217,119,6,0.10);  stroke: #d97706; color: #d97706; }
       .node-chemical  { fill: rgba(8,145,178,0.10);  stroke: #0891b2; color: #0891b2; }
       .node-disease   { fill: rgba(168,85,247,0.10); stroke: #a855f7; color: #a855f7; }
       .node-bioact    { fill: rgba(16,185,129,0.10); stroke: #10b981; color: #10b981; }
@@ -125,7 +125,7 @@
   <g class="node-food" transform="translate(55, 55)">
     <rect class="node-food" width="120" height="40" rx="20" stroke-width="1.5" />
     <use href="#icon-food" x="12" y="12" width="16" height="16" />
-    <text class="node-label" x="72" y="26" text-anchor="middle" fill="#f59e0b">Food</text>
+    <text class="node-label" x="72" y="26" text-anchor="middle" fill="#d97706">Food</text>
   </g>
 
   <!-- Chemical -->

@@ -43,7 +43,7 @@ const EXAMPLES: {
     type: "food",
     label: "Strawberry",
     slug: "strawberry",
-    icon: <FoodIcon color="#f59e0b" />,
+    icon: <FoodIcon color="#d97706" />,
   },
   {
     type: "chemical",

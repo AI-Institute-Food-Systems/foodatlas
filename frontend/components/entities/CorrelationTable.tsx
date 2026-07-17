@@ -102,19 +102,19 @@ const CorrelationTable = ({
     <>
       <div>
         {/* table — desktop */}
-        <div className="hidden md:block">
-          <table className="w-full table-fixed border-separate border-spacing-0">
+        <div className="hidden md:block overflow-x-auto">
+          <table className="w-full table-fixed">
             {/* table headers */}
-            <thead className="text-light-400 text-left sticky top-[100px] md:top-[112px] z-20 bg-light-950 shadow-[0_-12px_0_0_#0a0a09]">
+            <thead className="text-light-400 text-left">
               <tr>
                 {headers.map((header, index) => (
                   <th
                     key={index}
-                    className={`h-9 border-t-[1.5px] border-t-light-50/[0.08] border-b border-b-light-700 leading-none break-all md:break-normal py-1.5 ${
+                    className={`h-9 border-b border-light-700 leading-none break-all md:break-normal py-1.5 ${
                       index === 0
-                        ? "pr-4 rounded-tl-xl"
+                        ? "pr-4"
                         : index === headers.length - 1
-                        ? "pl-4 text-right rounded-tr-xl"
+                        ? "pl-4 text-right"
                         : "px-4"
                     }`}
                   >

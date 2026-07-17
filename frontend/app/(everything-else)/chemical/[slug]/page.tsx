@@ -11,8 +11,6 @@ import EntityOverviewPanel from "@/components/entities/EntityOverviewPanel";
 import EntityOverviewPanelSuspense from "@/components/entities/EntityOverviewPanelSuspense";
 import ChemicalCompositionSectionSuspense from "@/components/entities/chemical/ChemicalCompositionSectionSuspense";
 import EntityPageGate from "@/components/entities/EntityPageGate";
-import EntitySubnavbar from "@/components/entities/EntitySubnavbar";
-import StickyOnScrollPast from "@/components/entities/StickyOnScrollPast";
 import {
   getChemicalBioactivities,
   getChemicalCompositionData,
@@ -64,9 +62,6 @@ const ChemicalPage = async ({ params }: ChemicalPageProps) => {
       <Suspense fallback={<HeaderSectionSuspense entityType={entityType} />}>
         <HeaderSection commonName={commonName} entityType={entityType} />
       </Suspense>
-      <StickyOnScrollPast targetId="entity-tab-strip-sentinel">
-        <EntitySubnavbar commonName={commonName} entityType={entityType} />
-      </StickyOnScrollPast>
       <EntityDetailLayout
         entityType={entityType}
         defaultTabId="composition"

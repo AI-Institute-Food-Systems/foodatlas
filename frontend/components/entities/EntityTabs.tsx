@@ -90,11 +90,6 @@ const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
 
   return (
     <TabGroup selectedIndex={selectedIndex} onChange={handleChange}>
-      {/* Sentinel used by <StickyOnScrollPast> — its viewport-y position
-       * matches the tab strip's natural top, so subnav reveal fires at
-       * the same scroll depth as the tabs sticking. */}
-      <div id="entity-tab-strip-sentinel" aria-hidden />
-
       {/* Tabs sit on top of the card as apothecary-jar labels: cream chips
        * affixed to the top of a dark cabinet. Selected chip = cream fill,
        * unselected = dark slab with a visible border. -mb-[2px] pulls all
@@ -105,11 +100,8 @@ const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
        * left, and we can't fix that from CSS. Listbox gives full
        * control of trigger and popup positioning. Options carry the
        * count as "· 42" (matching the chip badges) and zero-count
-       * options are disabled.
-       *
-       * No sticky: <SubnavbarTabSelector> in <EntitySubnavbar> takes
-       * over "which tab" once the user scrolls past this strip. */}
-      <div className="sm:hidden mb-2">
+       * options are disabled. */}
+      <div className="sm:hidden mb-2 pl-1">
         <Listbox value={selectedIndex} onChange={handleChange}>
           <div className="relative">
             <ListboxButton className="w-full font-mono italic text-sm font-medium bg-light-200 text-light-900 rounded-md pl-3 pr-9 py-2 border-[1.5px] border-light-200 shadow-[inset_0_1px_2px_rgba(255,249,242,0.5)] focus:outline-none focus:ring-1 focus:ring-accent-500 text-left">
@@ -151,13 +143,7 @@ const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
         </Listbox>
       </div>
 
-      {/* Desktop tab strip — non-sticky, sits atop the Card so the
-       * cabinet-chip metaphor stays intact. Once the user scrolls past,
-       * <SubnavbarTabSelector> inside <EntitySubnavbar> becomes the
-       * "which tab am I on / switch to another" affordance instead. */}
-      <div className="hidden sm:block">
-        <div className="mx-auto max-w-5xl">
-          <TabList className="flex items-end gap-1.5 pl-3">
+      <TabList className="hidden sm:flex items-end gap-1.5 pl-3">
         {tabs.map((tab) => (
           <Tab
             key={tab.id}
@@ -204,9 +190,7 @@ const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
             )}
           </Tab>
         ))}
-          </TabList>
-        </div>
-      </div>
+      </TabList>
 
       <Card>
         <TabPanels>
