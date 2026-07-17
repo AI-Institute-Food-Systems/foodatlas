@@ -16,6 +16,7 @@ import FoodBioactivitiesSection from "@/components/entities/bioactivity/FoodBioa
 import FoodInferredBioactivitiesSection from "@/components/entities/bioactivity/FoodInferredBioactivitiesSection";
 import {
   getBioactivityEndpointOptions,
+  getBioactivityEvidenceTypeCounts,
   getBioactivitySourceKindCounts,
 } from "@/utils/fetching";
 import { usePublishTabCount } from "@/context/tabCountsContext";
@@ -40,6 +41,12 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
   const [showAllUnits, setShowAllUnits] = useState(false);
   const [unitOptions, setUnitOptions] = useState<
     { unit: string; count: number }[]
+  >([]);
+  const [selectedEvidenceTypes, setSelectedEvidenceTypes] = useState<string[]>(
+    []
+  );
+  const [evidenceTypeOptions, setEvidenceTypeOptions] = useState<
+    { evidence_type: string; count: number }[]
   >([]);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
@@ -106,6 +113,39 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
 
   const sourceKindParam = selectedSourceKind;
   const unitParam = selectedUnits.join("+");
+  const evidenceTypeParam = selectedEvidenceTypes.join("+");
+
+  // Aggregated evidence-type counts across BOTH tables (direct +
+  // inferred). Each direction returns a list of {evidence_type, count};
+  // we merge on evidence_type and re-sort by summed count.
+  useEffect(() => {
+    if (!commonName) return;
+    let cancelled = false;
+    (async () => {
+      const [direct, inferred] = await Promise.all([
+        getBioactivityEvidenceTypeCounts(commonName, "food-bioactivities"),
+        getBioactivityEvidenceTypeCounts(
+          commonName,
+          "food-inferred-bioactivities"
+        ),
+      ]);
+      if (cancelled) return;
+      const totals = new Map<string, number>();
+      for (const o of [...direct, ...inferred]) {
+        const t = (o.evidence_type ?? "").trim();
+        if (!t) continue;
+        totals.set(t, (totals.get(t) ?? 0) + (o.count ?? 0));
+      }
+      setEvidenceTypeOptions(
+        Array.from(totals.entries())
+          .map(([evidence_type, count]) => ({ evidence_type, count }))
+          .sort((a, b) => b.count - a.count)
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [commonName]);
 
   // Aggregated unit list across BOTH tables — direct (food-level
   // measurements, usually just "mmol/100g") + inferred (all measurements
@@ -147,6 +187,12 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
     );
   };
   const clearUnits = () => setSelectedUnits([]);
+  const toggleEvidenceType = (etype: string) => {
+    setSelectedEvidenceTypes((prev) =>
+      prev.includes(etype) ? prev.filter((e) => e !== etype) : [...prev, etype]
+    );
+  };
+  const clearEvidenceTypes = () => setSelectedEvidenceTypes([]);
   const visibleUnits = showAllUnits
     ? unitOptions
     : unitOptions.slice(0, TOP_UNITS);
@@ -336,12 +382,75 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
   const isFiltersDirty =
     searchTerm !== "" ||
     selectedUnits.length > 0 ||
+    selectedEvidenceTypes.length > 0 ||
     selectedSourceKind !== "";
   const resetAllFilters = () => {
     setSearchTerm("");
     setSelectedUnits([]);
+    setSelectedEvidenceTypes([]);
     setSelectedSourceKind("");
   };
+
+  const evidenceFilter = evidenceTypeOptions.length > 0 && (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="font-mono italic text-[11px] uppercase tracking-wider text-light-400 min-w-[3.5rem]">
+          Evidence
+        </span>
+        {selectedEvidenceTypes.length > 0 && (
+          <button
+            type="button"
+            onClick={clearEvidenceTypes}
+            className="text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
+          >
+            clear
+          </button>
+        )}
+      </div>
+      <div className="flex flex-col -mx-1">
+        {evidenceTypeOptions.map(({ evidence_type, count }) => {
+          const selected = selectedEvidenceTypes.includes(evidence_type);
+          return (
+            <button
+              key={evidence_type}
+              type="button"
+              onClick={() => toggleEvidenceType(evidence_type)}
+              aria-pressed={selected}
+              className={twMerge(
+                "group w-full flex items-center gap-2 pl-1 pr-2 py-1 rounded transition-colors text-left",
+                selected
+                  ? "text-light-100 hover:bg-light-900/70"
+                  : "text-light-400 hover:text-light-100 hover:bg-light-900/50"
+              )}
+            >
+              <span
+                aria-hidden
+                className={twMerge(
+                  "w-3.5 h-3.5 rounded-[3px] border flex-shrink-0 flex items-center justify-center transition-colors",
+                  selected
+                    ? "border-accent-600 bg-accent-600/20 text-accent-600"
+                    : "border-light-700 group-hover:border-light-500"
+                )}
+              >
+                {selected && <MdCheck className="w-3 h-3" />}
+              </span>
+              <span className="font-mono text-xs flex-1 min-w-0 truncate">
+                {evidence_type}
+              </span>
+              <span
+                className={twMerge(
+                  "tabular-nums text-[10px] flex-shrink-0",
+                  selected ? "text-light-400" : "text-light-500"
+                )}
+              >
+                {count.toLocaleString()}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 
   const filterPanel = (
     <div className="flex flex-col gap-5">
@@ -358,6 +467,7 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
         </div>
       )}
       {unitFilter}
+      {evidenceFilter}
       {sourceFilter}
     </div>
   );
@@ -392,6 +502,7 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
         externalSearch={searchTerm}
         externalSourceKind={sourceKindParam}
         externalUnit={unitParam}
+        externalEvidenceType={evidenceTypeParam}
         hideChrome
         onTotalRowsChange={setDirectTotal}
       />
@@ -401,6 +512,7 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
         externalSearch={searchTerm}
         externalSourceKind={sourceKindParam}
         externalUnit={unitParam}
+        externalEvidenceType={evidenceTypeParam}
         hideChrome
         onTotalRowsChange={setInferredTotal}
       />
@@ -433,6 +545,7 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
               </button>
             </div>
             {unitFilter}
+            {evidenceFilter}
             {sourceFilter}
           </aside>
         </div>
