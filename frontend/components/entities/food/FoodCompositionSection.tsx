@@ -775,10 +775,10 @@ const FoodCompositionSection = ({
             )}
             <table className="w-full table-fixed">
               <colgroup>
-                <col className="w-[28%]" />
-                <col className="w-[15%]" />
-                <col className="w-[37%]" />
+                <col className="w-[30%]" />
                 <col className="w-[20%]" />
+                <col className="w-[25%]" />
+                <col className="w-[25%]" />
               </colgroup>
               <thead className="text-light-400 text-left">
                 <tr>
@@ -899,8 +899,10 @@ const FoodCompositionSection = ({
                             : "—"}
                         </div>
                       </td>
-                      {/* median concentration — bar + value + % of 100g by
-                       * mass (mg/100g → divide by 1000). Mirrors nutrition. */}
+                      {/* median concentration — value + % of the food's mass
+                       * (mg/100g → divide by 1000). Inline bar chart was
+                       * removed; the column now holds only the numbers so
+                       * it can sit at the same 25% width as siblings. */}
                       <td className="py-1.5 px-4">
                         <div className="flex min-h-9 items-center justify-end gap-3">
                           {(() => {
@@ -916,10 +918,6 @@ const FoodCompositionSection = ({
                               unit.replace(/\s+/g, "").toLowerCase() ===
                                 "mg/100g";
                             const pct = isMgPer100g ? v / 1000 : null;
-                            const barPct =
-                              pct === null
-                                ? 0
-                                : Math.max(2, Math.min(100, pct));
                             const fmtPct =
                               pct === null
                                 ? ""
@@ -930,30 +928,20 @@ const FoodCompositionSection = ({
                                 : `${pct.toFixed(2)}%`;
                             return (
                               <>
-                                <span
-                                  aria-hidden
-                                  className="relative hidden xl:inline-block h-1.5 w-32 shrink-0 rounded-full bg-light-800/70 overflow-hidden"
-                                >
-                                  {pct !== null && (
-                                    <span
-                                      className="absolute inset-y-0 left-0 rounded-full bg-accent-600/80"
-                                      style={{ width: `${barPct}%` }}
-                                    />
-                                  )}
-                                </span>
                                 <span className="font-mono text-xs text-light-200 whitespace-nowrap tabular-nums text-right min-w-[5rem]">
                                   {formatConcentrationValueAlt(v)}
                                 </span>
-                                {/* % of the food's mass — 1 mg/100g = 0.001% */}
-                                <span
-                                  className="font-mono text-xs text-light-500 whitespace-nowrap tabular-nums text-right min-w-[3.5rem]"
-                                  title="Percentage of the food's mass"
-                                >
-                                  {fmtPct}
-                                  <span className="ml-1 text-light-600">
-                                    by mass
+                                {fmtPct && (
+                                  <span
+                                    className="font-mono text-xs text-light-500 whitespace-nowrap tabular-nums text-right min-w-[3.5rem]"
+                                    title="Percentage of the food's mass"
+                                  >
+                                    {fmtPct}
+                                    <span className="ml-1 text-light-600">
+                                      by mass
+                                    </span>
                                   </span>
-                                </span>
+                                )}
                               </>
                             );
                           })()}
