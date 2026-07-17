@@ -38,8 +38,9 @@ SAMPLE_PAYLOAD = {
 
 class TestEvidenceTypesRoute:
     def test_returns_data_and_metadata(
-        self, client: TestClient, mock_db: AsyncMock  # noqa: ARG002
+        self, client: TestClient, mock_db: AsyncMock
     ) -> None:
+        del mock_db  # fixture must be requested to override the DB dep
         with patch(
             "src.repositories.bioactivity.get_evidence_type_counts",
             return_value=SAMPLE_PAYLOAD,
