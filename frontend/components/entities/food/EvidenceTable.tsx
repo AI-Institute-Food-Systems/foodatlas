@@ -242,14 +242,14 @@ const SourceBadge = ({ source }: { source: string }) => {
   return (
     <span
       className={twMerge(
-        "inline-flex items-center justify-center rounded-full border px-2 py-[0.05rem] text-[10px] font-mono uppercase tracking-wider",
+        "inline-flex items-center justify-center rounded-full border px-2 py-[0.05rem] text-[10px] font-mono tracking-wide whitespace-nowrap",
         isFdc
           ? "text-sky-400 border-sky-500/60 bg-sky-500/10"
-          : "text-amber-400 border-amber-500/60 bg-amber-500/10"
+          : "text-accent-400 border-accent-500/60 bg-accent-500/10"
       )}
       title={isFdc ? "USDA FDC database" : "FoodAtlas literature extraction"}
     >
-      {isFdc ? "FDC" : "FA"}
+      {isFdc ? "FDC" : "FoodAtlas"}
     </span>
   );
 };
@@ -382,12 +382,12 @@ const ExpandedPremise = ({ row }: { row: EvidenceRow }) => {
     [evidence]
   );
   return (
-    <div className="flex flex-col gap-2">
-      <p className="leading-snug font-serif italic text-light-200">
+    <div className="flex flex-col gap-1.5">
+      <p className="text-xs leading-snug font-serif italic text-light-300">
         &ldquo;{highlighted}&rdquo;
       </p>
       {evidence.reference.display_name && (
-        <p className="text-[11px] font-mono italic text-light-500">
+        <p className="text-[10px] font-mono italic text-light-500">
           — {evidence.reference.display_name}
         </p>
       )}
