@@ -153,6 +153,7 @@ async def food_inferred_bioactivities(
     sort_dir: str = Query("desc"),
     filter_source_kind: str = Query(""),
     filter_unit: str = Query(""),
+    filter_evidence_type: str = Query(""),
     db: AsyncSession = Depends(get_db),
 ):
     """Bioactivities inferred via the food's chemical composition.
@@ -171,4 +172,5 @@ async def food_inferred_bioactivities(
         sort_dir=sort_dir,
         filter_source_kind=filter_source_kind,
         filter_unit=filter_unit,
+        filter_evidence_type=filter_evidence_type,
     )
