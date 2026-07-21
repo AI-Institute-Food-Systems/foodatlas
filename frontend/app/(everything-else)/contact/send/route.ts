@@ -1,20 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
-import { fromWebToken } from "@aws-sdk/credential-providers";
-
-// On Vercel: exchange the injected VERCEL_OIDC_TOKEN for the shared
-// `aifs-mailer` IAM role via sts:AssumeRoleWithWebIdentity. Locally
-// (no OIDC token) fall through to the default provider chain so
-// developers can use `.env.local` static keys or `~/.aws` profiles.
-const oidcToken = process.env.VERCEL_OIDC_TOKEN;
-const roleArn = process.env.AWS_ROLE_ARN;
 
 const ses = new SESv2Client({
   region: process.env.AWS_REGION || "us-west-2",
-  credentials:
-    oidcToken && roleArn
-      ? fromWebToken({ roleArn, webIdentityToken: oidcToken })
-      : undefined,
 });
 
 const KNOWN_TOPICS = [
