@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-sesv2": "^3.1090.0",
+    "@aws-sdk/credential-providers": "^3.1091.0",
     "@headlessui/react": "^2.1.0",
     "@llm-ui/code": "^0.13.3",
     "@llm-ui/markdown": "^0.13.3",
