@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
 
-// AWS SES v2 client. Region + credentials come from the ambient AWS
-// environment on Vercel — either the Marketplace-provisioned OIDC
-// role or a static `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` pair
-// scoped to `ses:SendEmail`. Matches the pattern used by
-// preclinical-db so operators only maintain one mental model.
 const ses = new SESv2Client({
   region: process.env.AWS_REGION || "us-west-2",
 });
