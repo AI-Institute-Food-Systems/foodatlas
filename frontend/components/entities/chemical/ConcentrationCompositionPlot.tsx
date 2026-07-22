@@ -84,12 +84,30 @@ const ConcentrationCompositionPlot = ({ data, chemicalName }: DotPlotProps) => {
     setSortedData(sortedData);
   }, [data, sortOrder]);
 
-  // custom bar
+  // custom bar. In report-select mode, bars get an amber tint + dashed
+  // outline that echo the row-selection style used elsewhere — same
+  // vocabulary as the "clickable row" affordance in tables, so users
+  // recognise the plot as a reportable surface without extra chrome.
   const CustomBar = (props: BarProps) => {
     const { x, y, width, height } = props;
-
+    const fill = isSelectMode ? "#f59e0b" : "#0891b2";
+    const strokeProps = isSelectMode
+      ? {
+          stroke: "#fcd34d",
+          strokeWidth: 1,
+          strokeDasharray: "3 2",
+        }
+      : {};
     return (
-      <rect height={height} width={width} x={x} y={y} rx={2.5} fill="#0891b2" />
+      <rect
+        height={height}
+        width={width}
+        x={x}
+        y={y}
+        rx={2.5}
+        fill={fill}
+        {...strokeProps}
+      />
     );
   };
 
