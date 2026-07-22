@@ -21,8 +21,8 @@ import Chip from "@/components/basic/Chip";
 import Link from "@/components/basic/Link";
 import Pagination from "@/components/basic/Pagination";
 import LoadingCard from "@/components/basic/LoadingCard";
-import ReportIssueButton from "@/components/basic/ReportIssueButton";
 import SortListbox from "@/components/basic/SortListbox";
+import { useTableReporter } from "@/components/basic/useTableReporter";
 import { AmbiguityBadge } from "@/components/basic/Ambiguity";
 import { TrustBadge } from "@/components/basic/TrustBadge";
 import FoodCompositionEvidenceModal, {
@@ -123,6 +123,7 @@ const FoodCompositionSection = ({
   });
   const [showAllConcentrations, setShowAllConcentrations] = useState(true);
   const [showLowTrust, setShowLowTrust] = useState(false);
+  const reporter = useTableReporter({ targetLabel: "chemical" });
   const [selectedEvidenceName, setSelectedEvidenceName] = useState("");
   const [evidenceFilter, setEvidenceFilter] =
     useState<EvidenceFilter>("all");
@@ -755,6 +756,10 @@ const FoodCompositionSection = ({
               />
             </div>
           )}
+          {/* Report-issue toolbar — same trigger drives both desktop
+           * table and mobile card list. */}
+          <div className="flex justify-end">{reporter.trigger}</div>
+          {reporter.banner}
           {/* table — desktop only. Card list below covers mobile. */}
           <div
             ref={tableWrapperRef}
@@ -860,10 +865,19 @@ const FoodCompositionSection = ({
                       !!highlightName &&
                       (row.name.toLowerCase() === highlightName ||
                         (row.id ?? "").toLowerCase() === highlightName);
+                    const rowReportProps = reporter.getRowProps({
+                      kind: "food-composition-row",
+                      entityType: "food",
+                      entitySlug: commonName,
+                      chemicalId: row.id,
+                      chemicalName: row.name,
+                      dataPointCount: getRowEvidenceCount(row),
+                    });
                     return (
                     <tr
                       key={row.id}
                       ref={isHighlighted ? highlightRowRef : null}
+                      {...rowReportProps}
                     >
                       {/* name */}
                       <td className="py-1.5 pr-4">
@@ -950,7 +964,7 @@ const FoodCompositionSection = ({
                       </td>
                       {/* evidence */}
                       <td className="py-1.5 pl-4">
-                        <div className="flex min-h-9 items-center justify-end gap-2">
+                        <div className="flex min-h-9 items-center justify-end">
                           <Chip
                             icon={<MdDescription className="size-3" />}
                             label={`${getRowEvidenceCount(row)} data point${
@@ -962,16 +976,6 @@ const FoodCompositionSection = ({
                               handleEvidenceButtonClick(event, row.name)
                             }
                             className="min-w-[9rem] justify-center"
-                          />
-                          <ReportIssueButton
-                            context={{
-                              kind: "food-composition-row",
-                              entityType: "food",
-                              entitySlug: commonName,
-                              chemicalName: row.name,
-                              dataPointCount: getRowEvidenceCount(row),
-                            }}
-                            ariaLabel={`Report issue with ${row.name} composition data`}
                           />
                         </div>
                       </td>
@@ -1043,14 +1047,26 @@ const FoodCompositionSection = ({
                     row.chemical_classification.length > 0
                       ? row.chemical_classification.join(", ")
                       : "—";
+                  const rowReportProps = reporter.getRowProps({
+                    kind: "food-composition-row",
+                    entityType: "food",
+                    entitySlug: commonName,
+                    chemicalId: row.id,
+                    chemicalName: row.name,
+                    dataPointCount: evidenceCount,
+                  });
                   return (
                     <div
                       key={row.id}
-                      className={`w-full py-3 flex flex-col gap-2 ${
-                        isHighlighted
-                          ? "bg-accent-500/5 -mx-2 px-2 rounded"
-                          : ""
-                      }`}
+                      {...rowReportProps}
+                      className={twMerge(
+                        `w-full py-3 flex flex-col gap-2 ${
+                          isHighlighted
+                            ? "bg-accent-500/5 -mx-2 px-2 rounded"
+                            : ""
+                        }`,
+                        rowReportProps.className,
+                      )}
                     >
                       {/* Name row — same on both variants */}
                       <div className="flex items-center gap-2 flex-wrap capitalize">
@@ -1203,6 +1219,7 @@ const FoodCompositionSection = ({
           initialFilter={evidenceFilter}
         />
       </Portal>
+      {reporter.modal}
     </>
   );
 };

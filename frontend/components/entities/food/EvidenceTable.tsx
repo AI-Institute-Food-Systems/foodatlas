@@ -28,7 +28,7 @@ import { twMerge } from "tailwind-merge";
 
 import Button from "@/components/basic/Button";
 import Chip from "@/components/basic/Chip";
-import ReportIssueButton from "@/components/basic/ReportIssueButton";
+import { useTableReporter } from "@/components/basic/useTableReporter";
 import { AmbiguityIcon } from "@/components/basic/Ambiguity";
 import {
   FoodEvidence,
@@ -84,8 +84,22 @@ const PAGE_SIZE = 20;
 const EvidenceTable = ({ evidences, chemicalName }: Props) => {
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const reporter = useTableReporter({ targetLabel: "data point" });
   const toggle = (k: string) =>
     setExpandedKey((prev) => (prev === k ? null : k));
+
+  const buildRowContext = (r: EvidenceRow) => ({
+    kind: "food-composition-evidence" as const,
+    entityType: "food" as const,
+    attestationId: r.extraction.attestation_id,
+    extractedChemical: r.extraction.extracted_chemical_name ?? undefined,
+    extractedFood: r.extraction.extracted_food_name ?? undefined,
+    concentration:
+      typeof r.extraction.converted_concentration?.value === "number"
+        ? String(r.extraction.converted_concentration.value)
+        : undefined,
+    referenceUrl: r.evidence.reference.url,
+  });
 
   const rows = useMemo(() => {
     const flat = flattenEvidences(evidences);
@@ -131,6 +145,10 @@ const EvidenceTable = ({ evidences, chemicalName }: Props) => {
     // Modal offers; the inner scroll region keeps overflow inside the
     // modal instead of pushing the body past the panel bottom.
     <div className="flex-1 min-h-0 flex flex-col">
+      <div className="flex items-center justify-end mb-2 shrink-0">
+        {reporter.trigger}
+      </div>
+      {reporter.banner}
       <div className="flex-1 min-h-0 overflow-y-auto">
       {/* Desktop table -------------------------------------------------- */}
       <div className="hidden md:block">
@@ -164,16 +182,28 @@ const EvidenceTable = ({ evidences, chemicalName }: Props) => {
             {pagedRows.map((r) => {
               const expandable = r.evidence.premise?.length > 0;
               const isExpanded = expandedKey === r.key;
+              const rowReportProps = reporter.getRowProps(buildRowContext(r));
               return (
                 <Fragment key={r.key}>
                   <tr
-                    onClick={expandable ? () => toggle(r.key) : undefined}
+                    onClick={
+                      reporter.isSelectMode
+                        ? rowReportProps.onClick
+                        : expandable
+                        ? () => toggle(r.key)
+                        : undefined
+                    }
                     aria-expanded={expandable ? isExpanded : undefined}
                     className={twMerge(
                       "transition-colors border-b border-light-800/60",
                       expandable && "cursor-pointer hover:bg-light-900/40",
-                      isExpanded && "bg-light-900/50"
+                      isExpanded && "bg-light-900/50",
+                      rowReportProps.className,
                     )}
+                    role={rowReportProps.role}
+                    tabIndex={rowReportProps.tabIndex}
+                    onKeyDown={rowReportProps.onKeyDown}
+                    aria-label={rowReportProps["aria-label"]}
                   >
                     <td className="py-2 pr-2 align-top">
                       <SourceBadge source={r.evidence.reference.source_name} />
@@ -193,7 +223,6 @@ const EvidenceTable = ({ evidences, chemicalName }: Props) => {
                     <td className="py-2 pl-2 align-top">
                       <RowActions
                         row={r}
-                        chemicalName={chemicalName}
                         expandable={expandable}
                         expanded={isExpanded}
                         onToggle={() => toggle(r.key)}
@@ -222,8 +251,16 @@ const EvidenceTable = ({ evidences, chemicalName }: Props) => {
         {pagedRows.map((r) => {
           const expandable = r.evidence.premise?.length > 0;
           const isExpanded = expandedKey === r.key;
+          const rowReportProps = reporter.getRowProps(buildRowContext(r));
           return (
-            <div key={r.key} className="w-full py-3 flex flex-col gap-2 text-sm">
+            <div
+              key={r.key}
+              {...rowReportProps}
+              className={twMerge(
+                "w-full py-3 flex flex-col gap-2 text-sm",
+                rowReportProps.className,
+              )}
+            >
               <div className="w-full flex items-center justify-between gap-2 flex-wrap">
                 <div className="flex items-center gap-2 min-w-0">
                   <SourceBadge source={r.evidence.reference.source_name} />
@@ -237,7 +274,6 @@ const EvidenceTable = ({ evidences, chemicalName }: Props) => {
                 </div>
                 <RowActions
                   row={r}
-                  chemicalName={chemicalName}
                   expandable={expandable}
                   expanded={isExpanded}
                   onToggle={() => toggle(r.key)}
@@ -313,6 +349,7 @@ const EvidenceTable = ({ evidences, chemicalName }: Props) => {
           </Button>
         </div>
       )}
+      {reporter.modal}
     </div>
   );
 };
@@ -411,13 +448,11 @@ const TrustWarning = () => (
 
 const RowActions = ({
   row,
-  chemicalName,
   expandable,
   expanded,
   onToggle,
 }: {
   row: EvidenceRow;
-  chemicalName: string;
   expandable: boolean;
   expanded: boolean;
   onToggle: () => void;
@@ -438,24 +473,6 @@ const RowActions = ({
         {linkLabel}
         <MdOpenInNew className="size-3 shrink-0" aria-hidden />
       </a>
-      <ReportIssueButton
-        context={{
-          kind: "food-composition-evidence",
-          entityType: "food",
-          attestationId: row.extraction.attestation_id,
-          extractedChemical:
-            row.extraction.extracted_chemical_name ?? undefined,
-          extractedFood: row.extraction.extracted_food_name ?? undefined,
-          concentration:
-            typeof row.extraction.converted_concentration?.value === "number"
-              ? String(row.extraction.converted_concentration.value)
-              : undefined,
-          referenceUrl: row.evidence.reference.url,
-        }}
-        ariaLabel={`Report issue with extraction of ${
-          row.extraction.extracted_chemical_name || chemicalName
-        } from ${row.evidence.reference.display_name || "this source"}`}
-      />
       {expandable && (
         <Chip
           icon={

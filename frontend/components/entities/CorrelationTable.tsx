@@ -8,13 +8,14 @@ import {
   MdInfoOutline,
   MdRemove,
 } from "react-icons/md";
+import { twMerge } from "tailwind-merge";
 
 import Chip from "@/components/basic/Chip";
 import EntitySiblingIcon from "@/components/basic/EntitySiblingIcon";
 import Link from "@/components/basic/Link";
 import LoadingCard from "@/components/basic/LoadingCard";
 import Pagination from "@/components/basic/Pagination";
-import ReportIssueButton from "@/components/basic/ReportIssueButton";
+import { useTableReporter } from "@/components/basic/useTableReporter";
 import CorrelationEvidenceModal from "@/components/entities/CorrelationEvidenceModal";
 import { usePaginations } from "@/context/paginationsContext";
 import { useLoadingGate } from "@/context/pageReadyContext";
@@ -52,6 +53,7 @@ const CorrelationTable = ({
   const { getTablePaginations } = usePaginations();
   const { currentPage } = getTablePaginations(tableId);
   const [selectedRowIdx, setSelectedRowIdx] = useState(-1);
+  const reporter = useTableReporter({ targetLabel: "row" });
 
   // fetch data
   useEffect(() => {
@@ -102,6 +104,8 @@ const CorrelationTable = ({
   return (
     <>
       <div>
+        <div className="mb-2 flex justify-end">{reporter.trigger}</div>
+        {reporter.banner}
         {/* table — desktop */}
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full table-fixed">
@@ -154,7 +158,16 @@ const CorrelationTable = ({
               ) : data.length > 0 ? (
                 // data rows
                 data.map((row, rowIdx) => (
-                  <tr key={`${row.id}-${rowIdx}`}>
+                  <tr
+                    key={`${row.id}-${rowIdx}`}
+                    {...reporter.getRowProps({
+                      kind: "correlation-row",
+                      entityType: tableLocation as "chemical" | "disease",
+                      entitySlug: commonName,
+                      counterpartName: row.name,
+                      pmidCount: row.evidences.length,
+                    })}
+                  >
                     {/* source chemical (chemical page only) */}
                     {tableLocation === "chemical" && (
                       <td className="py-1.5 pr-4">
@@ -236,18 +249,6 @@ const CorrelationTable = ({
                               }
                             />
                           )}
-                          <ReportIssueButton
-                            context={{
-                              kind: "correlation-row",
-                              entityType: tableLocation as
-                                | "chemical"
-                                | "disease",
-                              entitySlug: commonName,
-                              counterpartName: row.name,
-                              pmidCount: row.evidences.length,
-                            }}
-                            ariaLabel={`Report issue with correlation for ${row.name}`}
-                          />
                         </div>
                       </div>
                     </td>
@@ -287,10 +288,22 @@ const CorrelationTable = ({
               refresh the page
             </div>
           ) : data.length > 0 ? (
-            data.map((row, rowIdx) => (
+            data.map((row, rowIdx) => {
+              const rowProps = reporter.getRowProps({
+                kind: "correlation-row",
+                entityType: tableLocation as "chemical" | "disease",
+                entitySlug: commonName,
+                counterpartName: row.name,
+                pmidCount: row.evidences.length,
+              });
+              return (
               <div
                 key={`${row.id}-${rowIdx}`}
-                className="w-full py-3 flex flex-col gap-2"
+                {...rowProps}
+                className={twMerge(
+                  "w-full py-3 flex flex-col gap-2",
+                  rowProps.className,
+                )}
               >
                 <div className="w-full flex items-center gap-2 flex-wrap capitalize">
                   <SignBadge />
@@ -332,30 +345,19 @@ const CorrelationTable = ({
                   <span className="font-mono italic text-[10px] uppercase tracking-wider text-light-500">
                     Evidence
                   </span>
-                  <div className="flex items-center gap-2">
-                    <Chip
-                      icon={<MdDescription className="size-3" />}
-                      label={`${row.evidences.length} PMID${
-                        row.evidences.length === 1 ? "" : "s"
-                      }`}
-                      tone="outline"
-                      size="md"
-                      onClick={() => handleEvidenceShowMoreClick(rowIdx)}
-                    />
-                    <ReportIssueButton
-                      context={{
-                        kind: "correlation-row",
-                        entityType: tableLocation as "chemical" | "disease",
-                        entitySlug: commonName,
-                        counterpartName: row.name,
-                        pmidCount: row.evidences.length,
-                      }}
-                      ariaLabel={`Report issue with correlation for ${row.name}`}
-                    />
-                  </div>
+                  <Chip
+                    icon={<MdDescription className="size-3" />}
+                    label={`${row.evidences.length} PMID${
+                      row.evidences.length === 1 ? "" : "s"
+                    }`}
+                    tone="outline"
+                    size="md"
+                    onClick={() => handleEvidenceShowMoreClick(rowIdx)}
+                  />
                 </div>
               </div>
-            ))
+              );
+            })
           ) : (
             <div className="w-full py-6 flex items-center justify-center text-light-300 gap-2">
               <MdInfoOutline /> No evidence found
@@ -394,6 +396,7 @@ const CorrelationTable = ({
         isOpen={selectedRowIdx >= 0}
         onClose={() => setSelectedRowIdx(-1)}
       />
+      {reporter.modal}
     </>
   );
 };

@@ -38,7 +38,7 @@ import Chip from "@/components/basic/Chip";
 import Link from "@/components/basic/Link";
 import LoadingCard from "@/components/basic/LoadingCard";
 import Modal from "@/components/basic/Modal";
-import ReportIssueButton from "@/components/basic/ReportIssueButton";
+import { useTableReporter } from "@/components/basic/useTableReporter";
 import HillCurveSparkline from "@/components/entities/bioactivity/HillCurveSparkline";
 import { getBioactivityMeasurements } from "@/utils/fetching";
 import { assayExternalUrl } from "@/utils/utils";
@@ -118,6 +118,7 @@ const BioactivityMeasurementsModal = ({
 }: Props) => {
   const [fullRows, setFullRows] = useState<ModalRow[] | null>(null);
   const [isFetching, setIsFetching] = useState(false);
+  const reporter = useTableReporter({ targetLabel: "measurement" });
 
   // Lazy-fetch full measurements on open. Resets on close so a subsequent
   // open re-fetches if the selection changed.
@@ -453,6 +454,11 @@ const BioactivityMeasurementsModal = ({
         </button>
       </div>
 
+      {/* Report-issue trigger + banner sit inside the same scroll area
+       * so they stay visible when the user is scanning measurements. */}
+      <div className="flex justify-end shrink-0">{reporter.trigger}</div>
+      {reporter.banner}
+
       {/* Scroll area — the row scaffolding pads out to PAGE_SIZE so
        * last-page + filtered-empty cases don't shrink the table. */}
       <div className="flex-1 min-h-0 overflow-y-auto relative">
@@ -464,9 +470,20 @@ const BioactivityMeasurementsModal = ({
           onToggleExpand={(k) =>
             setExpandedKey((prev) => (prev === k ? null : k))
           }
-          headLabel={headLabel}
-          tailLabel={tailLabel}
-          headIsRow={Boolean(headIsRow)}
+          getRowReportProps={(m) =>
+            reporter.getRowProps({
+              kind: "bioactivity-measurement",
+              entityType: "bioactivity",
+              bioactivityId: m.bioactivity_metadata_id,
+              bioactivityName: headIsRow ? headLabel : tailLabel,
+              assay: m.assay ?? undefined,
+              endpoint: m.endpoint ?? undefined,
+              outcome: m.outcome ?? undefined,
+              value:
+                typeof m.value === "number" ? String(m.value) : undefined,
+              unit: m.unit ?? undefined,
+            })
+          }
         />
         {showEmptyState && (
           <div className="absolute inset-0 flex items-center justify-center bg-light-950/80 text-light-300 gap-2 text-sm pointer-events-none">
@@ -510,6 +527,7 @@ const BioactivityMeasurementsModal = ({
           </aside>
         </div>
       )}
+      {reporter.modal}
     </Modal>
   );
 };
@@ -778,20 +796,17 @@ const MeasurementsTable = ({
   skeleton,
   expandedKey,
   onToggleExpand,
-  headLabel,
-  tailLabel,
-  headIsRow,
+  getRowReportProps,
 }: {
   rows: ModalRow[];
   placeholderCount: number;
   skeleton: boolean;
   expandedKey: string | null;
   onToggleExpand: (key: string) => void;
-  // Passed through so the per-measurement Report button can label the
-  // bioactivity that owns the row.
-  headLabel: string;
-  tailLabel: string;
-  headIsRow: boolean;
+  // Callback that returns the report-select props for a given
+  // measurement row. Returns {} when the reporter is not in select
+  // mode so applying it is a no-op.
+  getRowReportProps: (m: ModalRow) => Record<string, unknown>;
 }) => {
   // When in skeleton mode we draw PAGE_SIZE shimmer rows; otherwise we
   // draw the real rows and pad up to PAGE_SIZE with empty <tr>s so the
@@ -843,43 +858,29 @@ const MeasurementsTable = ({
           const key = rowKey(m, i);
           const canExpand = hasHillFit(m);
           const isExpanded = expandedKey === key;
+          const rowReportProps = getRowReportProps(m);
+          const inSelectMode = Boolean(rowReportProps.onClick);
           return (
             <Fragment key={key}>
               <tr
-                onClick={canExpand ? () => onToggleExpand(key) : undefined}
+                {...rowReportProps}
+                onClick={
+                  inSelectMode
+                    ? (rowReportProps.onClick as React.MouseEventHandler)
+                    : canExpand
+                    ? () => onToggleExpand(key)
+                    : undefined
+                }
                 aria-expanded={canExpand ? isExpanded : undefined}
                 className={twMerge(
                   "transition-colors",
                   canExpand && "cursor-pointer hover:bg-light-900/50",
                   isExpanded && "bg-light-900/50",
+                  rowReportProps.className as string | undefined,
                 )}
               >
                 <td className="py-1.5 pr-2 align-top">
-                  <div className="flex items-start gap-1.5">
-                    <div className="min-w-0 flex-1">
-                      <AssayCell assay={m.assay} />
-                    </div>
-                    <ReportIssueButton
-                      className="mt-0.5 shrink-0"
-                      context={{
-                        kind: "bioactivity-measurement",
-                        entityType: "bioactivity",
-                        bioactivityId: m.bioactivity_metadata_id,
-                        bioactivityName: headIsRow ? headLabel : tailLabel,
-                        assay: m.assay ?? undefined,
-                        endpoint: m.endpoint ?? undefined,
-                        outcome: m.outcome ?? undefined,
-                        value:
-                          typeof m.value === "number"
-                            ? String(m.value)
-                            : undefined,
-                        unit: m.unit ?? undefined,
-                      }}
-                      ariaLabel={`Report issue with ${
-                        m.assay ?? "this measurement"
-                      }`}
-                    />
-                  </div>
+                  <AssayCell assay={m.assay} />
                 </td>
                 <td className="py-1.5 px-2 align-top text-light-200">
                   {m.endpoint || "—"}
@@ -982,37 +983,18 @@ const MeasurementsTable = ({
             const key = rowKey(m, i);
             const canExpand = hasHillFit(m);
             const isExpanded = expandedKey === key;
+            const rowReportProps = getRowReportProps(m);
             return (
               <div
                 key={key}
-                className="w-full py-3 flex flex-col gap-2 text-sm"
+                {...rowReportProps}
+                className={twMerge(
+                  "w-full py-3 flex flex-col gap-2 text-sm",
+                  rowReportProps.className as string | undefined,
+                )}
               >
                 <div className="w-full flex items-center justify-between gap-2 flex-wrap">
-                  <div className="flex items-start gap-1.5 min-w-0">
-                    <div className="min-w-0">
-                      <AssayCell assay={m.assay} />
-                    </div>
-                    <ReportIssueButton
-                      className="mt-0.5 shrink-0"
-                      context={{
-                        kind: "bioactivity-measurement",
-                        entityType: "bioactivity",
-                        bioactivityId: m.bioactivity_metadata_id,
-                        bioactivityName: headIsRow ? headLabel : tailLabel,
-                        assay: m.assay ?? undefined,
-                        endpoint: m.endpoint ?? undefined,
-                        outcome: m.outcome ?? undefined,
-                        value:
-                          typeof m.value === "number"
-                            ? String(m.value)
-                            : undefined,
-                        unit: m.unit ?? undefined,
-                      }}
-                      ariaLabel={`Report issue with ${
-                        m.assay ?? "this measurement"
-                      }`}
-                    />
-                  </div>
+                  <AssayCell assay={m.assay} />
                   <span className="font-mono text-xs text-light-200 tabular-nums text-right">
                     {m.value === null || m.value === undefined ? (
                       <span className="text-light-600">—</span>

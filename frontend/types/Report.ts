@@ -80,6 +80,18 @@ export type ReportContext =
       counterpartId?: string;
       counterpartName?: string;
       pmidCount?: number;
+    }
+  | {
+      // Food page's "Inferred via composition" table — one row per
+      // (chemical-in-food, bioactivity-of-chemical) pair.
+      kind: "food-inferred-bioactivity";
+      entityType: "food";
+      entitySlug?: string;
+      bioactivityId?: string;
+      bioactivityName?: string;
+      chemicalId?: string;
+      chemicalName?: string;
+      concentration?: string;
     };
 
 export type ReportContextKind = ReportContext["kind"];

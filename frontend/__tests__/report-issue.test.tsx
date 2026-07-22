@@ -31,57 +31,117 @@ class MockResizeObserver {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 (globalThis as any).ResizeObserver = MockResizeObserver;
 
-import ReportIssueButton from "@/components/basic/ReportIssueButton";
+import { useTableReporter } from "@/components/basic/useTableReporter";
 import type { ReportContext } from "@/types/Report";
 
-const context: ReportContext = {
-  kind: "food-composition-evidence",
+// Minimal harness: three fake rows + the trigger/banner/modal from the
+// hook. Mirrors what a real surface (CorrelationTable, EvidenceTable,
+// etc.) sets up, so the assertions here also exercise the wiring
+// contract callers depend on.
+const Harness = ({ rows }: { rows: ReportContext[] }) => {
+  const reporter = useTableReporter({ targetLabel: "row" });
+  return (
+    <div>
+      {reporter.trigger}
+      {reporter.banner}
+      <ul>
+        {rows.map((ctx, i) => (
+          <li
+            key={i}
+            data-testid={`row-${i}`}
+            {...reporter.getRowProps(ctx)}
+          >
+            {ctx.kind}
+          </li>
+        ))}
+      </ul>
+      {reporter.modal}
+    </div>
+  );
+};
+
+const CTX_A: ReportContext = {
+  kind: "food-composition-row",
   entityType: "food",
   entitySlug: "onion",
-  attestationId: "ATT-123",
+  chemicalName: "quercetin",
+  dataPointCount: 12,
+};
+
+const CTX_B: ReportContext = {
+  kind: "food-composition-evidence",
+  entityType: "food",
+  attestationId: "ATT-9",
   extractedChemical: "quercetin",
   extractedFood: "onion",
   concentration: "42",
   referenceUrl: "https://example.com/paper",
 };
 
-describe("ReportIssueButton → ReportIssueModal", () => {
+describe("useTableReporter — select-a-row flow", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
   });
 
-  it("opens the modal on click and shows the auto-captured context", () => {
-    render(<ReportIssueButton context={context} />);
+  it("clicking the trigger enters select mode + shows the banner", () => {
+    render(<Harness rows={[CTX_A, CTX_B]} />);
+
+    expect(
+      screen.getByRole("button", { name: /report an issue/i }),
+    ).toBeInTheDocument();
+    // No banner before entering select mode.
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
 
     fireEvent.click(
-      screen.getByRole("button", {
-        name: /report an issue with this data point/i,
-      }),
+      screen.getByRole("button", { name: /report an issue/i }),
     );
 
-    // Modal title is rendered as a Heading; matching by exact text.
-    expect(screen.getByText("Report an issue")).toBeInTheDocument();
-
-    // Context preview is behind a <details>; open it to inspect the row.
-    const preview = screen.getByText(/what gets sent with this report/i);
-    fireEvent.click(preview);
-    expect(screen.getByText("attestationId")).toBeInTheDocument();
-    expect(screen.getByText("ATT-123")).toBeInTheDocument();
+    // Banner appears + rows become role="button" (selectable).
+    expect(screen.getByRole("status")).toHaveTextContent(
+      /click any row to report/i,
+    );
+    expect(
+      screen.getAllByRole("button", {
+        name: /report an issue with this row/i,
+      }),
+    ).toHaveLength(2);
   });
 
-  it("submits the form and shows the success banner (no email needed)", async () => {
+  it("clicking a row in select mode opens the modal with that row's context", () => {
+    render(<Harness rows={[CTX_A, CTX_B]} />);
+    fireEvent.click(
+      screen.getByRole("button", { name: /report an issue/i }),
+    );
+
+    fireEvent.click(screen.getByTestId("row-1"));
+
+    // Modal title (h3) — same text as the trigger label, so we look
+    // at the heading role specifically to disambiguate.
+    expect(
+      screen.getByRole("heading", { name: /report an issue/i }),
+    ).toBeInTheDocument();
+
+    // Reveal the context preview so we can assert the correct row's
+    // fields made it in. Attestation ID is unique to CTX_B — it only
+    // appears in the preview, so it's a good marker that the right
+    // row's context was captured.
+    fireEvent.click(screen.getByText(/what gets sent with this report/i));
+    expect(screen.getByText("ATT-9")).toBeInTheDocument();
+    expect(screen.getByText("attestationId")).toBeInTheDocument();
+  });
+
+  it("submits without an email and shows the success banner", async () => {
     const fetchMock = vi
       .spyOn(global, "fetch")
       .mockResolvedValue(
         new Response(JSON.stringify({ success: true }), { status: 200 }),
       );
 
-    render(<ReportIssueButton context={context} />);
+    render(<Harness rows={[CTX_A]} />);
     fireEvent.click(
-      screen.getByRole("button", {
-        name: /report an issue with this data point/i,
-      }),
+      screen.getByRole("button", { name: /report an issue/i }),
     );
+    fireEvent.click(screen.getByTestId("row-0"));
 
     fireEvent.change(
       screen.getByPlaceholderText(/'Si' extracted as 'ser-ile peptide'/i),
@@ -102,24 +162,22 @@ describe("ReportIssueButton → ReportIssueModal", () => {
     const body = JSON.parse((init as RequestInit).body as string);
     expect(body.category).toBe("Extraction error");
     expect(body.description).toBe("wrong extraction");
-    // No email → key should not carry a value.
     expect(body.email).toBeUndefined();
-    expect(body.context).toEqual(context);
+    expect(body.context).toEqual(CTX_A);
   });
 
-  it("passes the user's email through when provided", async () => {
+  it("passes the reporter's email through when provided", async () => {
     const fetchMock = vi
       .spyOn(global, "fetch")
       .mockResolvedValue(
         new Response(JSON.stringify({ success: true }), { status: 200 }),
       );
 
-    render(<ReportIssueButton context={context} />);
+    render(<Harness rows={[CTX_A]} />);
     fireEvent.click(
-      screen.getByRole("button", {
-        name: /report an issue with this data point/i,
-      }),
+      screen.getByRole("button", { name: /report an issue/i }),
     );
+    fireEvent.click(screen.getByTestId("row-0"));
 
     fireEvent.change(
       screen.getByPlaceholderText(/'Si' extracted as 'ser-ile peptide'/i),
@@ -144,12 +202,11 @@ describe("ReportIssueButton → ReportIssueModal", () => {
       new Response(JSON.stringify({ error: "boom" }), { status: 500 }),
     );
 
-    render(<ReportIssueButton context={context} />);
+    render(<Harness rows={[CTX_A]} />);
     fireEvent.click(
-      screen.getByRole("button", {
-        name: /report an issue with this data point/i,
-      }),
+      screen.getByRole("button", { name: /report an issue/i }),
     );
+    fireEvent.click(screen.getByTestId("row-0"));
     fireEvent.change(
       screen.getByPlaceholderText(/'Si' extracted as 'ser-ile peptide'/i),
       { target: { value: "anything" } },
@@ -161,5 +218,22 @@ describe("ReportIssueButton → ReportIssueModal", () => {
         /something went wrong/i,
       ),
     );
+  });
+
+  it("clicking the trigger a second time cancels select mode without opening the modal", () => {
+    render(<Harness rows={[CTX_A]} />);
+    const trigger = screen.getByRole("button", { name: /report an issue/i });
+    fireEvent.click(trigger);
+    expect(screen.getByRole("status")).toBeInTheDocument();
+
+    // The trigger relabels to Cancel selection in select mode.
+    fireEvent.click(
+      screen.getByRole("button", { name: /cancel selection/i }),
+    );
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    // Modal should not have opened — no heading with that text.
+    expect(
+      screen.queryByRole("heading", { name: /report an issue/i }),
+    ).not.toBeInTheDocument();
   });
 });
