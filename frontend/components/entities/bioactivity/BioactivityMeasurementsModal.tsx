@@ -38,6 +38,7 @@ import Chip from "@/components/basic/Chip";
 import Link from "@/components/basic/Link";
 import LoadingCard from "@/components/basic/LoadingCard";
 import Modal from "@/components/basic/Modal";
+import ReportIssueButton from "@/components/basic/ReportIssueButton";
 import HillCurveSparkline from "@/components/entities/bioactivity/HillCurveSparkline";
 import { getBioactivityMeasurements } from "@/utils/fetching";
 import { assayExternalUrl } from "@/utils/utils";
@@ -463,6 +464,9 @@ const BioactivityMeasurementsModal = ({
           onToggleExpand={(k) =>
             setExpandedKey((prev) => (prev === k ? null : k))
           }
+          headLabel={headLabel}
+          tailLabel={tailLabel}
+          headIsRow={Boolean(headIsRow)}
         />
         {showEmptyState && (
           <div className="absolute inset-0 flex items-center justify-center bg-light-950/80 text-light-300 gap-2 text-sm pointer-events-none">
@@ -774,12 +778,20 @@ const MeasurementsTable = ({
   skeleton,
   expandedKey,
   onToggleExpand,
+  headLabel,
+  tailLabel,
+  headIsRow,
 }: {
   rows: ModalRow[];
   placeholderCount: number;
   skeleton: boolean;
   expandedKey: string | null;
   onToggleExpand: (key: string) => void;
+  // Passed through so the per-measurement Report button can label the
+  // bioactivity that owns the row.
+  headLabel: string;
+  tailLabel: string;
+  headIsRow: boolean;
 }) => {
   // When in skeleton mode we draw PAGE_SIZE shimmer rows; otherwise we
   // draw the real rows and pad up to PAGE_SIZE with empty <tr>s so the
@@ -843,7 +855,31 @@ const MeasurementsTable = ({
                 )}
               >
                 <td className="py-1.5 pr-2 align-top">
-                  <AssayCell assay={m.assay} />
+                  <div className="flex items-start gap-1.5">
+                    <div className="min-w-0 flex-1">
+                      <AssayCell assay={m.assay} />
+                    </div>
+                    <ReportIssueButton
+                      className="mt-0.5 shrink-0"
+                      context={{
+                        kind: "bioactivity-measurement",
+                        entityType: "bioactivity",
+                        bioactivityId: m.bioactivity_metadata_id,
+                        bioactivityName: headIsRow ? headLabel : tailLabel,
+                        assay: m.assay ?? undefined,
+                        endpoint: m.endpoint ?? undefined,
+                        outcome: m.outcome ?? undefined,
+                        value:
+                          typeof m.value === "number"
+                            ? String(m.value)
+                            : undefined,
+                        unit: m.unit ?? undefined,
+                      }}
+                      ariaLabel={`Report issue with ${
+                        m.assay ?? "this measurement"
+                      }`}
+                    />
+                  </div>
                 </td>
                 <td className="py-1.5 px-2 align-top text-light-200">
                   {m.endpoint || "—"}
@@ -952,7 +988,31 @@ const MeasurementsTable = ({
                 className="w-full py-3 flex flex-col gap-2 text-sm"
               >
                 <div className="w-full flex items-center justify-between gap-2 flex-wrap">
-                  <AssayCell assay={m.assay} />
+                  <div className="flex items-start gap-1.5 min-w-0">
+                    <div className="min-w-0">
+                      <AssayCell assay={m.assay} />
+                    </div>
+                    <ReportIssueButton
+                      className="mt-0.5 shrink-0"
+                      context={{
+                        kind: "bioactivity-measurement",
+                        entityType: "bioactivity",
+                        bioactivityId: m.bioactivity_metadata_id,
+                        bioactivityName: headIsRow ? headLabel : tailLabel,
+                        assay: m.assay ?? undefined,
+                        endpoint: m.endpoint ?? undefined,
+                        outcome: m.outcome ?? undefined,
+                        value:
+                          typeof m.value === "number"
+                            ? String(m.value)
+                            : undefined,
+                        unit: m.unit ?? undefined,
+                      }}
+                      ariaLabel={`Report issue with ${
+                        m.assay ?? "this measurement"
+                      }`}
+                    />
+                  </div>
                   <span className="font-mono text-xs text-light-200 tabular-nums text-right">
                     {m.value === null || m.value === undefined ? (
                       <span className="text-light-600">—</span>

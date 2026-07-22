@@ -1,5 +1,6 @@
 import Link from "@/components/basic/Link";
 import Modal from "@/components/basic/Modal";
+import ReportIssueButton from "@/components/basic/ReportIssueButton";
 import { Evidence } from "@/types/Evidence";
 import InfoBanner from "../basic/InfoBanner";
 
@@ -113,12 +114,34 @@ const CorrelationEvidenceModal = ({
     >
       <div className="flex gap-2 flex-wrap">
         {evidences?.map((evidence) => (
-          <Link
+          <span
             key={evidence.pmid?.id ?? evidence.pmcid?.id}
-            href={evidence.pmid?.url ?? evidence.pmcid?.url}
+            className="inline-flex items-center gap-1"
           >
-            {`${evidence.pmid?.id ?? evidence.pmcid?.id}`}
-          </Link>
+            <Link href={evidence.pmid?.url ?? evidence.pmcid?.url}>
+              {`${evidence.pmid?.id ?? evidence.pmcid?.id}`}
+            </Link>
+            <ReportIssueButton
+              context={{
+                kind: "correlation-evidence",
+                entityType,
+                counterpartName:
+                  entityType === "chemical" ? diseaseName : chemicalName,
+                pmid:
+                  evidence.pmid?.id !== undefined
+                    ? String(evidence.pmid.id)
+                    : undefined,
+                pmcid:
+                  evidence.pmcid?.id !== undefined
+                    ? String(evidence.pmcid.id)
+                    : undefined,
+                referenceUrl: evidence.pmid?.url ?? evidence.pmcid?.url,
+              }}
+              ariaLabel={`Report issue with PMID ${
+                evidence.pmid?.id ?? evidence.pmcid?.id
+              }`}
+            />
+          </span>
         ))}
       </div>
     </Modal>

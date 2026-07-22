@@ -1,0 +1,93 @@
+// Shared vocabulary for the "Report an issue" flow. The categories are
+// mirrored on the server (`/report/issue/send`); keep both lists in
+// sync when adding one.
+export const REPORT_CATEGORIES = [
+  "Extraction error",
+  "Duplicate",
+  "Wrong value",
+  "Wrong unit",
+  "Missing data",
+  "Other",
+] as const;
+
+export type ReportCategory = (typeof REPORT_CATEGORIES)[number];
+
+// Discriminated union carried from every evidence surface. The `kind`
+// lands verbatim in the email so ops can tell at a glance where a
+// report came from. `entitySlug` is optional — pageUrl (captured at
+// submit time in ReportRequestBody) already identifies the page; slug
+// is a convenience for ops that not every surface has cheaply in hand.
+export type ReportContext =
+  | {
+      kind: "food-composition-evidence";
+      entityType: "food" | "chemical";
+      entitySlug?: string;
+      attestationId?: string;
+      chemicalId?: string;
+      foodId?: string;
+      extractedChemical?: string;
+      extractedFood?: string;
+      concentration?: string;
+      referenceUrl?: string;
+    }
+  | {
+      kind: "food-composition-row";
+      entityType: "food" | "chemical";
+      entitySlug?: string;
+      chemicalId?: string;
+      chemicalName?: string;
+      dataPointCount?: number;
+    }
+  | {
+      kind: "bioactivity-measurement";
+      entityType: "food" | "chemical" | "bioactivity";
+      entitySlug?: string;
+      bioactivityId?: string;
+      bioactivityName?: string;
+      assay?: string;
+      endpoint?: string;
+      outcome?: string;
+      value?: string;
+      unit?: string;
+    }
+  | {
+      kind: "bioactivity-row";
+      // Reflects the *page* the user is on when they file the report,
+      // not the row's own entity kind. On a bioactivity page, rows can
+      // be either chemicals or foods; on a food or chemical page, rows
+      // are bioactivities.
+      entityType: "food" | "chemical" | "bioactivity";
+      entitySlug?: string;
+      bioactivityId?: string;
+      bioactivityName?: string;
+      activeCount?: number;
+      inactiveCount?: number;
+    }
+  | {
+      kind: "correlation-evidence";
+      entityType: "chemical" | "disease";
+      entitySlug?: string;
+      counterpartId?: string;
+      counterpartName?: string;
+      pmid?: string;
+      pmcid?: string;
+      referenceUrl?: string;
+    }
+  | {
+      kind: "correlation-row";
+      entityType: "chemical" | "disease";
+      entitySlug?: string;
+      counterpartId?: string;
+      counterpartName?: string;
+      pmidCount?: number;
+    };
+
+export type ReportContextKind = ReportContext["kind"];
+
+export interface ReportRequestBody {
+  category: ReportCategory;
+  description: string;
+  email?: string;
+  context?: ReportContext;
+  pageUrl?: string;
+}

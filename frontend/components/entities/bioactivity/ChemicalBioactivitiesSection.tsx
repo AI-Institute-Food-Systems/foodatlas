@@ -73,10 +73,17 @@ const ChemicalBioactivitiesSection = ({ commonName, anchorId }: Props) => {
         width: "w-[16%]",
         sortable: true,
         sortLabels: { asc: "Fewest assays", desc: "Most assays" },
-        render: (row, ctx) => <ViewAssaysCell row={row} ctx={ctx} />,
+        render: (row, ctx) => (
+          <ViewAssaysCell
+            row={row}
+            ctx={ctx}
+            reportEntityType="chemical"
+            reportEntitySlug={commonName}
+          />
+        ),
       },
     ],
-    []
+    [commonName]
   );
 
   return (

@@ -71,10 +71,17 @@ const FoodBioactivitiesSection = ({
         width: "w-[25%]",
         sortable: true,
         sortLabels: { asc: "Fewest assays", desc: "Most assays" },
-        render: (row, ctx) => <ViewAssaysCell row={row} ctx={ctx} />,
+        render: (row, ctx) => (
+          <ViewAssaysCell
+            row={row}
+            ctx={ctx}
+            reportEntityType="food"
+            reportEntitySlug={commonName}
+          />
+        ),
       },
     ],
-    []
+    [commonName]
   );
 
   return (

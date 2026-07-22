@@ -21,6 +21,7 @@ import Chip from "@/components/basic/Chip";
 import Link from "@/components/basic/Link";
 import Pagination from "@/components/basic/Pagination";
 import LoadingCard from "@/components/basic/LoadingCard";
+import ReportIssueButton from "@/components/basic/ReportIssueButton";
 import SortListbox from "@/components/basic/SortListbox";
 import { AmbiguityBadge } from "@/components/basic/Ambiguity";
 import { TrustBadge } from "@/components/basic/TrustBadge";
@@ -949,7 +950,7 @@ const FoodCompositionSection = ({
                       </td>
                       {/* evidence */}
                       <td className="py-1.5 pl-4">
-                        <div className="flex min-h-9 items-center justify-end">
+                        <div className="flex min-h-9 items-center justify-end gap-2">
                           <Chip
                             icon={<MdDescription className="size-3" />}
                             label={`${getRowEvidenceCount(row)} data point${
@@ -961,6 +962,16 @@ const FoodCompositionSection = ({
                               handleEvidenceButtonClick(event, row.name)
                             }
                             className="min-w-[9rem] justify-center"
+                          />
+                          <ReportIssueButton
+                            context={{
+                              kind: "food-composition-row",
+                              entityType: "food",
+                              entitySlug: commonName,
+                              chemicalName: row.name,
+                              dataPointCount: getRowEvidenceCount(row),
+                            }}
+                            ariaLabel={`Report issue with ${row.name} composition data`}
                           />
                         </div>
                       </td>

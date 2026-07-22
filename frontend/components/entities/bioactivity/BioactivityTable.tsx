@@ -29,6 +29,7 @@ import Chip from "@/components/basic/Chip";
 import Link from "@/components/basic/Link";
 import LoadingCard from "@/components/basic/LoadingCard";
 import Pagination from "@/components/basic/Pagination";
+import ReportIssueButton from "@/components/basic/ReportIssueButton";
 import SortListbox from "@/components/basic/SortListbox";
 import BioactivityMeasurementsModal from "@/components/entities/bioactivity/BioactivityMeasurementsModal";
 import { formatTopMeasurement, topMeasurementOf } from "@/components/entities/bioactivity/format";
@@ -1048,20 +1049,43 @@ export const TopMeasurementCell = ({ row }: { row: BioactivityRow }) => (
 export const ViewAssaysCell = ({
   row,
   ctx,
+  reportEntityType,
+  reportEntitySlug,
 }: {
   row: BioactivityRow;
   ctx: ColumnContext;
+  // When both are provided, a small Report button sits alongside the
+  // Assays chip. Sections that don't want row-level reporting (or don't
+  // have the anchor context handy) simply omit these.
+  reportEntityType?: "food" | "chemical" | "bioactivity";
+  reportEntitySlug?: string;
 }) => (
-  <Chip
-    icon={<MdDescription className="size-3" />}
-    label={`${row.measurement_count.toLocaleString()} assay${
-      row.measurement_count === 1 ? "" : "s"
-    }`}
-    tone="outline"
-    size="md"
-    onClick={ctx.openModal}
-    disabled={row.measurement_count === 0}
-  />
+  <div className="inline-flex items-center gap-2">
+    <Chip
+      icon={<MdDescription className="size-3" />}
+      label={`${row.measurement_count.toLocaleString()} assay${
+        row.measurement_count === 1 ? "" : "s"
+      }`}
+      tone="outline"
+      size="md"
+      onClick={ctx.openModal}
+      disabled={row.measurement_count === 0}
+    />
+    {reportEntityType && (
+      <ReportIssueButton
+        context={{
+          kind: "bioactivity-row",
+          entityType: reportEntityType,
+          entitySlug: reportEntitySlug,
+          bioactivityId: String(row.id),
+          bioactivityName: row.name,
+          activeCount: (row as BioactivityChemicalRow).active_count,
+          inactiveCount: (row as BioactivityChemicalRow).inactive_count,
+        }}
+        ariaLabel={`Report issue with ${row.name} bioactivity`}
+      />
+    )}
+  </div>
 );
 
 // Chemical classification (["flavonoid", "polyphenol"] → "flavonoid,

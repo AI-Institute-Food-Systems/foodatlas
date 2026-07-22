@@ -28,6 +28,7 @@ import { twMerge } from "tailwind-merge";
 
 import Button from "@/components/basic/Button";
 import Chip from "@/components/basic/Chip";
+import ReportIssueButton from "@/components/basic/ReportIssueButton";
 import { AmbiguityIcon } from "@/components/basic/Ambiguity";
 import {
   FoodEvidence,
@@ -192,6 +193,7 @@ const EvidenceTable = ({ evidences, chemicalName }: Props) => {
                     <td className="py-2 pl-2 align-top">
                       <RowActions
                         row={r}
+                        chemicalName={chemicalName}
                         expandable={expandable}
                         expanded={isExpanded}
                         onToggle={() => toggle(r.key)}
@@ -235,6 +237,7 @@ const EvidenceTable = ({ evidences, chemicalName }: Props) => {
                 </div>
                 <RowActions
                   row={r}
+                  chemicalName={chemicalName}
                   expandable={expandable}
                   expanded={isExpanded}
                   onToggle={() => toggle(r.key)}
@@ -408,11 +411,13 @@ const TrustWarning = () => (
 
 const RowActions = ({
   row,
+  chemicalName,
   expandable,
   expanded,
   onToggle,
 }: {
   row: EvidenceRow;
+  chemicalName: string;
   expandable: boolean;
   expanded: boolean;
   onToggle: () => void;
@@ -433,6 +438,24 @@ const RowActions = ({
         {linkLabel}
         <MdOpenInNew className="size-3 shrink-0" aria-hidden />
       </a>
+      <ReportIssueButton
+        context={{
+          kind: "food-composition-evidence",
+          entityType: "food",
+          attestationId: row.extraction.attestation_id,
+          extractedChemical:
+            row.extraction.extracted_chemical_name ?? undefined,
+          extractedFood: row.extraction.extracted_food_name ?? undefined,
+          concentration:
+            typeof row.extraction.converted_concentration?.value === "number"
+              ? String(row.extraction.converted_concentration.value)
+              : undefined,
+          referenceUrl: row.evidence.reference.url,
+        }}
+        ariaLabel={`Report issue with extraction of ${
+          row.extraction.extracted_chemical_name || chemicalName
+        } from ${row.evidence.reference.display_name || "this source"}`}
+      />
       {expandable && (
         <Chip
           icon={

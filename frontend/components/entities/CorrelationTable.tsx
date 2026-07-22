@@ -14,6 +14,7 @@ import EntitySiblingIcon from "@/components/basic/EntitySiblingIcon";
 import Link from "@/components/basic/Link";
 import LoadingCard from "@/components/basic/LoadingCard";
 import Pagination from "@/components/basic/Pagination";
+import ReportIssueButton from "@/components/basic/ReportIssueButton";
 import CorrelationEvidenceModal from "@/components/entities/CorrelationEvidenceModal";
 import { usePaginations } from "@/context/paginationsContext";
 import { useLoadingGate } from "@/context/pageReadyContext";
@@ -235,6 +236,18 @@ const CorrelationTable = ({
                               }
                             />
                           )}
+                          <ReportIssueButton
+                            context={{
+                              kind: "correlation-row",
+                              entityType: tableLocation as
+                                | "chemical"
+                                | "disease",
+                              entitySlug: commonName,
+                              counterpartName: row.name,
+                              pmidCount: row.evidences.length,
+                            }}
+                            ariaLabel={`Report issue with correlation for ${row.name}`}
+                          />
                         </div>
                       </div>
                     </td>
@@ -319,15 +332,27 @@ const CorrelationTable = ({
                   <span className="font-mono italic text-[10px] uppercase tracking-wider text-light-500">
                     Evidence
                   </span>
-                  <Chip
-                    icon={<MdDescription className="size-3" />}
-                    label={`${row.evidences.length} PMID${
-                      row.evidences.length === 1 ? "" : "s"
-                    }`}
-                    tone="outline"
-                    size="md"
-                    onClick={() => handleEvidenceShowMoreClick(rowIdx)}
-                  />
+                  <div className="flex items-center gap-2">
+                    <Chip
+                      icon={<MdDescription className="size-3" />}
+                      label={`${row.evidences.length} PMID${
+                        row.evidences.length === 1 ? "" : "s"
+                      }`}
+                      tone="outline"
+                      size="md"
+                      onClick={() => handleEvidenceShowMoreClick(rowIdx)}
+                    />
+                    <ReportIssueButton
+                      context={{
+                        kind: "correlation-row",
+                        entityType: tableLocation as "chemical" | "disease",
+                        entitySlug: commonName,
+                        counterpartName: row.name,
+                        pmidCount: row.evidences.length,
+                      }}
+                      ariaLabel={`Report issue with correlation for ${row.name}`}
+                    />
+                  </div>
                 </div>
               </div>
             ))
