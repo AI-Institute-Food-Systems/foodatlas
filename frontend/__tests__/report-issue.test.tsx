@@ -31,34 +31,42 @@ class MockResizeObserver {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 (globalThis as any).ResizeObserver = MockResizeObserver;
 
-import { useTableReporter } from "@/components/basic/useTableReporter";
+import ReportFab from "@/components/basic/ReportFab";
+import {
+  ReportModeProvider,
+  useReportRows,
+} from "@/context/reportModeContext";
 import type { ReportContext } from "@/types/Report";
 
-// Minimal harness: three fake rows + the trigger/banner/modal from the
-// hook. Mirrors what a real surface (CorrelationTable, EvidenceTable,
-// etc.) sets up, so the assertions here also exercise the wiring
-// contract callers depend on.
+// Minimal harness that exercises the whole global-FAB flow: the FAB
+// mounts once (like it does in providers.tsx), and a tiny list of rows
+// consumes useReportRows() to become selectable when the FAB flips on.
 const Harness = ({ rows }: { rows: ReportContext[] }) => {
-  const reporter = useTableReporter({ targetLabel: "row" });
+  const { getRowProps } = useReportRows();
   return (
-    <div>
-      {reporter.trigger}
-      {reporter.banner}
+    <>
       <ul>
         {rows.map((ctx, i) => (
           <li
             key={i}
             data-testid={`row-${i}`}
-            {...reporter.getRowProps(ctx)}
+            {...getRowProps(ctx)}
           >
             {ctx.kind}
           </li>
         ))}
       </ul>
-      {reporter.modal}
-    </div>
+      <ReportFab />
+    </>
   );
 };
+
+const renderHarness = (rows: ReportContext[]) =>
+  render(
+    <ReportModeProvider>
+      <Harness rows={rows} />
+    </ReportModeProvider>,
+  );
 
 const CTX_A: ReportContext = {
   kind: "food-composition-row",
@@ -78,28 +86,33 @@ const CTX_B: ReportContext = {
   referenceUrl: "https://example.com/paper",
 };
 
-describe("useTableReporter — select-a-row flow", () => {
+describe("Global Report FAB + useReportRows flow", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
   });
 
-  it("clicking the trigger enters select mode + shows the banner", () => {
-    render(<Harness rows={[CTX_A, CTX_B]} />);
+  it("clicking the FAB enters select mode; rows become selectable", () => {
+    renderHarness([CTX_A, CTX_B]);
 
+    // FAB visible as an idle button; no select-mode status banner yet.
     expect(
-      screen.getByRole("button", { name: /report an issue/i }),
+      screen.getByRole("button", {
+        name: /report an issue with a data point/i,
+      }),
     ).toBeInTheDocument();
-    // No banner before entering select mode.
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
 
     fireEvent.click(
-      screen.getByRole("button", { name: /report an issue/i }),
+      screen.getByRole("button", {
+        name: /report an issue with a data point/i,
+      }),
     );
 
-    // Banner appears + rows become role="button" (selectable).
+    // FAB switches to the amber status pill.
     expect(screen.getByRole("status")).toHaveTextContent(
       /click any row to report/i,
     );
+    // Each row is now announced as a button.
     expect(
       screen.getAllByRole("button", {
         name: /report an issue with this row/i,
@@ -108,23 +121,17 @@ describe("useTableReporter — select-a-row flow", () => {
   });
 
   it("clicking a row in select mode opens the modal with that row's context", () => {
-    render(<Harness rows={[CTX_A, CTX_B]} />);
+    renderHarness([CTX_A, CTX_B]);
     fireEvent.click(
-      screen.getByRole("button", { name: /report an issue/i }),
+      screen.getByRole("button", {
+        name: /report an issue with a data point/i,
+      }),
     );
-
     fireEvent.click(screen.getByTestId("row-1"));
 
-    // Modal title (h3) — same text as the trigger label, so we look
-    // at the heading role specifically to disambiguate.
     expect(
       screen.getByRole("heading", { name: /report an issue/i }),
     ).toBeInTheDocument();
-
-    // Reveal the context preview so we can assert the correct row's
-    // fields made it in. Attestation ID is unique to CTX_B — it only
-    // appears in the preview, so it's a good marker that the right
-    // row's context was captured.
     fireEvent.click(screen.getByText(/what gets sent with this report/i));
     expect(screen.getByText("ATT-9")).toBeInTheDocument();
     expect(screen.getByText("attestationId")).toBeInTheDocument();
@@ -137,9 +144,11 @@ describe("useTableReporter — select-a-row flow", () => {
         new Response(JSON.stringify({ success: true }), { status: 200 }),
       );
 
-    render(<Harness rows={[CTX_A]} />);
+    renderHarness([CTX_A]);
     fireEvent.click(
-      screen.getByRole("button", { name: /report an issue/i }),
+      screen.getByRole("button", {
+        name: /report an issue with a data point/i,
+      }),
     );
     fireEvent.click(screen.getByTestId("row-0"));
 
@@ -173,9 +182,11 @@ describe("useTableReporter — select-a-row flow", () => {
         new Response(JSON.stringify({ success: true }), { status: 200 }),
       );
 
-    render(<Harness rows={[CTX_A]} />);
+    renderHarness([CTX_A]);
     fireEvent.click(
-      screen.getByRole("button", { name: /report an issue/i }),
+      screen.getByRole("button", {
+        name: /report an issue with a data point/i,
+      }),
     );
     fireEvent.click(screen.getByTestId("row-0"));
 
@@ -202,9 +213,11 @@ describe("useTableReporter — select-a-row flow", () => {
       new Response(JSON.stringify({ error: "boom" }), { status: 500 }),
     );
 
-    render(<Harness rows={[CTX_A]} />);
+    renderHarness([CTX_A]);
     fireEvent.click(
-      screen.getByRole("button", { name: /report an issue/i }),
+      screen.getByRole("button", {
+        name: /report an issue with a data point/i,
+      }),
     );
     fireEvent.click(screen.getByTestId("row-0"));
     fireEvent.change(
@@ -220,18 +233,19 @@ describe("useTableReporter — select-a-row flow", () => {
     );
   });
 
-  it("clicking the trigger a second time cancels select mode without opening the modal", () => {
-    render(<Harness rows={[CTX_A]} />);
-    const trigger = screen.getByRole("button", { name: /report an issue/i });
-    fireEvent.click(trigger);
+  it("Cancel button in the status pill exits select mode without opening the modal", () => {
+    renderHarness([CTX_A]);
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: /report an issue with a data point/i,
+      }),
+    );
     expect(screen.getByRole("status")).toBeInTheDocument();
 
-    // The trigger relabels to Cancel selection in select mode.
     fireEvent.click(
-      screen.getByRole("button", { name: /cancel selection/i }),
+      screen.getByRole("button", { name: /cancel report selection/i }),
     );
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
-    // Modal should not have opened — no heading with that text.
     expect(
       screen.queryByRole("heading", { name: /report an issue/i }),
     ).not.toBeInTheDocument();

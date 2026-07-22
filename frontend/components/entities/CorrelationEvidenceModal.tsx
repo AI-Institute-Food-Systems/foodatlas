@@ -1,6 +1,6 @@
 import Link from "@/components/basic/Link";
 import Modal from "@/components/basic/Modal";
-import { useTableReporter } from "@/components/basic/useTableReporter";
+import { useReportRows } from "@/context/reportModeContext";
 import { Evidence } from "@/types/Evidence";
 import InfoBanner from "../basic/InfoBanner";
 
@@ -73,11 +73,10 @@ const CorrelationEvidenceModal = ({
   chemicalName,
   diseaseName,
 }: CorrelationEvidenceModalProps) => {
-  const reporter = useTableReporter({ targetLabel: "PMID" });
+  const reporter = useReportRows();
 
   // handle modal close
   const handleModalClose = () => {
-    reporter.exitSelectMode();
     onClose();
   };
 
@@ -110,13 +109,11 @@ const CorrelationEvidenceModal = ({
               </div>
             }
           />
-          <div className="flex justify-end">{reporter.trigger}</div>
         </div>
       }
       isOpen={isOpen}
       onClose={handleModalClose}
     >
-      {reporter.banner}
       <div className="flex gap-2 flex-wrap">
         {evidences?.map((evidence) => {
           const pmid = evidence.pmid?.id;
@@ -148,7 +145,6 @@ const CorrelationEvidenceModal = ({
           );
         })}
       </div>
-      {reporter.modal}
     </Modal>
   );
 };

@@ -28,8 +28,8 @@ import { twMerge } from "tailwind-merge";
 
 import Button from "@/components/basic/Button";
 import Chip from "@/components/basic/Chip";
-import { useTableReporter } from "@/components/basic/useTableReporter";
 import { AmbiguityIcon } from "@/components/basic/Ambiguity";
+import { useReportRows } from "@/context/reportModeContext";
 import {
   FoodEvidence,
   FoodEvidenceExtraction,
@@ -84,7 +84,7 @@ const PAGE_SIZE = 20;
 const EvidenceTable = ({ evidences, chemicalName }: Props) => {
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const reporter = useTableReporter({ targetLabel: "data point" });
+  const reporter = useReportRows();
   const toggle = (k: string) =>
     setExpandedKey((prev) => (prev === k ? null : k));
 
@@ -145,10 +145,6 @@ const EvidenceTable = ({ evidences, chemicalName }: Props) => {
     // Modal offers; the inner scroll region keeps overflow inside the
     // modal instead of pushing the body past the panel bottom.
     <div className="flex-1 min-h-0 flex flex-col">
-      <div className="flex items-center justify-end mb-2 shrink-0">
-        {reporter.trigger}
-      </div>
-      {reporter.banner}
       <div className="flex-1 min-h-0 overflow-y-auto">
       {/* Desktop table -------------------------------------------------- */}
       <div className="hidden md:block">
@@ -349,7 +345,6 @@ const EvidenceTable = ({ evidences, chemicalName }: Props) => {
           </Button>
         </div>
       )}
-      {reporter.modal}
     </div>
   );
 };

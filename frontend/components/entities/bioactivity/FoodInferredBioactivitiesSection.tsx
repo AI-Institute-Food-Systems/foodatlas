@@ -28,8 +28,8 @@ import Link from "@/components/basic/Link";
 import LoadingCard from "@/components/basic/LoadingCard";
 import Pagination from "@/components/basic/Pagination";
 import SortListbox from "@/components/basic/SortListbox";
-import { useTableReporter } from "@/components/basic/useTableReporter";
 import BioactivityMeasurementsModal from "@/components/entities/bioactivity/BioactivityMeasurementsModal";
+import { useReportRows } from "@/context/reportModeContext";
 import {
   formatTopMeasurement,
   topMeasurementOf,
@@ -110,7 +110,7 @@ const FoodInferredBioactivitiesSection = ({
     if (onTotalRowsChange && !isLoading) onTotalRowsChange(totalRows);
   }, [onTotalRowsChange, totalRows, isLoading]);
   const [selected, setSelected] = useState<InferredRow | null>(null);
-  const reporter = useTableReporter({ targetLabel: "row" });
+  const reporter = useReportRows();
 
   const buildRowContext = (row: InferredRow) => ({
     kind: "food-inferred-bioactivity" as const,
@@ -263,8 +263,6 @@ const FoodInferredBioactivitiesSection = ({
           />
         </div>
       )}
-      <div className="flex justify-end">{reporter.trigger}</div>
-      {reporter.banner}
       <div className="hidden md:block overflow-x-auto">
         <table className="w-full table-fixed">
           <colgroup>
@@ -461,7 +459,6 @@ const FoodInferredBioactivitiesSection = ({
         relationship="r6"
         headIsRow={false}
       />
-      {reporter.modal}
     </div>
   );
 };

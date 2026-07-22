@@ -38,7 +38,7 @@ import Chip from "@/components/basic/Chip";
 import Link from "@/components/basic/Link";
 import LoadingCard from "@/components/basic/LoadingCard";
 import Modal from "@/components/basic/Modal";
-import { useTableReporter } from "@/components/basic/useTableReporter";
+import { useReportRows } from "@/context/reportModeContext";
 import HillCurveSparkline from "@/components/entities/bioactivity/HillCurveSparkline";
 import { getBioactivityMeasurements } from "@/utils/fetching";
 import { assayExternalUrl } from "@/utils/utils";
@@ -118,7 +118,7 @@ const BioactivityMeasurementsModal = ({
 }: Props) => {
   const [fullRows, setFullRows] = useState<ModalRow[] | null>(null);
   const [isFetching, setIsFetching] = useState(false);
-  const reporter = useTableReporter({ targetLabel: "measurement" });
+  const reporter = useReportRows();
 
   // Lazy-fetch full measurements on open. Resets on close so a subsequent
   // open re-fetches if the selection changed.
@@ -454,11 +454,6 @@ const BioactivityMeasurementsModal = ({
         </button>
       </div>
 
-      {/* Report-issue trigger + banner sit inside the same scroll area
-       * so they stay visible when the user is scanning measurements. */}
-      <div className="flex justify-end shrink-0">{reporter.trigger}</div>
-      {reporter.banner}
-
       {/* Scroll area — the row scaffolding pads out to PAGE_SIZE so
        * last-page + filtered-empty cases don't shrink the table. */}
       <div className="flex-1 min-h-0 overflow-y-auto relative">
@@ -527,7 +522,6 @@ const BioactivityMeasurementsModal = ({
           </aside>
         </div>
       )}
-      {reporter.modal}
     </Modal>
   );
 };

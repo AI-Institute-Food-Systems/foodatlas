@@ -30,7 +30,7 @@ import Link from "@/components/basic/Link";
 import LoadingCard from "@/components/basic/LoadingCard";
 import Pagination from "@/components/basic/Pagination";
 import SortListbox from "@/components/basic/SortListbox";
-import { useTableReporter } from "@/components/basic/useTableReporter";
+import { useReportRows } from "@/context/reportModeContext";
 import BioactivityMeasurementsModal from "@/components/entities/bioactivity/BioactivityMeasurementsModal";
 import { formatTopMeasurement, topMeasurementOf } from "@/components/entities/bioactivity/format";
 import { usePaginations } from "@/context/paginationsContext";
@@ -179,7 +179,7 @@ const BioactivityTable = ({
 }: Props) => {
   const { getTablePaginations, setTablePaginations } = usePaginations();
   const { currentPage } = getTablePaginations(tableId);
-  const reporter = useTableReporter({ targetLabel: "row" });
+  const reporter = useReportRows();
   const pageEntityType = pageEntityTypeFromDirection(direction);
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -748,10 +748,6 @@ const BioactivityTable = ({
           />
         </div>
       )}
-      {/* Report-issue trigger + banner apply to both the desktop table
-       * and the mobile card list rendered below. */}
-      <div className="flex justify-end mb-2">{reporter.trigger}</div>
-      {reporter.banner}
       <div className="hidden md:block overflow-x-auto">
         <table className="w-full table-fixed">
           <colgroup>
@@ -976,7 +972,6 @@ const BioactivityTable = ({
         relationship={modalConfig.relationship}
         headIsRow={modalConfig.headIsRow}
       />
-      {reporter.modal}
     </div>
   );
 };
@@ -991,7 +986,7 @@ const BioactivityTableRow = ({
   columns: SortableColumn[];
   onOpen: () => void;
   rowReportProps?: ReturnType<
-    ReturnType<typeof useTableReporter>["getRowProps"]
+    ReturnType<typeof useReportRows>["getRowProps"]
   >;
 }) => {
   const ctx: ColumnContext = { openModal: onOpen };

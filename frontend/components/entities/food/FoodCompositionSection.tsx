@@ -22,7 +22,7 @@ import Link from "@/components/basic/Link";
 import Pagination from "@/components/basic/Pagination";
 import LoadingCard from "@/components/basic/LoadingCard";
 import SortListbox from "@/components/basic/SortListbox";
-import { useTableReporter } from "@/components/basic/useTableReporter";
+import { useReportRows } from "@/context/reportModeContext";
 import { AmbiguityBadge } from "@/components/basic/Ambiguity";
 import { TrustBadge } from "@/components/basic/TrustBadge";
 import FoodCompositionEvidenceModal, {
@@ -123,7 +123,7 @@ const FoodCompositionSection = ({
   });
   const [showAllConcentrations, setShowAllConcentrations] = useState(true);
   const [showLowTrust, setShowLowTrust] = useState(false);
-  const reporter = useTableReporter({ targetLabel: "chemical" });
+  const reporter = useReportRows();
   const [selectedEvidenceName, setSelectedEvidenceName] = useState("");
   const [evidenceFilter, setEvidenceFilter] =
     useState<EvidenceFilter>("all");
@@ -756,10 +756,6 @@ const FoodCompositionSection = ({
               />
             </div>
           )}
-          {/* Report-issue toolbar — same trigger drives both desktop
-           * table and mobile card list. */}
-          <div className="flex justify-end">{reporter.trigger}</div>
-          {reporter.banner}
           {/* table — desktop only. Card list below covers mobile. */}
           <div
             ref={tableWrapperRef}
@@ -1219,7 +1215,6 @@ const FoodCompositionSection = ({
           initialFilter={evidenceFilter}
         />
       </Portal>
-      {reporter.modal}
     </>
   );
 };

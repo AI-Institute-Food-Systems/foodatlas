@@ -15,8 +15,8 @@ import EntitySiblingIcon from "@/components/basic/EntitySiblingIcon";
 import Link from "@/components/basic/Link";
 import LoadingCard from "@/components/basic/LoadingCard";
 import Pagination from "@/components/basic/Pagination";
-import { useTableReporter } from "@/components/basic/useTableReporter";
 import CorrelationEvidenceModal from "@/components/entities/CorrelationEvidenceModal";
+import { useReportRows } from "@/context/reportModeContext";
 import { usePaginations } from "@/context/paginationsContext";
 import { useLoadingGate } from "@/context/pageReadyContext";
 import { getDiseaseData } from "@/utils/fetching";
@@ -53,7 +53,7 @@ const CorrelationTable = ({
   const { getTablePaginations } = usePaginations();
   const { currentPage } = getTablePaginations(tableId);
   const [selectedRowIdx, setSelectedRowIdx] = useState(-1);
-  const reporter = useTableReporter({ targetLabel: "row" });
+  const reporter = useReportRows();
 
   // fetch data
   useEffect(() => {
@@ -104,8 +104,6 @@ const CorrelationTable = ({
   return (
     <>
       <div>
-        <div className="mb-2 flex justify-end">{reporter.trigger}</div>
-        {reporter.banner}
         {/* table — desktop */}
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full table-fixed">
@@ -396,7 +394,6 @@ const CorrelationTable = ({
         isOpen={selectedRowIdx >= 0}
         onClose={() => setSelectedRowIdx(-1)}
       />
-      {reporter.modal}
     </>
   );
 };
