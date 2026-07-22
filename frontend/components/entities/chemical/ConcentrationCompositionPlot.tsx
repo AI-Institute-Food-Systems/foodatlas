@@ -28,6 +28,7 @@ import {
   NameType,
 } from "recharts/types/component/DefaultTooltipContent";
 import EntitySiblingIcon from "@/components/basic/EntitySiblingIcon";
+import { useReportModeState } from "@/context/reportModeContext";
 import { AmbiguitySibling } from "@/types/Metadata";
 import { encodeSpace, formatConcentrationValueAlt } from "@/utils/utils";
 
@@ -55,6 +56,7 @@ type SortedData = {
 
 const ConcentrationCompositionPlot = ({ data, chemicalName }: DotPlotProps) => {
   const router = useRouter();
+  const { isSelectMode, selectForReport } = useReportModeState();
   const [sortedData, setSortedData] = useState<SortedData[]>([]);
   const [sortOrder, setSortOrder] = useState("desc");
 
@@ -182,8 +184,23 @@ const ConcentrationCompositionPlot = ({ data, chemicalName }: DotPlotProps) => {
 
   // memoize graph to optimize performance
   const graph = useMemo(() => {
-    // handle bar click
+    // handle bar click. In report-select mode the click fires
+    // selectForReport instead of navigating, so users can flag a
+    // specific food-chemical composition point directly from the plot.
     const handleClick = (commonName: string) => {
+      if (!commonName) return;
+      if (isSelectMode) {
+        const row = sortedData.find((r) => r.food === commonName);
+        selectForReport({
+          kind: "food-composition-row",
+          entityType: "chemical",
+          entitySlug: chemicalName,
+          chemicalName,
+          foodId: row?.id,
+          foodName: commonName,
+        });
+        return;
+      }
       const qs = chemicalName
         ? `?highlight=${encodeURIComponent(chemicalName)}#composition`
         : "";
@@ -242,7 +259,7 @@ const ConcentrationCompositionPlot = ({ data, chemicalName }: DotPlotProps) => {
         </BarChart>
       </ResponsiveContainer>
     );
-  }, [chartHeight, sortedData, router, chemicalName]);
+  }, [chartHeight, sortedData, router, chemicalName, isSelectMode, selectForReport]);
 
   return (
     <div>

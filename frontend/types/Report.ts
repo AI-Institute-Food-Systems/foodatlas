@@ -36,6 +36,11 @@ export type ReportContext =
       entitySlug?: string;
       chemicalId?: string;
       chemicalName?: string;
+      // Populated when the report originates on the chemical page (row
+      // is a food) — food page reports leave these undefined and use
+      // chemicalId/chemicalName instead.
+      foodId?: string;
+      foodName?: string;
       dataPointCount?: number;
     }
   | {

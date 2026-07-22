@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import { MdInfoOutline, MdKeyboardArrowDown } from "react-icons/md";
+import { twMerge } from "tailwind-merge";
 
 import Link from "@/components/basic/Link";
 import EntitySiblingIcon from "@/components/basic/EntitySiblingIcon";
+import { useReportRows } from "@/context/reportModeContext";
 import { AmbiguitySibling } from "@/types/Metadata";
 import { encodeSpace } from "@/utils/utils";
 
@@ -25,6 +27,7 @@ const NoConcentrationComposition = ({
   chemicalName,
 }: NoConcentrationCompositionProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const reporter = useReportRows();
 
   return (
     <div>
@@ -54,10 +57,24 @@ const NoConcentrationComposition = ({
               sources supporting this food-chemical relationship.
             </p>
             <div className="flex flex-wrap gap-1">
-              {data.map((row) => (
+              {data.map((row) => {
+                const rowReportProps = reporter.getRowProps({
+                  kind: "food-composition-row",
+                  entityType: "chemical",
+                  entitySlug: chemicalName,
+                  chemicalName,
+                  foodId: row.id,
+                  foodName: row.name,
+                  dataPointCount: row.evidence_count,
+                });
+                return (
                 <span
                   key={row.id}
-                  className="inline-flex items-baseline gap-1 capitalize text-xs leading-tight px-2 py-0.5 rounded-full border border-light-700/70 bg-light-900/40 text-light-200 max-w-full"
+                  {...rowReportProps}
+                  className={twMerge(
+                    "inline-flex items-baseline gap-1 capitalize text-xs leading-tight px-2 py-0.5 rounded-full border border-light-700/70 bg-light-900/40 text-light-200 max-w-full",
+                    rowReportProps.className,
+                  )}
                 >
                   <Link
                     className="capitalize"
@@ -76,7 +93,8 @@ const NoConcentrationComposition = ({
                     </span>
                   )}
                 </span>
-              ))}
+                );
+              })}
             </div>
             </div>
           )}

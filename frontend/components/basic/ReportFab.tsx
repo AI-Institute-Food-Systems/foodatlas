@@ -32,14 +32,21 @@ const ReportFab = () => {
     closeModal,
   } = useReportModeState();
 
+  // The Modal component uses z-50 for its backdrop. To let users start
+  // a report from inside a table modal (BioactivityMeasurementsModal,
+  // FoodCompositionEvidenceModal, CorrelationEvidenceModal), the FAB
+  // must sit above that backdrop. Hide it entirely while our own report
+  // modal is open — otherwise it would float over the modal's panel.
+  const showFab = activeContext === null;
+
   return (
     <>
       <div
         className={twMerge(
-          // Sit above almost everything but below the report modal's
-          // z-50 backdrop so an open modal isn't dimmed by the FAB.
-          "fixed z-40 bottom-4 right-4",
+          // Above the Modal wrapper's z-50 backdrop.
+          "fixed z-[60] bottom-4 right-4",
           "pb-[env(safe-area-inset-bottom)] pr-[env(safe-area-inset-right)]",
+          !showFab && "hidden",
         )}
       >
         {isSelectMode ? (
