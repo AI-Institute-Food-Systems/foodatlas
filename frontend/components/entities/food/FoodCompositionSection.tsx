@@ -8,6 +8,7 @@ import {
   MdClose,
   MdDescription,
   MdErrorOutline,
+  MdInfoOutline,
   MdKeyboardArrowDown,
   MdKeyboardArrowUp,
   MdSearch,
@@ -434,6 +435,30 @@ const FoodCompositionSection = ({
     setShowLowTrust(false);
     setTablePaginations("food-composition-table", 1, 20);
   };
+
+  // Empty-state body shared between desktop table + mobile card list.
+  // When filters are active, we surface a filter-aware message + inline
+  // "clear filters" button so the reader doesn't confuse "your filters
+  // returned nothing" with "this food has no composition data at all".
+  const emptyStateBody = isFiltersDirty ? (
+    <div className="flex flex-col items-center gap-2 text-light-300">
+      <div className="flex items-center gap-2 text-sm">
+        <MdInfoOutline />
+        No associations match your filters
+      </div>
+      <button
+        type="button"
+        onClick={resetAllFilters}
+        className="text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
+      >
+        clear filters
+      </button>
+    </div>
+  ) : (
+    <div className="flex items-center gap-2 text-light-300 text-sm">
+      <MdInfoOutline /> No associations found
+    </div>
+  );
 
   // handle evidence button click
   const handleEvidenceButtonClick = (
@@ -971,8 +996,8 @@ const FoodCompositionSection = ({
                   // no rows
                   <tr>
                     <td colSpan={TABLE_HEADERS.length}>
-                      <div className="h-[10rem] flex items-center justify-center text-light-300">
-                        <>No associations found</>
+                      <div className="h-[10rem] flex items-center justify-center">
+                        {emptyStateBody}
                       </div>
                     </td>
                   </tr>
@@ -1118,8 +1143,8 @@ const FoodCompositionSection = ({
                   );
                 })
               ) : (
-                <div className="w-full py-6 flex items-center justify-center text-light-300">
-                  No associations found
+                <div className="w-full py-6 flex items-center justify-center">
+                  {emptyStateBody}
                 </div>
               )}
             </div>

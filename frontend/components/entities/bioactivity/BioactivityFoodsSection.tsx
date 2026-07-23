@@ -63,6 +63,7 @@ const BioactivityFoodsSection = ({ commonName, anchorId }: Props) => {
       columns={columns}
       searchPlaceholder="Search foods"
       emptyMessage="No foods exhibit this bioactivity yet"
+      emptyMessageFiltered="No foods match your filters"
       modalConfig={{
         anchorLabel: commonName,
         headIsRow: true,

@@ -88,6 +88,7 @@ const ChemicalBioactivitiesSection = ({ commonName, anchorId }: Props) => {
       columns={columns}
       searchPlaceholder="Search bioactivities"
       emptyMessage="No bioactivity measurements recorded for this chemical"
+      emptyMessageFiltered="No bioactivities match your filters"
       modalConfig={{
         anchorLabel: commonName,
         headIsRow: false,

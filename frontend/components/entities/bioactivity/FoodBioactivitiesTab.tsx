@@ -505,6 +505,7 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
         externalEvidenceType={evidenceTypeParam}
         hideChrome
         onTotalRowsChange={setDirectTotal}
+        onResetFilters={resetAllFilters}
       />
       <div className="border-t-2 border-double border-light-700/60" />
       <FoodInferredBioactivitiesSection
@@ -515,6 +516,7 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
         externalEvidenceType={evidenceTypeParam}
         hideChrome
         onTotalRowsChange={setInferredTotal}
+        onResetFilters={resetAllFilters}
       />
 
       {mobileFiltersOpen && (
