@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { MdAccountTree } from "react-icons/md";
 import { TaxonomyNode } from "@/types";
 import { encodeSpace } from "@/utils/utils";
-import Button from "@/components/basic/Button";
+import Chip from "@/components/basic/Chip";
 import Modal from "@/components/basic/Modal";
 
 type TreeNode = {
@@ -152,16 +153,15 @@ const TaxonomyTree = ({
       {collapsible && (
         <div className="mt-2 flex items-center gap-2 flex-wrap">
           <span className="font-mono italic text-[11px] text-light-500">
-            1 of {totalPaths} branches
+            Showing 1 of {totalPaths} branches
           </span>
-          <Button
-            variant="outlined"
-            size="xs"
-            className="rounded-full"
+          <Chip
+            icon={<MdAccountTree className="size-3" />}
+            label="Show full tree"
+            tone="outline"
+            size="md"
             onClick={() => setIsModalOpen(true)}
-          >
-            Show full tree
-          </Button>
+          />
         </div>
       )}
       {collapsible && (
