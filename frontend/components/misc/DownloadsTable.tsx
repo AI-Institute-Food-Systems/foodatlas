@@ -1,9 +1,20 @@
+"use client";
+
+import { useMemo } from "react";
 import { MdDownload } from "react-icons/md";
 
 import Chip from "@/components/basic/Chip";
+import Pagination from "@/components/basic/Pagination";
+import { usePaginations } from "@/context/paginationsContext";
 import { DownloadEntry } from "@/types";
 
 export type DownloadRow = DownloadEntry & { summary: string };
+
+const TABLE_ID = "downloads-page";
+// 10 per page — matches the cadence of ~1 release/week for ~2 months
+// per page, so the first page usually holds "this quarter" without
+// asking the user to click through.
+const ROWS_PER_PAGE = 10;
 
 type Alignment = "left" | "right";
 
@@ -20,6 +31,22 @@ interface DownloadsTableProps {
 }
 
 const DownloadsTable = ({ data }: DownloadsTableProps) => {
+  const { getTablePaginations } = usePaginations();
+  const { currentPage } = getTablePaginations(TABLE_ID);
+  const totalRows = data.length;
+  const numberOfPages = Math.max(
+    1,
+    Math.ceil(totalRows / ROWS_PER_PAGE),
+  );
+  // Slice the fetched-once dataset to the active page. Client-side
+  // paging keeps the server component simple — the /download endpoint
+  // still returns the whole manifest in one shot (dataset is small).
+  const pageRows = useMemo(() => {
+    const start = (currentPage - 1) * ROWS_PER_PAGE;
+    return data.slice(start, start + ROWS_PER_PAGE);
+  }, [data, currentPage]);
+  const showPaginator = numberOfPages > 1;
+
   return (
     <>
     <div className="hidden md:block overflow-x-auto">
@@ -49,7 +76,7 @@ const DownloadsTable = ({ data }: DownloadsTableProps) => {
           </tr>
         </thead>
         <tbody className="font-light">
-          {data.map((row) => (
+          {pageRows.map((row) => (
             <tr key={row.release_date + "_" + row.version}>
               <td className="py-2 pr-3">
                 <div className="flex min-h-12 items-center">{row.version}</div>
@@ -89,7 +116,7 @@ const DownloadsTable = ({ data }: DownloadsTableProps) => {
     {/* card list — mobile. Version + release date on top, summary and
      * size below, download button on its own line. */}
     <div className="md:hidden w-full flex flex-col divide-y divide-light-800">
-      {data.map((row) => (
+      {pageRows.map((row) => (
         <div
           key={row.release_date + "_" + row.version}
           className="w-full py-3 flex flex-col gap-2"
@@ -120,6 +147,16 @@ const DownloadsTable = ({ data }: DownloadsTableProps) => {
         </div>
       ))}
     </div>
+
+    {showPaginator && (
+      <div className="mt-4 max-w-xl w-full mx-auto">
+        <Pagination
+          tableId={TABLE_ID}
+          numberOfPages={numberOfPages}
+          isLoading={false}
+        />
+      </div>
+    )}
     </>
   );
 };
