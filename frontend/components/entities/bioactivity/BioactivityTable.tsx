@@ -848,13 +848,24 @@ const BioactivityTable = ({
           </thead>
           <tbody className="text-sm font-light">
             {isLoading ? (
+              // One placeholder per column so the skeleton previews the
+              // real table layout (colgroup widths already scope each
+              // <td>). Right-aligned columns pin their bar to the right
+              // to mirror the real number/action cells.
               Array.from({ length: 20 }).map((_, i) => (
                 <tr key={`l-${i}`}>
-                  <td className="w-full py-1.5" colSpan={colSpan}>
-                    <div className="h-9 flex items-center">
-                      <LoadingCard className="h-5" />
-                    </div>
-                  </td>
+                  {columns.map((c) => (
+                    <td key={c.key} className="py-1.5 px-4">
+                      <div
+                        className={twMerge(
+                          "h-9 flex items-center",
+                          c.align === "right" && "justify-end",
+                        )}
+                      >
+                        <LoadingCard className="h-5 w-3/4" />
+                      </div>
+                    </td>
+                  ))}
                 </tr>
               ))
             ) : showEmpty ? (
@@ -900,9 +911,24 @@ const BioactivityTable = ({
        * override. */}
       <div className="md:hidden w-full flex flex-col divide-y divide-light-800">
         {isLoading ? (
+          // Mobile card skeleton — mirrors the real card shape: primary
+          // name line + one label:value line per remaining column + a
+          // chip-shaped placeholder for the trailing action button.
           Array.from({ length: 8 }).map((_, i) => (
-            <div key={`l-${i}`} className="w-full py-3">
-              <LoadingCard className="h-5" />
+            <div
+              key={`l-${i}`}
+              className="w-full py-3 flex flex-col gap-2"
+            >
+              <LoadingCard className="h-5 w-2/3" />
+              {columns.slice(1).map((c) => (
+                <div
+                  key={c.key}
+                  className="w-full flex items-center justify-between gap-2"
+                >
+                  <LoadingCard className="h-3 w-16" />
+                  <LoadingCard className="h-4 w-24" />
+                </div>
+              ))}
             </div>
           ))
         ) : showEmpty ? (

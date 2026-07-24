@@ -7,6 +7,7 @@ import ResultItem from "@/components/search/ResultItem";
 import useSearchAutocompleteOptions from "@/hooks/useSearchAutocompleteOptions";
 import { AutocompleteContext } from "@/context/autocompleteContext";
 import Card from "@/components/basic/Card";
+import LoadingCard from "@/components/basic/LoadingCard";
 import Pagination from "@/components/basic/Pagination";
 import { usePaginations } from "@/context/paginationsContext";
 import { SearchContext } from "@/context/searchContext";
@@ -62,11 +63,25 @@ const ResultsPage = ({ searchParams }: { searchParams: SearchParams }) => {
       ) : // loading indicator
       isLoading ? (
         <div className="flex flex-col gap-3 mt-6">
-          <div className="w-52 h-6 bg-zinc-900/80 animate-pulse shadow-light-700/20 border border-light-50/10 rounded " />
+          <div className="flex justify-between">
+            <LoadingCard className="mt-8 h-5 w-56" />
+            <LoadingCard className="mt-8 h-5 w-24" />
+          </div>
           <div className="mt-3 flex flex-col gap-3">
+            {/* Each card previews ResultItem's structure: header row
+             * (name + id chip on the right), meta row, and a synonym
+             * strip. Reserves the same vertical footprint so the page
+             * doesn't jump when results land. */}
             {Array.from({ length: 7 }, (_, index) => (
               <Card key={index}>
-                <div className="h-[7.4rem] animate-pulse" />
+                <div className="flex flex-col gap-2">
+                  <div className="flex justify-between items-center">
+                    <LoadingCard className="h-5 w-1/3" />
+                    <LoadingCard className="h-4 w-24" />
+                  </div>
+                  <LoadingCard className="h-3 w-1/2" />
+                  <LoadingCard className="h-3 w-2/3 mt-1" />
+                </div>
               </Card>
             ))}
           </div>
