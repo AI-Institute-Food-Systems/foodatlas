@@ -108,14 +108,8 @@ export const useReportRows = () => {
           e.stopPropagation();
           selectForReport(rowContext);
         },
-        // Background tint is the primary signal — outline on <tr>
-        // under border-collapse: collapse (Tailwind Preflight default)
-        // is inconsistent across browsers, so we anchor visibility on
-        // bg-* which renders through cells reliably. The dashed outline
-        // stays as an extra affordance for wrappers that support it
-        // (<div>/chips/spans).
         className:
-          "cursor-pointer relative bg-amber-500/[0.12] hover:bg-amber-500/25 outline outline-1 outline-dashed outline-amber-400/60 -outline-offset-1 hover:outline-amber-300 transition-colors",
+          "cursor-pointer relative outline-1 outline-dashed outline-amber-500/50 -outline-offset-1 hover:bg-amber-500/10 hover:outline-amber-400 transition-colors",
         role: "button" as const,
         tabIndex: 0,
         onKeyDown: (e: React.KeyboardEvent) => {
