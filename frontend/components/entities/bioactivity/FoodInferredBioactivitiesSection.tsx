@@ -20,6 +20,7 @@ import {
   MdSearch,
   MdUnfoldMore,
 } from "react-icons/md";
+import { twMerge } from "tailwind-merge";
 
 import Card from "@/components/basic/Card";
 import Chip from "@/components/basic/Chip";
@@ -28,6 +29,7 @@ import LoadingCard from "@/components/basic/LoadingCard";
 import Pagination from "@/components/basic/Pagination";
 import SortListbox from "@/components/basic/SortListbox";
 import BioactivityMeasurementsModal from "@/components/entities/bioactivity/BioactivityMeasurementsModal";
+import { useReportRows } from "@/context/reportModeContext";
 import {
   formatTopMeasurement,
   topMeasurementOf,
@@ -71,6 +73,9 @@ interface Props {
   // Fires whenever the filtered totalRows changes so a wrapper (the
   // Food Bioactivities tab) can sum direct + inferred for its tab badge.
   onTotalRowsChange?: (total: number) => void;
+  // When externally driven, this callback lets the table's empty-state
+  // "clear filters" button reset the parent's sidebar too.
+  onResetFilters?: () => void;
 }
 
 const TABLE_ID_PREFIX = "food-inferred-bioact";
@@ -83,6 +88,7 @@ const FoodInferredBioactivitiesSection = ({
   externalEvidenceType,
   hideChrome = false,
   onTotalRowsChange,
+  onResetFilters,
 }: Props) => {
   const tableId = `${TABLE_ID_PREFIX}-${commonName}`;
   const { getTablePaginations, setTablePaginations } = usePaginations();
@@ -108,6 +114,21 @@ const FoodInferredBioactivitiesSection = ({
     if (onTotalRowsChange && !isLoading) onTotalRowsChange(totalRows);
   }, [onTotalRowsChange, totalRows, isLoading]);
   const [selected, setSelected] = useState<InferredRow | null>(null);
+  const reporter = useReportRows();
+
+  const buildRowContext = (row: InferredRow) => ({
+    kind: "food-inferred-bioactivity" as const,
+    entityType: "food" as const,
+    entitySlug: commonName,
+    bioactivityId: row.bioactivity_id,
+    bioactivityName: row.bioactivity,
+    chemicalId: row.chemical_id,
+    chemicalName: row.chemical,
+    concentration:
+      row.median_concentration?.value != null
+        ? `${row.median_concentration.value} ${row.median_concentration.unit ?? ""}`.trim()
+        : undefined,
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -160,6 +181,40 @@ const FoodInferredBioactivitiesSection = ({
 
   const showingPaginator = totalPages > 1 || isLoading;
   const showEmpty = !isLoading && rows.length === 0;
+
+  // Effective-filter dirtiness — accounts for both internal search
+  // state and parent-driven overrides so the empty-state copy can
+  // distinguish "no data at all" from "your filters filtered it to 0".
+  const hasActiveFilters =
+    effectiveSearchTerm !== "" ||
+    effectiveSourceKind !== "" ||
+    effectiveUnit !== "" ||
+    effectiveEvidenceType !== "";
+  const resetForEmptyState =
+    onResetFilters ??
+    (() => {
+      setSearchTerm("");
+      setTablePaginations(tableId, 1, 20);
+    });
+  const emptyStateBody = hasActiveFilters ? (
+    <div className="flex flex-col items-center gap-2 text-light-300">
+      <div className="flex items-center gap-2 text-sm">
+        <MdInfoOutline />
+        No inferred bioactivities match your filters
+      </div>
+      <button
+        type="button"
+        onClick={resetForEmptyState}
+        className="text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
+      >
+        clear filters
+      </button>
+    </div>
+  ) : (
+    <div className="flex items-center gap-2 text-light-300 text-sm">
+      <MdInfoOutline /> No inferred bioactivities recorded for this food yet
+    </div>
+  );
 
   const searchInput = (
     <div className="relative flex items-center">
@@ -307,9 +362,8 @@ const FoodInferredBioactivitiesSection = ({
             ) : showEmpty ? (
               <tr>
                 <td colSpan={5}>
-                  <div className="h-[10rem] flex items-center justify-center text-light-300 gap-2">
-                    <MdInfoOutline /> No chemicals in this food have measured
-                    bioactivities yet
+                  <div className="h-[10rem] flex items-center justify-center">
+                    {emptyStateBody}
                   </div>
                 </td>
               </tr>
@@ -319,6 +373,7 @@ const FoodInferredBioactivitiesSection = ({
                   key={`${row.chemical_id}-${row.bioactivity_id}-${idx}`}
                   row={row}
                   onOpen={() => setSelected(row)}
+                  rowReportProps={reporter.getRowProps(buildRowContext(row))}
                 />
               ))
             )}
@@ -337,18 +392,22 @@ const FoodInferredBioactivitiesSection = ({
             </div>
           ))
         ) : showEmpty ? (
-          <div className="w-full py-6 flex items-center justify-center text-light-300 gap-2">
-            <MdInfoOutline /> No chemicals in this food have measured
-            bioactivities yet
+          <div className="w-full py-6 flex items-center justify-center">
+            {emptyStateBody}
           </div>
         ) : (
           rows.map((row, idx) => {
             const conc = row.median_concentration;
             const top = row.top_measurement;
+            const rowReportProps = reporter.getRowProps(buildRowContext(row));
             return (
               <div
                 key={`${row.chemical_id}-${row.bioactivity_id}-${idx}`}
-                className="w-full py-3 flex flex-col gap-2 text-sm"
+                {...rowReportProps}
+                className={twMerge(
+                  "w-full py-3 flex flex-col gap-2 text-sm",
+                  rowReportProps.className,
+                )}
               >
                 <div className="w-full flex items-baseline gap-2 flex-wrap capitalize">
                   <Link
@@ -490,14 +549,22 @@ const SortableTh = ({
   );
 };
 
-const Row = ({ row, onOpen }: { row: InferredRow; onOpen: () => void }) => {
+const Row = ({
+  row,
+  onOpen,
+  rowReportProps,
+}: {
+  row: InferredRow;
+  onOpen: () => void;
+  rowReportProps?: Record<string, unknown>;
+}) => {
   const conc = row.median_concentration;
   const top = topMeasurementOf({
     measurements: row.measurements,
     top_measurement: row.top_measurement,
   });
   return (
-    <tr>
+    <tr {...rowReportProps}>
       <td className="py-1.5 pr-4">
         <div className="flex min-h-9 items-center capitalize">
           <Link
