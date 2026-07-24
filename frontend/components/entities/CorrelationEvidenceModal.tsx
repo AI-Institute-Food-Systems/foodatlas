@@ -1,5 +1,6 @@
 import Link from "@/components/basic/Link";
 import Modal from "@/components/basic/Modal";
+import { useReportRows } from "@/context/reportModeContext";
 import { Evidence } from "@/types/Evidence";
 import InfoBanner from "../basic/InfoBanner";
 
@@ -72,6 +73,8 @@ const CorrelationEvidenceModal = ({
   chemicalName,
   diseaseName,
 }: CorrelationEvidenceModalProps) => {
+  const reporter = useReportRows();
+
   // handle modal close
   const handleModalClose = () => {
     onClose();
@@ -112,14 +115,35 @@ const CorrelationEvidenceModal = ({
       onClose={handleModalClose}
     >
       <div className="flex gap-2 flex-wrap">
-        {evidences?.map((evidence) => (
-          <Link
-            key={evidence.pmid?.id ?? evidence.pmcid?.id}
-            href={evidence.pmid?.url ?? evidence.pmcid?.url}
-          >
-            {`${evidence.pmid?.id ?? evidence.pmcid?.id}`}
-          </Link>
-        ))}
+        {evidences?.map((evidence) => {
+          const pmid = evidence.pmid?.id;
+          const pmcid = evidence.pmcid?.id;
+          const rowProps = reporter.getRowProps({
+            kind: "correlation-evidence",
+            entityType,
+            counterpartName:
+              entityType === "chemical" ? diseaseName : chemicalName,
+            pmid: pmid !== undefined ? String(pmid) : undefined,
+            pmcid: pmcid !== undefined ? String(pmcid) : undefined,
+            referenceUrl: evidence.pmid?.url ?? evidence.pmcid?.url,
+          });
+          return reporter.isSelectMode ? (
+            <span
+              key={pmid ?? pmcid}
+              className="inline-flex items-center gap-1 rounded-md px-2 py-0.5"
+              {...rowProps}
+            >
+              {`${pmid ?? pmcid}`}
+            </span>
+          ) : (
+            <Link
+              key={pmid ?? pmcid}
+              href={evidence.pmid?.url ?? evidence.pmcid?.url}
+            >
+              {`${pmid ?? pmcid}`}
+            </Link>
+          );
+        })}
       </div>
     </Modal>
   );

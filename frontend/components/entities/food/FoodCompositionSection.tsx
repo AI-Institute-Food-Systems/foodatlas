@@ -8,6 +8,7 @@ import {
   MdClose,
   MdDescription,
   MdErrorOutline,
+  MdInfoOutline,
   MdKeyboardArrowDown,
   MdKeyboardArrowUp,
   MdSearch,
@@ -22,6 +23,7 @@ import Link from "@/components/basic/Link";
 import Pagination from "@/components/basic/Pagination";
 import LoadingCard from "@/components/basic/LoadingCard";
 import SortListbox from "@/components/basic/SortListbox";
+import { useReportRows } from "@/context/reportModeContext";
 import { AmbiguityBadge } from "@/components/basic/Ambiguity";
 import { TrustBadge } from "@/components/basic/TrustBadge";
 import FoodCompositionEvidenceModal, {
@@ -122,6 +124,7 @@ const FoodCompositionSection = ({
   });
   const [showAllConcentrations, setShowAllConcentrations] = useState(true);
   const [showLowTrust, setShowLowTrust] = useState(false);
+  const reporter = useReportRows();
   const [selectedEvidenceName, setSelectedEvidenceName] = useState("");
   const [evidenceFilter, setEvidenceFilter] =
     useState<EvidenceFilter>("all");
@@ -434,6 +437,30 @@ const FoodCompositionSection = ({
     setShowLowTrust(false);
     setTablePaginations("food-composition-table", 1, 20);
   };
+
+  // Empty-state body shared between desktop table + mobile card list.
+  // When filters are active, we surface a filter-aware message + inline
+  // "clear filters" button so the reader doesn't confuse "your filters
+  // returned nothing" with "this food has no composition data at all".
+  const emptyStateBody = isFiltersDirty ? (
+    <div className="flex flex-col items-center gap-2 text-light-300">
+      <div className="flex items-center gap-2 text-sm">
+        <MdInfoOutline />
+        No associations match your filters
+      </div>
+      <button
+        type="button"
+        onClick={resetAllFilters}
+        className="text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
+      >
+        clear filters
+      </button>
+    </div>
+  ) : (
+    <div className="flex items-center gap-2 text-light-300 text-sm">
+      <MdInfoOutline /> No associations found
+    </div>
+  );
 
   // handle evidence button click
   const handleEvidenceButtonClick = (
@@ -859,10 +886,19 @@ const FoodCompositionSection = ({
                       !!highlightName &&
                       (row.name.toLowerCase() === highlightName ||
                         (row.id ?? "").toLowerCase() === highlightName);
+                    const rowReportProps = reporter.getRowProps({
+                      kind: "food-composition-row",
+                      entityType: "food",
+                      entitySlug: commonName,
+                      chemicalId: row.id,
+                      chemicalName: row.name,
+                      dataPointCount: getRowEvidenceCount(row),
+                    });
                     return (
                     <tr
                       key={row.id}
                       ref={isHighlighted ? highlightRowRef : null}
+                      {...rowReportProps}
                     >
                       {/* name */}
                       <td className="py-1.5 pr-4">
@@ -971,8 +1007,8 @@ const FoodCompositionSection = ({
                   // no rows
                   <tr>
                     <td colSpan={TABLE_HEADERS.length}>
-                      <div className="h-[10rem] flex items-center justify-center text-light-300">
-                        <>No associations found</>
+                      <div className="h-[10rem] flex items-center justify-center">
+                        {emptyStateBody}
                       </div>
                     </td>
                   </tr>
@@ -1032,14 +1068,26 @@ const FoodCompositionSection = ({
                     row.chemical_classification.length > 0
                       ? row.chemical_classification.join(", ")
                       : "—";
+                  const rowReportProps = reporter.getRowProps({
+                    kind: "food-composition-row",
+                    entityType: "food",
+                    entitySlug: commonName,
+                    chemicalId: row.id,
+                    chemicalName: row.name,
+                    dataPointCount: evidenceCount,
+                  });
                   return (
                     <div
                       key={row.id}
-                      className={`w-full py-3 flex flex-col gap-2 ${
-                        isHighlighted
-                          ? "bg-accent-500/5 -mx-2 px-2 rounded"
-                          : ""
-                      }`}
+                      {...rowReportProps}
+                      className={twMerge(
+                        `w-full py-3 flex flex-col gap-2 ${
+                          isHighlighted
+                            ? "bg-accent-500/5 -mx-2 px-2 rounded"
+                            : ""
+                        }`,
+                        rowReportProps.className,
+                      )}
                     >
                       {/* Name row — same on both variants */}
                       <div className="flex items-center gap-2 flex-wrap capitalize">
@@ -1118,8 +1166,8 @@ const FoodCompositionSection = ({
                   );
                 })
               ) : (
-                <div className="w-full py-6 flex items-center justify-center text-light-300">
-                  No associations found
+                <div className="w-full py-6 flex items-center justify-center">
+                  {emptyStateBody}
                 </div>
               )}
             </div>

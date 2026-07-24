@@ -8,6 +8,7 @@ import {
   MdInfoOutline,
   MdRemove,
 } from "react-icons/md";
+import { twMerge } from "tailwind-merge";
 
 import Chip from "@/components/basic/Chip";
 import EntitySiblingIcon from "@/components/basic/EntitySiblingIcon";
@@ -15,6 +16,7 @@ import Link from "@/components/basic/Link";
 import LoadingCard from "@/components/basic/LoadingCard";
 import Pagination from "@/components/basic/Pagination";
 import CorrelationEvidenceModal from "@/components/entities/CorrelationEvidenceModal";
+import { useReportRows } from "@/context/reportModeContext";
 import { usePaginations } from "@/context/paginationsContext";
 import { useLoadingGate } from "@/context/pageReadyContext";
 import { getDiseaseData } from "@/utils/fetching";
@@ -51,6 +53,7 @@ const CorrelationTable = ({
   const { getTablePaginations } = usePaginations();
   const { currentPage } = getTablePaginations(tableId);
   const [selectedRowIdx, setSelectedRowIdx] = useState(-1);
+  const reporter = useReportRows();
 
   // fetch data
   useEffect(() => {
@@ -153,7 +156,16 @@ const CorrelationTable = ({
               ) : data.length > 0 ? (
                 // data rows
                 data.map((row, rowIdx) => (
-                  <tr key={`${row.id}-${rowIdx}`}>
+                  <tr
+                    key={`${row.id}-${rowIdx}`}
+                    {...reporter.getRowProps({
+                      kind: "correlation-row",
+                      entityType: tableLocation as "chemical" | "disease",
+                      entitySlug: commonName,
+                      counterpartName: row.name,
+                      pmidCount: row.evidences.length,
+                    })}
+                  >
                     {/* source chemical (chemical page only) */}
                     {tableLocation === "chemical" && (
                       <td className="py-1.5 pr-4">
@@ -274,10 +286,22 @@ const CorrelationTable = ({
               refresh the page
             </div>
           ) : data.length > 0 ? (
-            data.map((row, rowIdx) => (
+            data.map((row, rowIdx) => {
+              const rowProps = reporter.getRowProps({
+                kind: "correlation-row",
+                entityType: tableLocation as "chemical" | "disease",
+                entitySlug: commonName,
+                counterpartName: row.name,
+                pmidCount: row.evidences.length,
+              });
+              return (
               <div
                 key={`${row.id}-${rowIdx}`}
-                className="w-full py-3 flex flex-col gap-2"
+                {...rowProps}
+                className={twMerge(
+                  "w-full py-3 flex flex-col gap-2",
+                  rowProps.className,
+                )}
               >
                 <div className="w-full flex items-center gap-2 flex-wrap capitalize">
                   <SignBadge />
@@ -330,7 +354,8 @@ const CorrelationTable = ({
                   />
                 </div>
               </div>
-            ))
+              );
+            })
           ) : (
             <div className="w-full py-6 flex items-center justify-center text-light-300 gap-2">
               <MdInfoOutline /> No evidence found
