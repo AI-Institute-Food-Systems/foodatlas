@@ -77,11 +77,6 @@ const ChemicalPage = async ({ params }: ChemicalPageProps) => {
             ),
           },
           {
-            id: "health",
-            label: "Health Impacts",
-            content: <ChemicalCorrelationSection commonName={commonName} />,
-          },
-          {
             id: "bioactivities",
             label: "Bioactivities",
             count: bioactivitiesCount,
@@ -91,6 +86,11 @@ const ChemicalPage = async ({ params }: ChemicalPageProps) => {
                 anchorId={anchorId}
               />
             ),
+          },
+          {
+            id: "health",
+            label: "Health Impacts",
+            content: <ChemicalCorrelationSection commonName={commonName} />,
           },
           {
             id: "overview",

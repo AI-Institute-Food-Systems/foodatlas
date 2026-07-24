@@ -61,25 +61,25 @@ const BioactivityPage = async ({ params }: BioactivityPageProps) => {
       </Suspense>
       <EntityDetailLayout
         entityType={entityType}
-        defaultTabId="chemicals"
+        defaultTabId="foods"
         tabs={[
-          {
-            id: "chemicals",
-            label: "Chemicals Measured",
-            count: chemicalsCount,
-            content: (
-              <BioactivityChemicalsSection
-                commonName={commonName}
-                anchorId={anchorId}
-              />
-            ),
-          },
           {
             id: "foods",
             label: "Foods Exhibiting",
             count: foodsCount,
             content: (
               <BioactivityFoodsSection
+                commonName={commonName}
+                anchorId={anchorId}
+              />
+            ),
+          },
+          {
+            id: "chemicals",
+            label: "Chemicals Measured",
+            count: chemicalsCount,
+            content: (
+              <BioactivityChemicalsSection
                 commonName={commonName}
                 anchorId={anchorId}
               />
