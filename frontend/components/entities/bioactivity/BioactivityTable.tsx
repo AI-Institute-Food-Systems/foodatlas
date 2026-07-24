@@ -30,6 +30,7 @@ import Link from "@/components/basic/Link";
 import LoadingCard from "@/components/basic/LoadingCard";
 import Pagination from "@/components/basic/Pagination";
 import SortListbox from "@/components/basic/SortListbox";
+import { useReportRows } from "@/context/reportModeContext";
 import BioactivityMeasurementsModal from "@/components/entities/bioactivity/BioactivityMeasurementsModal";
 import { formatTopMeasurement, topMeasurementOf } from "@/components/entities/bioactivity/format";
 import { usePaginations } from "@/context/paginationsContext";
@@ -157,6 +158,16 @@ interface Props {
   onTotalRowsChange?: (total: number) => void;
 }
 
+// The direction the table was fetched with tells us which entity the
+// page belongs to — used to label the per-row report context.
+const pageEntityTypeFromDirection = (
+  direction?: BioactivityDirection,
+): "food" | "chemical" | "bioactivity" => {
+  if (direction === "chemical-bioactivities") return "chemical";
+  if (direction === "food-bioactivities") return "food";
+  return "bioactivity";
+};
+
 const BioactivityTable = ({
   tableId,
   direction,
@@ -180,6 +191,8 @@ const BioactivityTable = ({
 }: Props) => {
   const { getTablePaginations, setTablePaginations } = usePaginations();
   const { currentPage } = getTablePaginations(tableId);
+  const reporter = useReportRows();
+  const pageEntityType = pageEntityTypeFromDirection(direction);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
@@ -859,6 +872,19 @@ const BioactivityTable = ({
                   row={row}
                   columns={columns}
                   onOpen={() => setSelected(row)}
+                  rowReportProps={reporter.getRowProps(
+                    {
+                      kind: "bioactivity-row",
+                      entityType: pageEntityType,
+                      entitySlug: pivotName,
+                      bioactivityId: String(row.id),
+                      bioactivityName: row.name,
+                      activeCount: (row as BioactivityChemicalRow).active_count,
+                      inactiveCount: (row as BioactivityChemicalRow)
+                        .inactive_count,
+                    },
+                    { disabled: row.measurement_count === 0 },
+                  )}
                 />
               ))
             )}
@@ -887,10 +913,26 @@ const BioactivityTable = ({
           rows.map((row) => {
             const ctx: ColumnContext = { openModal: () => setSelected(row) };
             const [primary, ...rest] = columns;
+            const rowReportProps = reporter.getRowProps(
+              {
+                kind: "bioactivity-row",
+                entityType: pageEntityType,
+                entitySlug: pivotName,
+                bioactivityId: String(row.id),
+                bioactivityName: row.name,
+                activeCount: (row as BioactivityChemicalRow).active_count,
+                inactiveCount: (row as BioactivityChemicalRow).inactive_count,
+              },
+              { disabled: row.measurement_count === 0 },
+            );
             return (
               <div
                 key={row.id}
-                className="w-full py-3 flex flex-col gap-2 text-sm"
+                {...rowReportProps}
+                className={twMerge(
+                  "w-full py-3 flex flex-col gap-2 text-sm",
+                  rowReportProps.className,
+                )}
               >
                 <div className="w-full flex items-center gap-2 flex-wrap">
                   {primary.render(row, ctx)}
@@ -988,14 +1030,18 @@ const BioactivityTableRow = ({
   row,
   columns,
   onOpen,
+  rowReportProps,
 }: {
   row: BioactivityRow;
   columns: SortableColumn[];
   onOpen: () => void;
+  rowReportProps?: ReturnType<
+    ReturnType<typeof useReportRows>["getRowProps"]
+  >;
 }) => {
   const ctx: ColumnContext = { openModal: onOpen };
   return (
-    <tr>
+    <tr {...rowReportProps}>
       {columns.map((c, idx) => (
         <td
           key={c.key}

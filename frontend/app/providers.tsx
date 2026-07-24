@@ -2,9 +2,11 @@
 
 import { Analytics } from "@vercel/analytics/react";
 
+import ReportFab from "@/components/basic/ReportFab";
 import { PaginationsProvider } from "@/context/paginationsContext";
 import { AutocompleteProvider } from "@/context/autocompleteContext";
 import { NavigationProvider } from "@/context/navigationContext";
+import { ReportModeProvider } from "@/context/reportModeContext";
 import { SearchProvider } from "@/context/searchContext";
 
 interface ProvidersProps {
@@ -17,8 +19,13 @@ const Providers = ({ children }: ProvidersProps) => {
       <PaginationsProvider>
         <AutocompleteProvider>
           <SearchProvider>
-            <Analytics />
-            {children}
+            <ReportModeProvider>
+              <Analytics />
+              {children}
+              {/* Global "Report an issue" floating trigger + modal.
+               * Every table's rows opt in via useReportRows(). */}
+              <ReportFab />
+            </ReportModeProvider>
           </SearchProvider>
         </AutocompleteProvider>
       </PaginationsProvider>

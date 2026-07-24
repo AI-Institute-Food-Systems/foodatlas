@@ -114,6 +114,7 @@ const TaxonomySection = async ({
       entityId={data.entity_id}
       entityType={entityType}
       colorClass={colorClass}
+      entitySlug={commonName}
     />
   );
 

@@ -23,6 +23,7 @@ import Link from "@/components/basic/Link";
 import Pagination from "@/components/basic/Pagination";
 import LoadingCard from "@/components/basic/LoadingCard";
 import SortListbox from "@/components/basic/SortListbox";
+import { useReportRows } from "@/context/reportModeContext";
 import { AmbiguityBadge } from "@/components/basic/Ambiguity";
 import { TrustBadge } from "@/components/basic/TrustBadge";
 import FoodCompositionEvidenceModal, {
@@ -123,6 +124,7 @@ const FoodCompositionSection = ({
   });
   const [showAllConcentrations, setShowAllConcentrations] = useState(true);
   const [showLowTrust, setShowLowTrust] = useState(false);
+  const reporter = useReportRows();
   const [selectedEvidenceName, setSelectedEvidenceName] = useState("");
   const [evidenceFilter, setEvidenceFilter] =
     useState<EvidenceFilter>("all");
@@ -884,10 +886,19 @@ const FoodCompositionSection = ({
                       !!highlightName &&
                       (row.name.toLowerCase() === highlightName ||
                         (row.id ?? "").toLowerCase() === highlightName);
+                    const rowReportProps = reporter.getRowProps({
+                      kind: "food-composition-row",
+                      entityType: "food",
+                      entitySlug: commonName,
+                      chemicalId: row.id,
+                      chemicalName: row.name,
+                      dataPointCount: getRowEvidenceCount(row),
+                    });
                     return (
                     <tr
                       key={row.id}
                       ref={isHighlighted ? highlightRowRef : null}
+                      {...rowReportProps}
                     >
                       {/* name */}
                       <td className="py-1.5 pr-4">
@@ -1057,14 +1068,26 @@ const FoodCompositionSection = ({
                     row.chemical_classification.length > 0
                       ? row.chemical_classification.join(", ")
                       : "—";
+                  const rowReportProps = reporter.getRowProps({
+                    kind: "food-composition-row",
+                    entityType: "food",
+                    entitySlug: commonName,
+                    chemicalId: row.id,
+                    chemicalName: row.name,
+                    dataPointCount: evidenceCount,
+                  });
                   return (
                     <div
                       key={row.id}
-                      className={`w-full py-3 flex flex-col gap-2 ${
-                        isHighlighted
-                          ? "bg-accent-500/5 -mx-2 px-2 rounded"
-                          : ""
-                      }`}
+                      {...rowReportProps}
+                      className={twMerge(
+                        `w-full py-3 flex flex-col gap-2 ${
+                          isHighlighted
+                            ? "bg-accent-500/5 -mx-2 px-2 rounded"
+                            : ""
+                        }`,
+                        rowReportProps.className,
+                      )}
                     >
                       {/* Name row — same on both variants */}
                       <div className="flex items-center gap-2 flex-wrap capitalize">

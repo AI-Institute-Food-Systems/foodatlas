@@ -20,6 +20,7 @@ import {
   MdSearch,
   MdUnfoldMore,
 } from "react-icons/md";
+import { twMerge } from "tailwind-merge";
 
 import Card from "@/components/basic/Card";
 import Chip from "@/components/basic/Chip";
@@ -28,6 +29,7 @@ import LoadingCard from "@/components/basic/LoadingCard";
 import Pagination from "@/components/basic/Pagination";
 import SortListbox from "@/components/basic/SortListbox";
 import BioactivityMeasurementsModal from "@/components/entities/bioactivity/BioactivityMeasurementsModal";
+import { useReportRows } from "@/context/reportModeContext";
 import {
   formatTopMeasurement,
   topMeasurementOf,
@@ -112,6 +114,21 @@ const FoodInferredBioactivitiesSection = ({
     if (onTotalRowsChange && !isLoading) onTotalRowsChange(totalRows);
   }, [onTotalRowsChange, totalRows, isLoading]);
   const [selected, setSelected] = useState<InferredRow | null>(null);
+  const reporter = useReportRows();
+
+  const buildRowContext = (row: InferredRow) => ({
+    kind: "food-inferred-bioactivity" as const,
+    entityType: "food" as const,
+    entitySlug: commonName,
+    bioactivityId: row.bioactivity_id,
+    bioactivityName: row.bioactivity,
+    chemicalId: row.chemical_id,
+    chemicalName: row.chemical,
+    concentration:
+      row.median_concentration?.value != null
+        ? `${row.median_concentration.value} ${row.median_concentration.unit ?? ""}`.trim()
+        : undefined,
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -356,6 +373,7 @@ const FoodInferredBioactivitiesSection = ({
                   key={`${row.chemical_id}-${row.bioactivity_id}-${idx}`}
                   row={row}
                   onOpen={() => setSelected(row)}
+                  rowReportProps={reporter.getRowProps(buildRowContext(row))}
                 />
               ))
             )}
@@ -381,10 +399,15 @@ const FoodInferredBioactivitiesSection = ({
           rows.map((row, idx) => {
             const conc = row.median_concentration;
             const top = row.top_measurement;
+            const rowReportProps = reporter.getRowProps(buildRowContext(row));
             return (
               <div
                 key={`${row.chemical_id}-${row.bioactivity_id}-${idx}`}
-                className="w-full py-3 flex flex-col gap-2 text-sm"
+                {...rowReportProps}
+                className={twMerge(
+                  "w-full py-3 flex flex-col gap-2 text-sm",
+                  rowReportProps.className,
+                )}
               >
                 <div className="w-full flex items-baseline gap-2 flex-wrap capitalize">
                   <Link
@@ -526,14 +549,22 @@ const SortableTh = ({
   );
 };
 
-const Row = ({ row, onOpen }: { row: InferredRow; onOpen: () => void }) => {
+const Row = ({
+  row,
+  onOpen,
+  rowReportProps,
+}: {
+  row: InferredRow;
+  onOpen: () => void;
+  rowReportProps?: Record<string, unknown>;
+}) => {
   const conc = row.median_concentration;
   const top = topMeasurementOf({
     measurements: row.measurements,
     top_measurement: row.top_measurement,
   });
   return (
-    <tr>
+    <tr {...rowReportProps}>
       <td className="py-1.5 pr-4">
         <div className="flex min-h-9 items-center capitalize">
           <Link

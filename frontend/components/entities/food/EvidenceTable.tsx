@@ -29,6 +29,7 @@ import { twMerge } from "tailwind-merge";
 import Button from "@/components/basic/Button";
 import Chip from "@/components/basic/Chip";
 import { AmbiguityIcon } from "@/components/basic/Ambiguity";
+import { useReportRows } from "@/context/reportModeContext";
 import {
   FoodEvidence,
   FoodEvidenceExtraction,
@@ -83,8 +84,22 @@ const PAGE_SIZE = 20;
 const EvidenceTable = ({ evidences, chemicalName }: Props) => {
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const reporter = useReportRows();
   const toggle = (k: string) =>
     setExpandedKey((prev) => (prev === k ? null : k));
+
+  const buildRowContext = (r: EvidenceRow) => ({
+    kind: "food-composition-evidence" as const,
+    entityType: "food" as const,
+    attestationId: r.extraction.attestation_id,
+    extractedChemical: r.extraction.extracted_chemical_name ?? undefined,
+    extractedFood: r.extraction.extracted_food_name ?? undefined,
+    concentration:
+      typeof r.extraction.converted_concentration?.value === "number"
+        ? String(r.extraction.converted_concentration.value)
+        : undefined,
+    referenceUrl: r.evidence.reference.url,
+  });
 
   const rows = useMemo(() => {
     const flat = flattenEvidences(evidences);
@@ -163,16 +178,28 @@ const EvidenceTable = ({ evidences, chemicalName }: Props) => {
             {pagedRows.map((r) => {
               const expandable = r.evidence.premise?.length > 0;
               const isExpanded = expandedKey === r.key;
+              const rowReportProps = reporter.getRowProps(buildRowContext(r));
               return (
                 <Fragment key={r.key}>
                   <tr
-                    onClick={expandable ? () => toggle(r.key) : undefined}
+                    onClick={
+                      reporter.isSelectMode
+                        ? rowReportProps.onClick
+                        : expandable
+                        ? () => toggle(r.key)
+                        : undefined
+                    }
                     aria-expanded={expandable ? isExpanded : undefined}
                     className={twMerge(
                       "transition-colors border-b border-light-800/60",
                       expandable && "cursor-pointer hover:bg-light-900/40",
-                      isExpanded && "bg-light-900/50"
+                      isExpanded && "bg-light-900/50",
+                      rowReportProps.className,
                     )}
+                    role={rowReportProps.role}
+                    tabIndex={rowReportProps.tabIndex}
+                    onKeyDown={rowReportProps.onKeyDown}
+                    aria-label={rowReportProps["aria-label"]}
                   >
                     <td className="py-2 pr-2 align-top">
                       <SourceBadge source={r.evidence.reference.source_name} />
@@ -220,8 +247,16 @@ const EvidenceTable = ({ evidences, chemicalName }: Props) => {
         {pagedRows.map((r) => {
           const expandable = r.evidence.premise?.length > 0;
           const isExpanded = expandedKey === r.key;
+          const rowReportProps = reporter.getRowProps(buildRowContext(r));
           return (
-            <div key={r.key} className="w-full py-3 flex flex-col gap-2 text-sm">
+            <div
+              key={r.key}
+              {...rowReportProps}
+              className={twMerge(
+                "w-full py-3 flex flex-col gap-2 text-sm",
+                rowReportProps.className,
+              )}
+            >
               <div className="w-full flex items-center justify-between gap-2 flex-wrap">
                 <div className="flex items-center gap-2 min-w-0">
                   <SourceBadge source={r.evidence.reference.source_name} />
