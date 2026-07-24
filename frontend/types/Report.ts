@@ -97,6 +97,30 @@ export type ReportContext =
       chemicalId?: string;
       chemicalName?: string;
       concentration?: string;
+    }
+  | {
+      // Individual item on the entity's "IDs & Metadata" tab —
+      // external IDs, classification, synonyms, ontology parents, or
+      // taxonomy tree nodes. `field` distinguishes the sub-surface so
+      // triage can filter (e.g. "wrong FoodOn id" vs "spurious synonym").
+      kind: "metadata-item";
+      entityType: "food" | "chemical" | "bioactivity" | "disease";
+      entitySlug?: string;
+      field:
+        | "external_id"
+        | "classification"
+        | "parent"
+        | "synonym"
+        | "taxonomy_node"
+        | "flavor";
+      // Human label of the field (e.g. "FoodOn", "Classification").
+      label?: string;
+      // The specific value being flagged (e.g. "FOODON_00003443",
+      // "flavonoid", "cherry tomato").
+      value: string;
+      // Optional source/ontology key when relevant (e.g. "FoodOn" for
+      // external IDs, "FoodAtlas" taxonomy for tree nodes).
+      source?: string;
     };
 
 export type ReportContextKind = ReportContext["kind"];

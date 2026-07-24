@@ -105,6 +105,11 @@ export const useReportRows = () => {
       if (!isSelectMode || opts.disabled || !selectForReport) return {};
       return {
         onClick: (e: React.MouseEvent) => {
+          // preventDefault covers reportable elements that wrap an
+          // <a> (external IDs, taxonomy nodes, ontology parents) — the
+          // anchor's navigation would otherwise fire before we can
+          // open the report modal.
+          e.preventDefault();
           e.stopPropagation();
           selectForReport(rowContext);
         },

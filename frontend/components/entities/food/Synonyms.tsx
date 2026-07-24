@@ -5,6 +5,8 @@ import { useState } from "react";
 import Card from "@/components/basic/Card";
 import Button from "@/components/basic/Button";
 import Modal from "@/components/basic/Modal";
+import { useReportRows } from "@/context/reportModeContext";
+import type { ReportContext } from "@/types/Report";
 
 const SYNONYM_LENGTH_LIMIT = 10;
 
@@ -16,14 +18,33 @@ interface SynonymsModalProps {
   // "inline" is naked but prefixed with serif italic "Also known as " — for
   // the Apothecary variant which has no section headings.
   inline?: boolean;
+  // Enables per-synonym reporting when the FAB is in select mode.
+  // Only meaningful for the naked (chip) variant — the inline + card
+  // variants render as prose/comma-list and aren't per-item selectable.
+  reportEntityType?: "food" | "chemical" | "bioactivity" | "disease";
+  reportEntitySlug?: string;
 }
 
 const SynonymsModal = ({
   synonyms,
   naked = false,
   inline = false,
+  reportEntityType,
+  reportEntitySlug,
 }: SynonymsModalProps) => {
   const [isSynonymModalOpen, setIsSynonymModalOpen] = useState(false);
+  const { getRowProps } = useReportRows();
+  const synonymReport = (value: string): ReportContext | null =>
+    reportEntityType
+      ? {
+          kind: "metadata-item",
+          entityType: reportEntityType,
+          entitySlug: reportEntitySlug,
+          field: "synonym",
+          label: "Synonym",
+          value,
+        }
+      : null;
 
   const handleSynonymShowAllClick = () => {
     setIsSynonymModalOpen(true);
@@ -67,14 +88,21 @@ const SynonymsModal = ({
     // a single chip. Low vertical padding keeps the row svelte.
     body = (
       <div className="flex flex-wrap gap-1 min-w-0">
-        {previewList.map((name, i) => (
-          <span
-            key={`${name}-${i}`}
-            className="capitalize text-xs leading-tight px-2 py-0.5 rounded-full border border-light-700/70 bg-light-900/40 text-light-200 break-all max-w-full"
-          >
-            {name}
-          </span>
-        ))}
+        {previewList.map((name, i) => {
+          const ctx = synonymReport(name);
+          const rp = ctx ? getRowProps(ctx) : {};
+          return (
+            <span
+              key={`${name}-${i}`}
+              {...rp}
+              className={`capitalize text-xs leading-tight px-2 py-0.5 rounded-full border border-light-700/70 bg-light-900/40 text-light-200 break-all max-w-full ${
+                (rp as { className?: string }).className ?? ""
+              }`.trim()}
+            >
+              {name}
+            </span>
+          );
+        })}
         {hasMore && (
           <button
             type="button"
