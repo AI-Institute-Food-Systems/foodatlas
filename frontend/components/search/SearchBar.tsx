@@ -140,6 +140,30 @@ const SearchBar = () => {
     return () => document.removeEventListener("pointerdown", dismiss);
   }, [isFocused, inputRef, setIsFocused, setSelectedSuggestion]);
 
+  // Lock page scroll while the search is focused. Prevents the
+  // background from drifting under the fly-up dropdown and the sticky
+  // "See all N" footer. Pads the body by the scrollbar's width so the
+  // layout doesn't jump when the scrollbar disappears. Skipped on mobile
+  // (matchMedia < 768px) — the mobile keyboard already collapses the
+  // viewport, and a hard scroll lock there fights iOS's own gestures.
+  useEffect(() => {
+    if (!isFocused) return;
+    if (typeof window === "undefined") return;
+    if (!window.matchMedia("(min-width: 768px)").matches) return;
+    const scrollbarWidth =
+      window.innerWidth - document.documentElement.clientWidth;
+    const prevOverflow = document.body.style.overflow;
+    const prevPaddingRight = document.body.style.paddingRight;
+    document.body.style.overflow = "hidden";
+    if (scrollbarWidth > 0) {
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+    }
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.body.style.paddingRight = prevPaddingRight;
+    };
+  }, [isFocused]);
+
   // Detect keyboard dismissal that happens OUTSIDE our webview — e.g.
   // taps on Safari's URL bar or its side gutters, or the keyboard's
   // own down-arrow key. Those never reach our pointerdown listener,
