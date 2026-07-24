@@ -28,6 +28,9 @@ interface Props {
   // aggregate direct + inferred totals for the tab badge.
   onTotalRowsChange?: (total: number) => void;
   tabIdForCount?: string;
+  // When externally driven, this callback lets the table's empty-state
+  // "clear filters" affordance reset the parent's sidebar too.
+  onResetFilters?: () => void;
 }
 
 const FoodBioactivitiesSection = ({
@@ -40,6 +43,7 @@ const FoodBioactivitiesSection = ({
   hideChrome,
   onTotalRowsChange,
   tabIdForCount,
+  onResetFilters,
 }: Props) => {
   const fetcher = useCallback(
     (params: BioactivityListParams) => getFoodBioactivities(commonName, params),
@@ -99,6 +103,8 @@ const FoodBioactivitiesSection = ({
         columns={columns}
         searchPlaceholder="Search bioactivities"
         emptyMessage="No bioactivities recorded for this food yet"
+        emptyMessageFiltered="No directly-measured bioactivities match your filters"
+        onResetFilters={onResetFilters}
         externalSearch={externalSearch}
         externalSourceKind={externalSourceKind}
         externalUnit={externalUnit}

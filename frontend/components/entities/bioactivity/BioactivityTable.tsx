@@ -123,6 +123,16 @@ interface Props {
   searchPlaceholder?: string;
   // Empty-state message when no rows + no filter applied.
   emptyMessage: ReactNode;
+  // Empty-state message when filters are active but nothing matched.
+  // Distinguishes "no data at all" from "your filters filtered it to 0"
+  // so users don't assume the entity has nothing to show. Optional; a
+  // sensible generic default is used when omitted.
+  emptyMessageFiltered?: ReactNode;
+  // Reset callback used by the filter-driven empty state's inline
+  // "clear filters" button. Standalone usage falls through to the
+  // internal resetAllFilters; a parent driving external filters should
+  // pass its own so the sidebar clears too.
+  onResetFilters?: () => void;
   // Modal-related — head/tail labels and the relationship type for the
   // measurements query. headIsRow flips which side of the (row, anchor)
   // pair is the head of the relationship.
@@ -157,6 +167,8 @@ const BioactivityTable = ({
   defaultSortDir = "desc",
   searchPlaceholder = "Search…",
   emptyMessage,
+  emptyMessageFiltered,
+  onResetFilters,
   modalConfig,
   externalSearch,
   externalSourceKind,
@@ -457,6 +469,16 @@ const BioactivityTable = ({
   const showingPaginator = totalPages > 1 || isLoading;
   const showEmpty = !isLoading && rows.length === 0;
 
+  // Effective-filter dirtiness — accounts for both internal state and
+  // parent-driven overrides. Used to swap the empty-state copy so
+  // "nothing here" reads differently from "your filters gave 0."
+  const hasActiveFilters =
+    (effectiveSearchTerm ?? "") !== "" ||
+    (effectiveUnitParam ?? "") !== "" ||
+    (categoryFilterParam ?? "") !== "" ||
+    (effectiveSourceKindParam ?? "") !== "" ||
+    (effectiveEvidenceTypeParam ?? "") !== "";
+
   // Search field used in three places: sidebar, drawer's sidebar-copy,
   // and standalone left of the mobile Filters button.
   const searchInput = (
@@ -491,6 +513,7 @@ const BioactivityTable = ({
     selectedUnits.length > 0 ||
     selectedCategories.length > 0 ||
     selectedSourceKind !== "" ||
+    selectedEvidenceTypes.length > 0 ||
     sort.by !== defaultSortBy ||
     sort.dir !== defaultSortDir;
 
@@ -500,8 +523,35 @@ const BioactivityTable = ({
     setSelectedUnits([]);
     setSelectedCategories([]);
     setSelectedSourceKind("");
+    setSelectedEvidenceTypes([]);
     setSort({ by: defaultSortBy, dir: defaultSortDir });
   };
+
+  // Empty-state body — same on desktop table row and mobile card list.
+  // When filters are active we surface the filter-aware message + an
+  // inline "clear filters" button that either delegates to a parent
+  // (externally-driven case) or resets locally. When there are truly
+  // no rows, we show the caller-supplied `emptyMessage` untouched.
+  const resetForEmptyState = onResetFilters ?? resetAllFilters;
+  const emptyStateBody = hasActiveFilters ? (
+    <div className="flex flex-col items-center gap-2 text-light-300">
+      <div className="flex items-center gap-2 text-sm">
+        <MdInfoOutline />
+        {emptyMessageFiltered ?? "No results match the current filters."}
+      </div>
+      <button
+        type="button"
+        onClick={resetForEmptyState}
+        className="text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
+      >
+        clear filters
+      </button>
+    </div>
+  ) : (
+    <div className="flex items-center gap-2 text-light-300 text-sm">
+      <MdInfoOutline /> {emptyMessage}
+    </div>
+  );
 
   // Non-search filters — currently just Unit. Drawer on small viewports
   // uses this alone (search stays visible outside the drawer).
@@ -797,8 +847,8 @@ const BioactivityTable = ({
             ) : showEmpty ? (
               <tr>
                 <td colSpan={colSpan}>
-                  <div className="h-[10rem] flex items-center justify-center text-light-300 gap-2">
-                    <MdInfoOutline /> {emptyMessage}
+                  <div className="h-[10rem] flex items-center justify-center">
+                    {emptyStateBody}
                   </div>
                 </td>
               </tr>
@@ -830,8 +880,8 @@ const BioactivityTable = ({
             </div>
           ))
         ) : showEmpty ? (
-          <div className="w-full py-6 flex items-center justify-center text-light-300 gap-2">
-            <MdInfoOutline /> {emptyMessage}
+          <div className="w-full py-6 flex items-center justify-center">
+            {emptyStateBody}
           </div>
         ) : (
           rows.map((row) => {
