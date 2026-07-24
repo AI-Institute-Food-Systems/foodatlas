@@ -140,6 +140,24 @@ const SearchBar = () => {
     return () => document.removeEventListener("pointerdown", dismiss);
   }, [isFocused, inputRef, setIsFocused, setSelectedSuggestion]);
 
+  // Lock page scroll while the search is focused. Uses the same
+  // `.modal-open` class the Modal component toggles (see globals.css) —
+  // <html> is the scroll container in this app (`overflow-y: scroll
+  // !important`), so anything less specific gets overridden. The base
+  // rule already reserves the scrollbar gutter, so there's no
+  // horizontal jump at the moment of focus. Skipped on mobile — the
+  // on-screen keyboard already collapses the viewport, and a hard
+  // scroll lock there fights iOS's own gestures.
+  useEffect(() => {
+    if (!isFocused) return;
+    if (typeof window === "undefined") return;
+    if (!window.matchMedia("(min-width: 768px)").matches) return;
+    document.documentElement.classList.add("modal-open");
+    return () => {
+      document.documentElement.classList.remove("modal-open");
+    };
+  }, [isFocused]);
+
   // Detect keyboard dismissal that happens OUTSIDE our webview — e.g.
   // taps on Safari's URL bar or its side gutters, or the keyboard's
   // own down-arrow key. Those never reach our pointerdown listener,
