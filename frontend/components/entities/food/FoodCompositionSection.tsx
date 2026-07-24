@@ -473,14 +473,17 @@ const FoodCompositionSection = ({
     setSelectedEvidenceName(name);
   };
 
-  // handle ambiguity badge click (opens modal pre-filtered to ambiguous)
+  // The evidence modal no longer supports an ambiguity filter (per
+  // 2026-07-24 UX call — see FoodCompositionEvidenceModal), so this
+  // just opens the modal unfiltered. The badge still communicates
+  // "there's chemical ambiguity here" via its count.
   const handleAmbiguityBadgeClick = (
     event: React.MouseEvent<HTMLButtonElement>,
     name: string
   ) => {
     event.preventDefault();
     event.stopPropagation();
-    setEvidenceFilter("ambiguous");
+    setEvidenceFilter("all");
     setSelectedEvidenceName(name);
   };
 
