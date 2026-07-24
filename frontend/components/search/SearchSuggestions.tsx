@@ -108,6 +108,13 @@ const SearchSuggestions = () => {
            * dropdown so it's discoverable without scrolling. */}
           {cachedTotal > cachedSuggestions.length && (
             <Link
+              // id="foodatlas-search" opts this element out of the
+              // SearchBar's blur-dismiss (see SearchBar.tsx handleBlur).
+              // Without it, focus leaves the input, the dropdown
+              // unmounts before the Link's onClick fires, and Next's
+              // client-side navigation is lost — the user sees the
+              // suggestions disappear with no page change.
+              id="foodatlas-search"
               href={`/results?term=${encodeURIComponent(autocompleteTerm)}`}
               className="flex items-center justify-between gap-2 px-4 py-2.5 border-t border-light-50/10 bg-light-900/40 text-sm text-light-200 hover:bg-light-800/60 hover:text-light-50 transition-colors"
             >
