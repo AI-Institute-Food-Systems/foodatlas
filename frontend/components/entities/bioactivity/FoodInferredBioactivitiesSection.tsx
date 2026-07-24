@@ -73,6 +73,9 @@ interface Props {
   // Fires whenever the filtered totalRows changes so a wrapper (the
   // Food Bioactivities tab) can sum direct + inferred for its tab badge.
   onTotalRowsChange?: (total: number) => void;
+  // When externally driven, this callback lets the table's empty-state
+  // "clear filters" button reset the parent's sidebar too.
+  onResetFilters?: () => void;
 }
 
 const TABLE_ID_PREFIX = "food-inferred-bioact";
@@ -85,6 +88,7 @@ const FoodInferredBioactivitiesSection = ({
   externalEvidenceType,
   hideChrome = false,
   onTotalRowsChange,
+  onResetFilters,
 }: Props) => {
   const tableId = `${TABLE_ID_PREFIX}-${commonName}`;
   const { getTablePaginations, setTablePaginations } = usePaginations();
@@ -177,6 +181,40 @@ const FoodInferredBioactivitiesSection = ({
 
   const showingPaginator = totalPages > 1 || isLoading;
   const showEmpty = !isLoading && rows.length === 0;
+
+  // Effective-filter dirtiness — accounts for both internal search
+  // state and parent-driven overrides so the empty-state copy can
+  // distinguish "no data at all" from "your filters filtered it to 0".
+  const hasActiveFilters =
+    effectiveSearchTerm !== "" ||
+    effectiveSourceKind !== "" ||
+    effectiveUnit !== "" ||
+    effectiveEvidenceType !== "";
+  const resetForEmptyState =
+    onResetFilters ??
+    (() => {
+      setSearchTerm("");
+      setTablePaginations(tableId, 1, 20);
+    });
+  const emptyStateBody = hasActiveFilters ? (
+    <div className="flex flex-col items-center gap-2 text-light-300">
+      <div className="flex items-center gap-2 text-sm">
+        <MdInfoOutline />
+        No inferred bioactivities match your filters
+      </div>
+      <button
+        type="button"
+        onClick={resetForEmptyState}
+        className="text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
+      >
+        clear filters
+      </button>
+    </div>
+  ) : (
+    <div className="flex items-center gap-2 text-light-300 text-sm">
+      <MdInfoOutline /> No inferred bioactivities recorded for this food yet
+    </div>
+  );
 
   const searchInput = (
     <div className="relative flex items-center">
@@ -324,9 +362,8 @@ const FoodInferredBioactivitiesSection = ({
             ) : showEmpty ? (
               <tr>
                 <td colSpan={5}>
-                  <div className="h-[10rem] flex items-center justify-center text-light-300 gap-2">
-                    <MdInfoOutline /> No chemicals in this food have measured
-                    bioactivities yet
+                  <div className="h-[10rem] flex items-center justify-center">
+                    {emptyStateBody}
                   </div>
                 </td>
               </tr>
@@ -355,9 +392,8 @@ const FoodInferredBioactivitiesSection = ({
             </div>
           ))
         ) : showEmpty ? (
-          <div className="w-full py-6 flex items-center justify-center text-light-300 gap-2">
-            <MdInfoOutline /> No chemicals in this food have measured
-            bioactivities yet
+          <div className="w-full py-6 flex items-center justify-center">
+            {emptyStateBody}
           </div>
         ) : (
           rows.map((row, idx) => {
