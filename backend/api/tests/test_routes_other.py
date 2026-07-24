@@ -256,7 +256,6 @@ class TestMetadataSearch:
                 params={"term": "apple", "rows_per_page": 40},
             )
         assert resp.status_code == 200
-        _args, kwargs = mock_search.call_args
         # search(db, term, page, rows_per_page) — positional args in the route.
         assert mock_search.call_args.args[-1] == 40
 
