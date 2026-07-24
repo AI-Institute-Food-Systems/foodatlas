@@ -195,8 +195,7 @@ const FoodInferredBioactivitiesSection = ({
     </div>
   ) : (
     <div className="flex items-center gap-2 text-light-300 text-sm">
-      <MdInfoOutline /> No chemicals in this food have measured bioactivities
-      yet
+      <MdInfoOutline /> No inferred bioactivities recorded for this food yet
     </div>
   );
 
