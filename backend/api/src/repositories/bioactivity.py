@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 # HOTFIX 2026-06-26 — REMOVE WHEN upstream endpoint/unit cleanup lands.
 # See _bioact_hotfix.py docstring for the rules + removal checklist.
 from src.repositories import _bioact_hotfix
+from src.repositories._search_util import build_ilike_pattern
 
 logger = logging.getLogger(__name__)
 
@@ -278,9 +279,10 @@ async def _paginated(
     """
     params: dict = {"name": bind_value}
     where_parts = [f"{name_col} = :name"]
-    if search:
+    search_pattern = build_ilike_pattern(search)
+    if search_pattern:
         where_parts.append(f"{search_col} ILIKE :q")
-        params["q"] = f"%{search}%"
+        params["q"] = search_pattern
 
     has_filter = bool(filter_endpoint and filter_unit)
     _apply_endpoint_unit_filter(
@@ -563,11 +565,12 @@ async def get_food_inferred_bioactivities(
 
     params: dict = {"name": common_name}
     where_parts = ["fcc.food_name = :name"]
-    if search:
+    search_pattern = build_ilike_pattern(search)
+    if search_pattern:
         where_parts.append(
             "(cb.bioactivity_name ILIKE :q OR fcc.chemical_name ILIKE :q)"
         )
-        params["q"] = f"%{search}%"
+        params["q"] = search_pattern
     _apply_source_kind_filter(where_parts, filter_source_kind, "cb.measurements")
     _apply_evidence_type_filter(
         where_parts, params, filter_evidence_type, "cb.measurements"
@@ -845,9 +848,11 @@ def _sidebar_extra_where(
             " WHERE (m->>'evidence_source') ILIKE 'pred%'"
             " OR (m->>'evidence_source') ILIKE 'comp%')"
         )
-    if search and search_col:
-        where.append(f"{search_col} ILIKE :sq")
-        params["sq"] = f"%{search}%"
+    if search_col:
+        search_pattern = build_ilike_pattern(search)
+        if search_pattern:
+            where.append(f"{search_col} ILIKE :sq")
+            params["sq"] = search_pattern
     return where, params
 
 

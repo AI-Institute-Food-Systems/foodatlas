@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import APISettings
 
+from ._search_util import build_ilike_pattern
 from .formatting import format_external_ids
 from .trust_filter import (
     TrustMode,
@@ -395,12 +396,15 @@ def _build_query_parts(
         conditions.append(valid[0] + "_evidences IS NOT NULL")
 
     if search_term:
-        if search_term.startswith("e") and search_term[1:].isdigit():
+        cleaned = search_term.strip()
+        if cleaned.startswith("e") and cleaned[1:].isdigit():
             conditions.append("chemical_foodatlas_id = :search")
-            params["search"] = search_term
+            params["search"] = cleaned
         else:
-            conditions.append("chemical_name ILIKE :search")
-            params["search"] = "%" + search_term + "%"
+            search_pattern = build_ilike_pattern(cleaned)
+            if search_pattern:
+                conditions.append("chemical_name ILIKE :search")
+                params["search"] = search_pattern
 
     if not show_all_rows:
         conditions.append("median_concentration IS NOT NULL")
