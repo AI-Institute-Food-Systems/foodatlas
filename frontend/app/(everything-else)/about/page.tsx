@@ -23,13 +23,6 @@ const TEAM: TeamMember[] = [
     linkToLinkedIn: "https://www.linkedin.com/in/ilias-tagkopoulos-97a3342/",
   },
   {
-    name: "Jason Youn",
-    position: "Graduate Student Researcher",
-    pathToPortrait: "/images/jason.webp",
-    section: "research",
-    linkToLinkedIn: "https://www.linkedin.com/in/jaesungyoun/",
-  },
-  {
     name: "Fangzhou Li",
     position: "Graduate Student Researcher",
     pathToPortrait: "/images/fang.webp",
@@ -42,13 +35,6 @@ const TEAM: TeamMember[] = [
     pathToPortrait: "/images/pranav.webp",
     section: "research",
     linkToLinkedIn: "https://www.linkedin.com/in/pranavgupta0001/",
-  },
-  {
-    name: "Arielle Yoo",
-    position: "Graduate Student Researcher",
-    pathToPortrait: "/images/arielle.webp",
-    section: "research",
-    linkToLinkedIn: "https://www.linkedin.com/in/arielle-soomi-yoo-78016812a/",
   },
   {
     name: "Shanghyeon Kim",
@@ -72,6 +58,11 @@ const TEAM: TeamMember[] = [
     linkToLinkedIn: "https://www.linkedin.com/in/kaichi-xie-nicholas/",
   },
 ];
+
+// Names only, per direction from the group. No photos, no roles, no
+// links — the section exists to credit past contributions without
+// implying active involvement.
+const FORMER_MEMBERS: string[] = ["Jason Youn", "Arielle Yoo"];
 
 const About = () => {
   return (
@@ -156,6 +147,17 @@ const About = () => {
             )}
           </div>
         </div>
+        {/* former team members — names only, no photos or roles */}
+        {FORMER_MEMBERS.length > 0 && (
+          <div>
+            <Heading type="h2" variant="chip">
+              Former Team Members
+            </Heading>
+            <p className="mt-10 text-base leading-relaxed text-light-300">
+              {FORMER_MEMBERS.join(", ")}
+            </p>
+          </div>
+        )}
         {/* publications */}
         <div>
           <Heading type="h2" variant="chip">
