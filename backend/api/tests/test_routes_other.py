@@ -243,6 +243,33 @@ class TestMetadataSearch:
             resp = client.get("/metadata/search")
         assert resp.status_code == 200
 
+    def test_rows_per_page_forwarded_to_repo(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        """Caller-controlled page size lands at the repository."""
+        with patch(
+            "src.repositories.search.search",
+            return_value=SEARCH_SAMPLE,
+        ) as mock_search:
+            resp = client.get(
+                "/metadata/search",
+                params={"term": "apple", "rows_per_page": 40},
+            )
+        assert resp.status_code == 200
+        _args, kwargs = mock_search.call_args
+        # search(db, term, page, rows_per_page) — positional args in the route.
+        assert mock_search.call_args.args[-1] == 40
+
+    def test_rows_per_page_capped_at_100(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        """FastAPI's `le=100` guards the MV scan from a DoS-shaped request."""
+        resp = client.get(
+            "/metadata/search",
+            params={"term": "apple", "rows_per_page": 500},
+        )
+        assert resp.status_code == 422
+
 
 # -- /metadata/statistics ---------------------------------------------------
 

@@ -15,7 +15,10 @@ const fetcher = async (url: string) => {
   return json;
 };
 
-const useSearchAutocompleteOptions = () => {
+// Default 20 keeps the results page's UX unchanged; callers that need
+// a bigger batch (e.g. the dropdown, which is scrollable and gets a
+// single fetch — no pagination) pass a larger value up to 100.
+const useSearchAutocompleteOptions = (rowsPerPage: number = 20) => {
   const { autocompleteTerm } = useContext(AutocompleteContext);
   const { getTablePaginations } = usePaginations();
   const { currentPage } = getTablePaginations("results-page");
@@ -30,7 +33,8 @@ const useSearchAutocompleteOptions = () => {
     encodeURIComponent(autocompleteTerm) +
     "&page=" +
     currentPage +
-    "&rows_per_page=20";
+    "&rows_per_page=" +
+    rowsPerPage;
 
   const { data, error, isLoading } = useSWR(
     autocompleteTerm.length > 0 ? url : null,

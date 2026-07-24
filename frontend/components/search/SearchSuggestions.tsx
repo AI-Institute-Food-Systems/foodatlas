@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { MdArrowForward } from "react-icons/md";
 
 import useSearchAutocompleteOptions from "@/hooks/useSearchAutocompleteOptions";
 import SuggestionItem from "@/components/search/SuggestionItem";
@@ -12,15 +14,30 @@ import { Suggestion } from "@/types/Suggestion";
 // gets clipped by mobile browser chrome.
 const BOTTOM_GAP_PX = 16;
 
+// One-shot batch size for the dropdown — big enough that most queries
+// fit entirely, small enough that the initial paint stays snappy.
+// When there are more matches than this, the "See all N results" footer
+// routes to /results for full pagination.
+const SUGGESTION_BATCH_SIZE = 30;
+
 const SearchSuggestions = () => {
   const { autocompleteTerm } = useContext(AutocompleteContext);
-  const { suggestions, isLoading } = useSearchAutocompleteOptions();
+  const { suggestions, totalRows, isLoading } = useSearchAutocompleteOptions(
+    SUGGESTION_BATCH_SIZE,
+  );
   const {
     selectedSuggestion,
     setSelectedSuggestion,
     cachedSuggestions,
     setCachedSuggestions,
   } = useContext(SearchContext);
+  // Cache the total alongside suggestions so the "See all N" footer
+  // survives brief refetches (typing keeps the previous list visible
+  // until the new payload lands).
+  const [cachedTotal, setCachedTotal] = useState<number>(0);
+  useEffect(() => {
+    if (typeof totalRows === "number") setCachedTotal(totalRows);
+  }, [totalRows]);
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [maxHeight, setMaxHeight] = useState<number | null>(null);
@@ -68,17 +85,40 @@ const SearchSuggestions = () => {
         <div
           ref={scrollRef}
           style={maxHeight ? { maxHeight } : undefined}
-          className="flex flex-col overflow-y-auto rounded-xl border border-light-50/10 bg-light-950/80 backdrop-blur-xl shadow-xl shadow-black/40"
-          onMouseLeave={() => setSelectedSuggestion(-1)}
+          className="flex flex-col rounded-xl border border-light-50/10 bg-light-950/80 backdrop-blur-xl shadow-xl shadow-black/40 overflow-hidden"
         >
-          {cachedSuggestions?.map((suggestion: Suggestion, index: number) => (
-            <SuggestionItem
-              key={index}
-              suggestion={suggestion}
-              isSelected={selectedSuggestion === index}
-              onMouseMove={() => handleMouseMove(index)}
-            />
-          ))}
+          <div
+            className="flex flex-col overflow-y-auto flex-1 min-h-0"
+            onMouseLeave={() => setSelectedSuggestion(-1)}
+          >
+            {cachedSuggestions?.map(
+              (suggestion: Suggestion, index: number) => (
+                <SuggestionItem
+                  key={index}
+                  suggestion={suggestion}
+                  isSelected={selectedSuggestion === index}
+                  onMouseMove={() => handleMouseMove(index)}
+                />
+              ),
+            )}
+          </div>
+          {/* "See all N results" footer — only when the total exceeds
+           * what we fetched, so the user knows to escape to /results
+           * for the full paginated view. Sticky at the bottom of the
+           * dropdown so it's discoverable without scrolling. */}
+          {cachedTotal > cachedSuggestions.length && (
+            <Link
+              href={`/results?term=${encodeURIComponent(autocompleteTerm)}`}
+              className="flex items-center justify-between gap-2 px-4 py-2.5 border-t border-light-50/10 bg-light-900/40 text-sm text-light-200 hover:bg-light-800/60 hover:text-light-50 transition-colors"
+            >
+              <span>
+                See all{" "}
+                <span className="font-mono tabular-nums">{cachedTotal}</span>{" "}
+                results
+              </span>
+              <MdArrowForward className="size-4" />
+            </Link>
+          )}
         </div>
       )}
       {cachedSuggestions.length === 0 &&
