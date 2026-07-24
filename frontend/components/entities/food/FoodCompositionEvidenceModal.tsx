@@ -1,13 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import {
-  MdCallSplit,
-  MdClose,
-  MdSearch,
-  MdTune,
-  MdWarningAmber,
-} from "react-icons/md";
+import { MdClose, MdSearch, MdTune, MdWarningAmber } from "react-icons/md";
 import { twMerge } from "tailwind-merge";
 
 import Card from "@/components/basic/Card";
@@ -15,18 +9,9 @@ import EvidenceTable from "@/components/entities/food/EvidenceTable";
 import Modal from "@/components/basic/Modal";
 import { FoodEvidence, FoodEvidenceExtraction } from "@/types/Evidence";
 
-// On the food page the head (food) side of ambiguity is owned by the entity
-// banner; the modal only surfaces ambiguity on the counterpart (chemical) side.
-const isCounterpartAmbiguous = (ex: FoodEvidenceExtraction): boolean =>
-  (ex.chemical_candidates?.length ?? 0) > 1;
-
 const isLowTrust = (ex: FoodEvidenceExtraction): boolean => Boolean(ex.trust_low);
 
-export type EvidenceFilter =
-  | "all"
-  | "ambiguous"
-  | "not-ambiguous"
-  | "low-trust";
+export type EvidenceFilter = "all" | "low-trust";
 
 // Mirrors the BioactivityMeasurementsModal's Assay Source picker so users
 // see the same radio-row shape on both modals. FoodEvidence.reference
@@ -52,7 +37,6 @@ interface FoodCompositionEvidenceModalProps {
   initialFilter?: EvidenceFilter;
 }
 
-const AMBIGUITY_CYCLE: EvidenceFilter[] = ["all", "ambiguous", "not-ambiguous"];
 const LOW_TRUST_CYCLE: EvidenceFilter[] = ["all", "low-trust"];
 
 const FoodCompositionEvidenceModal = ({
@@ -80,25 +64,17 @@ const FoodCompositionEvidenceModal = ({
   // Extraction-level counts now that the table renders one row per
   // extraction — chip labels stay in sync with what the table actually
   // shows after filtering.
-  const { totalCount, ambiguousCount, notAmbiguousCount, lowTrustCount } =
-    useMemo(() => {
-      let total = 0;
-      let ambig = 0;
-      let low = 0;
-      evidences?.forEach((ev) => {
-        ev.extraction.forEach((ex) => {
-          total += 1;
-          if (isCounterpartAmbiguous(ex)) ambig += 1;
-          if (isLowTrust(ex)) low += 1;
-        });
+  const { totalCount, lowTrustCount } = useMemo(() => {
+    let total = 0;
+    let low = 0;
+    evidences?.forEach((ev) => {
+      ev.extraction.forEach((ex) => {
+        total += 1;
+        if (isLowTrust(ex)) low += 1;
       });
-      return {
-        totalCount: total,
-        ambiguousCount: ambig,
-        notAmbiguousCount: total - ambig,
-        lowTrustCount: low,
-      };
-    }, [evidences]);
+    });
+    return { totalCount: total, lowTrustCount: low };
+  }, [evidences]);
 
   // Source counts — computed off the FULL row set so labels stay stable
   // as the user narrows the view (they reflect "what would clicking this
@@ -113,13 +89,6 @@ const FoodCompositionEvidenceModal = ({
     return counts;
   }, [evidences]);
 
-  const cycleAmbiguityFilter = () =>
-    setFilter((f) => {
-      const idx = AMBIGUITY_CYCLE.indexOf(f);
-      if (idx === -1) return AMBIGUITY_CYCLE[1];
-      return AMBIGUITY_CYCLE[(idx + 1) % AMBIGUITY_CYCLE.length];
-    });
-
   const cycleLowTrustFilter = () =>
     setFilter((f) => {
       const idx = LOW_TRUST_CYCLE.indexOf(f);
@@ -133,12 +102,16 @@ const FoodCompositionEvidenceModal = ({
     q: string,
   ): boolean => {
     if (!q) return true;
+    // Deliberately excludes ev.premise — the source text often mentions
+    // dozens of unrelated chemicals/foods, so searching it would surface
+    // extractions that don't actually mention the search term as the
+    // extracted entity. Users search to filter on WHAT was extracted,
+    // not what appeared somewhere in the paragraph.
     const haystack = [
       ex.extracted_chemical_name,
       ex.extracted_food_name,
       ex.extracted_concentration,
       ex.method,
-      ev.premise,
       ev.reference.display_name,
       ev.reference.id,
       ...(ex.chemical_candidates ?? []),
@@ -157,12 +130,8 @@ const FoodCompositionEvidenceModal = ({
   const displayedEvidences = useMemo(() => {
     if (!evidences) return evidences;
     const q = searchTerm.trim().toLowerCase();
-    const chipPredicate = (ex: FoodEvidenceExtraction) => {
-      if (filter === "ambiguous") return isCounterpartAmbiguous(ex);
-      if (filter === "not-ambiguous") return !isCounterpartAmbiguous(ex);
-      if (filter === "low-trust") return isLowTrust(ex);
-      return true;
-    };
+    const chipPredicate = (ex: FoodEvidenceExtraction) =>
+      filter === "low-trust" ? isLowTrust(ex) : true;
     return evidences
       .filter((ev) => matchesSource(ev, sourceKind))
       .map((ev) => ({
@@ -183,13 +152,6 @@ const FoodCompositionEvidenceModal = ({
     [displayedEvidences],
   );
 
-  const ambiguityLabel =
-    filter === "ambiguous"
-      ? `Only ambiguous (${ambiguousCount})`
-      : filter === "not-ambiguous"
-      ? `Not ambiguous (${notAmbiguousCount})`
-      : `All (${totalCount})`;
-
   const lowTrustLabel =
     filter === "low-trust"
       ? `Only low-trust (${lowTrustCount})`
@@ -209,13 +171,9 @@ const FoodCompositionEvidenceModal = ({
       sourceCounts={sourceCounts}
       onSourceKindChange={setSourceKind}
       filter={filter}
-      ambiguousCount={ambiguousCount}
-      notAmbiguousCount={notAmbiguousCount}
       lowTrustCount={lowTrustCount}
       totalCount={totalCount}
-      onCycleAmbiguity={cycleAmbiguityFilter}
       onCycleLowTrust={cycleLowTrustFilter}
-      ambiguityLabel={ambiguityLabel}
       lowTrustLabel={lowTrustLabel}
     />
   );
@@ -353,26 +311,18 @@ const FiltersPanel = ({
   sourceCounts,
   onSourceKindChange,
   filter,
-  ambiguousCount,
-  notAmbiguousCount,
   lowTrustCount,
   totalCount,
-  onCycleAmbiguity,
   onCycleLowTrust,
-  ambiguityLabel,
   lowTrustLabel,
 }: {
   sourceKind: string;
   sourceCounts: Record<string, number>;
   onSourceKindChange: (k: string) => void;
   filter: EvidenceFilter;
-  ambiguousCount: number;
-  notAmbiguousCount: number;
   lowTrustCount: number;
   totalCount: number;
-  onCycleAmbiguity: () => void;
   onCycleLowTrust: () => void;
-  ambiguityLabel: string;
   lowTrustLabel: string;
 }) => (
   <div className="flex flex-col gap-5">
@@ -403,26 +353,6 @@ const FiltersPanel = ({
         Quality
       </span>
       <div className="flex flex-col gap-2">
-        <button
-          type="button"
-          onClick={onCycleAmbiguity}
-          disabled={ambiguousCount === 0}
-          aria-disabled={ambiguousCount === 0 || undefined}
-          className={twMerge(
-            "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium w-fit transition-colors",
-            filter === "ambiguous"
-              ? "text-amber-300 border-amber-400 bg-amber-500/20 hover:bg-amber-500/30"
-              : filter === "not-ambiguous"
-              ? "text-light-300 border-light-400 bg-light-400/15 hover:bg-light-400/25"
-              : "text-light-300 border-light-500 bg-light-500/10 hover:bg-light-500/20",
-            ambiguousCount === 0 &&
-              "opacity-40 cursor-not-allowed hover:bg-transparent",
-          )}
-          aria-label="Cycle ambiguity filter"
-        >
-          <MdCallSplit className="size-3.5 rotate-90" />
-          {ambiguityLabel}
-        </button>
         <button
           type="button"
           onClick={onCycleLowTrust}
