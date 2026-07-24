@@ -14,17 +14,47 @@ import { Suggestion } from "@/types/Suggestion";
 // gets clipped by mobile browser chrome.
 const BOTTOM_GAP_PX = 16;
 
-// One-shot batch size for the dropdown — big enough that most queries
-// fit entirely, small enough that the initial paint stays snappy.
-// When there are more matches than this, the "See all N results" footer
-// routes to /results for full pagination.
-const SUGGESTION_BATCH_SIZE = 30;
+// Approximate rendered height of a SuggestionItem row (px). Used to
+// size the initial fetch to what the current viewport can display
+// without vertical scroll — anything beyond that goes to /results via
+// the footer link, not into a scrollable in-dropdown list. Height comes
+// from `px-4 py-2.5` (20px vertical padding) + two-line content
+// (~34px) + 1px divider ≈ 55.
+const ITEM_HEIGHT_PX = 55;
+
+// Rough vertical chrome above the dropdown (nav + input + fly-up gap).
+// Slightly generous so we err on fetching a hair fewer than fits,
+// rather than one too many that would introduce scroll.
+const DROPDOWN_TOP_OFFSET_PX = 180;
+
+// Space reserved for the sticky "See all N" footer so we don't fetch
+// items that would be occluded by it. ~42px in practice.
+const FOOTER_RESERVE_PX = 42;
+
+// API caps for the fetch batch. Floor keeps very short viewports from
+// returning near-zero suggestions; ceiling matches the backend's `le=100`.
+const MIN_BATCH = 8;
+const MAX_BATCH = 100;
+
+const estimateBatchSize = (): number => {
+  if (typeof window === "undefined") return 20;
+  const vh = window.visualViewport?.height ?? window.innerHeight;
+  const available =
+    vh - DROPDOWN_TOP_OFFSET_PX - BOTTOM_GAP_PX - FOOTER_RESERVE_PX;
+  const items = Math.floor(available / ITEM_HEIGHT_PX);
+  return Math.max(MIN_BATCH, Math.min(MAX_BATCH, items));
+};
 
 const SearchSuggestions = () => {
   const { autocompleteTerm } = useContext(AutocompleteContext);
-  const { suggestions, totalRows, isLoading } = useSearchAutocompleteOptions(
-    SUGGESTION_BATCH_SIZE,
-  );
+  // Computed once at mount so the initial fetch matches viewport
+  // capacity. Not tracked across resize — the batch stays put; the
+  // dropdown's dynamic maxHeight already handles small viewport growth
+  // by capping display, and shrinkage via the mobile keyboard is
+  // handled the same way.
+  const [batchSize] = useState<number>(estimateBatchSize);
+  const { suggestions, totalRows, isLoading } =
+    useSearchAutocompleteOptions(batchSize);
   const {
     selectedSuggestion,
     setSelectedSuggestion,
