@@ -15,6 +15,7 @@ from ...stores.schema import (
 from ...utils.timing import log_duration
 from .resolve_dmd import create_chemicals_from_dmd, create_unlinked_dmd, link_dmd
 from .resolve_primary import (
+    create_bioactivity_entities,
     create_chemicals_from_chebi,
     create_diseases_from_ctd,
     create_foods_from_foodon,
@@ -95,6 +96,7 @@ class EntityResolver:
         create_chemicals_from_dmd(
             sources, self._entity_store, self._lut, self._registry
         )
+        create_bioactivity_entities(sources, self._entity_store, self._registry)
         logger.info("Pass 1 complete: %d entities.", len(self._entity_store._entities))
 
     def _pass2_link(self, sources: dict[str, dict[str, pd.DataFrame]]) -> None:

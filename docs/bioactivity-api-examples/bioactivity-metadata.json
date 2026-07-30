@@ -1,0 +1,33 @@
+{
+  "data": [
+    {
+      "common_name": "antioxidant",
+      "id": "e227382",
+      "synonyms": [
+        "antioxidant",
+        "anti-oxidant",
+        "anti-oxidant effect",
+        "anti-oxidant effects",
+        "anti-oxidants",
+        "antioxidant activity",
+        "antioxidant effect",
+        "antioxidant effects",
+        "endogenous antioxidant",
+        "endogenous antioxidants"
+      ],
+      "description": "Bioactivity refers to the ability of substances to inhibit or retard oxidation reactions by opposing the effects of dioxygen or peroxides, thereby counteracting oxidative damage in animal tissues.",
+      "external_ids": {
+        "bioactivity_concept": [
+          "E300002"
+        ]
+      },
+      "parents": [],
+      "children": [],
+      "n_foods": 972,
+      "n_chemicals": 11109
+    }
+  ],
+  "metadata": {
+    "row_count": 1
+  }
+}

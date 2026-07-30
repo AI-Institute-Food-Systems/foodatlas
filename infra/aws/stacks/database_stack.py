@@ -37,6 +37,7 @@ class DatabaseStack(cdk.Stack):
         construct_id: str,
         *,
         vpc: ec2.IVpc,
+        name_suffix: str = "",
         **kwargs: Any,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -81,7 +82,7 @@ class DatabaseStack(cdk.Stack):
             security_groups=[self.db_security_group],
             credentials=rds.Credentials.from_generated_secret(
                 username="foodatlas",
-                secret_name=_DB_SECRET_NAME,
+                secret_name=f"{_DB_SECRET_NAME}{name_suffix}",
             ),
             database_name="foodatlas",
             allocated_storage=20,

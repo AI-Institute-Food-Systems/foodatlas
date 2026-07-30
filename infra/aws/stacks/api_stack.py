@@ -67,6 +67,7 @@ class ApiStack(cdk.Stack):
         db_secret: secretsmanager.ISecret,
         kgc_bucket: s3.IBucket,
         downloads_bucket: s3.IBucket,
+        name_suffix: str = "",
         **kwargs: Any,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -107,7 +108,7 @@ class ApiStack(cdk.Stack):
         public_keys_secret = secretsmanager.Secret(
             self,
             "ApiPublicKeysSecret",
-            secret_name=PUBLIC_KEYS_RESOURCE_ID,
+            secret_name=f"{PUBLIC_KEYS_RESOURCE_ID}{name_suffix}",
             description=(
                 "Hashed public /v1/ API keys ({sha256(key): {email, created, notes}})."
             ),
@@ -148,6 +149,7 @@ class ApiStack(cdk.Stack):
                         "https://www.foodatlas.ai",
                         "https://dev.foodatlas.ai",
                         "http://localhost:3000",
+                        "http://localhost:3001",
                     ],
                 ),
                 "DB_HOST": db_instance.db_instance_endpoint_address,

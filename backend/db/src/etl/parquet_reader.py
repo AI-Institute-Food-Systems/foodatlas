@@ -92,3 +92,56 @@ def read_attestations(kg_dir: Path) -> pd.DataFrame:
     df["validated"] = df["validated"].fillna(False).astype(bool)
     df["validated_correct"] = df["validated_correct"].fillna(True).astype(bool)
     return df
+
+
+def read_attestations_bioactivity(kg_dir: Path) -> pd.DataFrame | None:
+    """Read attestations_bioactivity.parquet if present; None when missing.
+
+    Optional, like trust signals: a KG built without the bioactivity source has
+    no such file, and the loader skips the bulk-copy gracefully. The float
+    columns keep their NaNs (``bulk_copy`` serializes NaN to the COPY NULL
+    marker); only the text columns are filled.
+    """
+    path = kg_dir / "attestations_bioactivity.parquet"
+    if not path.exists() or path.stat().st_size == 0:
+        return None
+    df = pd.read_parquet(path)
+    for col in (
+        "exhibit_type",
+        "source_assay_id",
+        "reported_activity_outcome",
+        "evidence_endpoint_type",
+        "evidence_relation",
+        "potency_unit",
+        "evidence_source",
+        "evidence_type",
+        "evidence_fit_curveclass",
+    ):
+        df[col] = df[col].fillna("")
+    return df
+
+
+def read_bioassays(kg_dir: Path) -> pd.DataFrame | None:
+    """Read bioassays.parquet if present; None when missing.
+
+    Optional, like the measurement store: the assay dimension exists only when
+    the KG was built with the bioactivity source. ``n_measurements`` keeps its
+    NaNs (serialized to the COPY NULL marker); text columns are filled.
+    """
+    path = kg_dir / "bioassays.parquet"
+    if not path.exists() or path.stat().st_size == 0:
+        return None
+    df = pd.read_parquet(path)
+    for col in (
+        "source",
+        "assay_description",
+        "target_id",
+        "target_name",
+        "target_organism",
+        "target_uniprot",
+        "target_entrez_gene",
+        "last_modified",
+    ):
+        df[col] = df[col].fillna("")
+    df["bioactivity_ids"] = _ensure_list_col(df["bioactivity_ids"])
+    return df

@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.dependencies import get_db, verify_api_key
-from src.repositories import food, taxonomy
+from src.repositories import bioactivity, food, taxonomy
 
 if TYPE_CHECKING:
     from src.repositories.trust_filter import TrustMode
@@ -86,3 +86,11 @@ async def food_composition(
         filter_classification,
         trust=trust_mode,
     )
+
+
+@router.get("/bioactivities")
+async def food_bioactivities(
+    common_name: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+):
+    return await bioactivity.get_food_bioactivities(db, common_name)
