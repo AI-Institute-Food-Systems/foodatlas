@@ -2,7 +2,7 @@
   "pipeline": {
     "stages": {
       "kg_init": {
-        "previous_kg_entities": "data/PreviousFAKG/20260419T015610Z/entities.tsv"
+        "previous_kg_entities": "data/PreviousFAKG/20260727T100828Z/entities.parquet"
       }
     }
   }
