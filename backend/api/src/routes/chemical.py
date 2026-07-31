@@ -55,9 +55,9 @@ async def chemical_bioactivities(
     return await bioactivity.get_chemical_bioactivities(db, common_name)
 
 
-@router.get("/diseases")
-async def chemical_diseases(
+@router.get("/disease-associations")
+async def chemical_disease_associations(
     common_name: str = Query(...),
     db: AsyncSession = Depends(get_db),
 ):
-    return await bioactivity_disease.get_chemical_diseases(db, common_name)
+    return await bioactivity_disease.get_chemical_disease_associations(db, common_name)

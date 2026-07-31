@@ -14,7 +14,7 @@ _COLUMNS = """
 """
 
 
-async def get_chemical_diseases(
+async def get_chemical_disease_associations(
     session: AsyncSession, common_name: str
 ) -> dict[str, object]:
     """Diseases associated with a chemical (most shared assays first)."""
@@ -30,7 +30,7 @@ async def get_chemical_diseases(
     return {"data": data, "metadata": {"row_count": len(data)}}
 
 
-async def get_disease_chemicals(
+async def get_disease_chemical_associations(
     session: AsyncSession, common_name: str
 ) -> dict[str, object]:
     """Chemicals associated with a disease (most shared assays first)."""
