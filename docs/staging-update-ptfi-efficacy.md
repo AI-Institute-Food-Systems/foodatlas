@@ -9,7 +9,7 @@
 
 ## TL;DR
 
-1. **Nothing breaks.** Same URL + key, and every existing endpoint/response shape is unchanged.
+1. **Response shapes are unchanged; same URL + key.** One behavior change: `/bioactivity/chemicals` + `/bioactivity/foods` are now **paginated** (default 50/page — see §4).
 2. **New endpoints:** `GET /food/efficacy`, plus `GET /chemical/disease-associations` and `GET /disease/chemical-associations` (bioactivity-inferred).
 3. **Data changed (additively):** bioactivity data refreshed, and **PTFI** foods/chemicals/edges added.
 
@@ -94,7 +94,36 @@ Standard `{ data, metadata: { row_count } }` envelope, ordered by `n_assays` des
 - `/disease/chemical-associations` returns the same associations keyed the other way
   (e.g. `melanoma` → 1,931 chemicals: vorinostat, celecoxib, rosiglitazone, …).
 
-## 4. What changed in the existing data (no breaking API changes)
+## 4. Bioactivity list endpoints — now paginated (+ stats fix)
+
+Two updates to *existing* bioactivity endpoints:
+
+**Pagination (behavior change).** `GET /bioactivity/chemicals` and `GET /bioactivity/foods` are
+now **paginated**. Large bioactivities (e.g. anticancer ≈ 31k chemicals, each row carrying its
+`measurements`) previously produced 50–100 MB responses that timed out (**502**). They now accept
+`page` (default 1) and `limit` (default 50, max 500) and return `total_rows` + `total_pages`:
+
+```
+GET /bioactivity/chemicals?common_name=anticancer&page=1&limit=50
+```
+```json
+{ "data": [ /* ≤ limit chemical rows — same shape as before (name, id, *_count, measurements) */ ],
+  "metadata": { "row_count": 50, "page": 1, "rows_per_page": 50,
+                "total_rows": 31792, "total_pages": 636 } }
+```
+Row shape and ordering (`active_count` desc) are unchanged. **Action:** send `page`/`limit` and
+page through `total_pages` — the default now returns 50 rows, not the whole list.
+(`/chemical/bioactivities` and `/food/bioactivities` — one chemical's/food's bioactivities — are
+small and **not** paginated.)
+
+**`/metadata/statistics` now includes bioactivities.** It previously dropped them; it now returns
+`bioactivities` (21) and `bioactivity_measurements` (1,557,037) alongside foods/chemicals/etc.
+
+> **Data note:** `/bioactivity/foods` only has rows for **antioxidant** and **antidiabetic** — the
+> food→bioactivity model only predicted those two, so 0 foods for other bioactivities (e.g.
+> anticancer) is correct data, not an error. Chemicals cover all 21.
+
+## 5. What changed in the existing data (no breaking API changes)
 
 - **Bioactivity data refreshed** to the newer measurement set (Jul 2026). Counts/values differ
   from what you saw before. **Concept IDs are stable** (e.g. antioxidant = `e227382`,
@@ -108,14 +137,14 @@ Standard `{ data, metadata: { row_count } }` envelope, ordered by `n_assays` des
     composition medians are **not** affected by them.
 - **No existing endpoint or response shape changed.** The efficacy endpoint is purely additive.
 
-## 5. Heads-up
+## 6. Heads-up
 
 - Any **hardcoded counts / test fixtures** pinned to the old numbers will differ after the refresh.
 - This is a **dev/staging** build. PTFI is currently ingested via an interim post-build delta merge;
   a production-grade PTFI **source adapter** is a planned follow-up — it will **not** change the API.
 - The staging DB was reloaded during deploy (brief windows only); it's now stable.
 
-## 6. Quick test
+## 7. Quick test
 
 ```bash
 API=http://FoodAt-ApiSe-9NnFUsQyTUdH-1350162260.us-west-1.elb.amazonaws.com
