@@ -6,6 +6,7 @@ from .base import Base
 from .bioassays import BaseBioassay
 from .entities import BaseEntity
 from .evidence import BaseEvidence
+from .food_chemical_efficacy import BaseFoodChemicalEfficacy
 from .relationships import Relationship
 from .triplets import BaseTriplet
 from .trust_base import TrustBase
@@ -18,6 +19,7 @@ from .views import (
     MVDiseaseEntity,
     MVFoodBioactivity,
     MVFoodChemicalComposition,
+    MVFoodChemicalEfficacy,
     MVFoodEntity,
     MVMetadataStatistics,
     MVSearchAutoComplete,
@@ -30,6 +32,7 @@ __all__ = [
     "BaseBioassay",
     "BaseEntity",
     "BaseEvidence",
+    "BaseFoodChemicalEfficacy",
     "BaseTriplet",
     "BaseTrustSignal",
     "MVBioactivityEntity",
@@ -39,6 +42,7 @@ __all__ = [
     "MVDiseaseEntity",
     "MVFoodBioactivity",
     "MVFoodChemicalComposition",
+    "MVFoodChemicalEfficacy",
     "MVFoodEntity",
     "MVMetadataStatistics",
     "MVSearchAutoComplete",

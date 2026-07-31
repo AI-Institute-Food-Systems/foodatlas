@@ -12,6 +12,7 @@ from .bulk_insert import bulk_copy, truncate_tables
 from .materializer_bioactivity import materialize_bioactivity
 from .materializer_composition import materialize_food_chemical_composition
 from .materializer_correlation import materialize_chemical_disease_correlation
+from .materializer_food_chemical_efficacy import materialize_food_chemical_efficacy
 
 logger = logging.getLogger(__name__)
 MV_TABLES = [
@@ -23,6 +24,7 @@ MV_TABLES = [
     "mv_bioactivity_entities",
     "mv_chemical_bioactivity",
     "mv_food_bioactivity",
+    "mv_food_chemical_efficacy",
 ]
 
 
@@ -37,6 +39,8 @@ def refresh_all(conn: Connection) -> None:
     materialize_chemical_disease_correlation(conn)
     logger.info("Building bioactivity views...")
     materialize_bioactivity(conn)
+    logger.info("Building food-chemical efficacy view...")
+    materialize_food_chemical_efficacy(conn)
     conn.commit()
 
 
