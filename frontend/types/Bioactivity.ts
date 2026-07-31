@@ -52,6 +52,54 @@ export type BioactivityTopMeasurement = {
   unit: string | null;
 };
 
+// Row returned by GET /food/efficacy?common_name=<food>. One row per
+// (chemical × bioactivity) for a food where the chemical's dietary
+// concentration could be evaluated against a Hill fit for the
+// bioactivity's assay set. See inferred-bioactivity-efficacy-column.md
+// for the semantics; the inferred-bioactivities table joins these onto
+// its rows on (chemical_foodatlas_id, bioactivity_foodatlas_id) to
+// render an Efficacy column.
+export type FoodEfficacyRow = {
+  food_name: string;
+  food_foodatlas_id: string;
+  chemical_name: string;
+  chemical_foodatlas_id: string;
+  cid: number | null;
+  // Empty strings + bioactivity_id_raw === "UNCLASSIFIED" when the
+  // efficacy was computed against a raw ToxCast target that hasn't been
+  // mapped to a FoodAtlas bioactivity concept yet.
+  bioactivity_name: string;
+  bioactivity_foodatlas_id: string;
+  bioactivity_id_raw: string;
+  food_conc_mg_per_100g: number | null;
+  food_conc_mass_fraction_pct: number | null;
+  conc_quality_flag: string | null;
+  molecular_weight: number | null;
+  food_conc_m: number | null;
+  food_conc_logm: number | null;
+  rep_source_assay_id: string | null;
+  endpoint_type: string | null;
+  endpoint_class: string | null;
+  curve_method: string | null;
+  logac50: number | null;
+  hillslope: number | null;
+  zeroactivity: number | null;
+  infiniteactivity: number | null;
+  n_curves: number | null;
+  n_curves_4param: number | null;
+  curve_agreement: string | null;
+  ac50_spread_log: number | null;
+  logac50_median: number | null;
+  logac50_min: number | null;
+  logac50_max: number | null;
+  // The two headline fields the frontend surfaces:
+  dose_over_ac50_log: number | null;
+  conc_vs_ac50: "above" | "below" | string | null;
+  efficacy_fraction: number | null;
+  efficacy_response: number | null;
+  saturated: boolean | null;
+};
+
 export type BioactivityPotencySummary = {
   endpoint: string | null;
   unit: string | null;

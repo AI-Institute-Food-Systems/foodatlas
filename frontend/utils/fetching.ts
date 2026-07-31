@@ -337,6 +337,11 @@ export async function getLatestBundle(): Promise<DownloadEntry | null> {
 // toolbar. All optional; defaults match the backend.
 export type BioactivityListParams = {
   page?: number;
+  // Rows per page. Backend caps at 500 and defaults to 50 — omit to
+  // use the default; set explicitly only when a caller needs a wider
+  // batch (rare — the BioactivityTable paginator handles multi-page
+  // navigation).
+  limit?: number;
   search?: string;
   sortBy?: string;
   sortDir?: "asc" | "desc";
@@ -365,6 +370,7 @@ export type BioactivityListParams = {
 const buildBioactivityQuery = (params?: BioactivityListParams): string => {
   const p = new URLSearchParams();
   if (params?.page) p.set("page", String(params.page));
+  if (params?.limit) p.set("limit", String(params.limit));
   if (params?.search) p.set("search", params.search);
   if (params?.sortBy) p.set("sort_by", params.sortBy);
   if (params?.sortDir) p.set("sort_dir", params.sortDir);
@@ -386,9 +392,12 @@ const bioactivityListFetch = async (
   label: string = "bioactivity list"
 ) => {
   // Returns null on any non-2xx or network error rather than throwing —
-  // the staging API frequently 502s on these endpoints until the
-  // pagination patch deploys, and we'd rather show an empty state than
+  // staging is flaky enough that we'd rather show an empty state than
   // "An error occurred fetching data". See feedback-graceful-api-failures.
+  // (Historical: the /bioactivity/chemicals + /bioactivity/foods 502s
+  // that prompted this fallback were fixed once those endpoints became
+  // paginated on 2026-07-31; the fallback stays as a general safety
+  // net for the other list endpoints.)
   try {
     const res = await fetch(
       `${apiBase()}${path}?common_name=${encodeURIComponent(
@@ -675,6 +684,69 @@ export async function getBioactivityEvidenceTypeCounts(
     return (payload?.data ?? []) as { evidence_type: string; count: number }[];
   } catch {
     return [];
+  }
+}
+
+// Chemical↔disease associations inferred from shared bioactivity assays
+// (NOT the CTD literature signal from /chemical/correlation). Returns
+// { data: AssayInferredAssociation[], metadata: { row_count } } ordered
+// by n_assays desc.
+const assayInferredFetch = async (path: string, commonName: string) => {
+  try {
+    const res = await fetch(
+      `${apiBase()}${path}?common_name=${encodeURIComponent(commonName)}`,
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
+        },
+        next: { revalidate: 86400 },
+      }
+    );
+    if (!res.ok) {
+      console.warn(
+        `Failed to fetch ${path} for ${commonName}: HTTP ${res.status}`
+      );
+      return null;
+    }
+    return await res.json();
+  } catch (err) {
+    console.warn(`Failed to fetch ${path} for ${commonName}:`, err);
+    return null;
+  }
+};
+
+export const getChemicalDiseaseAssociations = (commonName: string) =>
+  assayInferredFetch("/chemical/disease-associations", commonName);
+
+export const getDiseaseChemicalAssociations = (commonName: string) =>
+  assayInferredFetch("/disease/chemical-associations", commonName);
+
+// Per-food efficacy rows (chemical × bioactivity) — see
+// inferred-bioactivity-efficacy-column.md for semantics. The inferred-
+// bioactivities table joins these onto its rows client-side; not every
+// food has rows (e.g. onion → 181, garlic → 0), so absence is not an
+// error. Returns { data: FoodEfficacyRow[], metadata: { row_count } }.
+export async function getFoodEfficacy(commonName: string) {
+  try {
+    const res = await fetch(
+      `${apiBase()}/food/efficacy?common_name=${encodeURIComponent(commonName)}`,
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
+        },
+        next: { revalidate: 86400 },
+      }
+    );
+    if (!res.ok) {
+      console.warn(
+        `Failed to fetch efficacy for ${commonName}: HTTP ${res.status}`
+      );
+      return null;
+    }
+    return await res.json();
+  } catch (err) {
+    console.warn(`Failed to fetch efficacy for ${commonName}:`, err);
+    return null;
   }
 }
 

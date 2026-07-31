@@ -1,3 +1,4 @@
+import { AssayInferredAssociation } from "@/types/AssayInferred";
 import { TeamMember } from "@/types/TeamMember";
 import { Suggestion } from "@/types/Suggestion";
 import { SearchOptions } from "@/types/SearchOptions";
@@ -22,9 +23,11 @@ import {
   BioactivityMeasurementFull,
   BioactivityPotencySummary,
   BioactivityTopMeasurement,
+  FoodEfficacyRow,
 } from "./Bioactivity";
 
 export type {
+  AssayInferredAssociation,
   TeamMember,
   Suggestion,
   SearchOptions,
@@ -50,4 +53,5 @@ export type {
   BioactivityMeasurementFull,
   BioactivityPotencySummary,
   BioactivityTopMeasurement,
+  FoodEfficacyRow,
 };

@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { Metadata } from "next";
 
+import ChemicalAssayInferredSection from "@/components/entities/chemical/ChemicalAssayInferredSection";
 import ChemicalCompositionSection from "@/components/entities/chemical/ChemicalCompositionSection";
 import ChemicalCorrelationSection from "@/components/entities/chemical/ChemicalCorrelationSection";
 import ChemicalBioactivitiesSection from "@/components/entities/bioactivity/ChemicalBioactivitiesSection";
@@ -58,7 +59,7 @@ const ChemicalPage = async ({ params }: ChemicalPageProps) => {
   const anchorId = metaPayload?.id ?? null;
 
   return (
-    <EntityPageGate entityType={entityType} tabCount={4}>
+    <EntityPageGate entityType={entityType} tabCount={5}>
       <Suspense fallback={<HeaderSectionSuspense entityType={entityType} />}>
         <HeaderSection commonName={commonName} entityType={entityType} />
       </Suspense>
@@ -91,6 +92,13 @@ const ChemicalPage = async ({ params }: ChemicalPageProps) => {
             id: "health",
             label: "Health Impacts",
             content: <ChemicalCorrelationSection commonName={commonName} />,
+          },
+          {
+            id: "assay-inferred",
+            label: "Diseases (assay-inferred)",
+            content: (
+              <ChemicalAssayInferredSection commonName={commonName} />
+            ),
           },
           {
             id: "overview",

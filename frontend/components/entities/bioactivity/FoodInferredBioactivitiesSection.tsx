@@ -29,18 +29,23 @@ import LoadingCard from "@/components/basic/LoadingCard";
 import Pagination from "@/components/basic/Pagination";
 import SortListbox from "@/components/basic/SortListbox";
 import BioactivityMeasurementsModal from "@/components/entities/bioactivity/BioactivityMeasurementsModal";
-import { useReportRows } from "@/context/reportModeContext";
 import {
-  formatTopMeasurement,
-  topMeasurementOf,
-} from "@/components/entities/bioactivity/format";
+  efficacyKey,
+  formatDoseOverAc50Log,
+  indexEfficacy,
+} from "@/components/entities/bioactivity/efficacy";
+import { useReportRows } from "@/context/reportModeContext";
 import { usePaginations } from "@/context/paginationsContext";
 import { useLoadingGate } from "@/context/pageReadyContext";
-import { getFoodInferredBioactivities } from "@/utils/fetching";
+import {
+  getFoodEfficacy,
+  getFoodInferredBioactivities,
+} from "@/utils/fetching";
 import { encodeSpace, formatConcentrationValueAlt } from "@/utils/utils";
 import type {
   BioactivityMeasurement,
   BioactivityTopMeasurement,
+  FoodEfficacyRow,
 } from "@/types";
 
 interface InferredRow {
@@ -109,6 +114,13 @@ const FoodInferredBioactivitiesSection = ({
   const [totalPages, setTotalPages] = useState(0);
   const [totalRows, setTotalRows] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  // /food/efficacy is per-food (not per-page), so we fetch it once per
+  // commonName and index by (chemical_foodatlas_id, bioactivity_foodatlas_id)
+  // for O(1) join onto inferred rows in the render pass. Rows without a
+  // matching efficacy entry render "—" in the Efficacy column.
+  const [efficacyIndex, setEfficacyIndex] = useState<
+    Map<string, FoodEfficacyRow>
+  >(new Map());
   useLoadingGate(isLoading);
   useEffect(() => {
     if (onTotalRowsChange && !isLoading) onTotalRowsChange(totalRows);
@@ -129,6 +141,22 @@ const FoodInferredBioactivitiesSection = ({
         ? `${row.median_concentration.value} ${row.median_concentration.unit ?? ""}`.trim()
         : undefined,
   });
+
+  // Efficacy fetch — only re-runs when commonName changes (efficacy
+  // rows aren't filtered by search/sort/pagination on the backend).
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const payload = await getFoodEfficacy(commonName);
+      if (cancelled) return;
+      setEfficacyIndex(
+        indexEfficacy((payload?.data as FoodEfficacyRow[] | undefined) ?? [])
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [commonName]);
 
   useEffect(() => {
     let cancelled = false;
@@ -335,8 +363,11 @@ const FoodInferredBioactivitiesSection = ({
                 align="right"
               />
               <th className="h-9 border-b border-light-700 leading-none py-1.5 px-4 text-right">
-                <span className="select-none uppercase text-xs font-medium text-light-400">
-                  Top measurement
+                <span
+                  className="select-none uppercase text-xs font-medium text-light-400"
+                  title="Food's concentration of the chemical relative to the chemical's AC50 for this bioactivity. Above = dose clears the active threshold."
+                >
+                  Efficacy
                 </span>
               </th>
               <SortableTh
@@ -372,6 +403,11 @@ const FoodInferredBioactivitiesSection = ({
                 <Row
                   key={`${row.chemical_id}-${row.bioactivity_id}-${idx}`}
                   row={row}
+                  efficacy={
+                    efficacyIndex.get(
+                      efficacyKey(row.chemical_id, row.bioactivity_id)
+                    ) ?? null
+                  }
                   onOpen={() => setSelected(row)}
                   rowReportProps={reporter.getRowProps(buildRowContext(row))}
                 />
@@ -398,7 +434,10 @@ const FoodInferredBioactivitiesSection = ({
         ) : (
           rows.map((row, idx) => {
             const conc = row.median_concentration;
-            const top = row.top_measurement;
+            const efficacy =
+              efficacyIndex.get(
+                efficacyKey(row.chemical_id, row.bioactivity_id)
+              ) ?? null;
             const rowReportProps = reporter.getRowProps(buildRowContext(row));
             return (
               <div
@@ -449,10 +488,10 @@ const FoodInferredBioactivitiesSection = ({
                 </div>
                 <div className="w-full flex items-baseline justify-between gap-2">
                   <span className="font-mono italic text-[10px] uppercase tracking-wider text-light-500">
-                    Top measurement
+                    Efficacy
                   </span>
-                  <span className="font-mono text-xs text-light-200 text-right">
-                    {formatTopMeasurement(top)}
+                  <span className="text-right">
+                    <EfficacyCell efficacy={efficacy} />
                   </span>
                 </div>
                 <div className="w-full flex justify-end">
@@ -549,20 +588,47 @@ const SortableTh = ({
   );
 };
 
+// Rendered in the desktop table's Efficacy column and the mobile card's
+// Efficacy label row. Reads dose_over_ac50_log + conc_vs_ac50 from the
+// joined efficacy row; renders "—" when no efficacy row matched
+// (chemical/bioactivity not in the /food/efficacy response, or values
+// null).
+const EfficacyCell = ({ efficacy }: { efficacy: FoodEfficacyRow | null }) => {
+  if (!efficacy || efficacy.dose_over_ac50_log == null) {
+    return <span className="text-light-600">—</span>;
+  }
+  const above = efficacy.conc_vs_ac50 === "above";
+  return (
+    <span className="inline-flex items-baseline gap-2">
+      <span
+        className={twMerge(
+          "font-mono italic uppercase tracking-wider text-[10px] px-1.5 py-[1px] rounded-full border",
+          above
+            ? "text-emerald-300 border-emerald-500/70 bg-emerald-500/10"
+            : "text-light-400 border-light-700 bg-light-800/40"
+        )}
+      >
+        {efficacy.conc_vs_ac50 ?? "—"}
+      </span>
+      <span className="font-mono tabular-nums text-xs text-light-300">
+        {formatDoseOverAc50Log(efficacy.dose_over_ac50_log)}
+      </span>
+    </span>
+  );
+};
+
 const Row = ({
   row,
+  efficacy,
   onOpen,
   rowReportProps,
 }: {
   row: InferredRow;
+  efficacy: FoodEfficacyRow | null;
   onOpen: () => void;
   rowReportProps?: Record<string, unknown>;
 }) => {
   const conc = row.median_concentration;
-  const top = topMeasurementOf({
-    measurements: row.measurements,
-    top_measurement: row.top_measurement,
-  });
   return (
     <tr {...rowReportProps}>
       <td className="py-1.5 pr-4">
@@ -601,7 +667,7 @@ const Row = ({
       </td>
       <td className="py-1.5 px-4 text-right">
         <div className="flex min-h-9 items-center justify-end font-mono text-xs text-light-200">
-          {formatTopMeasurement(top)}
+          <EfficacyCell efficacy={efficacy} />
         </div>
       </td>
       <td className="py-1.5 pl-4 text-right">
