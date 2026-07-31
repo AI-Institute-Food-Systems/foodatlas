@@ -3,6 +3,7 @@
 from .attestations import BaseAttestation
 from .attestations_bioactivity import BaseAttestationBioactivity
 from .base import Base
+from .bioactivity_disease import BaseBioactivityDisease, BaseBioactivityDiseaseTarget
 from .bioassays import BaseBioassay
 from .entities import BaseEntity
 from .evidence import BaseEvidence
@@ -19,16 +20,18 @@ from .views import (
     MVDiseaseEntity,
     MVFoodBioactivity,
     MVFoodChemicalComposition,
-    MVFoodChemicalEfficacy,
     MVFoodEntity,
     MVMetadataStatistics,
     MVSearchAutoComplete,
 )
+from .views_bioactivity import MVChemicalDiseaseBioactivity, MVFoodChemicalEfficacy
 
 __all__ = [
     "Base",
     "BaseAttestation",
     "BaseAttestationBioactivity",
+    "BaseBioactivityDisease",
+    "BaseBioactivityDiseaseTarget",
     "BaseBioassay",
     "BaseEntity",
     "BaseEvidence",
@@ -37,6 +40,7 @@ __all__ = [
     "BaseTrustSignal",
     "MVBioactivityEntity",
     "MVChemicalBioactivity",
+    "MVChemicalDiseaseBioactivity",
     "MVChemicalDiseaseCorrelation",
     "MVChemicalEntity",
     "MVDiseaseEntity",

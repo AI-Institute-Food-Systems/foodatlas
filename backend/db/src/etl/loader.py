@@ -79,6 +79,8 @@ def load_kg(conn: Connection, parquet_dir: Path) -> None:
     attestations_bioactivity_df = parquet_reader.read_attestations_bioactivity(kg_dir)
     bioassays_df = parquet_reader.read_bioassays(kg_dir)
     efficacy_df = parquet_reader.read_food_chemical_efficacy(kg_dir)
+    disease_bridge_df = parquet_reader.read_bioactivity_disease(kg_dir)
+    disease_targets_df = parquet_reader.read_bioactivity_disease_targets(kg_dir)
 
     # 2. Recreate schema from ORM models
     _recreate_schema(conn)
@@ -258,6 +260,35 @@ def load_kg(conn: Connection, parquet_dir: Path) -> None:
                 "efficacy_response",
                 "saturated",
             ],
+        )
+
+    # Bioactivity disease↔assay bridge + target genes — the input to the inferred
+    # chemical↔disease associations (mv_chemical_disease_bioactivity).
+    if disease_bridge_df is not None:
+        logger.info(
+            "Inserting bioactivity-disease bridge (%d rows)...", len(disease_bridge_df)
+        )
+        bulk_copy(
+            conn,
+            "base_bioactivity_disease",
+            disease_bridge_df,
+            [
+                "disease_mesh_id",
+                "source_assay_id",
+                "relationship",
+                "bioactivity_disease_metadata_id",
+            ],
+        )
+    if disease_targets_df is not None:
+        logger.info(
+            "Inserting bioactivity-disease targets (%d rows)...",
+            len(disease_targets_df),
+        )
+        bulk_copy(
+            conn,
+            "base_bioactivity_disease_targets",
+            disease_targets_df,
+            ["bioactivity_disease_metadata_id", "target_ids"],
         )
     conn.commit()
 

@@ -10,6 +10,9 @@ from sqlalchemy.engine import Connection
 
 from .bulk_insert import bulk_copy, truncate_tables
 from .materializer_bioactivity import materialize_bioactivity
+from .materializer_chemical_disease_bioactivity import (
+    materialize_chemical_disease_bioactivity,
+)
 from .materializer_composition import materialize_food_chemical_composition
 from .materializer_correlation import materialize_chemical_disease_correlation
 from .materializer_food_chemical_efficacy import materialize_food_chemical_efficacy
@@ -25,6 +28,7 @@ MV_TABLES = [
     "mv_chemical_bioactivity",
     "mv_food_bioactivity",
     "mv_food_chemical_efficacy",
+    "mv_chemical_disease_bioactivity",
 ]
 
 
@@ -41,6 +45,8 @@ def refresh_all(conn: Connection) -> None:
     materialize_bioactivity(conn)
     logger.info("Building food-chemical efficacy view...")
     materialize_food_chemical_efficacy(conn)
+    logger.info("Building chemical-disease (bioactivity) view...")
+    materialize_chemical_disease_bioactivity(conn)
     conn.commit()
 
 

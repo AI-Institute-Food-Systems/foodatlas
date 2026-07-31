@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.dependencies import get_db, verify_api_key
-from src.repositories import bioactivity, chemical, taxonomy
+from src.repositories import bioactivity, bioactivity_disease, chemical, taxonomy
 
 router = APIRouter(
     prefix="/chemical",
@@ -53,3 +53,11 @@ async def chemical_bioactivities(
     db: AsyncSession = Depends(get_db),
 ):
     return await bioactivity.get_chemical_bioactivities(db, common_name)
+
+
+@router.get("/diseases")
+async def chemical_diseases(
+    common_name: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+):
+    return await bioactivity_disease.get_chemical_diseases(db, common_name)

@@ -172,3 +172,28 @@ def read_food_chemical_efficacy(kg_dir: Path) -> pd.DataFrame | None:
         df[col] = df[col].fillna("")
     df["saturated"] = df["saturated"].fillna(False).astype(bool)
     return df
+
+
+def read_bioactivity_disease(kg_dir: Path) -> pd.DataFrame | None:
+    """Read bioactivity_disease.parquet (disease→assay bridge) if present."""
+    path = kg_dir / "bioactivity_disease.parquet"
+    if not path.exists() or path.stat().st_size == 0:
+        return None
+    df = pd.read_parquet(path)
+    df["disease_mesh_id"] = df["disease_mesh_id"].fillna("")
+    df["source_assay_id"] = df["source_assay_id"].fillna("")
+    df["relationship"] = _ensure_list_col(df["relationship"])
+    df["bioactivity_disease_metadata_id"] = _ensure_list_col(
+        df["bioactivity_disease_metadata_id"]
+    )
+    return df
+
+
+def read_bioactivity_disease_targets(kg_dir: Path) -> pd.DataFrame | None:
+    """Read bioactivity_disease_targets.parquet (bdm→target genes) if present."""
+    path = kg_dir / "bioactivity_disease_targets.parquet"
+    if not path.exists() or path.stat().st_size == 0:
+        return None
+    df = pd.read_parquet(path)
+    df["target_ids"] = _ensure_list_col(df["target_ids"])
+    return df
