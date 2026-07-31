@@ -1,4 +1,4 @@
-# Staging update — bioactivity refresh + PTFI + new efficacy endpoint
+# Staging update — bioactivity refresh + PTFI + new efficacy & disease-association endpoints
 
 **For:** the FoodAtlas frontend developer
 **Environment:** bioactivity **staging** (the demo site) — production is untouched
@@ -10,7 +10,7 @@
 ## TL;DR
 
 1. **Nothing breaks.** Same URL + key, and every existing endpoint/response shape is unchanged.
-2. **One new endpoint:** `GET /food/efficacy?common_name=<food>`.
+2. **New endpoints:** `GET /food/efficacy`, plus `GET /chemical/disease-associations` and `GET /disease/chemical-associations` (bioactivity-inferred).
 3. **Data changed (additively):** bioactivity data refreshed, and **PTFI** foods/chemicals/edges added.
 
 ---
@@ -59,7 +59,42 @@ Field notes for the UI:
   Treat `row_count: 0` as "no efficacy data for this food," not an error.
 - ~864 foods and ~709 chemicals are covered (61,119 rows total).
 
-## 3. What changed in the existing data (no breaking API changes)
+## 3. New endpoints — chemical↔disease associations (bioactivity-inferred)
+
+`GET /chemical/disease-associations?common_name=<chemical>` and
+`GET /disease/chemical-associations?common_name=<disease>` return chemical↔disease
+associations **inferred from shared bioactivity assays**: a chemical is associated with a
+disease when it has ≥1 *Active* measurement in an assay the bioactivity disease-bridge ties
+to that disease (through the disease's target genes / mechanism).
+
+> **Not the same as `/chemical/correlation`.** That existing endpoint serves CTD *literature*
+> correlations. These are a *different* association from a *different* method (lab-assay
+> inference) — extra mechanism/target evidence, not a replacement. ~347k associations across
+> ~7.6k chemicals / ~1.6k diseases.
+
+Standard `{ data, metadata: { row_count } }` envelope, ordered by `n_assays` desc. Real row
+(`/chemical/disease-associations?common_name=vorinostat` → 181 rows):
+
+```json
+{
+  "chemical_name": "vorinostat", "chemical_foodatlas_id": "e20808",
+  "disease_name": "carcinoma, squamous cell", "disease_foodatlas_id": "e204503",
+  "n_assays": 837, "n_active_measurements": 837,
+  "relationships": ["marker/mechanism"],
+  "target_genes": ["NCBIGene: 1956", "NCBIGene: 3065", "NCBIGene: 3066", "..."],
+  "assays": ["AID: 1055355", "AID: 1061954", "..."]
+}
+```
+
+- `n_assays` / `n_active_measurements` — distinct shared assays / active measurements backing
+  the link (a strength signal; results are ordered by these).
+- `relationships` — the bridge relationship type(s), e.g. `marker/mechanism`.
+- `target_genes` — the assay target genes (`NCBIGene:` / `UniProt:` ids), capped at 50;
+  `assays` capped at 25.
+- `/disease/chemical-associations` returns the same associations keyed the other way
+  (e.g. `melanoma` → 1,931 chemicals: vorinostat, celecoxib, rosiglitazone, …).
+
+## 4. What changed in the existing data (no breaking API changes)
 
 - **Bioactivity data refreshed** to the newer measurement set (Jul 2026). Counts/values differ
   from what you saw before. **Concept IDs are stable** (e.g. antioxidant = `e227382`,
@@ -73,14 +108,14 @@ Field notes for the UI:
     composition medians are **not** affected by them.
 - **No existing endpoint or response shape changed.** The efficacy endpoint is purely additive.
 
-## 4. Heads-up
+## 5. Heads-up
 
 - Any **hardcoded counts / test fixtures** pinned to the old numbers will differ after the refresh.
 - This is a **dev/staging** build. PTFI is currently ingested via an interim post-build delta merge;
   a production-grade PTFI **source adapter** is a planned follow-up — it will **not** change the API.
 - The staging DB was reloaded during deploy (brief windows only); it's now stable.
 
-## 5. Quick test
+## 6. Quick test
 
 ```bash
 API=http://FoodAt-ApiSe-9NnFUsQyTUdH-1350162260.us-west-1.elb.amazonaws.com
