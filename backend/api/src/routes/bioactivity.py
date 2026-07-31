@@ -24,14 +24,18 @@ async def bioactivity_metadata(
 @router.get("/chemicals")
 async def bioactivity_chemicals(
     common_name: str = Query(...),
+    page: int = Query(1),
+    limit: int = Query(50),
     db: AsyncSession = Depends(get_db),
 ):
-    return await bioactivity.get_chemicals(db, common_name)
+    return await bioactivity.get_chemicals(db, common_name, page, limit)
 
 
 @router.get("/foods")
 async def bioactivity_foods(
     common_name: str = Query(...),
+    page: int = Query(1),
+    limit: int = Query(50),
     db: AsyncSession = Depends(get_db),
 ):
-    return await bioactivity.get_foods(db, common_name)
+    return await bioactivity.get_foods(db, common_name, page, limit)
