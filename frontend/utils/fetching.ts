@@ -447,22 +447,6 @@ export async function getBioactivityFoods(
   );
 }
 
-// Bioactivities inferred via a food's chemical composition (food → chemical
-// → bioactivity). Each row is a (chemical, bioactivity) pair; the
-// chemical's food-level median_concentration is carried so we can sort/
-// display "how much is in it" alongside the inferred bioactivity.
-export async function getFoodInferredBioactivities(
-  commonName: string,
-  params?: BioactivityListParams
-) {
-  return bioactivityListFetch(
-    "/food/inferred-bioactivities",
-    commonName,
-    params,
-    "food inferred bioactivities"
-  );
-}
-
 // bioactivities measured against a chemical (reverse of getBioactivityChemicals)
 export async function getChemicalBioactivities(
   commonName: string,
