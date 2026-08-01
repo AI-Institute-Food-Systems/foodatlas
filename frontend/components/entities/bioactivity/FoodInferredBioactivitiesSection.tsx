@@ -10,7 +10,7 @@
 
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   MdClose,
   MdDescription,
@@ -33,9 +33,12 @@ import { formatDoseOverAc50Log } from "@/components/entities/bioactivity/efficac
 import { useReportRows } from "@/context/reportModeContext";
 import { usePaginations } from "@/context/paginationsContext";
 import { useLoadingGate } from "@/context/pageReadyContext";
-import { getFoodEfficacy } from "@/utils/fetching";
+import {
+  getChemicalBioactivities,
+  getFoodEfficacy,
+} from "@/utils/fetching";
 import { encodeSpace, formatConcentrationValueAlt } from "@/utils/utils";
-import type { FoodEfficacyRow } from "@/types";
+import type { BioactivityMeasurement, FoodEfficacyRow } from "@/types";
 
 // The inferred table row shape now derives from /food/efficacy (the
 // former /food/inferred-bioactivities endpoint was removed on the
@@ -172,7 +175,42 @@ const FoodInferredBioactivitiesSection = ({
   const [allRows, setAllRows] = useState<InferredRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   useLoadingGate(isLoading);
-  const [selected, setSelected] = useState<InferredRow | null>(null);
+  // Modal state. The efficacy endpoint doesn't carry raw measurements,
+  // so when a user clicks "View N curves" we lazy-fetch the chemical's
+  // full bioactivity list (which does carry the per-bioactivity
+  // measurement sample) and pull out the entry matching this row's
+  // bioactivity_id. Cached per chemical for cheap re-opens.
+  const [selected, setSelected] = useState<{
+    row: InferredRow;
+    measurements: BioactivityMeasurement[];
+  } | null>(null);
+  const [pendingKey, setPendingKey] = useState<string | null>(null);
+  const chemMeasurementsCache = useRef<
+    Map<string, Map<string, BioactivityMeasurement[]>>
+  >(new Map());
+
+  const openModal = async (row: InferredRow) => {
+    const rowKey = `${row.chemical_id}::${row.bioactivity_id}`;
+    let byBio = chemMeasurementsCache.current.get(row.chemical);
+    if (byBio?.has(row.bioactivity_id)) {
+      setSelected({ row, measurements: byBio.get(row.bioactivity_id) ?? [] });
+      return;
+    }
+    setPendingKey(rowKey);
+    const payload = await getChemicalBioactivities(row.chemical);
+    // Bucket every bio row's measurements into the cache so subsequent
+    // clicks on other bioactivities for the same chemical are instant.
+    byBio = new Map();
+    for (const bio of (payload?.data ?? []) as Array<{
+      id: string;
+      measurements?: BioactivityMeasurement[];
+    }>) {
+      byBio.set(bio.id, bio.measurements ?? []);
+    }
+    chemMeasurementsCache.current.set(row.chemical, byBio);
+    setSelected({ row, measurements: byBio.get(row.bioactivity_id) ?? [] });
+    setPendingKey(null);
+  };
   const reporter = useReportRows();
 
   const buildRowContext = (row: InferredRow) => ({
@@ -451,7 +489,11 @@ const FoodInferredBioactivitiesSection = ({
                 <Row
                   key={`${row.chemical_id}-${row.bioactivity_id}-${idx}`}
                   row={row}
-                  onOpen={() => setSelected(row)}
+                  isPending={
+                    pendingKey ===
+                    `${row.chemical_id}::${row.bioactivity_id}`
+                  }
+                  onOpen={() => openModal(row)}
                   rowReportProps={reporter.getRowProps(buildRowContext(row))}
                 />
               ))
@@ -536,13 +578,18 @@ const FoodInferredBioactivitiesSection = ({
                 <div className="w-full flex justify-end">
                   <Chip
                     icon={<MdDescription className="size-3" />}
-                    label={`${row.n_curves.toLocaleString()} curve${
-                      row.n_curves === 1 ? "" : "s"
-                    }`}
+                    label={
+                      pendingKey ===
+                      `${row.chemical_id}::${row.bioactivity_id}`
+                        ? "Loading…"
+                        : `${row.n_curves.toLocaleString()} curve${
+                            row.n_curves === 1 ? "" : "s"
+                          }`
+                    }
                     tone="outline"
                     size="md"
-                    onClick={() => setSelected(row)}
-                    disabled={row.n_curves === 0}
+                    onClick={() => openModal(row)}
+                    disabled={row.n_curves === 0 || pendingKey !== null}
                   />
                 </div>
               </div>
@@ -561,18 +608,19 @@ const FoodInferredBioactivitiesSection = ({
         </div>
       )}
 
-      {/* The efficacy endpoint doesn't carry the raw measurement sample
-       * (only Hill-curve summaries), so we open the modal with an empty
-       * initialMeasurements + the anchor/selected ids. Modal lazy-fetches
-       * the full measurement set via getBioactivityMeasurements once open. */}
+      {/* Measurements sample is loaded via openModal → getChemicalBioactivities
+       * (the efficacy endpoint doesn't carry the raw sample, and the
+       * /bioactivity/measurements route was removed on the staging refresh).
+       * Cached per chemical so subsequent row opens are instant. */}
       <BioactivityMeasurementsModal
         isOpen={selected !== null}
         onClose={() => setSelected(null)}
-        headLabel={selected?.chemical ?? ""}
-        tailLabel={selected?.bioactivity ?? ""}
-        initialMeasurements={[]}
-        anchorId={selected?.chemical_id ?? null}
-        selectedId={selected?.bioactivity_id ?? null}
+        headLabel={selected?.row.chemical ?? ""}
+        tailLabel={selected?.row.bioactivity ?? ""}
+        initialMeasurements={selected?.measurements ?? []}
+        expectedCount={selected?.row.n_curves}
+        anchorId={selected?.row.chemical_id ?? null}
+        selectedId={selected?.row.bioactivity_id ?? null}
         relationship="r6"
         headIsRow={false}
       />
@@ -660,10 +708,12 @@ const EfficacyCell = ({ efficacy }: { efficacy: FoodEfficacyRow }) => {
 
 const Row = ({
   row,
+  isPending,
   onOpen,
   rowReportProps,
 }: {
   row: InferredRow;
+  isPending: boolean;
   onOpen: () => void;
   rowReportProps?: Record<string, unknown>;
 }) => {
@@ -713,13 +763,17 @@ const Row = ({
         <div className="flex min-h-9 items-center justify-end">
           <Chip
             icon={<MdDescription className="size-3" />}
-            label={`${row.n_curves.toLocaleString()} curve${
-              row.n_curves === 1 ? "" : "s"
-            }`}
+            label={
+              isPending
+                ? "Loading…"
+                : `${row.n_curves.toLocaleString()} curve${
+                    row.n_curves === 1 ? "" : "s"
+                  }`
+            }
             tone="outline"
             size="md"
             onClick={onOpen}
-            disabled={row.n_curves === 0}
+            disabled={row.n_curves === 0 || isPending}
           />
         </div>
       </td>
