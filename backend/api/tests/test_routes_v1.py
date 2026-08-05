@@ -99,6 +99,176 @@ class TestFoodChemicals:
         assert resp.json()["data"][0]["chemical_id"] == "FA:C001"
 
 
+# -- /v1/bioactivities ------------------------------------------------------
+
+
+class TestListBioactivities:
+    def test_returns_paginated_envelope(self, client: TestClient) -> None:
+        with patch(
+            "src.repositories.v1.entities.list_entities",
+            return_value=(
+                [
+                    {
+                        "id": "FA:B001",
+                        "common_name": "antioxidant",
+                        "description": "",
+                        "n_foods": 3,
+                        "n_chemicals": 7,
+                    }
+                ],
+                1,
+            ),
+            new_callable=AsyncMock,
+        ):
+            resp = client.get("/v1/bioactivities?q=anti")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["data"][0]["id"] == "FA:B001"
+        assert body["data"][0]["n_chemicals"] == 7
+
+
+class TestGetBioactivity:
+    def test_returns_bioactivity(self, client: TestClient) -> None:
+        with patch(
+            "src.repositories.v1.entities.get_entity",
+            return_value={
+                "id": "FA:B001",
+                "common_name": "antioxidant",
+                "description": "Reduces oxidative stress.",
+                "n_foods": 3,
+                "n_chemicals": 7,
+                "synonyms": ["antioxidative"],
+                "external_ids": {},
+                "parents": [{"foodatlas_id": "FA:B000", "common_name": "bioactivity"}],
+                "children": [],
+            },
+            new_callable=AsyncMock,
+        ):
+            resp = client.get("/v1/bioactivities/FA:B001")
+        assert resp.status_code == 200
+        body = resp.json()["data"]
+        assert body["parents"][0]["common_name"] == "bioactivity"
+
+    def test_404_when_missing(self, client: TestClient) -> None:
+        with patch(
+            "src.repositories.v1.entities.get_entity",
+            return_value=None,
+            new_callable=AsyncMock,
+        ):
+            resp = client.get("/v1/bioactivities/FA:NOPE")
+        assert resp.status_code == 404
+
+
+class TestBioactivityChemicals:
+    def test_returns_chemical_rows(self, client: TestClient) -> None:
+        with patch(
+            "src.repositories.v1.relationships.list_bioactivity_chemicals",
+            return_value=(
+                [
+                    {
+                        "bioactivity_id": "FA:B001",
+                        "bioactivity_name": "antioxidant",
+                        "chemical_id": "FA:C001",
+                        "chemical_name": "quercetin",
+                        "measurement_count": 755,
+                        "active_count": 83,
+                        "inactive_count": 261,
+                        "top_measurement": {
+                            "endpoint": "IC50",
+                            "value": 17.175,
+                            "unit": "MICROMOLAR",
+                        },
+                    }
+                ],
+                1,
+            ),
+            new_callable=AsyncMock,
+        ):
+            resp = client.get("/v1/bioactivities/FA:B001/chemicals")
+        assert resp.status_code == 200
+        row = resp.json()["data"][0]
+        assert row["chemical_name"] == "quercetin"
+        assert row["top_measurement"]["endpoint"] == "IC50"
+
+
+class TestBioactivityFoods:
+    def test_returns_food_rows(self, client: TestClient) -> None:
+        with patch(
+            "src.repositories.v1.relationships.list_bioactivity_foods",
+            return_value=(
+                [
+                    {
+                        "bioactivity_id": "FA:B001",
+                        "bioactivity_name": "antioxidant",
+                        "food_id": "FA:0001",
+                        "food_name": "snail",
+                        "measurement_count": 1,
+                        "top_measurement": {
+                            "endpoint": "Activity",
+                            "value": 0.519,
+                            "unit": "mmol/100g",
+                        },
+                    }
+                ],
+                1,
+            ),
+            new_callable=AsyncMock,
+        ):
+            resp = client.get("/v1/bioactivities/FA:B001/foods")
+        assert resp.status_code == 200
+        assert resp.json()["data"][0]["food_name"] == "snail"
+
+
+class TestFoodBioactivities:
+    def test_returns_food_bioactivity_rows(self, client: TestClient) -> None:
+        with patch(
+            "src.repositories.v1.relationships.list_bioactivity_foods",
+            return_value=(
+                [
+                    {
+                        "bioactivity_id": "FA:B001",
+                        "bioactivity_name": "antioxidant",
+                        "food_id": "FA:0001",
+                        "food_name": "snail",
+                        "measurement_count": 1,
+                        "top_measurement": None,
+                    }
+                ],
+                1,
+            ),
+            new_callable=AsyncMock,
+        ):
+            resp = client.get("/v1/foods/FA:0001/bioactivities")
+        assert resp.status_code == 200
+        assert resp.json()["data"][0]["bioactivity_id"] == "FA:B001"
+
+
+class TestChemicalBioactivities:
+    def test_returns_chemical_bioactivity_rows(self, client: TestClient) -> None:
+        with patch(
+            "src.repositories.v1.relationships.list_bioactivity_chemicals",
+            return_value=(
+                [
+                    {
+                        "bioactivity_id": "FA:B001",
+                        "bioactivity_name": "antioxidant",
+                        "chemical_id": "FA:C001",
+                        "chemical_name": "quercetin",
+                        "measurement_count": 12,
+                        "active_count": 2,
+                        "inactive_count": 3,
+                        "top_measurement": None,
+                    }
+                ],
+                1,
+            ),
+            new_callable=AsyncMock,
+        ):
+            resp = client.get("/v1/chemicals/FA:C001/bioactivities")
+        assert resp.status_code == 200
+        assert resp.json()["data"][0]["bioactivity_id"] == "FA:B001"
+
+
 # -- /v1/chemicals ----------------------------------------------------------
 
 

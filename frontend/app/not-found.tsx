@@ -4,8 +4,8 @@ import Button from "@/components/basic/Button";
 
 const NotFound = () => {
   return (
-    <div className="h-screen px-3 md:px-12 mt-64">
-      <div className="max-w-6xl mx-auto flex flex-col gap-6">
+    <div className="h-screen px-4 md:px-24 mt-64">
+      <div className="max-w-5xl mx-auto flex flex-col gap-6">
         <div className="text-6xl flex gap-5">
           <MdErrorOutline />
           <h1 className="text-6xl font-mono italic">Not Found</h1>

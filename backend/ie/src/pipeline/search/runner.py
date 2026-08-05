@@ -121,7 +121,9 @@ def run_search(
     cached = _scan_cached_pmcids(bioc_path)
     log.info(
         "  requested=%d  cached=%d  (scan %.1fs)",
-        len(wanted), len(cached), time.monotonic() - t0,
+        len(wanted),
+        len(cached),
+        time.monotonic() - t0,
     )
     missing = sorted(wanted - cached)
 
@@ -137,8 +139,12 @@ def run_search(
     email = os.environ.get("NCBI_EMAIL", "user@example.com")
     user_agent = f"foodatlas-ie/0.1 ({email})"
     fetch_log_path = run_dir / "fetch.log"
-    log.info("Fetching %d articles (workers=%d, log=%s)",
-             len(missing), fetch_workers, fetch_log_path)
+    log.info(
+        "Fetching %d articles (workers=%d, log=%s)",
+        len(missing),
+        fetch_workers,
+        fetch_log_path,
+    )
 
     result = fetch_missing(
         missing,

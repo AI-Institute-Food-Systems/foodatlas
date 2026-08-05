@@ -219,6 +219,127 @@ class TestListComposition:
         session.execute.assert_not_called()
 
 
+class TestListBioactivityChemicals:
+    @pytest.mark.asyncio
+    async def test_filter_by_bioactivity_id(self) -> None:
+        row = _row(
+            bioactivity_id="FA:B001",
+            bioactivity_name="antioxidant",
+            chemical_id="FA:C001",
+            chemical_name="quercetin",
+            measurement_count=755,
+            active_count=83,
+            inactive_count=261,
+            measurements=[
+                {"endpoint": "IC50", "value": 17.175, "unit": "MICROMOLAR"},
+                {"endpoint": "IC50", "value": 5.0, "unit": "MICROMOLAR"},
+            ],
+        )
+        session = AsyncMock()
+        session.execute.side_effect = [_scalar_result(1), _iter_result([row])]
+        rows, total = await relationships.list_bioactivity_chemicals(
+            session, bioactivity_id="FA:B001"
+        )
+        assert total == 1
+        assert rows[0]["top_measurement"]["value"] == 17.175
+        assert rows[0]["top_measurement"]["endpoint"] == "IC50"
+        # ``measurements`` is popped in favour of ``top_measurement``.
+        assert "measurements" not in rows[0]
+
+    @pytest.mark.asyncio
+    async def test_filter_by_chemical_id(self) -> None:
+        session = AsyncMock()
+        session.execute.side_effect = [_scalar_result(0), _iter_result([])]
+        _rows, total = await relationships.list_bioactivity_chemicals(
+            session, chemical_id="FA:C001"
+        )
+        assert total == 0
+
+    @pytest.mark.asyncio
+    async def test_no_filter_returns_empty(self) -> None:
+        session = AsyncMock()
+        rows, total = await relationships.list_bioactivity_chemicals(session)
+        assert rows == [] and total == 0
+        session.execute.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_empty_measurements_yields_null_top(self) -> None:
+        row = _row(
+            bioactivity_id="FA:B001",
+            bioactivity_name="antioxidant",
+            chemical_id="FA:C001",
+            chemical_name="quercetin",
+            measurement_count=0,
+            active_count=0,
+            inactive_count=0,
+            measurements=[],
+        )
+        session = AsyncMock()
+        session.execute.side_effect = [_scalar_result(1), _iter_result([row])]
+        rows, _total = await relationships.list_bioactivity_chemicals(
+            session, bioactivity_id="FA:B001"
+        )
+        assert rows[0]["top_measurement"] is None
+
+
+class TestListBioactivityFoods:
+    @pytest.mark.asyncio
+    async def test_filter_by_bioactivity_id(self) -> None:
+        row = _row(
+            bioactivity_id="FA:B001",
+            bioactivity_name="antioxidant",
+            food_id="FA:0001",
+            food_name="snail",
+            measurement_count=1,
+            measurements=[
+                {"endpoint": "Activity", "value": 0.519, "unit": "mmol/100g"}
+            ],
+        )
+        session = AsyncMock()
+        session.execute.side_effect = [_scalar_result(1), _iter_result([row])]
+        rows, total = await relationships.list_bioactivity_foods(
+            session, bioactivity_id="FA:B001"
+        )
+        assert total == 1
+        assert rows[0]["top_measurement"]["value"] == 0.519
+
+    @pytest.mark.asyncio
+    async def test_filter_by_food_id(self) -> None:
+        session = AsyncMock()
+        session.execute.side_effect = [_scalar_result(0), _iter_result([])]
+        _rows, total = await relationships.list_bioactivity_foods(
+            session, food_id="FA:0001"
+        )
+        assert total == 0
+
+    @pytest.mark.asyncio
+    async def test_no_filter_returns_empty(self) -> None:
+        session = AsyncMock()
+        rows, total = await relationships.list_bioactivity_foods(session)
+        assert rows == [] and total == 0
+        session.execute.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_measurement_missing_value_is_skipped(self) -> None:
+        row = _row(
+            bioactivity_id="FA:B001",
+            bioactivity_name="antioxidant",
+            food_id="FA:0001",
+            food_name="snail",
+            measurement_count=2,
+            measurements=[
+                {"endpoint": "Activity", "value": None, "unit": "mmol/100g"},
+                {"endpoint": "Activity", "value": 0.3, "unit": "mmol/100g"},
+            ],
+        )
+        session = AsyncMock()
+        session.execute.side_effect = [_scalar_result(1), _iter_result([row])]
+        rows, _total = await relationships.list_bioactivity_foods(
+            session, bioactivity_id="FA:B001"
+        )
+        assert rows[0]["top_measurement"]["value"] == 0.3
+
+
 class TestListCorrelation:
     @pytest.mark.asyncio
     async def test_filter_by_chemical_with_relation(self) -> None:
@@ -430,6 +551,8 @@ class TestStatsRepo:
             _stat_row("number of diseases", 3),
             _stat_row("number of publications", 4),
             _stat_row("number of associations", 5),
+            _stat_row("number of bioactivities", 6),
+            _stat_row("number of bioactivity measurements", 7),
         ]
         session = AsyncMock()
         session.execute.return_value = _iter_result(rows)
@@ -440,6 +563,8 @@ class TestStatsRepo:
             "diseases": 3,
             "publications": 4,
             "connections": 5,
+            "bioactivities": 6,
+            "bioactivity_measurements": 7,
         }
 
     @pytest.mark.asyncio

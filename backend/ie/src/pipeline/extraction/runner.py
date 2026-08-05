@@ -184,13 +184,18 @@ def run_extraction(
         )
         log.info("    Batch ID: %s", batch.id)
         with batch_ids_path.open("a", encoding="utf-8") as fp:
-            fp.write(json.dumps({
-                "batch_id": batch.id,
-                "chunk_index": i,
-                "n_rows": len(chunk),
-                "model": model,
-                "submitted_at": datetime.now(UTC).isoformat(),
-            }) + "\n")
+            fp.write(
+                json.dumps(
+                    {
+                        "batch_id": batch.id,
+                        "chunk_index": i,
+                        "n_rows": len(chunk),
+                        "model": model,
+                        "submitted_at": datetime.now(UTC).isoformat(),
+                    }
+                )
+                + "\n"
+            )
         batches.append(batch)
 
     batches = _poll_batches(client, batches)

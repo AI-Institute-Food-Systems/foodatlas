@@ -2,9 +2,7 @@ import { Metadata } from "next";
 
 import Person from "@/components/about/Person";
 import Card from "@/components/basic/Card";
-import Divider from "@/components/basic/Divider";
 import Heading from "@/components/basic/Heading";
-import SubHeading from "@/components/basic/SubHeading";
 import Link from "@/components/basic/Link";
 import { TeamMember } from "@/types";
 
@@ -25,13 +23,6 @@ const TEAM: TeamMember[] = [
     linkToLinkedIn: "https://www.linkedin.com/in/ilias-tagkopoulos-97a3342/",
   },
   {
-    name: "Jason Youn",
-    position: "Graduate Student Researcher",
-    pathToPortrait: "/images/jason.webp",
-    section: "research",
-    linkToLinkedIn: "https://www.linkedin.com/in/jaesungyoun/",
-  },
-  {
     name: "Fangzhou Li",
     position: "Graduate Student Researcher",
     pathToPortrait: "/images/fang.webp",
@@ -46,13 +37,6 @@ const TEAM: TeamMember[] = [
     linkToLinkedIn: "https://www.linkedin.com/in/pranavgupta0001/",
   },
   {
-    name: "Arielle Yoo",
-    position: "Graduate Student Researcher",
-    pathToPortrait: "/images/arielle.webp",
-    section: "research",
-    linkToLinkedIn: "https://www.linkedin.com/in/arielle-soomi-yoo-78016812a/",
-  },
-  {
     name: "Shanghyeon Kim",
     position: "Postdoctoral Researcher",
     pathToPortrait: "/images/shanghyeon.webp",
@@ -60,7 +44,7 @@ const TEAM: TeamMember[] = [
   },
   {
     name: "Lukas Masopust",
-    position: "Frontend Engineer",
+    position: "Fullstack Engineer",
     pathToPortrait: "/images/lukas.webp",
     section: "development",
     linkToWebsite: "https://www.aifs.ucdavis.edu/about/people?s=lukas-masopust",
@@ -68,23 +52,25 @@ const TEAM: TeamMember[] = [
   },
   {
     name: "Kaichi Xie",
-    position: "Backend Engineer",
+    position: "Graduate Student Researcher",
     pathToPortrait: "/images/kaichi.webp",
-    section: "development",
+    section: "research",
     linkToLinkedIn: "https://www.linkedin.com/in/kaichi-xie-nicholas/",
   },
 ];
+
+// Names only, per direction from the group. No photos, no roles, no
+// links — the section exists to credit past contributions without
+// implying active involvement.
+const FORMER_MEMBERS: string[] = ["Jason Youn", "Arielle Yoo"];
 
 const About = () => {
   return (
     <div>
       {/* heading & caption */}
       <div>
-        <Heading type="h1">About FoodAtlas</Heading>
-        <SubHeading>
-          Meet and connect with the team behind <i>FoodAtlas</i>
-        </SubHeading>
-        <p className="mt-8 text-lg leading-loose text-light-200">
+        <Heading type="h1" variant="display">About FoodAtlas</Heading>
+        <p className="mt-6 text-base leading-relaxed text-light-200">
           <i>FoodAtlas</i> is an ongoing, USDA-NSF-funded research project
           dedicated to creating a comprehensive knowledge base where every piece
           of data is traceable back to its source. We use AI to survey the
@@ -112,15 +98,35 @@ const About = () => {
           .
         </p>
       </div>
-      <Divider />
+      {/* inner-workings pointer — a dedicated signpost for readers
+       * who came here for the how rather than the who. */}
+      <div className="mt-12">
+        <Heading type="h2" variant="chip">
+          Inner workings
+        </Heading>
+        <Card className="mt-10">
+          <p className="font-serif italic text-light-200 leading-relaxed">
+            Curious how FoodAtlas turns literature into a
+            knowledge graph? The background page walks through the
+            pipeline — filtering, extraction, entity linking, and
+            metadata injection.
+          </p>
+          <div className="mt-4">
+            <Link href="/technical-background" isExternal={false}>
+              Read the technical background →
+            </Link>
+          </div>
+        </Card>
+      </div>
+
       {/* team */}
-      <div className="mt-20 flex flex-col gap-16">
+      <div className="mt-16 flex flex-col gap-12">
         {/* researchers */}
         <div>
-          <Heading type="h2" variant="boxed">
+          <Heading type="h2" variant="chip">
             Research Team
           </Heading>
-          <div className="mt-10 grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-5 gap-y-10">
+          <div className="mt-10 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-5 gap-y-10">
             {TEAM.filter((member) => member.section === "research").map(
               (member) => (
                 <Person key={member.name} member={member} />
@@ -130,10 +136,10 @@ const About = () => {
         </div>
         {/* developers */}
         <div>
-          <Heading type="h2" variant="boxed">
+          <Heading type="h2" variant="chip">
             Software Engineering Team
           </Heading>
-          <div className="mt-10 grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-5 gap-y-10">
+          <div className="mt-10 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-5 gap-y-10">
             {TEAM.filter((member) => member.section === "development").map(
               (member) => (
                 <Person key={member.name} member={member} />
@@ -141,9 +147,20 @@ const About = () => {
             )}
           </div>
         </div>
+        {/* former team members — names only, no photos or roles */}
+        {FORMER_MEMBERS.length > 0 && (
+          <div>
+            <Heading type="h2" variant="chip">
+              Former Team Members
+            </Heading>
+            <p className="mt-10 text-base leading-relaxed text-light-300">
+              {FORMER_MEMBERS.join(", ")}
+            </p>
+          </div>
+        )}
         {/* publications */}
         <div>
-          <Heading type="h2" variant="boxed">
+          <Heading type="h2" variant="chip">
             Publications
           </Heading>
           <Card className="mt-10">

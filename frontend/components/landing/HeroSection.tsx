@@ -3,61 +3,86 @@ import { FaMicroscope } from "react-icons/fa6";
 
 import Badge from "@/components/basic/Badge";
 import AIIcon from "@/components/icons/AIIcon";
-import SearchWrapper from "@/components/landing/SearchWrapper";
 import Heading from "@/components/basic/Heading";
+import HeroStatsLine from "@/components/landing/HeroStatsLine";
+import NewsNotification from "@/components/landing/NewsNotification";
+import SearchWrapper from "@/components/landing/SearchWrapper";
 
+// Hero is a single centred flex column. Each child sits in normal
+// flow with one consistent gap so the entire stack scales together
+// when content changes. The portaled <SearchBar/> overlays the
+// SearchWrapper spacer via a measured offset, so there are no magic
+// pixel positions anywhere in this file.
 const HeroSection = () => {
   return (
-    <div className="h-[47rem] relative">
-      {/* background image */}
+    <section className="relative">
       <Image
-        className="object-cover h-full -z-10 max-w-[130rem] mx-auto blur-sm"
+        className="object-cover -z-10 max-w-[130rem] mx-auto blur-sm"
         fill
         alt="Background wallpaper of a graph resembling a neural network"
         src="/images/hero_wallpaper_color.webp"
         priority
         quality={100}
       />
-      {/* container */}
-      <div className="flex flex-col relative">
-        {/* heading container */}
-        <div className="px-3 md:px-12">
-          <div className="max-w-6xl mt-[3.3rem] md:mt-20 lg:mt-16 flex flex-col items-center mx-auto gap-6">
-            {/* badge container */}
-            <div className="flex gap-2 md:gap-3 lg:gap-4">
-              <Badge
-                leftIcon={
-                  <AIIcon height={"1em"} width={"1em"} color="#FF5722" />
-                }
-              >
-                AI-Powered
-              </Badge>
-              <Badge
-                leftIcon={
-                  <FaMicroscope height={"1em"} width={"1em"} color="#FF5722" />
-                }
-              >
-                Research-Based
-              </Badge>
-            </div>
-            <Heading
-              type="h1"
-              className="text-[2.3rem] leading-[2.4rem] md:leading-[3rem] md:text-[2.9rem] lg:text-6xl text-center text-shadow-lg text-light-50 max-w-sm md:max-w-none font-semibold"
+      <div className="relative min-h-[38rem] sm:min-h-[44rem] md:min-h-[48rem] flex flex-col justify-center px-4 md:px-24 py-10 sm:py-14 md:py-20">
+        <div className="max-w-4xl w-full mx-auto flex flex-col items-center gap-6 md:gap-8">
+          {/* News line — typeset (no chrome), accent eyebrow + serif
+           * italic body. Sits closest to the top edge. Version is
+           * derived from the downloads manifest so it stays in sync
+           * with the latest published bundle. */}
+          <NewsNotification />
+
+          {/* Credentials */}
+          <div className="flex gap-2 md:gap-3">
+            <Badge
+              size="sm"
+              leftIcon={<AIIcon height="1em" width="1em" color="#FF5722" />}
             >
-              Explore the links between <br /> foods, chemicals & diseases
-            </Heading>
-            {/* separator */}
-            <div className="w-32 md:w-48 h-[0.1rem] md:h-1 rounded-full  bg-gradient-to-r from-accent-400/50 via-accent-600/80 to-accent-400/50 border border-accent-500" />
-            {/* tagline */}
-            <p className="max-w-xl lg:max-w-none text-lg md:text-2xl text-light-300 text-center">
-              Introducing <i>FoodAtlas</i>, the world&apos;s first
-              evidence-based food knowledge base.
-            </p>
+              AI-Powered
+            </Badge>
+            <Badge
+              size="sm"
+              leftIcon={
+                <FaMicroscope height={"1em"} width={"1em"} color="#FF5722" />
+              }
+            >
+              Peer-Reviewed
+            </Badge>
+          </div>
+
+          {/* Headline */}
+          <Heading
+            type="h1"
+            className="text-2xl leading-[1.8rem] sm:text-[2rem] sm:leading-[2.2rem] md:leading-[2.8rem] md:text-[2.5rem] lg:text-5xl text-center text-shadow-lg text-light-50 font-semibold"
+          >
+            The evidence-based <br className="hidden md:block" /> food knowledge
+            graph.
+          </Heading>
+
+          <div className="w-32 md:w-48 h-[0.1rem] md:h-1 rounded-full bg-gradient-to-r from-accent-400/50 via-accent-600/80 to-accent-400/50 border border-accent-500" />
+
+          {/* Subhead — serif to echo the News eyebrow and the newsletter
+           * apothecary vocabulary; sans at text-2xl felt too close in
+           * weight to the h1 above. */}
+          <p className="max-w-xl lg:max-w-3xl font-serif text-base md:text-xl font-normal text-light-200 text-center leading-relaxed">
+            Search bioactivities, foods, chemicals &amp; diseases &mdash; every
+            link traced to peer-reviewed sources.
+          </p>
+
+          {/* Search spacer — reserves vertical space matching the
+           * portaled SearchBar + TryChips and reports its position
+           * back through SearchContext so the overlay aligns. */}
+          <SearchWrapper />
+
+          {/* Stats — hidden on phones; the row would either scroll
+           * horizontally or wrap into 3+ lines, neither of which feels
+           * good on a small viewport. */}
+          <div className="hidden md:block">
+            <HeroStatsLine />
           </div>
         </div>
-        <SearchWrapper />
       </div>
-    </div>
+    </section>
   );
 };
 

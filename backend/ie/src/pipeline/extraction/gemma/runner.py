@@ -11,7 +11,8 @@ Run from backend/ie/:
     CUDA_VISIBLE_DEVICES=0,1,2,3 \
     /mnt/share/kaichixie/miniconda3/envs/gemma4_infer/bin/python \
         -m src.pipeline.extraction.gemma.runner \
-        --input_path outputs/filtering/2026_06_02/filtered_sentences/information_extraction_input.tsv \
+        --input_path outputs/filtering/2026_06_02/filtered_sentences/\
+information_extraction_input.tsv \
         --output_dir  outputs/extraction/2026_06_02 \
         --tensor_parallel_size 4
 """
@@ -42,7 +43,7 @@ def _ensure_path() -> None:
 
 
 def _load_system_instructions(prompt_path: str) -> str:
-    """Return the instruction portion of the v3 prompt (everything before # PARAGRAPH)."""
+    """Return the instruction portion of v3 prompt (everything before # PARAGRAPH)."""
     text = Path(prompt_path).read_text(encoding="utf-8")
     idx = text.find(_PARAGRAPH_MARKER)
     if idx == -1:
@@ -67,7 +68,7 @@ def _init_engine(
     tensor_parallel_size: int,
     gpu_memory_utilization: float,
 ) -> object:
-    from vllm import LLM
+    from vllm import LLM  # noqa: PLC0415 — GPU-only lazy import (keeps CPU tests fast)
 
     return LLM(
         model=model_dir,
@@ -94,7 +95,7 @@ def _process_chunks(
 
     After each chunk, re-writes extraction_predicted.tsv so it is always current.
     """
-    from vllm import SamplingParams
+    from vllm import SamplingParams  # noqa: PLC0415 — see _init_engine
 
     sampling_params = SamplingParams(max_tokens=max_new_tokens, temperature=temperature)
 
@@ -107,7 +108,7 @@ def _process_chunks(
         chunk = df.iloc[start : start + chunk_size]
         messages = _build_messages(chunk["sentence"].tolist(), system_instructions)
 
-        outputs = engine.chat(messages=messages, sampling_params=sampling_params)  # type: ignore[union-attr]
+        outputs = engine.chat(messages=messages, sampling_params=sampling_params)  # type: ignore[attr-defined]
         responses = [o.outputs[0].text for o in outputs]
 
         out_chunk = chunk.copy()
@@ -115,7 +116,10 @@ def _process_chunks(
         out_chunk.to_csv(chunk_path, sep="\t", index=False)
         log.info(
             "Saved chunk %d-%d (%d rows) -> %s",
-            start, start + len(chunk) - 1, len(chunk), chunk_path,
+            start,
+            start + len(chunk) - 1,
+            len(chunk),
+            chunk_path,
         )
 
         _aggregate(out_dir)
@@ -128,7 +132,9 @@ def _aggregate(out_dir: Path) -> Path:
         msg = f"No chunk files found in {out_dir}"
         raise FileNotFoundError(msg)
 
-    frames = [pd.read_csv(f, sep="\t", dtype=str, keep_default_na=False) for f in chunk_files]
+    frames = [
+        pd.read_csv(f, sep="\t", dtype=str, keep_default_na=False) for f in chunk_files
+    ]
     agg = pd.concat(frames, ignore_index=True)
 
     # BioBERT score column is called 'answer'; tsv_to_json expects 'prob'
@@ -174,8 +180,18 @@ def run_gemma_extraction(
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    engine = _init_engine(model_dir, max_model_len, tensor_parallel_size, gpu_memory_utilization)
-    _process_chunks(df, engine, system_instructions, out_dir, chunk_size, max_new_tokens, temperature)
+    engine = _init_engine(
+        model_dir, max_model_len, tensor_parallel_size, gpu_memory_utilization
+    )
+    _process_chunks(
+        df,
+        engine,
+        system_instructions,
+        out_dir,
+        chunk_size,
+        max_new_tokens,
+        temperature,
+    )
 
     return str(_aggregate(out_dir))
 
@@ -188,7 +204,9 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--model_dir", default=_DEFAULT_MODEL)
     p.add_argument("--max_new_tokens", type=int, default=1024)
     p.add_argument("--temperature", type=float, default=0.0)
-    p.add_argument("--chunk_size", type=int, default=1000, help="Rows per saved chunk (for resume)")
+    p.add_argument(
+        "--chunk_size", type=int, default=1000, help="Rows per saved chunk (for resume)"
+    )
     p.add_argument("--max_model_len", type=int, default=8192)
     p.add_argument("--tensor_parallel_size", type=int, default=4)
     p.add_argument("--gpu_memory_utilization", type=float, default=0.90)

@@ -404,7 +404,9 @@ def _evidence_pmcids(evidence: pd.DataFrame) -> dict[str, str]:
     """evidence_id -> PMCID for pubmed evidence (reference JSON ``pmcid`` field)."""
     pubmed = evidence[evidence["source_type"] == "pubmed"]
     out: dict[str, str] = {}
-    for evidence_id, ref in zip(pubmed["evidence_id"], pubmed["reference"], strict=False):
+    for evidence_id, ref in zip(
+        pubmed["evidence_id"], pubmed["reference"], strict=False
+    ):
         if isinstance(ref, str):
             pmcid = json.loads(ref).get("pmcid")
             if pmcid:
@@ -475,7 +477,7 @@ def _parse_synonyms(value: object) -> set[str]:
             return {str(s).strip().lower() for s in parsed if str(s).strip()}
         return set()
     try:
-        return {str(s).strip().lower() for s in value if str(s).strip()}
+        return {str(s).strip().lower() for s in value if str(s).strip()}  # type: ignore[attr-defined]
     except TypeError:
         return set()
 
@@ -515,7 +517,10 @@ def _new_paper_count(current_ev: pd.DataFrame, previous_ev: pd.DataFrame) -> int
 
 def _type_ids(entities: pd.DataFrame) -> dict[str, set[str]]:
     e = entities if "foodatlas_id" in entities.columns else entities.reset_index()
-    return e.groupby("entity_type")["foodatlas_id"].apply(set).to_dict()
+    result: dict[str, set[str]] = (
+        e.groupby("entity_type")["foodatlas_id"].apply(set).to_dict()
+    )
+    return result
 
 
 def _name_map(entities: pd.DataFrame) -> dict[str, str]:

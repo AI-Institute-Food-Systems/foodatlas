@@ -4,9 +4,11 @@ import { Suspense } from "react";
 
 import DiseaseCorrelationsSection from "@/components/entities/disease/DiseaseCorrelationsSection";
 import HeaderSection from "@/components/entities/HeaderSection";
-import MetainformationSection from "@/components/entities/MetainformationSection";
+import EntityDetailLayout from "@/components/entities/EntityDetailLayout";
+import EntityOverviewPanel from "@/components/entities/EntityOverviewPanel";
+import EntityOverviewPanelSuspense from "@/components/entities/EntityOverviewPanelSuspense";
 import HeaderSectionSuspense from "@/components/entities/HeaderSectionSuspense";
-import MetainformationSuspense from "@/components/entities/MetainformationSuspense";
+import EntityPageGate from "@/components/entities/EntityPageGate";
 import { getMetaData } from "@/utils/fetching";
 import { decodeSpace, toTitleCase } from "@/utils/utils";
 
@@ -34,31 +36,41 @@ export async function generateMetadata({
 const DiseasePage = async ({ params }: DiseasePageProps) => {
   const { slug } = params;
   const commonName = decodeSpace(decodeURIComponent(slug));
-  const entityType = "disease";
+  const entityType = "disease" as const;
 
   return (
-    <div>
-      {/* header */}
+    <EntityPageGate entityType={entityType} tabCount={2}>
       <Suspense fallback={<HeaderSectionSuspense entityType={entityType} />}>
         <HeaderSection commonName={commonName} entityType={entityType} />
       </Suspense>
-      {/* content */}
-      <div className="mt-12 flex flex-col gap-20">
-        {/* meta information */}
-        <Suspense
-          fallback={<MetainformationSuspense entityType={entityType} />}
-        >
-          <MetainformationSection
-            commonName={commonName}
-            entityType={entityType}
-          />
-        </Suspense>
-        {/* correlations */}
-        {/* <Suspense fallback={<DiseaseCorrelationsSection commonName={commonName} />}> */}
-        <DiseaseCorrelationsSection commonName={commonName} />
-        {/* </Suspense> */}
-      </div>
-    </div>
+      <EntityDetailLayout
+        entityType={entityType}
+        defaultTabId="health"
+        tabs={[
+          {
+            id: "health",
+            label: "Health Impacts",
+            content: <DiseaseCorrelationsSection commonName={commonName} />,
+          },
+          {
+            id: "overview",
+            label: "IDs & Metadata",
+            content: (
+              <Suspense
+                fallback={
+                  <EntityOverviewPanelSuspense entityType={entityType} />
+                }
+              >
+                <EntityOverviewPanel
+                  commonName={commonName}
+                  entityType={entityType}
+                />
+              </Suspense>
+            ),
+          },
+        ]}
+      />
+    </EntityPageGate>
   );
 };
 

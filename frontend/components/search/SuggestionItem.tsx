@@ -1,19 +1,22 @@
 "use client";
 
-import { useContext } from "react";
 import { useRouter } from "next/navigation";
 
+import BioactivityIcon from "@/components/icons/BioactivityIcon";
 import ChemicalIcon from "@/components/icons/ChemicalIcon";
 import DiseaseIcon from "@/components/icons/DiseaseIcon";
 import FoodIcon from "@/components/icons/FoodIcon";
-import { SearchContext } from "@/context/searchContext";
+import { useNavigationSignal } from "@/context/navigationContext";
 import { Suggestion } from "@/types/Suggestion";
 import { encodeSpace } from "@/utils/utils";
 
-const icon = {
-  food: <FoodIcon color="#d97706" />,
-  chemical: <ChemicalIcon color="#0891b2" />,
-  disease: <DiseaseIcon color="#9333ea" />,
+// Same icon colours as HeaderSection so the type marker in the search
+// dropdown reads as the same visual language as the entity page.
+const entityIcon: Record<string, React.ReactNode> = {
+  food:        <FoodIcon color="#d97706" />,
+  chemical:    <ChemicalIcon color="#0891b2" />,
+  disease:     <DiseaseIcon color="#a855f7" />,
+  bioactivity: <BioactivityIcon color="#10b981" />,
 };
 
 interface SuggestionItemProps {
@@ -28,10 +31,14 @@ const SuggestionItem = ({
   onMouseMove,
 }: SuggestionItemProps) => {
   const router = useRouter();
-  const { setIsVisible } = useContext(SearchContext);
+  const { startNav } = useNavigationSignal();
+  const icon = entityIcon[suggestion.entity_type] ?? null;
 
   const navigate = () => {
-    setIsVisible(false);
+    // Let SearchBar's route-change effect handle isVisible teardown —
+    // doing it here fires before navigation and causes the bar to
+    // morph back to its compact position mid-fade.
+    startNav();
     router.push(
       `/${suggestion.entity_type}/${encodeURIComponent(
         encodeSpace(suggestion.common_name)
@@ -53,62 +60,53 @@ const SuggestionItem = ({
     }
   };
 
-  const hasCommonName = suggestion.common_name !== null;
-  const hasScientificName = suggestion.scientific_name !== null;
-
-  const label = [
-    hasCommonName ? suggestion.common_name : null,
-    hasScientificName ? suggestion.scientific_name : null,
-  ]
-    .filter(Boolean)
-    .join(" — ");
+  const hasCommonName = !!suggestion.common_name?.trim();
+  const hasScientificName = !!suggestion.scientific_name?.trim();
 
   return (
     <div
       id="foodatlas-search"
-      className={`flex gap-6 px-5 py-5 cursor-pointer border-b-light-50/20 border-b ${
-        isSelected && "bg-light-50/15 border-light-50/15"
-      }`}
       role="button"
       tabIndex={0}
-      aria-label={`Open ${suggestion.entity_type} ${label}`}
+      aria-label={`Open ${suggestion.entity_type} ${suggestion.common_name}`}
       onClick={handleClick}
       onKeyDown={handleKeyDown}
       onMouseMove={onMouseMove}
+      className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer border-b border-light-50/[0.06] transition-colors ${
+        isSelected ? "bg-light-50/10" : "hover:bg-light-50/5"
+      }`}
     >
-      {/* left */}
-      <div className="mt-1 w-8 flex justify-center">
-        {/* @ts-ignore */}
-        <div className="text-3xl">{icon[suggestion.entity_type]}</div>
-      </div>
-      {/* middle */}
-      <div className="w-full">
-        <div>
-          {(hasCommonName || hasScientificName) && (
-            <p className="text-xs text-light-400 font-mono italic">
-              {hasCommonName && "Common Name"}
-              {hasCommonName && hasScientificName && (
-                <span className="not-italic">｜</span>
-              )}
-              {hasScientificName && "Scientific Name"}
-            </p>
-          )}
-          <p className="capitalize break-all">
-            {hasCommonName && <span>{suggestion.common_name}</span>}
-            {hasCommonName && hasScientificName && "｜"}
-            {hasScientificName && <span>{suggestion.scientific_name}</span>}
+      {/* Entity icon — left, consistent size */}
+      {icon && <span className="text-xl flex-shrink-0">{icon}</span>}
+
+      {/* Name block */}
+      <div className="min-w-0 flex-1">
+        {hasCommonName && (
+          <p className="text-sm text-light-100 capitalize leading-tight truncate">
+            {suggestion.common_name}
           </p>
+        )}
+        {hasScientificName && (
+          <p className="text-xs text-light-500 italic font-mono leading-tight truncate mt-0.5">
+            {suggestion.scientific_name}
+          </p>
+        )}
+      </div>
+
+      {/* Right: associations count stacked with label */}
+      {suggestion.associations != null && (
+        <div className="flex flex-col items-end leading-none flex-shrink-0">
+          <span className="font-mono text-xs text-light-100 tabular-nums">
+            {Number(suggestion.associations).toLocaleString()}
+          </span>
+          <span className="font-mono italic text-[9px] text-light-500 mt-0.5">
+            associations
+          </span>
         </div>
-      </div>
-      {/* right */}
-      <div className="w-20  flex flex-col text-center">
-        <span className="text-xs text-light-400">Associations</span>
-        <span className="">{suggestion.associations}</span>
-      </div>
+      )}
     </div>
   );
 };
 
 SuggestionItem.displayName = "SuggestionItem";
-
 export default SuggestionItem;

@@ -51,7 +51,8 @@ class BioBERTRunner:
         log.info("Loading BioBERT from %s on %s", model_dir, self._device)
 
         self._tokenizer: Any = AutoTokenizer.from_pretrained(
-            model_dir, use_fast=True,
+            model_dir,
+            use_fast=True,
         )
         self._model: Any = self._load_inference_model(model_dir)
 

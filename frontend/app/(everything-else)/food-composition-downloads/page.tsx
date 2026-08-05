@@ -4,9 +4,7 @@ import { Metadata } from "next";
 
 import Link from "@/components/basic/Link";
 import Card from "@/components/basic/Card";
-import Divider from "@/components/basic/Divider";
 import Heading from "@/components/basic/Heading";
-import SubHeading from "@/components/basic/SubHeading";
 import DownloadsTable, {
   DownloadRow,
 } from "@/components/misc/DownloadsTable";
@@ -42,13 +40,8 @@ const Downloads = async () => {
   return (
     <div>
       <div>
-        <Heading type="h1">Download Database Bundles</Heading>
-        <SubHeading>
-          Want to work with our data locally? Download our version-controlled
-          database bundles below and explore <i>FoodAtlas</i> data on your
-          machine
-        </SubHeading>
-        <p className="mt-10 text-lg leading-relaxed text-light-200">
+        <Heading type="h1" variant="display">Download Database Bundles</Heading>
+        <p className="mt-6 text-base leading-relaxed text-light-200">
           Our extensive food composition database contains only evidence-based
           data that can be traced back to its source. As a USDA-NSF funded
           research project, the data is presented as a free resource under the{" "}
@@ -58,15 +51,13 @@ const Downloads = async () => {
           license.
         </p>
       </div>
-      <Divider />
-      <div className="mt-14">
-        <Heading type="h2" className="text-3xl">
+      <div className="mt-16">
+        <Heading type="h2" variant="chip">
           How to Cite
         </Heading>
-        <SubHeading>
-          If you use <i>FoodAtlas</i> in your research, please cite:
-        </SubHeading>
-        <Card className="mt-6">
+      </div>
+      <div className="mt-8">
+        <Card>
           <p className="leading-relaxed text-light-200">
             Li, F., Youn, J., Xie, K., Chan, T., Gupta, P., Yoo, A., ... &
             Tagkopoulos, I. (2026). A unified knowledge graph linking foodomics
@@ -78,8 +69,13 @@ const Downloads = async () => {
           </p>
         </Card>
       </div>
-      <Divider />
-      <div className="mt-14">
+
+      <div className="mt-16">
+        <Heading type="h2" variant="chip">
+          Bundles
+        </Heading>
+      </div>
+      <div className="mt-8">
         <Card>
           <DownloadsTable data={data} />
         </Card>

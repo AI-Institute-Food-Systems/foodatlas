@@ -27,8 +27,8 @@ import {
   ValueType,
   NameType,
 } from "recharts/types/component/DefaultTooltipContent";
-import Card from "@/components/basic/Card";
 import EntitySiblingIcon from "@/components/basic/EntitySiblingIcon";
+import { useReportModeState } from "@/context/reportModeContext";
 import { AmbiguitySibling } from "@/types/Metadata";
 import { encodeSpace, formatConcentrationValueAlt } from "@/utils/utils";
 
@@ -56,6 +56,7 @@ type SortedData = {
 
 const ConcentrationCompositionPlot = ({ data, chemicalName }: DotPlotProps) => {
   const router = useRouter();
+  const { isSelectMode, selectForReport } = useReportModeState();
   const [sortedData, setSortedData] = useState<SortedData[]>([]);
   const [sortOrder, setSortOrder] = useState("desc");
 
@@ -83,12 +84,30 @@ const ConcentrationCompositionPlot = ({ data, chemicalName }: DotPlotProps) => {
     setSortedData(sortedData);
   }, [data, sortOrder]);
 
-  // custom bar
+  // custom bar. In report-select mode, bars get an amber tint + dashed
+  // outline that echo the row-selection style used elsewhere — same
+  // vocabulary as the "clickable row" affordance in tables, so users
+  // recognise the plot as a reportable surface without extra chrome.
   const CustomBar = (props: BarProps) => {
     const { x, y, width, height } = props;
-
+    const fill = isSelectMode ? "#f59e0b" : "#0891b2";
+    const strokeProps = isSelectMode
+      ? {
+          stroke: "#fcd34d",
+          strokeWidth: 1,
+          strokeDasharray: "3 2",
+        }
+      : {};
     return (
-      <rect height={height} width={width} x={x} y={y} rx={2.5} fill="#0891b2" />
+      <rect
+        height={height}
+        width={width}
+        x={x}
+        y={y}
+        rx={2.5}
+        fill={fill}
+        {...strokeProps}
+      />
     );
   };
 
@@ -183,13 +202,28 @@ const ConcentrationCompositionPlot = ({ data, chemicalName }: DotPlotProps) => {
 
   // memoize graph to optimize performance
   const graph = useMemo(() => {
-    // handle bar click
+    // handle bar click. In report-select mode the click fires
+    // selectForReport instead of navigating, so users can flag a
+    // specific food-chemical composition point directly from the plot.
     const handleClick = (commonName: string) => {
-      const search = chemicalName
-        ? `?search=${encodeURIComponent(chemicalName)}#composition`
+      if (!commonName) return;
+      if (isSelectMode) {
+        const row = sortedData.find((r) => r.food === commonName);
+        selectForReport({
+          kind: "food-composition-row",
+          entityType: "chemical",
+          entitySlug: chemicalName,
+          chemicalName,
+          foodId: row?.id,
+          foodName: commonName,
+        });
+        return;
+      }
+      const qs = chemicalName
+        ? `?highlight=${encodeURIComponent(chemicalName)}#composition`
         : "";
       router.push(
-        `/food/${encodeURIComponent(encodeSpace(commonName))}${search}`
+        `/food/${encodeURIComponent(encodeSpace(commonName))}${qs}`
       );
     };
 
@@ -243,16 +277,14 @@ const ConcentrationCompositionPlot = ({ data, chemicalName }: DotPlotProps) => {
         </BarChart>
       </ResponsiveContainer>
     );
-  }, [chartHeight, sortedData, router, chemicalName]);
+  }, [chartHeight, sortedData, router, chemicalName, isSelectMode, selectForReport]);
 
   return (
-    <Card>
+    <div>
       {data && data.length > 0 ? (
         <div className="flex flex-col gap-5">
-          {/* label & sort container */}
-          <div className="flex justify-between items-center">
-            <span className="text-light-400">Found {data.length} foods</span>
-            {/* sort */}
+          {/* sort control */}
+          <div className="flex justify-end items-center">
             <div className="self-end flex items-center gap-10">
               <div className="flex items-center gap-2 text-light-300 text-sm/6">
                 <span>sort names</span>
@@ -309,7 +341,7 @@ const ConcentrationCompositionPlot = ({ data, chemicalName }: DotPlotProps) => {
           <MdInfoOutline /> No foods found
         </div>
       )}
-    </Card>
+    </div>
   );
 };
 

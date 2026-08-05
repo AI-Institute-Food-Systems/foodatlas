@@ -10,6 +10,7 @@ from src.repositories import taxonomy as taxonomy_repo
 from src.repositories.v1 import entities, relationships
 from src.repositories.v1.pagination import build_page, clamp_page_size
 from src.repositories.v1.serializers import (
+    BioactivityFoodRow,
     CompositionRow,
     Food,
     FoodSummary,
@@ -75,6 +76,27 @@ async def food_chemicals(
     )
     return ListResponse[CompositionRow](
         data=[CompositionRow(**r) for r in rows],
+        page=build_page(page, size, total),
+    )
+
+
+@router.get(
+    "/{food_id}/bioactivities",
+    response_model=ListResponse[BioactivityFoodRow],
+    summary="Bioactivities this food has been measured to exhibit",
+)
+async def food_bioactivities(
+    food_id: str,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+) -> ListResponse[BioactivityFoodRow]:
+    size = clamp_page_size(page_size)
+    rows, total = await relationships.list_bioactivity_foods(
+        db, food_id=food_id, page=page, page_size=size
+    )
+    return ListResponse[BioactivityFoodRow](
+        data=[BioactivityFoodRow(**r) for r in rows],
         page=build_page(page, size, total),
     )
 

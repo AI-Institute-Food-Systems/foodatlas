@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
+
 import Heading from "@/components/basic/Heading";
-import Card from "@/components/basic/Card";
 import CorrelationTable from "@/components/entities/CorrelationTable";
 import InfoBanner from "@/components/basic/InfoBanner";
 import Link from "@/components/basic/Link";
+import { usePublishTabCount } from "@/context/tabCountsContext";
 
 interface ChemicalCorrelationSectionProps {
   commonName: string;
@@ -13,11 +15,18 @@ interface ChemicalCorrelationSectionProps {
 const ChemicalCorrelationSection = ({
   commonName,
 }: ChemicalCorrelationSectionProps) => {
+  // Aggregated Improves + Worsens totals → the "Health Impacts" tab badge.
+  const [posTotal, setPosTotal] = useState<number | null>(null);
+  const [negTotal, setNegTotal] = useState<number | null>(null);
+  usePublishTabCount(
+    "health",
+    posTotal === null && negTotal === null
+      ? null
+      : (posTotal ?? 0) + (negTotal ?? 0),
+  );
+
   return (
     <div className="flex flex-col gap-7">
-      <Heading type="h2" variant="boxed">
-        Health Impacts
-      </Heading>
       <InfoBanner
         description={
           <div>
@@ -41,7 +50,7 @@ const ChemicalCorrelationSection = ({
           <div>
             <Heading
               type="h3"
-              className="text-light-300 font-mono text-base font-medium"
+              className="text-light-300 font-mono text-sm font-medium"
             >
               Improves
             </Heading>
@@ -50,21 +59,20 @@ const ChemicalCorrelationSection = ({
               to either improve health outcomes or reduce the risk of onset.
             </p>
           </div>
-          <Card>
-            <CorrelationTable
-              commonName={commonName}
-              tableLocation={"chemical"}
-              headers={[{ label: "Chemical" }, { label: "Disease" }, { label: "Publication (PMID)" }]}
-              correlationType={"positive"}
-            />
-          </Card>
+          <CorrelationTable
+            commonName={commonName}
+            tableLocation={"chemical"}
+            headers={[{ label: "Chemical" }, { label: "Disease" }, { label: "Publication (PMID)" }]}
+            correlationType={"positive"}
+            onTotalRowsChange={setPosTotal}
+          />
         </div>
         {/* negative correlations */}
         <div className="flex flex-col gap-4">
           <div>
             <Heading
               type="h3"
-              className="text-light-300 font-mono text-base font-medium"
+              className="text-light-300 font-mono text-sm font-medium"
             >
               Worsens
             </Heading>
@@ -73,14 +81,13 @@ const ChemicalCorrelationSection = ({
               to either worsen health outcomes or increase the risk of onset.
             </p>
           </div>
-          <Card>
-            <CorrelationTable
-              commonName={commonName}
-              tableLocation={"chemical"}
-              headers={[{ label: "Chemical" }, { label: "Disease" }, { label: "Publication (PMID)" }]}
-              correlationType={"negative"}
-            />
-          </Card>
+          <CorrelationTable
+            commonName={commonName}
+            tableLocation={"chemical"}
+            headers={[{ label: "Chemical" }, { label: "Disease" }, { label: "Publication (PMID)" }]}
+            correlationType={"negative"}
+            onTotalRowsChange={setNegTotal}
+          />
         </div>
       </div>
     </div>

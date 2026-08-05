@@ -1,241 +1,421 @@
 import Image from "next/image";
 import { Metadata } from "next/types";
 
-import Link from "@/components/basic/Link";
-import Code from "@/components/basic/Code";
 import Card from "@/components/basic/Card";
-import Divider from "@/components/basic/Divider";
+import Code from "@/components/basic/Code";
 import Heading from "@/components/basic/Heading";
-import SubHeading from "@/components/basic/SubHeading";
+import Link from "@/components/basic/Link";
 
 export const metadata: Metadata = {
-  title: "Background | How the FoodAtlas Knowledge Based is Sourced",
+  title: "Background | How the FoodAtlas Knowledge Graph is Sourced",
   description:
-    "Where does the FoodAtlas data come from? Learn how we control our sources and pipeline to ensure we present reliable data.",
+    "How FoodAtlas turns peer-reviewed literature and public databases into a knowledge graph of foods, chemicals, diseases, and bioactivities.",
 };
 
-const pipeline = [
+// Source families integrated by the KGC ingest stage. Kept as data so
+// the "Sources" section stays visually consistent as the list grows.
+const SOURCES: {
+  name: string;
+  domain: string;
+  href: string;
+}[] = [
+  { name: "FoodOn", domain: "Food ontology", href: "https://foodon.org/" },
   {
-    title: "Filter Documents",
-    text: "Relevant, peer-reviewed literature is filtered using a list of more than 1,200 keywords",
+    name: "ChEBI",
+    domain: "Chemical ontology",
+    href: "https://www.ebi.ac.uk/chebi/",
   },
   {
-    title: "Predict Relevant Sentences",
-    text: (
-      <>
-        Sentences likely to contain food information are predicted using{" "}
-        <Link
-          href="https://hpc.nih.gov/apps/BioBERT.html#:~:text=BioBERT%20is%20a%20biomedical%20language,extraction%2C%20question%20answering%2C%20etc."
-          isExternal
-        >
-          BioBERT
-        </Link>
-      </>
-    ),
+    name: "CDNO",
+    domain: "Compositional / dietary nutrients",
+    href: "https://obofoundry.org/ontology/cdno.html",
   },
   {
-    title: "Extract Relations",
-    text: (
-      <>
-        Sentences are processed by{" "}
-        <Link href="https://openai.com/research/gpt-4" isExternal>
-          GPT-4
-        </Link>{" "}
-        to extract food-chemical relations
-      </>
-    ),
+    name: "USDA FDC",
+    domain: "Food composition data",
+    href: "https://fdc.nal.usda.gov/",
   },
   {
-    title: "Data Conversion",
-    text: "Output is converted into triplets, the building block of the knowledge graph data structure",
+    name: "CTD",
+    domain: "Comparative Toxicogenomics",
+    href: "https://ctdbase.org/",
+  },
+  { name: "MeSH", domain: "Disease ontology", href: "https://www.nlm.nih.gov/mesh/" },
+  {
+    name: "PubChem",
+    domain: "Chemical + bioassay data",
+    href: "https://pubchem.ncbi.nlm.nih.gov/",
   },
   {
-    title: "Entity Linking",
-    text: "Triplets are linked to existing corresponding entities, or new ones are created",
+    name: "ChEMBL",
+    domain: "Bioactivity assays",
+    href: "https://www.ebi.ac.uk/chembl/",
+  },
+  { name: "FlavorDB", domain: "Flavor descriptors", href: "https://cosylab.iiitd.edu.in/flavordb/" },
+];
+
+// One entry per typed edge in the graph. Rendered as a small table so
+// each edge's meaning is scannable.
+const RELATIONS: {
+  code: string;
+  label: string;
+  from: string;
+  to: string;
+  description: string;
+}[] = [
+  {
+    code: "r1",
+    label: "CONTAINS",
+    from: "Food",
+    to: "Chemical",
+    description:
+      "A food contains a chemical at a measured concentration. Values normalised to mg / 100g where the source unit allows.",
   },
   {
-    title: "Metadata Injection",
-    text: "Metadata such as concentration values, food parts, external references, and quality scores is compiled",
+    code: "r2",
+    label: "IS_A",
+    from: "Any",
+    to: "Any (same type)",
+    description:
+      "Ontology hierarchy. Ties into FoodOn, ChEBI, MeSH, and the bioactivity hierarchy so children inherit parent context.",
   },
+  {
+    code: "r3",
+    label: "WORSENS",
+    from: "Chemical",
+    to: "Disease",
+    description:
+      "Peer-reviewed evidence that the chemical worsens the disease's health outcomes or increases risk of onset.",
+  },
+  {
+    code: "r4",
+    label: "IMPROVES",
+    from: "Chemical",
+    to: "Disease",
+    description:
+      "Peer-reviewed evidence that the chemical improves the disease's health outcomes or reduces risk of onset.",
+  },
+  {
+    code: "r5",
+    label: "EXHIBITS",
+    from: "Food",
+    to: "Bioactivity",
+    description:
+      "A food exhibits a bioactivity — either from direct assay evidence or from a model inference over its composition.",
+  },
+  {
+    code: "r6",
+    label: "MEASURED",
+    from: "Chemical",
+    to: "Bioactivity",
+    description:
+      "A chemical was measured against a bioactivity in an assay. Carries the raw measurement + a Hill-curve fit when the assay reports dose–response.",
+  },
+];
+
+// The two pipelines feed into the same graph; presented side-by-side so
+// the extraction ↔ construction split reads clearly.
+const IE_STAGES = [
+  { title: "Corpus", text: "Refresh a local BioC-PMC corpus and rebuild the PMC-ID index." },
+  { title: "Search", text: "Query PubMed for food terms; retrieve and fuzzy-match candidate sentences." },
+  { title: "Filter", text: "Binary classification with a fine-tuned BioBERT model — only sentences above a 0.99 confidence threshold pass through." },
+  { title: "Extract", text: "The remaining sentences are batched through OpenAI's Batch API using gpt-5.5 and structured extraction prompts." },
+];
+
+const KGC_STAGES = [
+  { title: "Ingest", text: "Parse each source into standardised parquet files (nodes / edges / cross-references)." },
+  { title: "Entities", text: "Three-pass entity resolution → stable `foodatlas_id`s that survive across releases. Ambiguities are recorded on attestations, not silently collapsed." },
+  { title: "Triplets", text: "Build typed edges (r1–r6) from source data. Duplicates merge; ambiguous resolutions explode into candidates for later review." },
+  { title: "Extraction fold-in", text: "Concentration parser normalises the information extraction pipeline's output to mg/100g. Chemical + food names resolved through the entity registry." },
+  { title: "Enrichment", text: "Add derived metadata: chemical/food classifications, flavor descriptors, common names, display grouping." },
+  { title: "Trust", text: "Per-attestation plausibility signals from a Gemini 3.1 Flash-Lite LLM judge. Emits a 0–1 score and a short justification per triplet." },
+  { title: "Evaluation", text: "Diagnostics on the finished graph — orphan detection, unclassified entities, per-source coverage." },
 ];
 
 const TechnicalBackground = () => {
   return (
     <div>
-      {/* heading & caption */}
+      {/* Intro — what FoodAtlas is, one paragraph, no stale specifics. */}
       <div>
-        <Heading type="h1">Technical Background</Heading>
-        <SubHeading>
-          <i>FoodAtlas</i> behind the Scenes
-        </SubHeading>
-        <p className="mt-10 text-lg leading-loose text-light-200">
-          <i>FoodAtlas</i> is an AI-powered tool that maps the complex
-          relationships between food, chemicals, and diseases. It not only
-          identifies the types and quantities of chemicals in the foods we
-          consume but also explores their potential health impacts.
+        <Heading type="h1" variant="display">
+          Technical Background
+        </Heading>
+        <p className="mt-6 text-base leading-relaxed text-light-200">
+          <i>FoodAtlas</i> is an evidence-based knowledge graph linking foods,
+          the chemicals they contain, the diseases those chemicals correlate
+          with, and the bioactivities they express. Every edge in the graph
+          is traceable to a public source or a peer-reviewed publication.
         </p>
-        <p className="mt-2.5 text-lg leading-loose text-light-200">
-          Our system continuously monitors new research, extracting data on
-          chemical concentrations and disease correlations. This data is
-          cross-referenced with established databases, such as{" "}
-          <Link
-            className="flex-nowrap"
-            href={"https://pubchem.ncbi.nlm.nih.gov"}
-          >
-            PubChem
-          </Link>
-          , and incorporated into our knowledge graph.
-        </p>
-        <p className="mt-2.5 text-lg leading-loose text-light-200">
-          The following provides a brief overview of some of the methods and
-          technologies used. For a detailed look behind the scenes, refer to our{" "}
+        <p className="mt-3 text-base leading-relaxed text-light-200">
+          The graph is built from two pipelines: an{" "}
+          <b>information extraction</b> pipeline that pulls
+          food–chemical relations from PubMed / PMC literature, and a{" "}
+          <b>knowledge graph construction</b> pipeline that ingests
+          public databases, resolves entities, and stitches everything into
+          the released graph. For the full study, see the{" "}
           <Link
             className="whitespace-nowrap"
             href="https://doi.org/10.1038/s41538-025-00680-9"
           >
-            publication
+            npj Science of Food paper
           </Link>
           .
         </p>
       </div>
-      <Divider />
-      {/* knowledge graph */}
-      <div className="flex flex-col md:flex-row gap-2">
-        {/* image */}
-        <div className="relative h-52 md:h-96 m-8 md:w-2/3">
-          <Image
-            className="object-contain"
-            fill
-            src="/images/kg.webp"
-            alt="An example image of a knowledge graph. The graph contains an enourmous amount of nodes and edges connecting nodes. Some nodes are highlighted, such as Soybean, Cow, or Tomato. A portion of the image is magnified to illustrate the connections between Garlic, Garlic root, Allicin, and Saponins."
-          />
-        </div>
-        {/* info card */}
-        <div className="md:w-1/3">
-          <Card>
-            <Heading type="h2" className="text-3xl">
-              Knowledge Graph
-            </Heading>
-            <p className="mt-4 leading-loose text-light-300">
-              <i>FoodAtlas</i> uses a{" "}
-              <Link href="https://en.wikipedia.org/wiki/Knowledge_graph">
-                knowledge graph
-              </Link>{" "}
-              to systematically store and organize a vast network of
-              interconnected entities, including foods, chemicals, diseases, and
-              their relationships. Each connection is represented as a{" "}
-              <i>triplet</i>&ndash;a structured entry in our knowledge
-              base&ndash;consisting of a head entity, a tail entity, and their
-              relationship. To enhance the reliability of food-related insights,{" "}
-              <i>FoodAtlas</i> also incorporates rich metadata, including
-              detailed entity information and supporting evidence for each
-              relationship.
-            </p>
-          </Card>
-        </div>
-      </div>
-      {/* semantics */}
-      <div className="mt-36 flex flex-col-reverse md:flex-row gap-2">
-        <div className="md:w-5/12">
-          <Card>
-            <Heading type="h2" className="text-3xl">
-              Graph Semantics
-            </Heading>
-            <p className="mt-4 leading-loose text-light-300">
-              A <b>node</b> is either a <Code>Food</Code>, a
-              <Code>Chemical</Code>, or a <Code>Disease</Code>.
-              <br />
-              <br />
-              An <b>edge</b> informs on the relationship between two nodes.{" "}
-              <i>FoodAtlas</i> captures <Code>contains</Code>
-              relations, i.e. what chemicals are found in certain foods as well
-              as <Code>is a</Code> relations for parts of foods. Chemicals may
-              then either <Code>improve</Code> or <Code>worsen</Code> a disease.
-            </p>
-          </Card>
-        </div>
-        <div className="relative h-96 m-8 md:w-7/12">
-          <Image
-            className="object-contain"
-            fill
-            src="/images/kg_semantics.svg"
-            alt="A graphic illustrating the semantic relationships of a knowledge graph. Three nodes, including food, chemical, and disease are shown, connected through edges. Those edges include all possible relations of two nodes, including a self-referencing 'is-a' relation which are possible on both foods and chemicals, a 'contains' relation between a food and a chemical, as well as a 'positively / negatively correlates' relation from chemical to disease and from food to disease. The latter is dashed to indicate it's work in progress."
-          />
-        </div>
-      </div>
-      <Divider />
-      {/* pipeline */}
-      <div className="">
-        <Heading type="h2" className="text-3xl">
-          Pipeline
+
+      {/* What's in the graph — nodes + relations table. */}
+      <div className="mt-16">
+        <Heading type="h2" variant="chip">
+          What&apos;s in the graph
         </Heading>
-        <p className="mt-4 text-lg leading-loose text-light-300 font-light">
-          Our pipeline uses state-of-the-art AI models to extract and quantify
-          food connections. The two major steps are{" "}
-          <i>(a) knowledge extraction</i>, i.e., converting literature into
-          food-chemical relations and <i>(b) knowledge graph construction</i> ,
-          which adds metainformation and new information to our knowledge base.
+        {/* Top row: diagram (left) + expanded description (right).
+         * Bottom row: compact legend of typed edges. */}
+        <div className="mt-6 flex flex-col md:flex-row gap-8 items-start">
+          <div className="relative w-full md:w-1/2 h-56 md:h-80 shrink-0">
+            <Image
+              className="object-contain"
+              fill
+              src="/images/kg_semantics.svg"
+              alt="Diagram of the FoodAtlas graph semantics: Food, Chemical, Disease, and Bioactivity nodes connected by CONTAINS, IS_A, WORSENS, IMPROVES, EXHIBITS, and MEASURED edges."
+            />
+          </div>
+          <div className="md:w-1/2 flex flex-col gap-4 leading-relaxed text-light-300">
+            <p>
+              A <b>node</b> is a <Code>Food</Code>, <Code>Chemical</Code>,{" "}
+              <Code>Disease</Code>, or <Code>Bioactivity</Code>. An{" "}
+              <b>edge</b> informs about the relationship between two nodes.
+            </p>
+            <p>
+              Every edge carries an <i>attestation</i> — the supporting
+              evidence, source, and any measurement metadata (concentration
+              values, assay outcomes, Hill-curve fits).
+            </p>
+          </div>
+        </div>
+
+        <Card className="mt-6">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-light-700">
+                <th className="py-2 pr-3 text-left font-mono italic text-[11px] uppercase tracking-wider text-light-500 font-medium whitespace-nowrap">
+                  Code
+                </th>
+                <th className="py-2 pr-3 text-left font-mono italic text-[11px] uppercase tracking-wider text-light-500 font-medium whitespace-nowrap">
+                  Relation
+                </th>
+                <th className="py-2 pr-3 text-left font-mono italic text-[11px] uppercase tracking-wider text-light-500 font-medium whitespace-nowrap">
+                  Between
+                </th>
+                <th className="py-2 text-left font-mono italic text-[11px] uppercase tracking-wider text-light-500 font-medium">
+                  Description
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-light-800">
+              {RELATIONS.map((r) => (
+                <tr key={r.code}>
+                  <td className="align-baseline py-1.5 pr-3 font-mono text-xs text-accent-300 whitespace-nowrap">
+                    {r.code}
+                  </td>
+                  <td className="align-baseline py-1.5 pr-3 font-mono text-light-100 whitespace-nowrap">
+                    {r.label}
+                  </td>
+                  <td className="align-baseline py-1.5 pr-3 font-mono text-xs text-light-400 whitespace-nowrap">
+                    {r.from} → {r.to}
+                  </td>
+                  <td className="align-baseline py-1.5 text-light-400 font-light leading-snug">
+                    {r.description}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      </div>
+
+      {/* Where the data comes from — the ingested sources + PubMed. */}
+      <div className="mt-16">
+        <Heading type="h2" variant="chip">
+          Where the data comes from
+        </Heading>
+        <Card className="mt-6">
+          <p className="leading-relaxed text-light-300">
+            The knowledge graph integrates <b>nine public sources</b> spanning
+            ontologies, composition tables, and bioassay repositories. The
+            information extraction pipeline layers additional food–chemical
+            relations on top by reading peer-reviewed literature from{" "}
+            <Link href="https://pubmed.ncbi.nlm.nih.gov/" isExternal>
+              PubMed
+            </Link>{" "}
+            /{" "}
+            <Link href="https://pmc.ncbi.nlm.nih.gov/" isExternal>
+              PMC
+            </Link>
+            .
+          </p>
+          <ul className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+            {SOURCES.map((s) => (
+              <li key={s.name} className="flex items-baseline gap-2">
+                <Link href={s.href} isExternal>
+                  {s.name}
+                </Link>
+                <span className="text-light-500 font-light">— {s.domain}</span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      </div>
+
+      {/* How it's built — the two pipelines side by side. */}
+      <div className="mt-16">
+        <Heading type="h2" variant="chip">
+          How it&apos;s built
+        </Heading>
+        <p className="mt-6 text-base leading-relaxed text-light-300 font-light">
+          Our pipeline uses state-of-the-art AI models to extract and
+          quantify food connections. The two major steps are (a){" "}
+          <b>knowledge extraction</b>, i.e., converting literature into
+          food–chemical relations, and (b) <b>knowledge graph construction</b>,
+          which adds meta-information and new information to our knowledge
+          base.
         </p>
-        <div className="mt-20">
-          <Heading type="h3" variant="boxed">
-            Knowledge Extraction
+
+        {/* Step 1: Information Extraction — full width horizontal flow. */}
+        <div className="mt-8">
+          <Heading type="h3" variant="chip">
+            Step 1 — Information Extraction
           </Heading>
-          <div className="relative mt-10 grid grid-cols-1 md:grid-cols-3 gap-y-16 gap-x-10">
-            {pipeline.slice(0, 3).map((step: any, index: number) => (
-              <div key={index + " " + step.title} className="relative">
+          <p className="mt-4 text-sm leading-relaxed text-light-400 font-light">
+            From literature to structured triplets.
+          </p>
+          <div className="relative mt-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-y-14 gap-x-10">
+            {IE_STAGES.map((s, i) => (
+              <div key={s.title} className="relative">
                 <div className="flex gap-3">
-                  <div className="bg-accent-400 text-light-1000 w-6 h-6 flex items-center justify-center rounded-full flex-shrink-0 font-mono text-xs font-semibold">
-                    <span>{index + 1}</span>
-                  </div>
+                  <span className="mt-0.5 flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-accent-400 text-light-1000 font-mono text-xs font-semibold">
+                    {i + 1}
+                  </span>
                   <div>
-                    <span className="font-mono italic">{step.title}</span>
-                    <p className="mt-4 font-extralight leading-relaxed text-light-300">
-                      {step.text}
+                    <div className="font-mono italic text-light-100">
+                      {s.title}
+                    </div>
+                    <p className="mt-3 font-extralight leading-relaxed text-light-300 text-sm">
+                      {s.text}
                     </p>
                   </div>
                 </div>
-                {index >= 0 && (
-                  <span className="absolute -bottom-12 md:bottom-0 left-1/2 -translate-x-1/2 rotate-90 md:rotate-0 md:top-1/2 md:-translate-y-1/2 md:-left-6 text-3xl text-light-400 font-mono">
+                {/* Arrow before each step (except the first). Vertical
+                 * (rotated 90°) below md; horizontal on md+. */}
+                {i > 0 && (
+                  <span className="absolute -top-12 left-1/2 -translate-x-1/2 rotate-90 md:rotate-0 md:top-1/2 md:-translate-y-1/2 md:-left-8 md:translate-x-0 text-3xl text-light-400 font-mono pointer-events-none">
                     &#8674;
                   </span>
                 )}
               </div>
             ))}
-            <span className="absolute -bottom-12 md:bottom-0 left-1/2 -translate-x-1/2 rotate-90 md:rotate-0 md:top-1/2 md:-translate-y-1/2 md:-left-6 text-3xl text-light-400 font-mono">
-              &#8674;
-            </span>
           </div>
         </div>
+
+        {/* Step 2: Knowledge Graph Construction — full width, 7 stages. */}
         <div className="mt-16">
-          <Heading type="h3" variant="boxed">
-            Knowledge Graph Construction
+          <Heading type="h3" variant="chip">
+            Step 2 — Knowledge Graph Construction
           </Heading>
-          <div className="relative mt-10 grid grid-cols-1 md:grid-cols-3 gap-y-16 gap-x-10">
-            {pipeline.slice(3, 6).map((step: any, index: number) => (
-              <div key={index + 3 + " " + step.title} className="relative">
+          <p className="mt-4 text-sm leading-relaxed text-light-400 font-light">
+            From sources + triplets to the released graph.
+          </p>
+          <div className="relative mt-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-y-14 gap-x-10">
+            {KGC_STAGES.map((s, i) => (
+              <div key={s.title} className="relative">
                 <div className="flex gap-3">
-                  <div className="bg-accent-400 text-light-1000 w-6 h-6 flex items-center justify-center rounded-full flex-shrink-0 font-mono text-xs font-semibold">
-                    <span>{index + 4}</span>
-                  </div>
+                  <span className="mt-0.5 flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-accent-400 text-light-1000 font-mono text-xs font-semibold">
+                    {i + 1}
+                  </span>
                   <div>
-                    <span className="font-mono italic">{step.title}</span>
-                    <p className="mt-4 font-extralight leading-relaxed text-light-300">
-                      {step.text}
+                    <div className="font-mono italic text-light-100">
+                      {s.title}
+                    </div>
+                    <p className="mt-3 font-extralight leading-relaxed text-light-300 text-sm">
+                      {s.text}
                     </p>
                   </div>
                 </div>
-                {index >= 0 && (
-                  <span className="absolute -bottom-12 md:bottom-0 left-1/2 -translate-x-1/2 rotate-90 md:rotate-0 md:top-1/2 md:-translate-y-1/2 md:-left-6 text-3xl text-light-400 font-mono">
+                {i > 0 && (
+                  <span className="absolute -top-12 left-1/2 -translate-x-1/2 rotate-90 md:rotate-0 md:top-1/2 md:-translate-y-1/2 md:-left-8 md:translate-x-0 text-3xl text-light-400 font-mono pointer-events-none">
                     &#8674;
                   </span>
                 )}
               </div>
             ))}
-            <span className="absolute -bottom-12 md:bottom-0 left-1/2 -translate-x-1/2 rotate-90 md:rotate-0 md:top-1/2 md:-translate-y-1/2 md:-left-6 text-3xl text-light-400 font-mono">
-              &#8674;
-            </span>
           </div>
         </div>
+      </div>
+
+      {/* Bioactivity — added late 2026-06, worth a dedicated callout. */}
+      <div className="mt-16">
+        <Heading type="h2" variant="chip">
+          Bioactivity in detail
+        </Heading>
+        <Card className="mt-6">
+          <p className="leading-relaxed text-light-300">
+            A <i>bioactivity</i> is a biological effect a chemical or food can
+            exhibit — antibacterial, antioxidant, hepatotoxic, and so on. The
+            graph organises 21 bioactivity concepts in a small hierarchy so
+            queries roll up naturally (e.g. an <i>antibacterial</i> hit is
+            also an <i>antimicrobial</i> hit).
+          </p>
+          <p className="mt-4 leading-relaxed text-light-300">
+            Chemical → bioactivity evidence (<Code>r6</Code>){" "}
+            comes in two flavors:
+          </p>
+          <ul className="mt-3 flex flex-col gap-2 text-light-300">
+            <li>
+              <b>Experimental</b> — assay measurements pulled from{" "}
+              <Link href="https://pubchem.ncbi.nlm.nih.gov/" isExternal>
+                PubChem
+              </Link>{" "}
+              and{" "}
+              <Link href="https://www.ebi.ac.uk/chembl/" isExternal>
+                ChEMBL
+              </Link>
+              , with outcome, potency (value + unit), and a four-parameter
+              Hill-curve fit when the assay reports a dose response.
+            </li>
+            <li>
+              <b>Predicted</b> — random-forest model inferences (e.g.{" "}
+              <Code>RF_antioxidant_v1</Code>) that score a chemical against a
+              bioactivity based on structural features.
+            </li>
+          </ul>
+          <p className="mt-4 leading-relaxed text-light-300">
+            Food → bioactivity evidence (<Code>r5</Code>){" "}
+            is either directly measured against the food or inferred from the
+            bioactivities of its composed chemicals.
+          </p>
+        </Card>
+      </div>
+
+      {/* Trust — surfaced on every attestation in the UI as a chip. */}
+      <div className="mt-16">
+        <Heading type="h2" variant="chip">
+          Trust signals
+        </Heading>
+        <Card className="mt-6">
+          <p className="leading-relaxed text-light-300">
+            Every attestation in the graph carries a per-triplet{" "}
+            <b>trust signal</b>. A Gemini 3.1 Flash-Lite LLM judge scores each{" "}
+            <Code>(food, chemical, concentration)</Code>{" "}
+            triplet on world-knowledge plausibility from 0 to 1, alongside a
+            short justification. Low-trust rows aren&apos;t hidden — they&apos;re
+            surfaced on the frontend so a curator can review them without
+            losing the underlying evidence.
+          </p>
+          <p className="mt-4 leading-relaxed text-light-300">
+            Trust signals are versioned and stored separately from the main
+            attestations, so a rebuild of the graph doesn&apos;t lose the
+            per-row judgements that were made against an earlier snapshot.
+          </p>
+        </Card>
       </div>
     </div>
   );

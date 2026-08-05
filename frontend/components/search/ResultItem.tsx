@@ -9,6 +9,7 @@ import Badge from "@/components/basic/Badge";
 import ChemicalIcon from "@/components/icons/ChemicalIcon";
 import DiseaseIcon from "@/components/icons/DiseaseIcon";
 import FoodIcon from "@/components/icons/FoodIcon";
+import BioactivityIcon from "@/components/icons/BioactivityIcon";
 import { SearchContext } from "@/context/searchContext";
 import { Suggestion } from "@/types/Suggestion";
 import { encodeSpace } from "@/utils/utils";
@@ -18,12 +19,15 @@ const colorScheme = {
   chemical: "text-cyan-600 border-cyan-600 bg-cyan-600/10 shadow-cyan-600/50",
   disease:
     "text-purple-500 border-purple-500 bg-purple-500/10 shadow-purple-500/50",
+  bioactivity:
+    "text-emerald-500 border-emerald-500 bg-emerald-500/10 shadow-emerald-500/50",
 };
 
 const icon = {
   food: <FoodIcon color="#d97706" />,
   chemical: <ChemicalIcon color="#0891b2" />,
   disease: <DiseaseIcon color="#a855f7" />,
+  bioactivity: <BioactivityIcon color="#10b981" />,
 };
 
 const highlightMatch = (text: string, searchTerm: string) => {
@@ -60,7 +64,9 @@ const ResultItem = ({ suggestion }: ResultItemProps) => {
     );
   };
 
-  const hasScientificName = suggestion.scientific_name !== null;
+  // Treat empty strings the same as null — see SuggestionItem for the
+  // reasoning; the KGC pipeline isn't carrying scientific names yet.
+  const hasScientificName = !!suggestion.scientific_name?.trim();
 
   return (
     <Card
@@ -80,9 +86,9 @@ const ResultItem = ({ suggestion }: ResultItemProps) => {
             >
               {suggestion.entity_type}
             </Badge>
-            <div className="border-l h-[1rem] border-light-500 hidden md:visible" />
+            <div className="border-l h-[1rem] border-light-500 hidden sm:visible" />
             {/* ids (big screen) */}
-            <div className="gap-2 hidden md:flex">
+            <div className="gap-2 hidden sm:flex">
               {/* foodatlas id */}
               <div className="text-[0.7rem] flex gap-1 items-center">
                 <span className="italic text-light-400 font-mono leading-tight">
@@ -169,7 +175,7 @@ const ResultItem = ({ suggestion }: ResultItemProps) => {
           </div>
         )}
         {/* ids (small screen) */}
-        <div className="flex gap-2 md:hidden">
+        <div className="flex gap-2 sm:hidden">
           {/* foodatlas id */}
           <div className="text-[0.7rem] flex gap-1 items-center">
             <span className="italic text-light-400 font-mono leading-tight">

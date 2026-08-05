@@ -6,6 +6,11 @@ import logging
 from typing import TYPE_CHECKING
 
 from ...utils.timing import log_duration
+from .bioactivity import (
+    merge_bioactivity_ontology,
+    merge_chemical_bioactivity,
+    merge_food_bioactivity,
+)
 from .chemical_chemical import (
     merge_chemical_ontology,
     merge_chemical_ontology_cdno,

@@ -264,7 +264,10 @@ def _search_both_dbs(
     results: list[tuple[str, str, list[str]]] = []
     succeeded = True
     with ThreadPoolExecutor(max_workers=2) as db_pool:
-        futures = {db_pool.submit(_search_single_db, db, q, min_date): db for db in ("pubmed", "pmc")}
+        futures = {
+            db_pool.submit(_search_single_db, db, q, min_date): db
+            for db in ("pubmed", "pmc")
+        }
         for future in as_completed(futures):
             db = futures[future]
             try:

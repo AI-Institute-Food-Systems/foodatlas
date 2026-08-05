@@ -43,7 +43,8 @@ def materialize_bioactivity(conn: Connection) -> None:
 
 def _name_map(conn: Connection) -> dict[str, str]:
     df = pd.read_sql(text("SELECT foodatlas_id, common_name FROM base_entities"), conn)
-    return df.set_index("foodatlas_id")["common_name"].to_dict()
+    result: dict[str, str] = df.set_index("foodatlas_id")["common_name"].to_dict()
+    return result
 
 
 def _assay_meta_map(conn: Connection) -> dict[str, dict]:
@@ -64,7 +65,9 @@ def _assay_meta_map(conn: Connection) -> dict[str, dict]:
             "target_organism": r.target_organism,
             "target_uniprot": r.target_uniprot,
             "target_entrez_gene": r.target_entrez_gene,
-            "n_measurements": None if pd.isna(r.n_measurements) else int(r.n_measurements),
+            "n_measurements": (
+                None if pd.isna(r.n_measurements) else int(r.n_measurements)
+            ),
         }
         for r in df.itertuples(index=False)
     }
@@ -153,10 +156,33 @@ def _aggregate(rows: list, assay_meta: dict[str, dict]) -> dict:
 def materialize_chemical_bioactivity(
     conn: Connection, name_map: dict[str, str], assay_meta: dict[str, dict]
 ) -> None:
-    """One row per (chemical, bioactivity) from r6 + measurements."""
+    """One row per (chemical, bioactivity) from r6 + measurements.
+
+    Also stamps each row with n_foods (distinct foods containing this
+    chemical) by joining the already-populated mv_food_chemical_composition.
+    Pre-materialising the count lets /bioactivity/chemicals sort by it
+    in O(log n) rather than via the O(n*log n) correlated-subquery
+    approach we shipped initially.
+    """
     merged = _exploded_measurements(conn, "r6")
     if merged.empty:
         return
+
+    # Pre-aggregate distinct-foods-per-chemical from FCC. Runs once at
+    # build time; the API never has to recompute it.
+    n_foods_df = pd.read_sql(
+        text(
+            "SELECT chemical_foodatlas_id, "
+            "COUNT(DISTINCT food_foodatlas_id) AS n_foods "
+            "FROM mv_food_chemical_composition "
+            "GROUP BY chemical_foodatlas_id"
+        ),
+        conn,
+    )
+    n_foods_map = dict(
+        zip(n_foods_df["chemical_foodatlas_id"], n_foods_df["n_foods"], strict=False)
+    )
+
     result_rows = []
     for (chem_id, bio_id), rows in _group_by_pair(merged).items():
         agg = _aggregate(rows, assay_meta)
@@ -171,6 +197,7 @@ def materialize_chemical_bioactivity(
                 "inactive_count": agg["inactive_count"],
                 "unspecified_count": agg["unspecified_count"],
                 "inconclusive_count": agg["inconclusive_count"],
+                "n_foods": int(n_foods_map.get(chem_id, 0)),
                 "measurements": json.dumps(agg["measurements"]),
             }
         )
@@ -189,6 +216,7 @@ def materialize_chemical_bioactivity(
             "inactive_count",
             "unspecified_count",
             "inconclusive_count",
+            "n_foods",
             "measurements",
         ],
     )
@@ -298,7 +326,8 @@ def _hierarchy(
     r2 = r2[r2["head_id"].isin(bio_ids) & r2["tail_id"].isin(bio_ids)]
     parents: dict[str, list] = defaultdict(list)
     children: dict[str, list] = defaultdict(list)
-    for child, parent in zip(r2["head_id"], r2["tail_id"]):  # head is_a tail
+    # head is_a tail
+    for child, parent in zip(r2["head_id"], r2["tail_id"], strict=False):
         parents[child].append(
             {"foodatlas_id": parent, "common_name": name_map.get(parent, parent)}
         )
@@ -318,4 +347,4 @@ def _linked_counts(conn: Connection, rel_id: str) -> dict[str, int]:
         conn,
         params={"rel": rel_id},
     )
-    return dict(zip(df["tail_id"], df["n"]))
+    return dict(zip(df["tail_id"], df["n"], strict=False))

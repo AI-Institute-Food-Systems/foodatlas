@@ -14,12 +14,15 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable
+from typing import TYPE_CHECKING
 
 import requests
 from requests.adapters import HTTPAdapter
 from tqdm import tqdm
 from urllib3.util.retry import Retry
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 BIOC_URL_TEMPLATE = (
     "https://www.ncbi.nlm.nih.gov/research/bionlp/RESTful/pmcoa.cgi"
@@ -70,7 +73,7 @@ def _cleanup_stray_tmp(out_dir: Path) -> int:
     return removed
 
 
-def _fetch_one(
+def _fetch_one(  # noqa: PLR0911 — branches map to distinct HTTP outcomes; refactor noise
     pmcid: str,
     out_dir: Path,
     session: requests.Session,
@@ -155,7 +158,7 @@ def _emit_progress(
     )
 
 
-def fetch_missing(
+def fetch_missing(  # noqa: PLR0912 — outcome-classification branches; refactor noise
     pmcids: Iterable[str],
     out_dir: Path,
     max_workers: int = 8,

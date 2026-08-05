@@ -5,8 +5,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import APISettings
 
+from ._search_util import build_ilike_pattern
 from .formatting import format_external_ids
-from .trust_filter import TrustMode, apply_trust_filter
+from .trust_filter import (
+    TrustMode,
+    _fetch_trust_scores,
+    apply_trust_filter,
+)
 
 ROWS_PER_PAGE = 25
 
@@ -17,14 +22,23 @@ NUTRIENT_KEY_MAP = {
     "nucleotide": "others",
 }
 
-VALID_SOURCES = {"fdc", "foodatlas", "dmd"}
+# DMD (Dairy Molecule Database) is retired from the public API surface
+# 2026-07-06 — the DB column `dmd_evidences` stays populated on
+# `mv_food_chemical_composition` but is no longer selectable / filterable
+# / countable via this API.
+VALID_SOURCES = {"fdc", "foodatlas"}
 VALID_SORT_COLS = {
     "common_name": "chemical_name",
     "median_concentration": "(median_concentration->>'value')::NUMERIC",
+    "evidence_count": (
+        "COALESCE(jsonb_array_length(fdc_evidences), 0) "
+        "+ COALESCE(jsonb_array_length(foodatlas_evidences), 0) "
+        "+ COALESCE(jsonb_array_length(dmd_evidences), 0)"
+    ),
 }
 VALID_DIRECTIONS = {"ASC", "DESC"}
 
-ALL_EVIDENCE_COLS = "fdc_evidences, foodatlas_evidences, dmd_evidences"
+ALL_EVIDENCE_COLS = "fdc_evidences, foodatlas_evidences"
 BASE_SELECT = (
     "chemical_name AS name, chemical_foodatlas_id AS id, "
     "chemical_classification, median_concentration"
@@ -84,42 +98,164 @@ async def get_profile(session: AsyncSession, common_name: str) -> dict[str, obje
     return {"data": profile}
 
 
+def _collect_attestation_ids(row: dict) -> list[str]:
+    """All attestation_ids across a composition row's evidence lists."""
+    atts: list[str] = []
+    for ev_list in (row["fdc_evidences"], row["foodatlas_evidences"]):
+        for ev in ev_list or []:
+            for ext in ev.get("extraction") or []:
+                aid = ext.get("attestation_id")
+                if aid:
+                    atts.append(aid)
+    return atts
+
+
+def _annotate_composition_rows(
+    rows: list[dict], scores: dict[str, float], threshold: float
+) -> None:
+    """Precompute per-row facets used by the counts loops."""
+    for r in rows:
+        atts = _collect_attestation_ids(r)
+        r["_classifications"] = r["chemical_classification"] or []
+        r["_has_fdc"] = r["fdc_evidences"] is not None
+        r["_has_fa"] = r["foodatlas_evidences"] is not None
+        r["_has_conc"] = r["median_concentration"] is not None
+        r["_fully_low"] = bool(atts) and all(
+            aid in scores and scores[aid] <= threshold for aid in atts
+        )
+        r["_name_lower"] = (r["chemical_name"] or "").lower()
+
+
 async def get_composition_counts(
-    session: AsyncSession, common_name: str
+    session: AsyncSession,
+    common_name: str,
+    filter_source: str = "",
+    filter_classification: str = "",
+    show_all_rows: bool = True,
+    trust: TrustMode = "default",
+    search_term: str = "",
 ) -> dict[str, object]:
-    """Get per-classification and per-source chemical counts."""
+    """Faceted composition counts.
+
+    Each per-dimension count applies every *other* filter currently
+    active and reports how many rows the dimension governs — so as the
+    user narrows the view, each count answers "if I toggled this option
+    now, how many rows would change?".
+
+    - ``classification_counts`` — apply source + concentration + trust +
+      search; group by classification.
+    - ``source_counts`` — apply class + concentration + trust + search;
+      count rows per source (fdc / foodatlas).
+    - ``no_concentration_count`` — apply source + class + trust + search;
+      count rows whose median_concentration is NULL. This is the number
+      of rows the "Include without concentration" toggle governs.
+    - ``low_trust_count`` — apply source + class + concentration +
+      search; count rows the low-trust filter would drop. This is the
+      number of rows the "Include low-trust data points" toggle governs.
+      trust_filter._is_low treats unscored attestations (FDC, un-judged
+      lit2kg) as high-trust, so a row is only dropped when *every*
+      extraction is both scored AND at or below the threshold.
+    """
     result = await session.execute(
         text("""
-            SELECT
-                chemical_classification,
-                CASE WHEN fdc_evidences IS NOT NULL THEN 1 ELSE 0 END AS has_fdc,
-                CASE WHEN foodatlas_evidences IS NOT NULL THEN 1 ELSE 0 END AS has_fa,
-                CASE WHEN dmd_evidences IS NOT NULL THEN 1 ELSE 0 END AS has_dmd
+            SELECT id, chemical_name, chemical_classification,
+                   median_concentration, fdc_evidences, foodatlas_evidences
             FROM mv_food_chemical_composition
             WHERE food_name = :name
+              AND (fdc_evidences IS NOT NULL OR foodatlas_evidences IS NOT NULL)
         """),
         {"name": common_name},
     )
+    rows = [dict(r._mapping) for r in result]
+
+    # One round-trip for all trust scores across all rows' extractions,
+    # then annotate each row with the facet flags the counts loops use.
+    all_att_ids: set[str] = {aid for r in rows for aid in _collect_attestation_ids(r)}
+    scores = (
+        await _fetch_trust_scores(session, list(all_att_ids)) if all_att_ids else {}
+    )
+    threshold = APISettings().trust_low_threshold
+    _annotate_composition_rows(rows, scores, threshold)
+
+    active_sources = (
+        {s for s in filter_source.split("+") if s}
+        if filter_source
+        else {"fdc", "foodatlas"}
+    )
+    active_classes = (
+        {c for c in filter_classification.split("+") if c}
+        if filter_classification
+        else set()
+    )
+    q = search_term.strip().lower()
+    trust_default = trust == "default"
+
+    def m_source(r: dict) -> bool:
+        return ("fdc" in active_sources and r["_has_fdc"]) or (
+            "foodatlas" in active_sources and r["_has_fa"]
+        )
+
+    def m_class(r: dict) -> bool:
+        if not active_classes:
+            return True
+        if "n/a" in active_classes and not r["_classifications"]:
+            return True
+        return any(cls in active_classes for cls in r["_classifications"])
+
+    def m_conc(r: dict) -> bool:
+        return show_all_rows or r["_has_conc"]
+
+    def m_trust(r: dict) -> bool:
+        return not trust_default or not r["_fully_low"]
+
+    def m_search(r: dict) -> bool:
+        return not q or q in r["_name_lower"]
+
+    # classification_counts — exclude class filter.
     cls_counts: dict[str, int] = {}
-    source_counts = {"fdc": 0, "foodatlas": 0, "dmd": 0}
-    for row in result:
-        mapping = row._mapping
-        if mapping["has_fdc"]:
-            source_counts["fdc"] += 1
-        if mapping["has_fa"]:
-            source_counts["foodatlas"] += 1
-        if mapping["has_dmd"]:
-            source_counts["dmd"] += 1
-        classifications = mapping["chemical_classification"] or []
+    for r in rows:
+        if not (m_source(r) and m_conc(r) and m_trust(r) and m_search(r)):
+            continue
+        classifications = r["_classifications"]
         if not classifications:
             cls_counts["n/a"] = cls_counts.get("n/a", 0) + 1
         else:
             for cls in classifications:
                 cls_counts[cls] = cls_counts.get(cls, 0) + 1
+
+    # source_counts — exclude source filter.
+    source_counts = {"fdc": 0, "foodatlas": 0}
+    for r in rows:
+        if not (m_class(r) and m_conc(r) and m_trust(r) and m_search(r)):
+            continue
+        if r["_has_fdc"]:
+            source_counts["fdc"] += 1
+        if r["_has_fa"]:
+            source_counts["foodatlas"] += 1
+
+    # Toggle counts — exclude the toggle's own filter, count rows the
+    # toggle governs.
+    no_concentration_count = sum(
+        1
+        for r in rows
+        if m_source(r)
+        and m_class(r)
+        and m_trust(r)
+        and m_search(r)
+        and not r["_has_conc"]
+    )
+    low_trust_count = sum(
+        1
+        for r in rows
+        if m_source(r) and m_class(r) and m_conc(r) and m_search(r) and r["_fully_low"]
+    )
+
     return {
         "data": {
             "classification_counts": cls_counts,
             "source_counts": source_counts,
+            "no_concentration_count": no_concentration_count,
+            "low_trust_count": low_trust_count,
         }
     }
 
@@ -136,6 +272,7 @@ async def get_composition(
     filter_classification: str = "",
     rows_per_page: int = ROWS_PER_PAGE,
     trust: TrustMode = "default",
+    find_chemical: str = "",
 ) -> dict[str, object]:
     """Get paginated food chemical composition with filtering/sorting.
 
@@ -193,6 +330,25 @@ async def get_composition(
 
     total_rows = len(all_rows)
     total_pages = (total_rows + rows_per_page - 1) // rows_per_page if total_rows else 0
+
+    # If find_chemical is given, locate the row in the unfiltered sorted list
+    # and serve the page containing it. This overrides the requested page so
+    # the client can land directly on the right page without a second round
+    # trip. Match is case-insensitive against chemical_name; foodatlas_id is
+    # also accepted (passes through unchanged).
+    highlight_page: int | None = None
+    if find_chemical:
+        needle = find_chemical.lower()
+        for i, row in enumerate(all_rows):
+            name = str(row.get("chemical_name") or row.get("name") or "").lower()
+            fid = str(row.get("chemical_foodatlas_id") or row.get("id") or "").lower()
+            if needle in (name, fid):
+                highlight_page = i // rows_per_page + 1
+                break
+        if highlight_page is not None:
+            page = highlight_page
+            offset = rows_per_page * (page - 1)
+
     data = all_rows[offset : offset + rows_per_page]
 
     return {
@@ -204,6 +360,7 @@ async def get_composition(
             "current_page": page,
             "total_rows": total_rows,
             "total_pages": total_pages,
+            "highlight_page": highlight_page,
         },
     }
 
@@ -223,19 +380,31 @@ def _build_query_parts(
     else:
         select_cols = BASE_SELECT + ", " + valid[0] + "_evidences"
 
-    conditions = ["food_name = :name"]
+    conditions = [
+        "food_name = :name",
+        # Filter DMD-only rows unconditionally — the public API stopped
+        # exposing dmd_evidences in the 2026-07-06 DMD removal (PR #249)
+        # so a row with only DMD evidence renders as an empty row on the
+        # composition table. Redundant with the single-source clause
+        # below when a user picks exactly one source, harmless when both
+        # are selected.
+        "(fdc_evidences IS NOT NULL OR foodatlas_evidences IS NOT NULL)",
+    ]
     params: dict = {"name": common_name}
 
     if len(valid) == 1:
         conditions.append(valid[0] + "_evidences IS NOT NULL")
 
     if search_term:
-        if search_term.startswith("e") and search_term[1:].isdigit():
+        cleaned = search_term.strip()
+        if cleaned.startswith("e") and cleaned[1:].isdigit():
             conditions.append("chemical_foodatlas_id = :search")
-            params["search"] = search_term
+            params["search"] = cleaned
         else:
-            conditions.append("chemical_name ILIKE :search")
-            params["search"] = "%" + search_term + "%"
+            search_pattern = build_ilike_pattern(cleaned)
+            if search_pattern:
+                conditions.append("chemical_name ILIKE :search")
+                params["search"] = search_pattern
 
     if not show_all_rows:
         conditions.append("median_concentration IS NOT NULL")
@@ -306,6 +475,16 @@ def _resort_after_filter(data: list[dict], sort_by: str, direction: str) -> list
     if sort_by == "common_name":
         return sorted(
             data, key=lambda r: (r.get("name") or "").lower(), reverse=descending
+        )
+    if sort_by == "evidence_count":
+        return sorted(
+            data,
+            key=lambda r: (
+                len(r.get("fdc_evidences") or [])
+                + len(r.get("foodatlas_evidences") or [])
+                + len(r.get("dmd_evidences") or [])
+            ),
+            reverse=descending,
         )
     return data
 

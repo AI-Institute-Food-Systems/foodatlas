@@ -34,12 +34,18 @@ async def get_composition(session: AsyncSession, common_name: str) -> dict[str, 
     but have no attestation for this chemical are filtered out so the banner
     stays consistent with what the page actually shows.
     """
+    # Filter DMD-only rows unconditionally — the public API stopped
+    # exposing dmd_evidences in the 2026-07-06 DMD removal (PR #249),
+    # so a row with only DMD evidence would appear here with no visible
+    # evidence. The `chem_foods` CTE gets the same filter so ambiguity
+    # siblings stay consistent with what actually shows in the table.
     with_conc = await session.execute(
         text("""
             WITH chem_foods AS (
                 SELECT food_foodatlas_id AS id
                 FROM mv_food_chemical_composition
                 WHERE chemical_name = :name
+                  AND (fdc_evidences IS NOT NULL OR foodatlas_evidences IS NOT NULL)
             )
             SELECT c.food_foodatlas_id AS id, c.food_name AS name,
                    c.median_concentration,
@@ -51,7 +57,9 @@ async def get_composition(session: AsyncSession, common_name: str) -> dict[str, 
             FROM mv_food_chemical_composition c
             LEFT JOIN mv_food_entities fe
                 ON fe.foodatlas_id = c.food_foodatlas_id
-            WHERE c.chemical_name = :name AND c.median_concentration IS NOT NULL
+            WHERE c.chemical_name = :name
+              AND c.median_concentration IS NOT NULL
+              AND (c.fdc_evidences IS NOT NULL OR c.foodatlas_evidences IS NOT NULL)
         """),
         {"name": common_name},
     )
@@ -61,11 +69,11 @@ async def get_composition(session: AsyncSession, common_name: str) -> dict[str, 
                 SELECT food_foodatlas_id AS id
                 FROM mv_food_chemical_composition
                 WHERE chemical_name = :name
+                  AND (fdc_evidences IS NOT NULL OR foodatlas_evidences IS NOT NULL)
             )
             SELECT c.food_foodatlas_id AS id, c.food_name AS name,
                    COALESCE(jsonb_array_length(c.fdc_evidences), 0)
                    + COALESCE(jsonb_array_length(c.foodatlas_evidences), 0)
-                   + COALESCE(jsonb_array_length(c.dmd_evidences), 0)
                    AS evidence_count,
                    COALESCE((
                        SELECT jsonb_agg(s ORDER BY s->>'common_name')
@@ -75,10 +83,11 @@ async def get_composition(session: AsyncSession, common_name: str) -> dict[str, 
             FROM mv_food_chemical_composition c
             LEFT JOIN mv_food_entities fe
                 ON fe.foodatlas_id = c.food_foodatlas_id
-            WHERE c.chemical_name = :name AND c.median_concentration IS NULL
+            WHERE c.chemical_name = :name
+              AND c.median_concentration IS NULL
+              AND (c.fdc_evidences IS NOT NULL OR c.foodatlas_evidences IS NOT NULL)
             ORDER BY COALESCE(jsonb_array_length(c.fdc_evidences), 0)
-                   + COALESCE(jsonb_array_length(c.foodatlas_evidences), 0)
-                   + COALESCE(jsonb_array_length(c.dmd_evidences), 0) DESC
+                   + COALESCE(jsonb_array_length(c.foodatlas_evidences), 0) DESC
         """),
         {"name": common_name},
     )

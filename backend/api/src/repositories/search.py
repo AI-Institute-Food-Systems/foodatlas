@@ -16,14 +16,23 @@ async def search(
     word = term.lower().strip()
     offset = rows_per_page * (page - 1)
 
-    # Main query: substring match with exact boost + similarity ranking
+    # Bucketed ranking: exact token → prefix token → substring. Prevents
+    # high-association but weakly-matched entities (e.g. `hepatomegaly` for
+    # the query `tom`) from burying obvious prefix matches like `tomato`.
+    # Ordering within each bucket keeps the legacy associations-first prior.
     query = text("""
         SELECT foodatlas_id, associations, entity_type, common_name,
                scientific_name, synonyms, external_ids
         FROM mv_search_auto_complete
         WHERE substr_auto LIKE :pattern
         ORDER BY
-            CASE WHEN exact_auto @> ARRAY[:word] THEN 1 ELSE 2 END,
+            CASE
+                WHEN exact_auto @> ARRAY[:word] THEN 1
+                WHEN EXISTS (
+                    SELECT 1 FROM unnest(exact_auto) AS t WHERE t LIKE :prefix
+                ) THEN 2
+                ELSE 3
+            END,
             associations DESC,
             similarity(substr_auto, :word) DESC
         OFFSET :offset ROWS
@@ -31,6 +40,7 @@ async def search(
     """)
     params = {
         "pattern": f"%{word}%",
+        "prefix": f"{word}%",
         "word": word,
         "offset": offset,
         "limit": rows_per_page,

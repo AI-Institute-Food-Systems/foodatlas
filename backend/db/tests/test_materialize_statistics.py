@@ -75,8 +75,8 @@ class TestMaterializeStatistics:
     @patch("src.etl.materializer_search.pd.read_sql", side_effect=_mock_read_sql)
     def test_publications_sums_pmcid_and_pmid(self, _mock_sql, mock_copy):
         conn = MagicMock()
-        # First scalar call = pmcid count, second = ctd pmid count
-        conn.execute.return_value.scalar.side_effect = [10, 5]
+        # pmcid count, ctd pmid count, bioactivity measurement count
+        conn.execute.return_value.scalar.side_effect = [10, 5, 0]
         _materialize_statistics(conn)
 
         df = mock_copy.call_args[0][2]
@@ -99,10 +99,70 @@ class TestMaterializeStatistics:
         conn.execute.return_value.scalar.return_value = 0
         _materialize_statistics(conn)
 
-        assert conn.execute.call_count == 2
+        # Three scalar queries now: pmcid count + ctd pmid count +
+        # bioactivity measurement count (added with the bioassay dimension).
+        assert conn.execute.call_count == 3
         calls = [str(c.args[0]) for c in conn.execute.call_args_list]
         assert any("pmcid" in c for c in calls)
         assert any("pmid" in c for c in calls)
+        assert any("base_attestations_bioactivity" in c for c in calls)
+
+    @patch("src.etl.materializer_search.bulk_copy")
+    @patch("src.etl.materializer_search.pd.read_sql", side_effect=_mock_read_sql)
+    def test_measurement_count_excluded_from_associations(self, _mock_sql, mock_copy):
+        """measurement_count is evidence, not associations.
+
+        Regression test: an earlier version of the formula summed
+        ``measurement_count`` into ``associations``, inflating the
+        headline number by ~1.8M on staging. The bioactivity measurement
+        count must be surfaced only as its own stat.
+        """
+        conn = MagicMock()
+        # pmcid=0, ctd pmid=0, bioactivity measurement count=1_800_000
+        conn.execute.return_value.scalar.side_effect = [0, 0, 1_800_000]
+        _materialize_statistics(conn)
+
+        df = mock_copy.call_args[0][2]
+        stats = dict(zip(df["field"], df["count"], strict=True))
+        # Same 6 associations as test_association_count — the 1.8M
+        # measurements must NOT be added to the associations total.
+        assert stats["number of associations"] == 6
+        # But the measurement count is still exposed as its own stat.
+        assert stats["number of bioactivity measurements"] == 1_800_000
+
+    @patch("src.etl.materializer_search.bulk_copy")
+    @patch("src.etl.materializer_search.pd.read_sql", side_effect=_mock_read_sql)
+    def test_r5_r6_included_in_associations(self, _mock_sql, mock_copy):
+        """r5/r6 are entity-pair triplets and count as associations."""
+        extra = pd.DataFrame(
+            {
+                "head_id": ["f1", "c1"],
+                "tail_id": ["b1", "b1"],
+                "relationship_id": ["r5", "r6"],
+            }
+        )
+        patched = pd.concat([_TRIPLETS, extra], ignore_index=True)
+
+        def read_sql_with_bioact(query, _conn):
+            sql = str(query)
+            if "base_triplets" in sql:
+                return patched.copy()
+            if "base_entities" in sql:
+                return _ENTITIES.copy()
+            return pd.DataFrame()
+
+        with patch(
+            "src.etl.materializer_search.pd.read_sql",
+            side_effect=read_sql_with_bioact,
+        ):
+            conn = MagicMock()
+            conn.execute.return_value.scalar.return_value = 0
+            _materialize_statistics(conn)
+
+        df = mock_copy.call_args[0][2]
+        stats = dict(zip(df["field"], df["count"], strict=True))
+        # Baseline 6 + 1 r5 + 1 r6 = 8.
+        assert stats["number of associations"] == 8
 
     @patch("src.etl.materializer_search.bulk_copy")
     @patch("src.etl.materializer_search.pd.read_sql", side_effect=_mock_read_sql)

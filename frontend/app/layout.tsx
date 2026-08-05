@@ -1,11 +1,31 @@
 import { Portal } from "@headlessui/react";
 import { GoogleAnalytics } from "@next/third-parties/google";
+import type { Viewport } from "next";
 import Script from "next/script";
 
 import Providers from "@/app/providers";
+import NavigationProgress from "@/components/navigation/NavigationProgress";
 import SearchBar from "@/components/search/SearchBar";
 import "@/styles/globals.css";
 import { fontMono, fontSans, fontSerif } from "@/styles/fonts";
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  // `interactive-widget=resizes-content` tells iOS Safari to resize the
+  // layout viewport when the soft keyboard opens instead of shifting
+  // the visual viewport upward. Without this, focusing the SearchBar
+  // input triggers a jarring "background scrolls up including navbar"
+  // animation. Only newer Safari respects the flag; older versions
+  // fall back to the default `resizes-visual`.
+  interactiveWidget: "resizes-content",
+  // `viewport-fit=cover` lets the webview extend behind the dynamic
+  // island / notch and the home-indicator gutter, so fullscreen
+  // sheets (mobile modals) hit the screen edges instead of stopping
+  // at Safari's chrome. `env(safe-area-inset-*)` inside components
+  // keeps content clear of those regions.
+  viewportFit: "cover",
+};
 
 interface ClientLayoutProps {
   children: React.ReactNode;
@@ -38,6 +58,7 @@ const Layout = ({ children }: ClientLayoutProps) => {
           />
         )}
         <Providers>
+          <NavigationProgress />
           <main id="main-content">
             {children}
             <Portal>

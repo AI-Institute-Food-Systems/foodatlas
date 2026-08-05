@@ -10,7 +10,7 @@ const Card = ({ className, children, onClick }: CardProps) => {
   return (
     <div
       className={twMerge(
-        "w-full p-5 md:p-6 flex flex-col bg-light-950 shadow-[inset_0_5px_8px_rgba(255,249,242,0.02)] border-[1.5px] border-light-50/[0.08] rounded-xl relative",
+        "w-full px-5 py-3 md:px-6 md:py-4 flex flex-col bg-light-950 shadow-[inset_0_5px_8px_rgba(255,249,242,0.02)] border-[1.5px] border-light-50/[0.08] rounded-xl relative",
         className
       )}
       onClick={onClick}

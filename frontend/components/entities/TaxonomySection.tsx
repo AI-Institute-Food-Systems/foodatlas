@@ -1,5 +1,4 @@
 import Card from "@/components/basic/Card";
-import Heading from "@/components/basic/Heading";
 import TaxonomyTree from "@/components/entities/TaxonomyTree";
 import { getTaxonomyData } from "@/utils/fetching";
 import { TaxonomyEdge, TaxonomyNode } from "@/types";
@@ -8,6 +7,11 @@ import type { TreeNode } from "@/components/entities/TaxonomyTree";
 interface TaxonomySectionProps {
   commonName: string;
   entityType: string;
+  // "naked" drops the Card wrapper. When `naked` is true, `showLabel`
+  // controls whether the "Taxonomy" heading is included (variants that
+  // provide their own section labels should set `showLabel={false}`).
+  naked?: boolean;
+  showLabel?: boolean;
 }
 
 const ENTITY_COLOR: Record<string, string> = {
@@ -75,6 +79,8 @@ function buildTree(
 const TaxonomySection = async ({
   commonName,
   entityType,
+  naked = false,
+  showLabel = true,
 }: TaxonomySectionProps) => {
   let data;
   try {
@@ -92,19 +98,42 @@ const TaxonomySection = async ({
 
   const colorClass = ENTITY_COLOR[entityType] ?? "text-light-100";
 
+  // Cream-chip section label — mirrors the OverviewCardCatalog
+  // ("Identifiers", "Synonyms", etc.) so Overview reads as one panel
+  // of apothecary sections rather than a mix of chip labels and
+  // uppercase micro-headings.
+  const heading = (
+    <span className="self-start -ml-3 bg-light-200 shadow-inner shadow-light-50 rounded-r-md px-2.5 py-0.5 font-mono italic font-medium text-light-900 text-[10px] tracking-[0.12em] uppercase">
+      Taxonomy
+    </span>
+  );
+
+  const tree = (
+    <TaxonomyTree
+      trees={trees}
+      entityId={data.entity_id}
+      entityType={entityType}
+      colorClass={colorClass}
+      entitySlug={commonName}
+    />
+  );
+
+  if (naked) {
+    if (!showLabel) {
+      return tree;
+    }
+    return (
+      <div className="flex flex-col">
+        {heading}
+        <div className="mt-2">{tree}</div>
+      </div>
+    );
+  }
+
   return (
     <Card>
-      <Heading type="h4" className="font-mono italic text-light-400 text-xs">
-        Taxonomy
-      </Heading>
-      <div className="mt-3">
-        <TaxonomyTree
-          trees={trees}
-          entityId={data.entity_id}
-          entityType={entityType}
-          colorClass={colorClass}
-        />
-      </div>
+      {heading}
+      <div className="mt-3">{tree}</div>
     </Card>
   );
 };

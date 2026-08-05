@@ -146,7 +146,8 @@ class IERunner:
             age_hours = (time.time() - csv_path.stat().st_mtime) / 3600
             if age_hours < 24:
                 log.info(
-                    "PMC-ids.csv is %.1fh old — skipping refresh", age_hours,
+                    "PMC-ids.csv is %.1fh old — skipping refresh",
+                    age_hours,
                 )
                 return
 

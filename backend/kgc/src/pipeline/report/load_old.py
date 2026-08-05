@@ -4,10 +4,9 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from pathlib import Path
 
 import pandas as pd
-
-from ...utils.snapshots import latest_snapshot
 
 logger = logging.getLogger(__name__)
 
@@ -22,11 +21,21 @@ class OldKG:
     metadata_diseases_sources: pd.Series
 
 
+def _latest_snapshot(data_dir: str) -> Path:
+    """Return the most recent snapshot directory under PreviousFAKG/."""
+    base = Path(data_dir) / "PreviousFAKG"
+    snapshots = sorted(
+        [d for d in base.iterdir() if d.is_dir() and not d.is_symlink()],
+        key=lambda d: d.name,
+    )
+    if not snapshots:
+        raise FileNotFoundError(f"No snapshots found under {base}")
+    return snapshots[-1]
+
+
 def load_old_kg(data_dir: str) -> OldKG:
     """Load the latest KG snapshot from data_dir/PreviousFAKG/<latest>/."""
-    snapshot = latest_snapshot(data_dir)
-    if snapshot is None:
-        raise FileNotFoundError(f"No snapshots found under {data_dir}/PreviousFAKG")
+    snapshot = _latest_snapshot(data_dir)
     logger.info("Loading previous KG snapshot from %s", snapshot)
 
     entities = pd.read_parquet(snapshot / "entities.parquet")

@@ -47,7 +47,7 @@ class TestIEStage:
 class TestIESettings:
     def test_defaults_loaded(self) -> None:
         settings = IESettings.model_validate({})
-        assert settings.model == "gpt-5.2"
+        assert settings.model == "gpt-5.5"
         assert settings.pipeline.aggregate.threshold == 0.99
 
     def test_override(self) -> None:

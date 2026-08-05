@@ -9,8 +9,8 @@ import Link from "@/components/basic/Link";
 
 const Footer = () => {
   return (
-    <div className="w-full py-16 bg-[#090909] text-lg px-3 md:px-12">
-      <div className="max-w-6xl mx-auto">
+    <div className="w-full py-16 bg-[#090909] text-lg px-4 md:px-24">
+      <div className="max-w-5xl mx-auto">
         {/* upper content */}
         <div className="flex gap-8 md:gap-12 flex-col md:flex-row">
           <div className="md:w-1/3">
@@ -122,12 +122,23 @@ const Footer = () => {
               <FaYoutube className="h-8 w-8 md:h-9 md:w-9" />
             </a>
           </div>
-          {/* copyright */}
+          {/* copyright — two paragraphs (grant blurb + copyright line)
+           * instead of one <p> with <br/><br/>, which was hitting a
+           * hydration mismatch on iOS Safari for the <br> children.
+           * suppressHydrationWarning on the year span in case
+           * Date().getFullYear() differs between the build-server
+           * clock (SSR) and the client clock. */}
           <p className="text-center mt-10 text-xs text-light-400 leading-relaxed">
             This work is supported by AFRI Competitive Grant no.
             2020-67021-32855/project accession no. 1024262 from the USDA
-            National Institute of Food and Agriculture. <br />
-            <br />Ⓒ {new Date().getFullYear()} AIFS. All rights reserved.
+            National Institute of Food and Agriculture.
+          </p>
+          <p className="text-center mt-3 text-xs text-light-400 leading-relaxed">
+            Ⓒ{" "}
+            <span suppressHydrationWarning>
+              {new Date().getFullYear()}
+            </span>{" "}
+            AIFS. All rights reserved.
           </p>
         </div>
       </div>
