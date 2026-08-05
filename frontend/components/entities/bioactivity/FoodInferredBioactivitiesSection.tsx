@@ -55,6 +55,11 @@ interface InferredRow {
   chemical_id: string;
   median_concentration: { value: number | null; unit: string } | null;
   n_curves: number;
+  // Total assays backing the pair (from mv_chemical_bioactivity). Null on
+  // older API deployments — chip label falls back to "View assays" in that
+  // case. Once every environment ships the backend change, this can be
+  // required.
+  n_measurements_total: number | null;
   efficacy: FoodEfficacyRow;
 }
 
@@ -70,6 +75,7 @@ const efficacyToInferredRow = (e: FoodEfficacyRow): InferredRow => ({
       ? { value: e.food_conc_mg_per_100g, unit: "mg/100g" }
       : null,
   n_curves: e.n_curves ?? 0,
+  n_measurements_total: e.n_measurements_total ?? null,
   efficacy: e,
 });
 
@@ -110,7 +116,15 @@ const sortInferred = (
           )
         );
       case "n_curves":
-        return mult * (r1.n_curves - r2.n_curves);
+        // Sort by the total shown on the chip when available, falling back
+        // to the contributed count on older API deployments.
+        return (
+          mult *
+          compare(
+            r1.n_measurements_total ?? r1.n_curves,
+            r2.n_measurements_total ?? r2.n_curves
+          )
+        );
       default:
         return 0;
     }
@@ -615,12 +629,19 @@ const FoodInferredBioactivitiesSection = ({
                       pendingKey ===
                       `${row.chemical_id}::${row.bioactivity_id}`
                         ? "Loading…"
-                        : "View assays"
+                        : row.n_measurements_total != null
+                          ? `${row.n_measurements_total.toLocaleString()} assay${
+                              row.n_measurements_total === 1 ? "" : "s"
+                            }`
+                          : "View assays"
                     }
                     tone="outline"
                     size="md"
                     onClick={() => openModal(row)}
-                    disabled={row.n_curves === 0 || pendingKey !== null}
+                    disabled={
+                      (row.n_measurements_total ?? row.n_curves) === 0 ||
+                      pendingKey !== null
+                    }
                   />
                 </div>
               </div>
@@ -809,12 +830,18 @@ const Row = ({
             label={
               isPending
                 ? "Loading…"
-                : "View assays"
+                : row.n_measurements_total != null
+                  ? `${row.n_measurements_total.toLocaleString()} assay${
+                      row.n_measurements_total === 1 ? "" : "s"
+                    }`
+                  : "View assays"
             }
             tone="outline"
             size="md"
             onClick={onOpen}
-            disabled={row.n_curves === 0 || isPending}
+            disabled={
+              (row.n_measurements_total ?? row.n_curves) === 0 || isPending
+            }
           />
         </div>
       </td>

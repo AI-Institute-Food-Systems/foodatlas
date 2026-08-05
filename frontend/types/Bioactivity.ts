@@ -87,6 +87,11 @@ export type FoodEfficacyRow = {
   infiniteactivity: number | null;
   n_curves: number | null;
   n_curves_4param: number | null;
+  // Total assays backing (chemical, bioactivity) from mv_chemical_bioactivity;
+  // always ≥ n_curves (the delta is MIC / binding-kinetic records without a
+  // fittable AC50). Present on staging as of 2026-08-05; optional here until
+  // the backend change reaches every environment the frontend can hit.
+  n_measurements_total?: number | null;
   curve_agreement: string | null;
   ac50_spread_log: number | null;
   logac50_median: number | null;
