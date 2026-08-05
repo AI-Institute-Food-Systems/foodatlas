@@ -32,10 +32,13 @@ export const indexEfficacy = (
   return map;
 };
 
-// Formatted log ratio: "+1.99" / "−0.24" (uses the proper minus sign
-// so column alignment with the tabular-nums font stays clean).
-export const formatDoseOverAc50Log = (value: number | null): string => {
+// 0–1 fraction of maximal response at the food's in-food concentration,
+// formatted as "99.9%" / "24.3%" / "" if null. Values above 0.99 render
+// as ">99%" — the density-1 proxy saturates in that range and the extra
+// precision isn't real (per Pranav 2026-08-04). Matches the backend's
+// `saturated` bool threshold.
+export const formatEfficacyFraction = (value: number | null): string => {
   if (value == null || Number.isNaN(value)) return "";
-  const abs = Math.abs(value).toFixed(2);
-  return value >= 0 ? `+${abs}` : `−${abs}`;
+  if (value > 0.99) return ">99%";
+  return `${(value * 100).toFixed(1)}%`;
 };

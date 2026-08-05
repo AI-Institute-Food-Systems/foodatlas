@@ -10,7 +10,7 @@
 
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   MdClose,
   MdDescription,
@@ -28,8 +28,9 @@ import Link from "@/components/basic/Link";
 import LoadingCard from "@/components/basic/LoadingCard";
 import Pagination from "@/components/basic/Pagination";
 import SortListbox from "@/components/basic/SortListbox";
+import { Tooltip } from "@/components/basic/Tooltip";
 import BioactivityMeasurementsModal from "@/components/entities/bioactivity/BioactivityMeasurementsModal";
-import { formatDoseOverAc50Log } from "@/components/entities/bioactivity/efficacy";
+import { formatEfficacyFraction } from "@/components/entities/bioactivity/efficacy";
 import { useReportRows } from "@/context/reportModeContext";
 import { usePaginations } from "@/context/paginationsContext";
 import { useLoadingGate } from "@/context/pageReadyContext";
@@ -59,21 +60,18 @@ interface InferredRow {
 
 const PAGE_SIZE = 20;
 
-const efficacyToInferredRow = (e: FoodEfficacyRow): InferredRow => {
-  const isUnclassified = e.bioactivity_id_raw === "UNCLASSIFIED";
-  return {
-    bioactivity: isUnclassified ? "unclassified" : e.bioactivity_name,
-    bioactivity_id: e.bioactivity_foodatlas_id || "",
-    chemical: e.chemical_name,
-    chemical_id: e.chemical_foodatlas_id,
-    median_concentration:
-      e.food_conc_mg_per_100g != null
-        ? { value: e.food_conc_mg_per_100g, unit: "mg/100g" }
-        : null,
-    n_curves: e.n_curves ?? 0,
-    efficacy: e,
-  };
-};
+const efficacyToInferredRow = (e: FoodEfficacyRow): InferredRow => ({
+  bioactivity: e.bioactivity_name,
+  bioactivity_id: e.bioactivity_foodatlas_id,
+  chemical: e.chemical_name,
+  chemical_id: e.chemical_foodatlas_id,
+  median_concentration:
+    e.food_conc_mg_per_100g != null
+      ? { value: e.food_conc_mg_per_100g, unit: "mg/100g" }
+      : null,
+  n_curves: e.n_curves ?? 0,
+  efficacy: e,
+});
 
 const compare = (a: number | null, b: number | null): number => {
   if (a == null && b == null) return 0;
@@ -107,8 +105,8 @@ const sortInferred = (
         return (
           mult *
           compare(
-            r1.efficacy.dose_over_ac50_log,
-            r2.efficacy.dose_over_ac50_log
+            r1.efficacy.efficacy_fraction,
+            r2.efficacy.efficacy_fraction
           )
         );
       case "n_curves":
@@ -239,7 +237,14 @@ const FoodInferredBioactivitiesSection = ({
       const payload = await getFoodEfficacy(commonName);
       if (cancelled) return;
       const eff = (payload?.data as FoodEfficacyRow[] | undefined) ?? [];
-      setAllRows(eff.map(efficacyToInferredRow));
+      // UNCLASSIFIED rows (bioactivity_id_raw === "UNCLASSIFIED") have no
+      // canonical bioactivity target, so /chemical/bioactivities has no
+      // bucket for them and the assays modal can't drill in. Per Pranav
+      // 2026-08-04: drop them until upstream labels the underlying targets.
+      const classified = eff.filter(
+        (r) => r.bioactivity_id_raw !== "UNCLASSIFIED"
+      );
+      setAllRows(classified.map(efficacyToInferredRow));
       setIsLoading(false);
     })();
     return () => {
@@ -404,8 +409,8 @@ const FoodInferredBioactivitiesSection = ({
               { value: "concentration|asc", label: "Lowest concentration" },
               { value: "efficacy|desc", label: "Highest efficacy" },
               { value: "efficacy|asc", label: "Lowest efficacy" },
-              { value: "n_curves|desc", label: "Most curves" },
-              { value: "n_curves|asc", label: "Fewest curves" },
+              { value: "n_curves|desc", label: "Most assays" },
+              { value: "n_curves|asc", label: "Fewest assays" },
             ]}
             onChange={(value) => {
               const [by, dir] = value.split("|");
@@ -448,16 +453,44 @@ const FoodInferredBioactivitiesSection = ({
                 onClick={handleSortClick}
                 align="right"
               />
-              <th className="h-9 border-b border-light-700 leading-none py-1.5 px-4 text-right">
-                <span
-                  className="select-none uppercase text-xs font-medium text-light-400"
-                  title="Food's concentration of the chemical relative to the chemical's AC50 for this bioactivity. Above = dose clears the active threshold."
-                >
-                  Efficacy
-                </span>
-              </th>
               <SortableTh
-                label="Curves"
+                label="Efficacy"
+                sortKey="efficacy"
+                sort={sort}
+                onClick={handleSortClick}
+                align="right"
+                help={
+                  <div className="whitespace-normal w-[28rem] max-w-[calc(100vw-3rem)]">
+                    <p className="mb-2 text-light-400">
+                      <span className="font-medium text-amber-300">
+                        Caveat
+                      </span>
+                      &nbsp;— Bioactivity values are based on in vitro data
+                      only and total food content only; they don&apos;t
+                      account for individual genetics, the microbiome, or
+                      the exposome. Work on bioaccessibility and
+                      bioavailability is ongoing.
+                    </p>
+                    <p className="mb-2">
+                      <span className="font-medium text-light-100">
+                        Above / Below
+                      </span>
+                      &nbsp;— is the food&apos;s dose above the AC50 (the
+                      concentration at 50% of the chemical&apos;s maximal
+                      response)?
+                    </p>
+                    <p>
+                      <span className="font-medium text-light-100">%</span>
+                      &nbsp;— fraction of that maximal response reached at
+                      the food&apos;s dose, read off the chemical&apos;s
+                      Hill curve for this bioactivity. Higher = stronger
+                      inferred effect.
+                    </p>
+                  </div>
+                }
+              />
+              <SortableTh
+                label="Assays"
                 sortKey="n_curves"
                 sort={sort}
                 onClick={handleSortClick}
@@ -582,9 +615,7 @@ const FoodInferredBioactivitiesSection = ({
                       pendingKey ===
                       `${row.chemical_id}::${row.bioactivity_id}`
                         ? "Loading…"
-                        : `${row.n_curves.toLocaleString()} curve${
-                            row.n_curves === 1 ? "" : "s"
-                          }`
+                        : "View assays"
                     }
                     tone="outline"
                     size="md"
@@ -618,7 +649,7 @@ const FoodInferredBioactivitiesSection = ({
         headLabel={selected?.row.chemical ?? ""}
         tailLabel={selected?.row.bioactivity ?? ""}
         initialMeasurements={selected?.measurements ?? []}
-        expectedCount={selected?.row.n_curves}
+        contributedCount={selected?.row.n_curves}
         anchorId={selected?.row.chemical_id ?? null}
         selectedId={selected?.row.bioactivity_id ?? null}
         relationship="r6"
@@ -635,6 +666,7 @@ const SortableTh = ({
   onClick,
   align,
   first,
+  help,
 }: {
   label: string;
   sortKey: string;
@@ -642,6 +674,7 @@ const SortableTh = ({
   onClick: (k: string) => void;
   align: "left" | "right";
   first?: boolean;
+  help?: ReactNode;
 }) => {
   const active = sort.by === sortKey;
   return (
@@ -650,40 +683,50 @@ const SortableTh = ({
         first ? "pr-4" : "px-4"
       } ${align === "right" ? "text-right" : "text-left"}`}
     >
-      <button
-        type="button"
-        onClick={() => onClick(sortKey)}
-        className={`group flex items-center gap-1 cursor-pointer focus:outline-none ${
-          align === "right" ? "justify-end ml-auto" : ""
-        }`}
-      >
-        <span
-          className={`select-none uppercase text-xs font-medium transition duration-300 ease-in-out ${
-            active ? "text-light-100" : "text-light-400 group-hover:text-light-100"
-          }`}
+      <div className={`inline-flex items-center gap-1 ${align === "right" ? "ml-auto" : ""}`}>
+        <button
+          type="button"
+          onClick={() => onClick(sortKey)}
+          className="group flex items-center gap-1 cursor-pointer focus:outline-none"
         >
-          {label}
-        </span>
-        {active ? (
-          sort.dir === "asc" ? (
-            <MdKeyboardArrowUp className="text-accent-600 group-hover:text-accent-300 flex-shrink-0" />
+          <span
+            className={`select-none uppercase text-xs font-medium transition duration-300 ease-in-out ${
+              active ? "text-light-100" : "text-light-400 group-hover:text-light-100"
+            }`}
+          >
+            {label}
+          </span>
+          {active ? (
+            sort.dir === "asc" ? (
+              <MdKeyboardArrowUp className="text-accent-600 group-hover:text-accent-300 flex-shrink-0" />
+            ) : (
+              <MdKeyboardArrowDown className="text-accent-600 group-hover:text-accent-300 flex-shrink-0" />
+            )
           ) : (
-            <MdKeyboardArrowDown className="text-accent-600 group-hover:text-accent-300 flex-shrink-0" />
-          )
-        ) : (
-          <MdUnfoldMore className="text-light-400 group-hover:text-light-100 flex-shrink-0" />
+            <MdUnfoldMore className="text-light-400 group-hover:text-light-100 flex-shrink-0" />
+          )}
+        </button>
+        {help && (
+          <Tooltip content={help}>
+            <MdInfoOutline
+              className="w-3.5 h-3.5 text-light-500 hover:text-light-100 transition-colors"
+              aria-label={`About the ${label} column`}
+            />
+          </Tooltip>
         )}
-      </button>
+      </div>
     </th>
   );
 };
 
 // Rendered in the desktop table's Efficacy column and the mobile card's
-// Efficacy label row. Reads dose_over_ac50_log + conc_vs_ac50 off the
-// FoodEfficacyRow that backs the InferredRow — renders "—" when the
-// row's curve params were null.
+// Efficacy label row. Shows the fraction of maximal response (0–100%)
+// at the food's in-food concentration — the primary metric per the
+// food_chemical_efficacy.csv dictionary. `conc_vs_ac50` chip is the
+// categorical above/below indicator (fraction > 0.5 ⇔ "above"). Renders
+// "—" when the row's efficacy_fraction is null.
 const EfficacyCell = ({ efficacy }: { efficacy: FoodEfficacyRow }) => {
-  if (efficacy.dose_over_ac50_log == null) {
+  if (efficacy.efficacy_fraction == null) {
     return <span className="text-light-600">—</span>;
   }
   const above = efficacy.conc_vs_ac50 === "above";
@@ -700,7 +743,7 @@ const EfficacyCell = ({ efficacy }: { efficacy: FoodEfficacyRow }) => {
         {efficacy.conc_vs_ac50 ?? "—"}
       </span>
       <span className="font-mono tabular-nums text-xs text-light-300">
-        {formatDoseOverAc50Log(efficacy.dose_over_ac50_log)}
+        {formatEfficacyFraction(efficacy.efficacy_fraction)}
       </span>
     </span>
   );
@@ -766,9 +809,7 @@ const Row = ({
             label={
               isPending
                 ? "Loading…"
-                : `${row.n_curves.toLocaleString()} curve${
-                    row.n_curves === 1 ? "" : "s"
-                  }`
+                : "View assays"
             }
             tone="outline"
             size="md"
