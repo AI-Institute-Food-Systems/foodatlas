@@ -45,7 +45,8 @@ behind the same Bearer key.
   "n_curves": 53, "n_curves_4param": 17, "curve_agreement": "wide",
   "ac50_spread_log": 5.4173, "logac50_median": -4.924, "logac50_min": -9.1173, "logac50_max": -3.7,
   "dose_over_ac50_log": 1.986445, "conc_vs_ac50": "above",
-  "efficacy_fraction": 0.999913, "efficacy_response": 455.557259, "saturated": true
+  "efficacy_fraction": 0.999913, "efficacy_response": 455.557259, "saturated": true,
+  "n_measurements_total": 61
 }
 ```
 
@@ -57,6 +58,10 @@ Field notes for the UI:
 - Numeric fields can be `null` (missing curve params). `saturated` is a bool.
 - **Not every food has rows** — e.g. `onion` → 181, `enoki mushroom` → 46, `garlic` → 0.
   Treat `row_count: 0` as "no efficacy data for this food," not an error.
+- `n_curves` counts records with a fittable AC50 (contributes to the efficacy metric).
+  `n_measurements_total` is the full count backing `(chemical, bioactivity)` from
+  `mv_chemical_bioactivity` — always ≥ `n_curves`. The delta is MIC/kinetic-only records
+  that don't yield an AC50.
 - ~864 foods and ~709 chemicals are covered (61,119 rows total).
 
 ## 3. New endpoints — chemical↔disease associations (bioactivity-inferred)
