@@ -114,9 +114,7 @@ def _resolve(
     df["chemical_foodatlas_id"] = df["cid"].map(
         lambda c: cid_to_chem.get(_norm_cid(c), "")
     )
-    df["chemical_name"] = df["chemical_foodatlas_id"].map(
-        lambda i: name_map.get(i, "")
-    )
+    df["chemical_name"] = df["chemical_foodatlas_id"].map(lambda i: name_map.get(i, ""))
     df["bioactivity_id_raw"] = df["bioactivity_id"]
     df["bioactivity_foodatlas_id"] = df["bioactivity_id"].map(
         lambda n: native_to_bio.get(str(n), "")

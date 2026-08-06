@@ -26,10 +26,15 @@ logger = logging.getLogger(__name__)
 _ASSAY_CAP = 25
 _GENE_CAP = 50
 _MV_COLUMNS = [
-    "chemical_name", "chemical_foodatlas_id",
-    "disease_name", "disease_foodatlas_id",
-    "n_assays", "n_active_measurements",
-    "relationships", "target_genes", "assays",
+    "chemical_name",
+    "chemical_foodatlas_id",
+    "disease_name",
+    "disease_foodatlas_id",
+    "n_assays",
+    "n_active_measurements",
+    "relationships",
+    "target_genes",
+    "assays",
 ]
 
 
@@ -146,9 +151,12 @@ def _aggregate(
     out["target_genes"] = out["target_genes"].apply(_as_list)
     out["chemical_name"] = out["chemical_id"].map(name_map)
     out["disease_name"] = out["disease_id"].map(name_map)
-    out = out.rename(columns={
-        "chemical_id": "chemical_foodatlas_id", "disease_id": "disease_foodatlas_id",
-    })
+    out = out.rename(
+        columns={
+            "chemical_id": "chemical_foodatlas_id",
+            "disease_id": "disease_foodatlas_id",
+        }
+    )
     return out[out["chemical_name"].notna() & out["disease_name"].notna()]
 
 

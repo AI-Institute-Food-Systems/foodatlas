@@ -221,9 +221,7 @@ def load_kg(conn: Connection, parquet_dir: Path) -> None:
     # Food-chemical-bioactivity efficacy — present only alongside the bioactivity
     # source. Resolved (cid→chemical, E300→concept) into mv at materialize time.
     if efficacy_df is not None:
-        logger.info(
-            "Inserting food-chemical efficacy (%d rows)...", len(efficacy_df)
-        )
+        logger.info("Inserting food-chemical efficacy (%d rows)...", len(efficacy_df))
         bulk_copy(
             conn,
             "base_food_chemical_efficacy",
