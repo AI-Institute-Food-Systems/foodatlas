@@ -26,7 +26,12 @@ jobs:
       - name: Detect changed paths
         id: diff
         run: |
-          BASE=${{ github.event.pull_request.base.sha }}
+          # On pull_request use the PR base; on workflow_dispatch fall back to
+          # origin/dev so manual reruns still filter jobs sensibly.
+          BASE="${{ github.event.pull_request.base.sha }}"
+          if [ -z "$BASE" ]; then
+            BASE=$(git rev-parse origin/dev)
+          fi
           HEAD=${{ github.sha }}
           CHANGED=$(git diff --name-only "$BASE" "$HEAD" -- ':!*.md')
           echo "frontend=$( echo "$CHANGED" | grep -q '^frontend/' && echo true || echo false )" >> "$GITHUB_OUTPUT"
