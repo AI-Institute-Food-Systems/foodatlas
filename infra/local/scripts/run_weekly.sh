@@ -22,7 +22,8 @@
 #   NCBI_EMAIL, NCBI_API_KEY     IE search (NCBI E-utilities)
 #   GOOGLE_API_KEY               KGC trust stage (Gemini)
 #   ANTHROPIC_API_KEY            KGC evaluation + newsletter (Claude)
-#   AWS_REGION + credentials     Only with --publish
+#   AWS creds (--publish only)   Cert-based IAM Roles Anywhere profile 'weekly'
+#                                (auto, no sso login); override via AWS_PROFILE
 #
 # Unlike run_monthly.sh (OpenAI batch + local DB), IE stage 4 runs the local
 # open-source Gemma 4 model on 4x GPU via SLURM, and --publish targets the live
@@ -121,6 +122,13 @@ trap cleanup EXIT
 export GOOGLE_API_KEY="${GOOGLE_API_KEY:-${GEMINI_API_KEY:-}}"  # trust authenticates via GOOGLE_API_KEY
 export IE_DATE="$RUN_DATE"
 
+# AWS auth for --publish: pin the cert-based IAM Roles Anywhere profile (see
+# ~/.foodatlas-aws) so the weekly job runs unattended with no `aws sso login`.
+# Set AFTER sourcing .env, whose AWS_PROFILE=fa_kaichi (interactive SSO) must
+# NOT hijack the unattended publish. Override via PUBLISH_AWS_PROFILE if needed.
+export AWS_PROFILE="${PUBLISH_AWS_PROFILE:-weekly}"
+export AWS_REGION="${AWS_REGION:-us-west-1}"
+
 # ---------------------------------------------------------------------------
 # Environment validation
 # ---------------------------------------------------------------------------
@@ -142,7 +150,8 @@ validate_env() {
     fi
     if [[ "$PUBLISH" == true ]]; then
         command -v aws &>/dev/null || { echo "ERROR: aws CLI not found (required for --publish)." >&2; exit 1; }
-        [[ -z "${AWS_REGION:-}" ]] && missing+=("AWS_REGION")
+        aws sts get-caller-identity &>/dev/null \
+            || missing+=("valid AWS credentials (profile '$AWS_PROFILE' — check the cert in ~/.foodatlas-aws)")
     fi
 
     if [[ ${#missing[@]} -gt 0 ]]; then
@@ -318,13 +327,22 @@ run_publish() {
 
     log "=== $tag: load production RDS (Fargate ETL) ==="
     cd "$AWS_DIR"
-    ./scripts/run-data-load.sh ${DRY_RUN:+--dry-run} 2>&1 | tee "$LOG_DIR/rds.log"
-    [[ -z "$DRY_RUN" ]] && log "Production RDS load complete — live website now serves the new data."
+    if [[ -n "$DRY_RUN" ]]; then
+        # run-data-load.sh has no dry-run mode (it would read a bogus version
+        # from the flag). Skip it — nothing to load until sync moves LATEST.
+        log "[dry-run] would load production RDS from outputs/LATEST via Fargate ETL — skipped."
+    else
+        ./scripts/run-data-load.sh 2>&1 | tee "$LOG_DIR/rds.log"
+        log "Production RDS load complete — live website now serves the new data."
+    fi
 
     if [[ -n "$RELEASE_VERSION" ]]; then
         log "=== $tag: publish public release bundle ($RELEASE_VERSION) ==="
         cd "$KGC_DIR"
-        ./scripts/publish-bundle.sh "$RELEASE_VERSION" "release_notes/SUMMARY-$RELEASE_VERSION.md" ${DRY_RUN:+--dry-run} \
+        # Stamp the run date (not "today") so recovery runs of a past week
+        # get the correct release date. RUN_DATE is YYYY_MM_DD -> YYYY-MM-DD.
+        ./scripts/publish-bundle.sh "$RELEASE_VERSION" "release_notes/SUMMARY-$RELEASE_VERSION.md" \
+            --release-date "${RUN_DATE//_/-}" ${DRY_RUN:+--dry-run} \
             2>&1 | tee "$LOG_DIR/bundle.log"
         [[ -z "$DRY_RUN" ]] && log "Public bundle published: foodatlas-$RELEASE_VERSION.zip (downloads bucket + index.json)."
     else
