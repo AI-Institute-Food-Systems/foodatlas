@@ -12,7 +12,7 @@ from .base import Base
 
 
 class MVFoodChemicalEfficacy(Base):
-    """Denormalized food×chemical×bioactivity efficacy, resolved to entities.
+    """Denormalized foodxchemicalxbioactivity efficacy, resolved to entities.
 
     One row per (food, chemical, bioactivity) from base_food_chemical_efficacy,
     with the chemical (by ``cid``) and bioactivity concept (by ``E300…`` native

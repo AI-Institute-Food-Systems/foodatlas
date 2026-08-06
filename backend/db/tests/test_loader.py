@@ -91,7 +91,7 @@ class TestLoadKg:
 
         load_kg(conn, fixtures_dir)
 
-        assert mock_bulk.call_count == 7
+        assert mock_bulk.call_count == 10
         table_names = [c.args[1] for c in mock_bulk.call_args_list]
         assert "base_entities" in table_names
         assert "relationships" in table_names
@@ -100,6 +100,9 @@ class TestLoadKg:
         assert "base_attestations" in table_names
         assert "base_attestations_bioactivity" in table_names
         assert "base_bioassays" in table_names
+        assert "base_food_chemical_efficacy" in table_names
+        assert "base_bioactivity_disease" in table_names
+        assert "base_bioactivity_disease_targets" in table_names
 
     @patch("src.etl.loader.refresh_search")
     @patch("src.etl.loader.refresh_all")

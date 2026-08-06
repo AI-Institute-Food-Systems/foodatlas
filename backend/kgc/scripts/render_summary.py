@@ -13,8 +13,8 @@ import json
 from pathlib import Path
 
 _SENTENCE = (
-    "Weekly update — {new_associations:,} new associations "
-    "({new_food_chemical:,} new food–chemical associations across {foods:,} foods and "
+    "Weekly update - {new_associations:,} new associations "
+    "({new_food_chemical:,} new food-chemical associations across {foods:,} foods and "
     "{chemicals:,} chemicals) from {new_papers:,} new papers."
 )
 _QUALITY = (
@@ -61,9 +61,7 @@ def main() -> int:
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--version", required=True, help="Release version, e.g. v4.2")
-    parser.add_argument(
-        "--json", type=Path, default=Path("outputs/kg/newsletter.json")
-    )
+    parser.add_argument("--json", type=Path, default=Path("outputs/kg/newsletter.json"))
     parser.add_argument(
         "--eval-metrics",
         type=Path,

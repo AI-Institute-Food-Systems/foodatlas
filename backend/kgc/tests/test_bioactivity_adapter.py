@@ -208,6 +208,42 @@ class TestAdapterEndToEnd:
         pd.DataFrame(
             [{"bioactivity_disease_metadata_id": "dm1", "target_ids": '["T1"]'}]
         ).to_csv(bio / "bioactivity_disease_metadata.csv", index=False)
+        pd.DataFrame(
+            [
+                {
+                    "foodatlas_id": "F1",
+                    "food_name": "onion",
+                    "CID": 123,
+                    "bioactivity_id": "B1",
+                    "food_conc_mg_per_100g": 39.19,
+                    "food_conc_mass_fraction_pct": 0.03919,
+                    "conc_quality_flag": "ok",
+                    "molecular_weight": 286.24,
+                    "food_conc_M": 0.001369,
+                    "food_conc_logM": -2.86,
+                    "rep_source_assay_id": "A1",
+                    "endpoint_type": "IC50",
+                    "endpoint_class": "potency",
+                    "curve_method": "4-point",
+                    "logac50": -4.85,
+                    "hillslope": 2.04,
+                    "zeroactivity": 6.47,
+                    "infiniteactivity": 455.6,
+                    "n_curves": 53,
+                    "n_curves_4param": 17,
+                    "curve_agreement": "wide",
+                    "ac50_spread_log": 5.42,
+                    "logac50_median": -4.92,
+                    "logac50_min": -9.11,
+                    "logac50_max": -3.7,
+                    "dose_over_ac50_log": 1.99,
+                    "conc_vs_ac50": "above",
+                    "efficacy_fraction": 0.9999,
+                    "efficacy_response": 455.56,
+                    "saturated": True,
+                }
+            ]
+        ).to_csv(bio / "food_chemical_efficacy.csv", index=False)
         return tmp_path / "raw"
 
     def test_ingest_writes_all_outputs_and_manifest(

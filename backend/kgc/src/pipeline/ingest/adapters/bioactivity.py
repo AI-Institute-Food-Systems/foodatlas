@@ -97,9 +97,7 @@ class BioactivityAdapter:
 
         measurements = _build_measurements(bio_dir / "bioactivity_metadata.csv")
         bioassays = _build_bioassays(bio_dir / "bioassay_metadata.csv")
-        efficacy = _build_food_chemical_efficacy(
-            bio_dir / "food_chemical_efficacy.csv"
-        )
+        efficacy = _build_food_chemical_efficacy(bio_dir / "food_chemical_efficacy.csv")
         disease = _build_disease(bio_dir / "disease_bioactivity_triplets.csv")
         targets = _build_disease_targets(bio_dir / "bioactivity_disease_metadata.csv")
 
@@ -141,8 +139,8 @@ def _build_nodes(concepts: pd.DataFrame) -> pd.DataFrame:
         name = str(row["common_name"]).lower().strip()
         synonyms = [name] if name else []
         synonym_types = ["name"] if name else []
-        for syn in _parse_json_list(row["Synonyms"]):
-            syn = syn.lower().strip()
+        for raw_syn in _parse_json_list(row["Synonyms"]):
+            syn = raw_syn.lower().strip()
             if syn and syn not in synonyms:
                 synonyms.append(syn)
                 synonym_types.append("synonym")
@@ -252,7 +250,7 @@ def _build_bioassays(path: Path) -> pd.DataFrame:
 
 
 def _build_food_chemical_efficacy(path: Path) -> pd.DataFrame:
-    """Typed passthrough of the food×chemical×bioactivity efficacy table.
+    """Typed passthrough of the foodxchemicalxbioactivity efficacy table.
 
     One row per (``foodatlas_id``, ``cid``, ``bioactivity_id``); ``bioactivity_id``
     is kept verbatim (an ``E300…`` concept or the literal ``"UNCLASSIFIED"``).
@@ -267,9 +265,9 @@ def _build_disease(path: Path) -> pd.DataFrame:
     """Disease↔assay bridge passthrough (Phase-2 input)."""
     df = pd.read_csv(path)
     df["relationship"] = df["relationship"].apply(_parse_json_list)
-    df["bioactivity_disease_metadata_id"] = df[
-        "bioactivity_disease_metadata_id"
-    ].apply(_parse_json_list)
+    df["bioactivity_disease_metadata_id"] = df["bioactivity_disease_metadata_id"].apply(
+        _parse_json_list
+    )
     return df
 
 
@@ -314,7 +312,7 @@ def _parse_json_list(cell: object) -> list[str]:
     """Parse a JSON-array CSV cell (e.g. Synonyms, bioactivity_metadata_ids)."""
     if not isinstance(cell, str) or not cell.strip():
         return []
-    return json.loads(cell)
+    return list(json.loads(cell))
 
 
 def _parse_comma_list(cell: object) -> list[str]:

@@ -43,7 +43,10 @@ def load_pristine_kg() -> dict[str, pd.DataFrame]:
     if not (BACKUP / "entities.parquet").exists():
         current_max = _max_id(pd.read_parquet(KG / "entities.parquet")["foodatlas_id"])
         if current_max != PRISTINE_MAX_ID:
-            msg = f"outputs/kg max id is e{current_max}, expected e{PRISTINE_MAX_ID} — refusing to snapshot a non-pristine KG"
+            msg = (
+                f"outputs/kg max id is e{current_max}, expected "
+                f"e{PRISTINE_MAX_ID} - refusing to snapshot a non-pristine KG"
+            )
             raise SystemExit(msg)
         for f in FILES:
             shutil.copy2(KG / f"{f}.parquet", BACKUP / f"{f}.parquet")
@@ -70,6 +73,7 @@ def build_id_map(
         ptfi_entities["foodatlas_id"],
         ptfi_entities["entity_type"],
         ptfi_entities["external_ids"],
+        strict=False,
     ):
         existing = _dedup_target(etype, ext, foodon_to_food)
         if existing is not None:
@@ -95,7 +99,7 @@ def _dedup_target(etype, ext, foodon_to_food) -> str | None:
 def _foodon_index(kg_entities: pd.DataFrame) -> dict[str, str]:
     foods = kg_entities[kg_entities["entity_type"] == "food"]
     index: dict[str, str] = {}
-    for fid, ext in zip(foods["foodatlas_id"], foods["external_ids"]):
+    for fid, ext in zip(foods["foodatlas_id"], foods["external_ids"], strict=False):
         for iri in _as_dict(ext).get("foodon", []) or []:
             index.setdefault(iri, fid)
     return index
@@ -128,11 +132,14 @@ def merge_triplets(
 
     kg = kg.copy()
     r1 = kg[kg["relationship_id"] == "r1"]
-    key_to_idx = {(h, t): i for i, h, t in zip(r1.index, r1["head_id"], r1["tail_id"])}
+    key_to_idx = {
+        (h, t): i
+        for i, h, t in zip(r1.index, r1["head_id"], r1["tail_id"], strict=False)
+    }
 
     new_rows, merged, added = [], 0, 0
     for head, tail, att in zip(
-        collapsed["head_id"], collapsed["tail_id"], collapsed["_att"]
+        collapsed["head_id"], collapsed["tail_id"], collapsed["_att"], strict=False
     ):
         idx = key_to_idx.get((head, tail))
         if idx is not None:
@@ -170,8 +177,16 @@ def merge_attestations(
         pa[col] = pa[col].map(_to_bool)
     # KG stores these as strings; PTFI may have parsed some (e.g. conc_value_raw)
     # as floats — coerce to str so the concatenated column stays large_string.
-    for col in ("head_name_raw", "tail_name_raw", "conc_unit", "conc_value_raw",
-                "conc_unit_raw", "food_part", "food_processing", "source"):
+    for col in (
+        "head_name_raw",
+        "tail_name_raw",
+        "conc_unit",
+        "conc_value_raw",
+        "conc_unit_raw",
+        "food_part",
+        "food_processing",
+        "source",
+    ):
         if col in pa.columns:
             pa[col] = pa[col].fillna("").astype(str)
     return pd.concat([kg, pa[kg.columns]], ignore_index=True)
@@ -182,8 +197,13 @@ def merge_evidence(kg: pd.DataFrame, ptfi: pd.DataFrame) -> pd.DataFrame:
 
 
 # ----------------------------------------------------------------- verification
-def verify(kg, out, ptfi, id_map, kept, dropped, stats) -> None:
-    ents, tris, atts, evs = out["entities"], out["triplets"], out["attestations"], out["evidence"]
+def verify(kg, out, ptfi, id_map, kept, dropped, stats) -> None:  # noqa: ARG001
+    ents, tris, atts, evs = (
+        out["entities"],
+        out["triplets"],
+        out["attestations"],
+        out["evidence"],
+    )
 
     assert len(dropped) == 257, f"expected 257 dedup foods, got {len(dropped)}"
     assert len(ents) == len(kg["entities"]) + len(kept), "entity count delta wrong"
@@ -204,8 +224,12 @@ def verify(kg, out, ptfi, id_map, kept, dropped, stats) -> None:
     assert not missing, f"new triplet refs missing from entities: {list(missing)[:5]}"
 
     all_ref_att = {a for c in tris["attestation_ids"] for a in _parse_list(c)}
-    assert ptfi_att_ids <= set(atts["attestation_id"]), "PTFI attestations not all loaded"
-    assert ptfi_att_ids <= all_ref_att, "some PTFI attestations unreferenced by triplets"
+    assert ptfi_att_ids <= set(atts["attestation_id"]), (
+        "PTFI attestations not all loaded"
+    )
+    assert ptfi_att_ids <= all_ref_att, (
+        "some PTFI attestations unreferenced by triplets"
+    )
 
     ev_ids = set(evs["evidence_id"])
     assert set(ptfi["evidence"]["evidence_id"]) <= ev_ids, "PTFI evidence not appended"
@@ -254,15 +278,22 @@ def _max_id(series) -> int:
     return max(int(s[1:]) for s in series if isinstance(s, str) and s[1:].isdigit())
 
 
-def _report(kg, out, id_map, kept, dropped, stats) -> None:
+def _report(kg, out, id_map, kept, dropped, stats) -> None:  # noqa: ARG001
     print("PTFI merge report")
     print(f"  dedup (foods collapsed onto existing): {len(dropped)}")
-    print(f"  new entities minted:                   {len(kept)}  "
-          f"(re-based e{PRISTINE_MAX_ID+1}..e{PRISTINE_MAX_ID+len(kept)})")
+    print(
+        f"  new entities minted:                   {len(kept)}  "
+        f"(re-based e{PRISTINE_MAX_ID + 1}..e{PRISTINE_MAX_ID + len(kept)})"
+    )
     for f in FILES:
-        print(f"  {f:12s} {len(kg[f]):>8d} -> {len(out[f]):>8d}  (+{len(out[f])-len(kg[f])})")
-    print(f"  contains edges: {stats['added']} new + {stats['merged']} merged "
-          f"into existing = {stats['collapsed_pairs']} pairs")
+        print(
+            f"  {f:12s} {len(kg[f]):>8d} -> {len(out[f]):>8d}  "
+            f"(+{len(out[f]) - len(kg[f])})"
+        )
+    print(
+        f"  contains edges: {stats['added']} new + {stats['merged']} merged "
+        f"into existing = {stats['collapsed_pairs']} pairs"
+    )
 
 
 def main() -> int:
@@ -274,7 +305,9 @@ def main() -> int:
     out = {
         "entities": merge_entities(kg["entities"], ptfi["entities"], id_map, kept),
         "triplets": tris,
-        "attestations": merge_attestations(kg["attestations"], ptfi["attestations"], id_map),
+        "attestations": merge_attestations(
+            kg["attestations"], ptfi["attestations"], id_map
+        ),
         "evidence": merge_evidence(kg["evidence"], ptfi["evidence"]),
     }
     verify(kg, out, ptfi, id_map, kept, dropped, stats)

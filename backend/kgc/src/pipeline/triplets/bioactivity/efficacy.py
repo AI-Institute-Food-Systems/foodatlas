@@ -1,8 +1,8 @@
-"""Promote the food–chemical–bioactivity efficacy table to kg_dir.
+"""Promote the food-chemical-bioactivity efficacy table to kg_dir.
 
 The ingest stage writes the raw passthrough
 ``bioactivity_food_chemical_efficacy.parquet`` (one row per
-food×chemical×bioactivity, ~61k). Here we copy it to ``kg_dir`` as
+foodxchemicalxbioactivity, ~61k). Here we copy it to ``kg_dir`` as
 ``food_chemical_efficacy.parquet`` — the fact table the DB loads as
 ``base_food_chemical_efficacy`` and resolves (``cid`` → chemical entity,
 ``E300…`` → bioactivity concept) into ``mv_food_chemical_efficacy``.

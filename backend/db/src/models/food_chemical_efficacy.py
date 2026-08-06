@@ -1,4 +1,4 @@
-"""Base food–chemical–bioactivity efficacy ORM model.
+"""Base food-chemical-bioactivity efficacy ORM model.
 
 One row per (``foodatlas_id``, ``cid``, ``bioactivity_id``), loaded from KGC
 ``food_chemical_efficacy.parquet``. It places a food's dietary concentration of
@@ -21,7 +21,7 @@ from .base import Base
 
 
 class BaseFoodChemicalEfficacy(Base):
-    """One row per food × chemical × bioactivity efficacy estimate."""
+    """One row per food x chemical x bioactivity efficacy estimate."""
 
     __tablename__ = "base_food_chemical_efficacy"
 
@@ -41,7 +41,7 @@ class BaseFoodChemicalEfficacy(Base):
     food_conc_m: Mapped[float | None] = mapped_column(Float, nullable=True)
     food_conc_logm: Mapped[float | None] = mapped_column(Float, nullable=True)
 
-    # Dose-response curve for the chemical × bioactivity.
+    # Dose-response curve for the (chemical, bioactivity) pair.
     rep_source_assay_id: Mapped[str] = mapped_column(Text, server_default="")
     endpoint_type: Mapped[str] = mapped_column(Text, server_default="")
     endpoint_class: Mapped[str] = mapped_column(Text, server_default="")

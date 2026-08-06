@@ -18,7 +18,7 @@ from .base import Base
 
 
 class BaseAttestationBioactivity(Base):
-    """One row per ``bm…`` measurement (compound × assay → outcome/potency)."""
+    """One row per ``bm…`` measurement (compound x assay → outcome/potency)."""
 
     __tablename__ = "base_attestations_bioactivity"
 
@@ -31,7 +31,9 @@ class BaseAttestationBioactivity(Base):
     potency_value: Mapped[float | None] = mapped_column(Double, nullable=True)
     potency_unit: Mapped[str] = mapped_column(Text, server_default="")
     efficacy_zeroactivity: Mapped[float | None] = mapped_column(Double, nullable=True)
-    efficacy_infiniteactivity: Mapped[float | None] = mapped_column(Double, nullable=True)
+    efficacy_infiniteactivity: Mapped[float | None] = mapped_column(
+        Double, nullable=True
+    )
     efficacy_logac50_value: Mapped[float | None] = mapped_column(Double, nullable=True)
     efficacy_hillslope: Mapped[float | None] = mapped_column(Double, nullable=True)
     evidence_source: Mapped[str] = mapped_column(Text, server_default="")

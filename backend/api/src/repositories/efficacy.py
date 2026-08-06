@@ -1,4 +1,4 @@
-"""Food–chemical efficacy repository — queries mv_food_chemical_efficacy.
+"""Food-chemical efficacy repository — queries mv_food_chemical_efficacy.
 
 Reads only materialized views (never base tables), matching the rest of the
 API. One row per (food, chemical, bioactivity): the food's dietary dose of the
@@ -30,7 +30,7 @@ _SELECT_COLUMNS = """
 async def get_food_efficacy(
     session: AsyncSession, common_name: str
 ) -> dict[str, object]:
-    """A food's chemical×bioactivity efficacy rows (most efficacious first)."""
+    """A food's chemical x bioactivity efficacy rows (most efficacious first)."""
     result = await session.execute(
         text(f"""
             SELECT {_SELECT_COLUMNS}

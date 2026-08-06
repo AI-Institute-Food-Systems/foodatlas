@@ -4,7 +4,7 @@ These tables are truncated and re-populated on each ETL run.
 The API layer queries only these tables, not the base tables.
 """
 
-from sqlalchemy import BigInteger, Boolean, Float, Index, Integer, String, Text
+from sqlalchemy import BigInteger, Index, Integer, String, Text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
