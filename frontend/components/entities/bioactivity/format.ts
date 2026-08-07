@@ -9,14 +9,8 @@ function formatNumber(value: number | null | undefined): string {
   return value.toLocaleString(undefined, { maximumSignificantDigits: 3 });
 }
 
-// Render a unit only when it's a real one. The API's hotfix layer
-// (`_bioact_hotfix.py`) replaces empty/garbage units with the literal
-// "None" so downstream can distinguish "explicitly no unit" from
-// missing/dirty data — at display time that just looks like noise.
-// Remove this filter when the upstream cleanup lands and the hotfix
-// is removed (see memory `bioact-hotfix-removal`).
 export function displayUnit(unit: string | null | undefined): string {
-  return unit && unit !== "None" ? ` ${unit}` : "";
+  return unit ? ` ${unit}` : "";
 }
 
 export function formatTopPotency(

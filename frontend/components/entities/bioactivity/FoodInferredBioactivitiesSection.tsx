@@ -10,7 +10,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   MdClose,
   MdDescription,
@@ -28,33 +28,109 @@ import Link from "@/components/basic/Link";
 import LoadingCard from "@/components/basic/LoadingCard";
 import Pagination from "@/components/basic/Pagination";
 import SortListbox from "@/components/basic/SortListbox";
+import { Tooltip } from "@/components/basic/Tooltip";
 import BioactivityMeasurementsModal from "@/components/entities/bioactivity/BioactivityMeasurementsModal";
+import { formatEfficacyFraction } from "@/components/entities/bioactivity/efficacy";
 import { useReportRows } from "@/context/reportModeContext";
-import {
-  formatTopMeasurement,
-  topMeasurementOf,
-} from "@/components/entities/bioactivity/format";
 import { usePaginations } from "@/context/paginationsContext";
 import { useLoadingGate } from "@/context/pageReadyContext";
-import { getFoodInferredBioactivities } from "@/utils/fetching";
+import {
+  getChemicalBioactivities,
+  getFoodEfficacy,
+} from "@/utils/fetching";
 import { encodeSpace, formatConcentrationValueAlt } from "@/utils/utils";
-import type {
-  BioactivityMeasurement,
-  BioactivityTopMeasurement,
-} from "@/types";
+import type { BioactivityMeasurement, FoodEfficacyRow } from "@/types";
 
+// The inferred table row shape now derives from /food/efficacy (the
+// former /food/inferred-bioactivities endpoint was removed on the
+// ptfi-bioactivity-staging refresh). Each row is one (chemical ×
+// bioactivity) evaluated against a Hill fit — the efficacy math lives
+// on `efficacy`; `n_curves` is the count of qualifying Hill curves
+// (the closest analog to the old `measurement_count` for the "N curves"
+// column + the View-measurements modal button).
 interface InferredRow {
   bioactivity: string;
   bioactivity_id: string;
   chemical: string;
   chemical_id: string;
   median_concentration: { value: number | null; unit: string } | null;
-  measurement_count: number;
-  active_count: number;
-  inactive_count: number;
-  measurements: BioactivityMeasurement[];
-  top_measurement: BioactivityTopMeasurement | null;
+  n_curves: number;
+  // Total assays backing the pair (from mv_chemical_bioactivity). Null on
+  // older API deployments — chip label falls back to "View assays" in that
+  // case. Once every environment ships the backend change, this can be
+  // required.
+  n_measurements_total: number | null;
+  efficacy: FoodEfficacyRow;
 }
+
+const PAGE_SIZE = 20;
+
+const efficacyToInferredRow = (e: FoodEfficacyRow): InferredRow => ({
+  bioactivity: e.bioactivity_name,
+  bioactivity_id: e.bioactivity_foodatlas_id,
+  chemical: e.chemical_name,
+  chemical_id: e.chemical_foodatlas_id,
+  median_concentration:
+    e.food_conc_mg_per_100g != null
+      ? { value: e.food_conc_mg_per_100g, unit: "mg/100g" }
+      : null,
+  n_curves: e.n_curves ?? 0,
+  n_measurements_total: e.n_measurements_total ?? null,
+  efficacy: e,
+});
+
+const compare = (a: number | null, b: number | null): number => {
+  if (a == null && b == null) return 0;
+  if (a == null) return 1; // nulls last
+  if (b == null) return -1;
+  return a - b;
+};
+
+const sortInferred = (
+  rows: InferredRow[],
+  by: string,
+  dir: "asc" | "desc"
+): InferredRow[] => {
+  const mult = dir === "asc" ? 1 : -1;
+  const copy = [...rows];
+  copy.sort((r1, r2) => {
+    switch (by) {
+      case "bioactivity":
+        return mult * r1.bioactivity.localeCompare(r2.bioactivity);
+      case "chemical":
+        return mult * r1.chemical.localeCompare(r2.chemical);
+      case "concentration":
+        return (
+          mult *
+          compare(
+            r1.median_concentration?.value ?? null,
+            r2.median_concentration?.value ?? null
+          )
+        );
+      case "efficacy":
+        return (
+          mult *
+          compare(
+            r1.efficacy.efficacy_fraction,
+            r2.efficacy.efficacy_fraction
+          )
+        );
+      case "n_curves":
+        // Sort by the total shown on the chip when available, falling back
+        // to the contributed count on older API deployments.
+        return (
+          mult *
+          compare(
+            r1.n_measurements_total ?? r1.n_curves,
+            r2.n_measurements_total ?? r2.n_curves
+          )
+        );
+      default:
+        return 0;
+    }
+  });
+  return copy;
+};
 
 type SortDir = "asc" | "desc";
 
@@ -105,15 +181,48 @@ const FoodInferredBioactivitiesSection = ({
     dir: "desc",
   });
 
-  const [rows, setRows] = useState<InferredRow[]>([]);
-  const [totalPages, setTotalPages] = useState(0);
-  const [totalRows, setTotalRows] = useState(0);
+  // /food/efficacy returns every (chemical × bioactivity) row for the
+  // food in a single response (typical: 0–200 rows), so all filtering,
+  // sorting, and pagination is done client-side against `allRows`.
+  const [allRows, setAllRows] = useState<InferredRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   useLoadingGate(isLoading);
-  useEffect(() => {
-    if (onTotalRowsChange && !isLoading) onTotalRowsChange(totalRows);
-  }, [onTotalRowsChange, totalRows, isLoading]);
-  const [selected, setSelected] = useState<InferredRow | null>(null);
+  // Modal state. The efficacy endpoint doesn't carry raw measurements,
+  // so when a user clicks "View N curves" we lazy-fetch the chemical's
+  // full bioactivity list (which does carry the per-bioactivity
+  // measurement sample) and pull out the entry matching this row's
+  // bioactivity_id. Cached per chemical for cheap re-opens.
+  const [selected, setSelected] = useState<{
+    row: InferredRow;
+    measurements: BioactivityMeasurement[];
+  } | null>(null);
+  const [pendingKey, setPendingKey] = useState<string | null>(null);
+  const chemMeasurementsCache = useRef<
+    Map<string, Map<string, BioactivityMeasurement[]>>
+  >(new Map());
+
+  const openModal = async (row: InferredRow) => {
+    const rowKey = `${row.chemical_id}::${row.bioactivity_id}`;
+    let byBio = chemMeasurementsCache.current.get(row.chemical);
+    if (byBio?.has(row.bioactivity_id)) {
+      setSelected({ row, measurements: byBio.get(row.bioactivity_id) ?? [] });
+      return;
+    }
+    setPendingKey(rowKey);
+    const payload = await getChemicalBioactivities(row.chemical);
+    // Bucket every bio row's measurements into the cache so subsequent
+    // clicks on other bioactivities for the same chemical are instant.
+    byBio = new Map();
+    for (const bio of (payload?.data ?? []) as Array<{
+      id: string;
+      measurements?: BioactivityMeasurement[];
+    }>) {
+      byBio.set(bio.id, bio.measurements ?? []);
+    }
+    chemMeasurementsCache.current.set(row.chemical, byBio);
+    setSelected({ row, measurements: byBio.get(row.bioactivity_id) ?? [] });
+    setPendingKey(null);
+  };
   const reporter = useReportRows();
 
   const buildRowContext = (row: InferredRow) => ({
@@ -130,37 +239,59 @@ const FoodInferredBioactivitiesSection = ({
         : undefined,
   });
 
+  // Single fetch per commonName — the efficacy endpoint returns
+  // everything for the food in one shot. External filter props
+  // (effectiveSourceKind/Unit/EvidenceType) don't apply to efficacy
+  // rows (those concepts live on raw bioactivity measurements, not on
+  // Hill-fit efficacy) so they're intentionally ignored here.
   useEffect(() => {
     let cancelled = false;
     setIsLoading(true);
     (async () => {
-      const payload = await getFoodInferredBioactivities(commonName, {
-        page: currentPage,
-        search: effectiveSearchTerm,
-        sortBy: sort.by,
-        sortDir: sort.dir,
-        filterSourceKind: effectiveSourceKind || undefined,
-        filterUnit: effectiveUnit || undefined,
-        filterEvidenceType: effectiveEvidenceType || undefined,
-      });
+      const payload = await getFoodEfficacy(commonName);
       if (cancelled) return;
-      setRows((payload?.data as InferredRow[] | undefined) ?? []);
-      setTotalPages(payload?.metadata?.total_pages ?? 0);
-      setTotalRows(payload?.metadata?.total_rows ?? 0);
+      const eff = (payload?.data as FoodEfficacyRow[] | undefined) ?? [];
+      // UNCLASSIFIED rows (bioactivity_id_raw === "UNCLASSIFIED") have no
+      // canonical bioactivity target, so /chemical/bioactivities has no
+      // bucket for them and the assays modal can't drill in. Per Pranav
+      // 2026-08-04: drop them until upstream labels the underlying targets.
+      const classified = eff.filter(
+        (r) => r.bioactivity_id_raw !== "UNCLASSIFIED"
+      );
+      setAllRows(classified.map(efficacyToInferredRow));
       setIsLoading(false);
     })();
     return () => {
       cancelled = true;
     };
-  }, [
-    commonName,
-    currentPage,
-    effectiveSearchTerm,
-    effectiveSourceKind,
-    effectiveUnit,
-    effectiveEvidenceType,
-    sort,
-  ]);
+  }, [commonName]);
+
+  // Client-side filter + sort + paginate.
+  const filteredRows = useMemo(() => {
+    if (!effectiveSearchTerm) return allRows;
+    const q = effectiveSearchTerm.trim().toLowerCase();
+    if (!q) return allRows;
+    return allRows.filter(
+      (r) =>
+        r.bioactivity.toLowerCase().includes(q) ||
+        r.chemical.toLowerCase().includes(q)
+    );
+  }, [allRows, effectiveSearchTerm]);
+  const sortedRows = useMemo(
+    () => sortInferred(filteredRows, sort.by, sort.dir),
+    [filteredRows, sort]
+  );
+  const totalRows = sortedRows.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / PAGE_SIZE));
+  const rows = useMemo(
+    () =>
+      sortedRows.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
+    [sortedRows, currentPage]
+  );
+
+  useEffect(() => {
+    if (onTotalRowsChange && !isLoading) onTotalRowsChange(totalRows);
+  }, [onTotalRowsChange, totalRows, isLoading]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value.toLowerCase());
@@ -290,8 +421,10 @@ const FoodInferredBioactivitiesSection = ({
               { value: "chemical|desc", label: "Chemical Z–A" },
               { value: "concentration|desc", label: "Highest concentration" },
               { value: "concentration|asc", label: "Lowest concentration" },
-              { value: "measurement_count|desc", label: "Most assays" },
-              { value: "measurement_count|asc", label: "Least assays" },
+              { value: "efficacy|desc", label: "Highest efficacy" },
+              { value: "efficacy|asc", label: "Lowest efficacy" },
+              { value: "n_curves|desc", label: "Most assays" },
+              { value: "n_curves|asc", label: "Fewest assays" },
             ]}
             onChange={(value) => {
               const [by, dir] = value.split("|");
@@ -334,14 +467,45 @@ const FoodInferredBioactivitiesSection = ({
                 onClick={handleSortClick}
                 align="right"
               />
-              <th className="h-9 border-b border-light-700 leading-none py-1.5 px-4 text-right">
-                <span className="select-none uppercase text-xs font-medium text-light-400">
-                  Top measurement
-                </span>
-              </th>
+              <SortableTh
+                label="Efficacy"
+                sortKey="efficacy"
+                sort={sort}
+                onClick={handleSortClick}
+                align="right"
+                help={
+                  <div className="whitespace-normal w-[28rem] max-w-[calc(100vw-3rem)]">
+                    <p className="mb-2 text-light-400">
+                      <span className="font-medium text-amber-300">
+                        Caveat
+                      </span>
+                      &nbsp;— Bioactivity values are based on in vitro data
+                      only and total food content only; they don&apos;t
+                      account for individual genetics, the microbiome, or
+                      the exposome. Work on bioaccessibility and
+                      bioavailability is ongoing.
+                    </p>
+                    <p className="mb-2">
+                      <span className="font-medium text-light-100">
+                        Above / Below
+                      </span>
+                      &nbsp;— is the food&apos;s dose above the AC50 (the
+                      concentration at 50% of the chemical&apos;s maximal
+                      response)?
+                    </p>
+                    <p>
+                      <span className="font-medium text-light-100">%</span>
+                      &nbsp;— fraction of that maximal response reached at
+                      the food&apos;s dose, read off the chemical&apos;s
+                      Hill curve for this bioactivity. Higher = stronger
+                      inferred effect.
+                    </p>
+                  </div>
+                }
+              />
               <SortableTh
                 label="Assays"
-                sortKey="measurement_count"
+                sortKey="n_curves"
                 sort={sort}
                 onClick={handleSortClick}
                 align="right"
@@ -372,7 +536,11 @@ const FoodInferredBioactivitiesSection = ({
                 <Row
                   key={`${row.chemical_id}-${row.bioactivity_id}-${idx}`}
                   row={row}
-                  onOpen={() => setSelected(row)}
+                  isPending={
+                    pendingKey ===
+                    `${row.chemical_id}::${row.bioactivity_id}`
+                  }
+                  onOpen={() => openModal(row)}
                   rowReportProps={reporter.getRowProps(buildRowContext(row))}
                 />
               ))
@@ -398,7 +566,6 @@ const FoodInferredBioactivitiesSection = ({
         ) : (
           rows.map((row, idx) => {
             const conc = row.median_concentration;
-            const top = row.top_measurement;
             const rowReportProps = reporter.getRowProps(buildRowContext(row));
             return (
               <div
@@ -449,22 +616,32 @@ const FoodInferredBioactivitiesSection = ({
                 </div>
                 <div className="w-full flex items-baseline justify-between gap-2">
                   <span className="font-mono italic text-[10px] uppercase tracking-wider text-light-500">
-                    Top measurement
+                    Efficacy
                   </span>
-                  <span className="font-mono text-xs text-light-200 text-right">
-                    {formatTopMeasurement(top)}
+                  <span className="text-right">
+                    <EfficacyCell efficacy={row.efficacy} />
                   </span>
                 </div>
                 <div className="w-full flex justify-end">
                   <Chip
                     icon={<MdDescription className="size-3" />}
-                    label={`${row.measurement_count.toLocaleString()} assay${
-                      row.measurement_count === 1 ? "" : "s"
-                    }`}
+                    label={
+                      pendingKey ===
+                      `${row.chemical_id}::${row.bioactivity_id}`
+                        ? "Loading…"
+                        : row.n_measurements_total != null
+                          ? `${row.n_measurements_total.toLocaleString()} assay${
+                              row.n_measurements_total === 1 ? "" : "s"
+                            }`
+                          : "View assays"
+                    }
                     tone="outline"
                     size="md"
-                    onClick={() => setSelected(row)}
-                    disabled={row.measurement_count === 0}
+                    onClick={() => openModal(row)}
+                    disabled={
+                      (row.n_measurements_total ?? row.n_curves) === 0 ||
+                      pendingKey !== null
+                    }
                   />
                 </div>
               </div>
@@ -483,15 +660,19 @@ const FoodInferredBioactivitiesSection = ({
         </div>
       )}
 
+      {/* Measurements sample is loaded via openModal → getChemicalBioactivities
+       * (the efficacy endpoint doesn't carry the raw sample, and the
+       * /bioactivity/measurements route was removed on the staging refresh).
+       * Cached per chemical so subsequent row opens are instant. */}
       <BioactivityMeasurementsModal
         isOpen={selected !== null}
         onClose={() => setSelected(null)}
-        headLabel={selected?.chemical ?? ""}
-        tailLabel={selected?.bioactivity ?? ""}
+        headLabel={selected?.row.chemical ?? ""}
+        tailLabel={selected?.row.bioactivity ?? ""}
         initialMeasurements={selected?.measurements ?? []}
-        expectedCount={selected?.measurement_count}
-        anchorId={selected?.chemical_id ?? null}
-        selectedId={selected?.bioactivity_id ?? null}
+        contributedCount={selected?.row.n_curves}
+        anchorId={selected?.row.chemical_id ?? null}
+        selectedId={selected?.row.bioactivity_id ?? null}
         relationship="r6"
         headIsRow={false}
       />
@@ -506,6 +687,7 @@ const SortableTh = ({
   onClick,
   align,
   first,
+  help,
 }: {
   label: string;
   sortKey: string;
@@ -513,6 +695,7 @@ const SortableTh = ({
   onClick: (k: string) => void;
   align: "left" | "right";
   first?: boolean;
+  help?: ReactNode;
 }) => {
   const active = sort.by === sortKey;
   return (
@@ -521,48 +704,84 @@ const SortableTh = ({
         first ? "pr-4" : "px-4"
       } ${align === "right" ? "text-right" : "text-left"}`}
     >
-      <button
-        type="button"
-        onClick={() => onClick(sortKey)}
-        className={`group flex items-center gap-1 cursor-pointer focus:outline-none ${
-          align === "right" ? "justify-end ml-auto" : ""
-        }`}
-      >
-        <span
-          className={`select-none uppercase text-xs font-medium transition duration-300 ease-in-out ${
-            active ? "text-light-100" : "text-light-400 group-hover:text-light-100"
-          }`}
+      <div className={`inline-flex items-center gap-1 ${align === "right" ? "ml-auto" : ""}`}>
+        <button
+          type="button"
+          onClick={() => onClick(sortKey)}
+          className="group flex items-center gap-1 cursor-pointer focus:outline-none"
         >
-          {label}
-        </span>
-        {active ? (
-          sort.dir === "asc" ? (
-            <MdKeyboardArrowUp className="text-accent-600 group-hover:text-accent-300 flex-shrink-0" />
+          <span
+            className={`select-none uppercase text-xs font-medium transition duration-300 ease-in-out ${
+              active ? "text-light-100" : "text-light-400 group-hover:text-light-100"
+            }`}
+          >
+            {label}
+          </span>
+          {active ? (
+            sort.dir === "asc" ? (
+              <MdKeyboardArrowUp className="text-accent-600 group-hover:text-accent-300 flex-shrink-0" />
+            ) : (
+              <MdKeyboardArrowDown className="text-accent-600 group-hover:text-accent-300 flex-shrink-0" />
+            )
           ) : (
-            <MdKeyboardArrowDown className="text-accent-600 group-hover:text-accent-300 flex-shrink-0" />
-          )
-        ) : (
-          <MdUnfoldMore className="text-light-400 group-hover:text-light-100 flex-shrink-0" />
+            <MdUnfoldMore className="text-light-400 group-hover:text-light-100 flex-shrink-0" />
+          )}
+        </button>
+        {help && (
+          <Tooltip content={help}>
+            <MdInfoOutline
+              className="w-3.5 h-3.5 text-light-500 hover:text-light-100 transition-colors"
+              aria-label={`About the ${label} column`}
+            />
+          </Tooltip>
         )}
-      </button>
+      </div>
     </th>
+  );
+};
+
+// Rendered in the desktop table's Efficacy column and the mobile card's
+// Efficacy label row. Shows the fraction of maximal response (0–100%)
+// at the food's in-food concentration — the primary metric per the
+// food_chemical_efficacy.csv dictionary. `conc_vs_ac50` chip is the
+// categorical above/below indicator (fraction > 0.5 ⇔ "above"). Renders
+// "—" when the row's efficacy_fraction is null.
+const EfficacyCell = ({ efficacy }: { efficacy: FoodEfficacyRow }) => {
+  if (efficacy.efficacy_fraction == null) {
+    return <span className="text-light-600">—</span>;
+  }
+  const above = efficacy.conc_vs_ac50 === "above";
+  return (
+    <span className="inline-flex items-baseline gap-2">
+      <span
+        className={twMerge(
+          "font-mono italic uppercase tracking-wider text-[10px] px-1.5 py-[1px] rounded-full border",
+          above
+            ? "text-emerald-300 border-emerald-500/70 bg-emerald-500/10"
+            : "text-light-400 border-light-700 bg-light-800/40"
+        )}
+      >
+        {efficacy.conc_vs_ac50 ?? "—"}
+      </span>
+      <span className="font-mono tabular-nums text-xs text-light-300">
+        {formatEfficacyFraction(efficacy.efficacy_fraction)}
+      </span>
+    </span>
   );
 };
 
 const Row = ({
   row,
+  isPending,
   onOpen,
   rowReportProps,
 }: {
   row: InferredRow;
+  isPending: boolean;
   onOpen: () => void;
   rowReportProps?: Record<string, unknown>;
 }) => {
   const conc = row.median_concentration;
-  const top = topMeasurementOf({
-    measurements: row.measurements,
-    top_measurement: row.top_measurement,
-  });
   return (
     <tr {...rowReportProps}>
       <td className="py-1.5 pr-4">
@@ -601,20 +820,28 @@ const Row = ({
       </td>
       <td className="py-1.5 px-4 text-right">
         <div className="flex min-h-9 items-center justify-end font-mono text-xs text-light-200">
-          {formatTopMeasurement(top)}
+          <EfficacyCell efficacy={row.efficacy} />
         </div>
       </td>
       <td className="py-1.5 pl-4 text-right">
         <div className="flex min-h-9 items-center justify-end">
           <Chip
             icon={<MdDescription className="size-3" />}
-            label={`${row.measurement_count.toLocaleString()} assay${
-              row.measurement_count === 1 ? "" : "s"
-            }`}
+            label={
+              isPending
+                ? "Loading…"
+                : row.n_measurements_total != null
+                  ? `${row.n_measurements_total.toLocaleString()} assay${
+                      row.n_measurements_total === 1 ? "" : "s"
+                    }`
+                  : "View assays"
+            }
             tone="outline"
             size="md"
             onClick={onOpen}
-            disabled={row.measurement_count === 0}
+            disabled={
+              (row.n_measurements_total ?? row.n_curves) === 0 || isPending
+            }
           />
         </div>
       </td>

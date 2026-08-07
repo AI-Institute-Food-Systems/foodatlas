@@ -95,6 +95,12 @@ interface Props {
   tailLabel: string;
   initialMeasurements?: BioactivityMeasurement[] | null;
   expectedCount?: number;
+  // When rendered from the food-inferred-bioactivities table, this is
+  // /food/efficacy's n_curves (records with a fittable AC50 — the ones
+  // that contributed to the row's efficacy metric). Not every assay in
+  // `rows` contributed (MIC-only rows have no logac50), so we surface
+  // the delta so users aren't misled. Undefined for other call sites.
+  contributedCount?: number;
   anchorId?: string | null;
   selectedId?: string | null;
   relationship?: "r5" | "r6";
@@ -111,6 +117,7 @@ const BioactivityMeasurementsModal = ({
   tailLabel,
   initialMeasurements,
   expectedCount,
+  contributedCount,
   anchorId,
   selectedId,
   relationship,
@@ -377,6 +384,11 @@ const BioactivityMeasurementsModal = ({
         <span className="font-mono italic text-xs text-light-400 capitalize">
           {totalKnown.toLocaleString()} measurement
           {totalKnown === 1 ? "" : "s"}
+          {contributedCount != null && contributedCount < totalKnown && (
+            <span className="ml-2 not-italic normal-case text-light-600">
+              · {contributedCount.toLocaleString()} contributed to efficacy
+            </span>
+          )}
           {filtered.length !== rows.length && (
             <span className="ml-2 not-italic normal-case text-light-600">
               · {filtered.length.toLocaleString()} after filters
