@@ -122,17 +122,86 @@ jobs:
           fi
           uv run cdk deploy FoodAtlasApiStack-Staging "${args[@]}"
 
-      - name: Smoke test /health (staging)
-        # Pass the staging API URL in via `STAGING_API_URL` (no custom
-        # domain yet — set it to the ApiStack-Staging ALB DNS or to a
-        # custom CNAME like api-staging.foodatlas.ai once you wire one up).
-        # Falls back to a no-op when the secret isn't set so first-time
-        # bootstrap doesn't fail just because the URL isn't known yet.
+      - name: Smoke test staging API
+        # Resolves the ALB URL and bearer token from the stack's own
+        # CfnOutputs rather than repo secrets, so this can't silently
+        # skip itself the way the old `STAGING_API_URL`-gated version
+        # did (that secret was never set, so the check never ran).
+        #
+        # Hits a real data endpoint, not just /health. This job deploys
+        # new images but does NOT reload the database, so a merge that
+        # changes the DB schema leaves new code querying an old
+        # materialized schema. /health stays 200 through that; the data
+        # endpoints 500. See the 2026-08-07 incident where
+        # /bioactivity/chemicals was fully broken behind a green deploy.
+        env:
+          STACK: FoodAtlasApiStack-Staging
         run: |
-          if [ -z "${{ secrets.STAGING_API_URL }}" ]; then
-            echo "STAGING_API_URL secret not set — skipping smoke test."
-            exit 0
+          set -euo pipefail
+
+          _output() {
+            aws cloudformation describe-stacks \
+              --stack-name "$STACK" --region "$AWS_REGION" \
+              --query "Stacks[0].Outputs[?OutputKey=='$1'].OutputValue" \
+              --output text
+          }
+
+          API_URL=$(_output ApiUrl)
+          KEY_ARN=$(_output ApiKeySecretArn)
+          if [ -z "$API_URL" ] || [ "$API_URL" = "None" ]; then
+            echo "::error::Could not resolve ApiUrl from $STACK."
+            exit 1
           fi
+          echo "Smoke-testing $API_URL"
+
+          API_KEY=$(aws secretsmanager get-secret-value \
+            --secret-id "$KEY_ARN" --region "$AWS_REGION" \
+            --query SecretString --output text)
+
+          # Liveness first — retry while the new task set drains in.
           curl --fail --show-error --retry 10 --retry-delay 10 \
-               --retry-all-errors --max-time 30 \
-               "${{ secrets.STAGING_API_URL }}/health"
+               --retry-all-errors --max-time 30 "$API_URL/health"
+          echo "  /health OK"
+
+          # Then one endpoint per materialized view that the merge could
+          # have desynced. Each must return HTTP 200 AND a non-empty
+          # `data` array — a 200 with `[]` means the MV is empty, which
+          # is the other half of this failure mode.
+          smoke() {
+            label="$1"
+            path="$2"
+            status=$(curl --silent --show-error --max-time 30 \
+                          -H "Authorization: Bearer $API_KEY" \
+                          -o /tmp/smoke-body.json -w '%{http_code}' \
+                          "$API_URL$path" || echo 000)
+            if [ "$status" != "200" ]; then
+              echo "::error::$label -- HTTP $status for $path"
+              head -c 400 /tmp/smoke-body.json || true
+              echo
+              return 1
+            fi
+            # `.data` is an array on list endpoints and an object on
+            # /metadata/statistics; `length > 0` covers both. A 200 with an
+            # empty body is the other half of the stale-MV failure mode.
+            if ! jq -e '(.data // .) | length > 0' /tmp/smoke-body.json >/dev/null 2>&1; then
+              echo "::error::$label -- HTTP 200 but empty/unparseable data"
+              head -c 400 /tmp/smoke-body.json || true
+              echo
+              return 1
+            fi
+            echo "  $label OK"
+          }
+
+          failed=0
+          smoke "bioactivity/chemicals (mv_chemical_bioactivity)" \
+                "/bioactivity/chemicals?common_name=anticancer&page=1" || failed=1
+          smoke "food/composition (mv_food_chemical_composition)" \
+                "/food/composition?common_name=onion&page=1" || failed=1
+          smoke "metadata/statistics (mv_metadata_statistics)" \
+                "/metadata/statistics" || failed=1
+
+          if [ "$failed" -ne 0 ]; then
+            echo "::error::Staging smoke test failed. If the API itself deployed cleanly, the database is probably stale -- this workflow does not run the ETL. Reload with: STACK=FoodAtlasJobsStack-Staging infra/aws/scripts/run-data-load.sh staging-bioactivity"
+            exit 1
+          fi
+          echo "All staging smoke tests passed."
