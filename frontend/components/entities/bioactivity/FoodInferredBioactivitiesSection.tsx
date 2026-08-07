@@ -41,14 +41,17 @@ import {
 import { encodeSpace, formatConcentrationValueAlt } from "@/utils/utils";
 import type { BioactivityMeasurement, FoodEfficacyRow } from "@/types";
 
-// The inferred table row shape now derives from /food/efficacy (the
-// former /food/inferred-bioactivities endpoint was removed on the
-// ptfi-bioactivity-staging refresh). Each row is one (chemical ×
-// bioactivity) evaluated against a Hill fit — the efficacy math lives
-// on `efficacy`; `n_curves` is the count of qualifying Hill curves
-// (the closest analog to the old `measurement_count` for the "N curves"
-// column + the View-measurements modal button).
-interface InferredRow {
+// The inferred table row shape derives from /food/efficacy. Each row is
+// one (chemical × bioactivity) evaluated against a Hill fit — the efficacy
+// math lives on `efficacy`; `n_curves` is the count of qualifying Hill
+// curves and `n_measurements_total` the count the assay chip shows.
+//
+// /food/inferred-bioactivities still exists and still works; we prefer
+// /food/efficacy because only it carries the Hill-fit fields this table
+// renders. Note the tradeoff: efficacy takes no filter params, so the
+// unit/evidence/source filters can't be applied server-side here (see the
+// fetch effect below and the scoping comment in FoodBioactivitiesTab).
+export interface InferredRow {
   bioactivity: string;
   bioactivity_id: string;
   chemical: string;
@@ -79,14 +82,31 @@ const efficacyToInferredRow = (e: FoodEfficacyRow): InferredRow => ({
   efficacy: e,
 });
 
-const compare = (a: number | null, b: number | null): number => {
-  if (a == null && b == null) return 0;
-  if (a == null) return 1; // nulls last
-  if (b == null) return -1;
-  return a - b;
+// Numeric comparator for ASCENDING order only. Nulls are NOT handled here:
+// callers apply the direction multiplier to the result, which would flip a
+// nulls-last rule into nulls-first on every descending sort. `sortNumeric`
+// below owns null placement so it survives the multiplier.
+const compare = (a: number, b: number): number => a - b;
+
+// Compares two nullable numbers and applies the direction, keeping nulls
+// last in BOTH directions. Returns a value already oriented for `dir`, so
+// callers must not multiply it again.
+const sortNumeric = (
+  a: number | null | undefined,
+  b: number | null | undefined,
+  mult: number
+): number => {
+  const aNull = a == null;
+  const bNull = b == null;
+  if (aNull && bNull) return 0;
+  if (aNull) return 1; // nulls last regardless of direction
+  if (bNull) return -1;
+  return mult * compare(a, b);
 };
 
-const sortInferred = (
+// Exported for unit tests — the direction/null interaction here is subtle
+// enough to be worth pinning (it has regressed once).
+export const sortInferred = (
   rows: InferredRow[],
   by: string,
   dir: "asc" | "desc"
@@ -100,30 +120,38 @@ const sortInferred = (
       case "chemical":
         return mult * r1.chemical.localeCompare(r2.chemical);
       case "concentration":
-        return (
-          mult *
-          compare(
-            r1.median_concentration?.value ?? null,
-            r2.median_concentration?.value ?? null
-          )
+        return sortNumeric(
+          r1.median_concentration?.value ?? null,
+          r2.median_concentration?.value ?? null,
+          mult
         );
-      case "efficacy":
-        return (
-          mult *
-          compare(
-            r1.efficacy.efficacy_fraction,
-            r2.efficacy.efficacy_fraction
-          )
+      case "efficacy": {
+        // efficacy_fraction saturates: roughly half of a typical food's
+        // rows sit above 0.99 and all render as ">99%", so sorting on it
+        // alone leaves several pages in arbitrary order. Break those ties
+        // on dose_over_ac50_log, which still separates them by orders of
+        // magnitude (onion's saturated band spans 0.62–6.65). The
+        // displayed value is unchanged — only the ordering within the
+        // band becomes meaningful.
+        const byFraction = sortNumeric(
+          r1.efficacy.efficacy_fraction,
+          r2.efficacy.efficacy_fraction,
+          mult
         );
+        if (byFraction !== 0) return byFraction;
+        return sortNumeric(
+          r1.efficacy.dose_over_ac50_log,
+          r2.efficacy.dose_over_ac50_log,
+          mult
+        );
+      }
       case "n_curves":
         // Sort by the total shown on the chip when available, falling back
         // to the contributed count on older API deployments.
-        return (
-          mult *
-          compare(
-            r1.n_measurements_total ?? r1.n_curves,
-            r2.n_measurements_total ?? r2.n_curves
-          )
+        return sortNumeric(
+          r1.n_measurements_total ?? r1.n_curves,
+          r2.n_measurements_total ?? r2.n_curves,
+          mult
         );
       default:
         return 0;
@@ -292,6 +320,25 @@ const FoodInferredBioactivitiesSection = ({
   useEffect(() => {
     if (onTotalRowsChange && !isLoading) onTotalRowsChange(totalRows);
   }, [onTotalRowsChange, totalRows, isLoading]);
+
+  // Snap back to page 1 when the row set shrinks below the current page.
+  // The search box lives on the parent (FoodBioactivitiesTab) whenever
+  // `hideChrome` is set, so the in-component handlers that reset the page
+  // are unreachable — without this, filtering while on a later page slices
+  // past the end and renders "no matches" over real results, with the
+  // paginator unmounted (totalPages === 1) and no way back.
+  //
+  // Same shape as EvidenceTable / BioactivityMeasurementsModal, adapted to
+  // PaginationsContext. `setTablePaginations` isn't referentially stable,
+  // so this effect re-runs often — the guard is what keeps that safe.
+  // The `!isLoading` guard matters: rows are empty on the first render, so
+  // totalPages is 1 before the fetch resolves and an unguarded clamp would
+  // discard a legitimately persisted page on every mount.
+  useEffect(() => {
+    if (!isLoading && currentPage > totalPages) {
+      setTablePaginations(tableId, 1, PAGE_SIZE);
+    }
+  }, [isLoading, currentPage, totalPages, tableId, setTablePaginations]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value.toLowerCase());
@@ -540,6 +587,7 @@ const FoodInferredBioactivitiesSection = ({
                     pendingKey ===
                     `${row.chemical_id}::${row.bioactivity_id}`
                   }
+                  anyPending={pendingKey !== null}
                   onOpen={() => openModal(row)}
                   rowReportProps={reporter.getRowProps(buildRowContext(row))}
                 />
@@ -660,10 +708,14 @@ const FoodInferredBioactivitiesSection = ({
         </div>
       )}
 
-      {/* Measurements sample is loaded via openModal → getChemicalBioactivities
-       * (the efficacy endpoint doesn't carry the raw sample, and the
-       * /bioactivity/measurements route was removed on the staging refresh).
-       * Cached per chemical so subsequent row opens are instant. */}
+      {/* openModal pre-loads a measurements sample via
+       * getChemicalBioactivities (the efficacy endpoint doesn't carry raw
+       * measurements), cached per chemical. That sample is only a
+       * placeholder + fallback: the modal itself then fetches the
+       * authoritative set from /bioactivity/measurements, which carries the
+       * Hill-fit fields the sample lacks. The pre-fetch is therefore a
+       * blocking round-trip we could drop — tracked as a follow-up, since
+       * removing it also removes the fallback when that fetch fails. */}
       <BioactivityMeasurementsModal
         isOpen={selected !== null}
         onClose={() => setSelected(null)}
@@ -773,11 +825,13 @@ const EfficacyCell = ({ efficacy }: { efficacy: FoodEfficacyRow }) => {
 const Row = ({
   row,
   isPending,
+  anyPending,
   onOpen,
   rowReportProps,
 }: {
   row: InferredRow;
   isPending: boolean;
+  anyPending: boolean;
   onOpen: () => void;
   rowReportProps?: Record<string, unknown>;
 }) => {
@@ -839,8 +893,14 @@ const Row = ({
             tone="outline"
             size="md"
             onClick={onOpen}
+            // `anyPending`, not just this row's `isPending`: two overlapping
+            // fetches would both resolve and the second would swap the open
+            // modal's chemical out from under the user. Matches the mobile
+            // card's guard.
             disabled={
-              (row.n_measurements_total ?? row.n_curves) === 0 || isPending
+              (row.n_measurements_total ?? row.n_curves) === 0 ||
+              isPending ||
+              anyPending
             }
           />
         </div>

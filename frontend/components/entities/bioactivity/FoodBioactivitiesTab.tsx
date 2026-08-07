@@ -62,10 +62,23 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
       : (directTotal ?? 0) + (inferredTotal ?? 0);
   usePublishTabCount("bioactivities", combinedTotal);
 
-  // Source-kind counts for the sidebar Assay Source picker. Aggregated
-  // across BOTH the direct (food-bioactivities) and inferred
-  // (food-inferred-bioactivities) directions since the sidebar drives
-  // both tables — same treatment as the Unit filter above.
+  // Source-kind counts for the sidebar Assay Source picker.
+  //
+  // SCOPED TO THE DIRECT TABLE ONLY. These three filters (source kind,
+  // evidence type, unit) are forwarded to both sections, but only the
+  // direct table acts on them — the inferred table is driven by
+  // /food/efficacy, which takes just a food name, and a Hill-fit row has
+  // no "unit" or "evidence type" to filter on (see the comment in
+  // FoodInferredBioactivitiesSection's fetch effect). Counting the
+  // inferred side here advertised numbers nothing would act on: onion
+  // offered "uM (13,419)", and clicking it left the inferred table at 162
+  // rows while emptying the direct table.
+  //
+  // Counts are consequently much smaller. That's intended — they now
+  // describe exactly the rows the filter governs. Where the direct table
+  // has nothing to filter the options list comes back empty and the
+  // group hides itself (see the `.length > 0` guards on unitFilter /
+  // evidenceFilter below).
   const [sourceKindCounts, setSourceKindCounts] = useState<{
     both: number;
     experimental: number;
@@ -75,35 +88,27 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
     if (!commonName) return;
     let cancelled = false;
     // Apply the tab's current search + unit filter (no category filter
-    // on the food-bioactivities/inferred directions today) so the source
-    // kind counts stay in sync with the visible tables.
+    // on the food-bioactivities direction today) so the source kind
+    // counts stay in sync with the direct table.
     const filters = {
       filterUnit: selectedUnits.join("+"),
       search: searchTerm,
     };
     (async () => {
-      const [direct, inferred] = await Promise.all([
-        getBioactivitySourceKindCounts(
-          commonName,
-          "food-bioactivities",
-          filters,
-        ),
-        getBioactivitySourceKindCounts(
-          commonName,
-          "food-inferred-bioactivities",
-          filters,
-        ),
-      ]);
+      const direct = await getBioactivitySourceKindCounts(
+        commonName,
+        "food-bioactivities",
+        filters,
+      );
       if (cancelled) return;
-      if (!direct && !inferred) {
+      if (!direct) {
         setSourceKindCounts(null);
         return;
       }
       setSourceKindCounts({
-        both: (direct?.both ?? 0) + (inferred?.both ?? 0),
-        experimental:
-          (direct?.experimental ?? 0) + (inferred?.experimental ?? 0),
-        predicted: (direct?.predicted ?? 0) + (inferred?.predicted ?? 0),
+        both: direct.both ?? 0,
+        experimental: direct.experimental ?? 0,
+        predicted: direct.predicted ?? 0,
       });
     })();
     return () => {
@@ -115,23 +120,19 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
   const unitParam = selectedUnits.join("+");
   const evidenceTypeParam = selectedEvidenceTypes.join("+");
 
-  // Aggregated evidence-type counts across BOTH tables (direct +
-  // inferred). Each direction returns a list of {evidence_type, count};
-  // we merge on evidence_type and re-sort by summed count.
+  // Evidence-type counts — direct table only, for the reason documented
+  // on the source-kind effect above.
   useEffect(() => {
     if (!commonName) return;
     let cancelled = false;
     (async () => {
-      const [direct, inferred] = await Promise.all([
-        getBioactivityEvidenceTypeCounts(commonName, "food-bioactivities"),
-        getBioactivityEvidenceTypeCounts(
-          commonName,
-          "food-inferred-bioactivities"
-        ),
-      ]);
+      const direct = await getBioactivityEvidenceTypeCounts(
+        commonName,
+        "food-bioactivities"
+      );
       if (cancelled) return;
       const totals = new Map<string, number>();
-      for (const o of [...direct, ...inferred]) {
+      for (const o of direct) {
         const t = (o.evidence_type ?? "").trim();
         if (!t) continue;
         totals.set(t, (totals.get(t) ?? 0) + (o.count ?? 0));
@@ -147,26 +148,24 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
     };
   }, [commonName]);
 
-  // Aggregated unit list across BOTH tables — direct (food-level
-  // measurements, usually just "mmol/100g") + inferred (all measurements
-  // for every chemical present in this food, so IC50 uM/nM, MIC ug/mL,
-  // etc). Fetches both directions and merges counts so the sidebar
-  // surfaces the full spectrum of units the user might filter by.
+  // Unit list — direct table only, for the reason documented on the
+  // source-kind effect above. In practice the direct table's units are
+  // food-level ("mmol/100g" and similar), so this list is short.
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [direct, inferred] = await Promise.all([
-        getBioactivityEndpointOptions(commonName, "food-bioactivities"),
-        getBioactivityEndpointOptions(
-          commonName,
-          "food-inferred-bioactivities"
-        ),
-      ]);
+      const direct = await getBioactivityEndpointOptions(
+        commonName,
+        "food-bioactivities"
+      );
       if (cancelled) return;
       const totals = new Map<string, number>();
-      for (const o of [...direct, ...inferred]) {
+      for (const o of direct) {
         const u = (o.unit ?? "").trim();
-        if (!u) continue;
+        // "None" is the API's sentinel for a null/blank unit (see
+        // displayUnit in ./format.ts) — not something to offer as a
+        // filter option.
+        if (!u || u === "None") continue;
         totals.set(u, (totals.get(u) ?? 0) + (o.count ?? 0));
       }
       setUnitOptions(

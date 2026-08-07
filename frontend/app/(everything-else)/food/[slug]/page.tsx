@@ -72,11 +72,10 @@ const FoodPage = async ({ params }: FoodPageProps) => {
     (compPayload?.metadata?.total_rows as number | undefined) ?? null;
   const directBio =
     (bioPayload?.metadata?.total_rows as number | undefined) ?? null;
-  // Inferred bioactivity count is now derived from /food/efficacy (the
-  // old /food/inferred-bioactivities endpoint was removed on the
-  // ptfi-bioactivity-staging refresh). row_count on efficacy = one row
-  // per (chemical × bioactivity) pair that could be evaluated against a
-  // Hill curve, which is the same conceptual count.
+  // Inferred bioactivity count is derived from /food/efficacy to match the
+  // table below, which renders that endpoint's rows. row_count = one row
+  // per (chemical × bioactivity) pair evaluable against a Hill curve.
+  // (/food/inferred-bioactivities still exists; we just don't use it here.)
   const inferredBio =
     (inferredBioPayload?.metadata?.row_count as number | undefined) ?? null;
   const bioactivitiesCount =

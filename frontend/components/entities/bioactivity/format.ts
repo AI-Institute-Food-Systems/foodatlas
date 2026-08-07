@@ -9,8 +9,13 @@ function formatNumber(value: number | null | undefined): string {
   return value.toLocaleString(undefined, { maximumSignificantDigits: 3 });
 }
 
+// `"None"` is a sentinel the API emits for null/blank units (see
+// backend/api/src/repositories/_bioact_hotfix.py normalize_unit) — it must
+// render as no unit at all, not as the literal word. The measurements modal
+// guards the same value inline; keep both in sync until the upstream
+// cleanup lands and the sentinel stops being produced.
 export function displayUnit(unit: string | null | undefined): string {
-  return unit ? ` ${unit}` : "";
+  return unit && unit !== "None" ? ` ${unit}` : "";
 }
 
 export function formatTopPotency(
