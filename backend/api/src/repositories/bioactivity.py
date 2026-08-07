@@ -544,7 +544,25 @@ _INFERRED_SORT = {
     "measurement_count": "cb.measurement_count",
     "active_count": "cb.active_count",
     "inactive_count": "cb.inactive_count",
+    # efficacy_fraction saturates — roughly half a food's rows sit above 0.99
+    # and all render as ">99%" — so ties fall through to dose_over_ac50_log,
+    # which still separates them by orders of magnitude. Mirrors the frontend
+    # comparator this replaces. Multi-column: the direction has to be repeated
+    # per column, since `a, b DESC` would sort `a` ascending.
+    "efficacy": ["eff.efficacy_fraction", "eff.dose_over_ac50_log"],
+    "n_curves": ["eff.n_curves"],
 }
+
+# Efficacy columns LEFT JOINed onto the inferred rows. The join key is food
+# plus chemical plus bioactivity, which is unique in mv_food_chemical_efficacy,
+# so it can never multiply rows — the COUNT query deliberately omits the join.
+# Rows with no Hill fit come back NULL and render as an em-dash.
+_INFERRED_EFFICACY_JOIN = """
+            LEFT JOIN mv_food_chemical_efficacy eff
+              ON eff.food_name = fcc.food_name
+             AND eff.chemical_foodatlas_id = fcc.chemical_foodatlas_id
+             AND eff.bioactivity_foodatlas_id = cb.bioactivity_foodatlas_id
+"""
 
 
 async def get_food_inferred_bioactivities(
@@ -562,6 +580,10 @@ async def get_food_inferred_bioactivities(
     """Bioactivities of the chemicals found in this food (transitive)."""
     sort_col = _INFERRED_SORT.get(sort_by, _INFERRED_SORT["concentration"])
     direction = sort_dir.upper() if sort_dir.upper() in _VALID_DIR else "DESC"
+    # Every column carries its own direction + NULLS LAST; a bare
+    # `ORDER BY a, b DESC` would silently sort `a` ascending.
+    sort_cols = [sort_col] if isinstance(sort_col, str) else sort_col
+    order_by = ", ".join(f"{c} {direction} NULLS LAST" for c in sort_cols)
 
     params: dict = {"name": common_name}
     where_parts = ["fcc.food_name = :name"]
@@ -607,12 +629,17 @@ async def get_food_inferred_bioactivities(
               fcc.chemical_foodatlas_id AS chemical_id,
               fcc.median_concentration,
               cb.measurement_count, cb.active_count, cb.inactive_count,
-              cb.measurements
+              cb.measurements,
+              eff.efficacy_fraction,
+              eff.conc_vs_ac50,
+              eff.dose_over_ac50_log,
+              eff.n_curves
             FROM mv_food_chemical_composition fcc
             JOIN mv_chemical_bioactivity cb
               ON cb.chemical_foodatlas_id = fcc.chemical_foodatlas_id
+            {_INFERRED_EFFICACY_JOIN}
             WHERE {where}
-            ORDER BY {sort_col} {direction} NULLS LAST
+            ORDER BY {order_by}
             OFFSET :offset ROWS FETCH FIRST :limit ROWS ONLY
         """),
         {**params, "offset": offset, "limit": rows_per_page},
