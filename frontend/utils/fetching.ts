@@ -337,11 +337,6 @@ export async function getLatestBundle(): Promise<DownloadEntry | null> {
 // toolbar. All optional; defaults match the backend.
 export type BioactivityListParams = {
   page?: number;
-  // Rows per page. Backend caps at 500 and defaults to 50 — omit to
-  // use the default; set explicitly only when a caller needs a wider
-  // batch (rare — the BioactivityTable paginator handles multi-page
-  // navigation).
-  limit?: number;
   search?: string;
   sortBy?: string;
   sortDir?: "asc" | "desc";
@@ -370,7 +365,6 @@ export type BioactivityListParams = {
 const buildBioactivityQuery = (params?: BioactivityListParams): string => {
   const p = new URLSearchParams();
   if (params?.page) p.set("page", String(params.page));
-  if (params?.limit) p.set("limit", String(params.limit));
   if (params?.search) p.set("search", params.search);
   if (params?.sortBy) p.set("sort_by", params.sortBy);
   if (params?.sortDir) p.set("sort_dir", params.sortDir);
