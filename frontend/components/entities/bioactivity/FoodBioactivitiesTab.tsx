@@ -166,11 +166,21 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      const unitFacets = {
+        filterEvidenceType: selectedEvidenceTypes.join("+"),
+        filterSourceKind: selectedSourceKind,
+        search: searchTerm,
+      };
       const [direct, inferred] = await Promise.all([
-        getBioactivityEndpointOptions(commonName, "food-bioactivities"),
         getBioactivityEndpointOptions(
           commonName,
-          "food-inferred-bioactivities"
+          "food-bioactivities",
+          unitFacets
+        ),
+        getBioactivityEndpointOptions(
+          commonName,
+          "food-inferred-bioactivities",
+          unitFacets
         ),
       ]);
       if (cancelled) return;
@@ -189,7 +199,7 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
     return () => {
       cancelled = true;
     };
-  }, [commonName]);
+  }, [commonName, selectedEvidenceTypes, selectedSourceKind, searchTerm]);
 
   const chooseSourceKind = (kind: string) => setSelectedSourceKind(kind);
   const toggleUnit = (unit: string) => {

@@ -531,13 +531,22 @@ export type BioactivityDirection =
 // Returns [] on any fetch failure so the table can render without chips.
 export async function getBioactivityEndpointOptions(
   commonName: string,
-  direction: BioactivityDirection
+  direction: BioactivityDirection,
+  filters: BioactivitySidebarFilters = {}
 ): Promise<{ endpoint: string; unit: string; count: number }[]> {
   try {
+    const params = new URLSearchParams({
+      common_name: commonName,
+      direction,
+    });
+    // Skip unit itself — this endpoint IS the unit list, so its own
+    // selection must not narrow the options it offers.
+    buildBioactivitySidebarParams(params, filters, {
+      skipUnit: true,
+      skipCategory: true,
+    });
     const res = await fetch(
-      `${apiBase()}/bioactivity/endpoints?common_name=${encodeURIComponent(
-        commonName
-      )}&direction=${direction}`,
+      `${apiBase()}/bioactivity/endpoints?${params.toString()}`,
       {
         headers: {
           Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,

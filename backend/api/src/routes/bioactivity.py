@@ -87,10 +87,24 @@ async def bioactivity_endpoint_options(
             "bioactivity-foods, chemical-bioactivities, food-bioactivities."
         ),
     ),
+    filter_evidence_type: str = Query(""),
+    filter_source_kind: str = Query(""),
+    search: str = Query(""),
     db: AsyncSession = Depends(get_db),
 ):
-    """Distinct (endpoint, unit, count) tuples for the table's filter UI."""
-    return await bioactivity.get_endpoint_options(db, common_name, direction)
+    """Distinct (endpoint, unit, count) tuples for the table's filter UI.
+
+    Faceted on every OTHER sidebar dimension, matching
+    /food/composition/counts.
+    """
+    return await bioactivity.get_endpoint_options(
+        db,
+        common_name,
+        direction,
+        filter_evidence_type=filter_evidence_type,
+        filter_source_kind=filter_source_kind,
+        search=search,
+    )
 
 
 @router.get("/categories")

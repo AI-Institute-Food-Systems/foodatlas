@@ -676,7 +676,12 @@ _DIRECTION_PIVOTS: dict[str, tuple[str, str, str]] = {
 
 
 async def get_endpoint_options(
-    session: AsyncSession, common_name: str, direction: str
+    session: AsyncSession,
+    common_name: str,
+    direction: str,
+    filter_evidence_type: str = "",
+    filter_source_kind: str = "",
+    search: str = "",
 ) -> dict[str, object]:
     """List distinct (endpoint, unit) combinations for the given pivot.
 
@@ -690,15 +695,27 @@ async def get_endpoint_options(
     bioactivities sidebar so its unit list isn't limited to the direct
     (food-level) measurements alone.
 
-    TODO: this endpoint should also become faceted (accept filter_category,
-    filter_source_kind, search) and return per-row unit counts so the
-    Unit chip count stays in sync when other filters are applied. Blocked
-    on rewriting the attestation-based aggregate as an MV-based row-count
-    query without regressing the completeness of the unit list.
+    Faceted on evidence type, source kind and search, so the Unit counts
+    track the rest of the sidebar. The aggregate stays attestation-level
+    on purpose — see _attestation_facet_where for why an MV rewrite would
+    lose units.
     """
     if direction == "food-inferred-bioactivities":
+        extras, extra_params = _attestation_facet_where(
+            filter_evidence_type=filter_evidence_type,
+            filter_source_kind=filter_source_kind,
+            search=search,
+            pair_exists_sql=(
+                "EXISTS (SELECT 1 FROM mv_chemical_bioactivity cb"
+                " WHERE cb.chemical_foodatlas_id = fcc.chemical_foodatlas_id"
+                " AND cb.bioactivity_foodatlas_id = bt.tail_id"
+                " AND (cb.bioactivity_name || ' ' || cb.chemical_name)"
+                " ILIKE :sq)"
+            ),
+        )
+        extra_sql = "".join(f" AND {c}" for c in extras)
         rows_result = await session.execute(
-            text("""
+            text(f"""
                 SELECT ba.evidence_endpoint_type AS endpoint,
                        ba.potency_unit AS unit,
                        COUNT(*) AS count
@@ -711,11 +728,11 @@ async def get_endpoint_options(
                   ON ba.bioactivity_metadata_id = att.bm
                 WHERE fcc.food_name = :name
                   AND ba.evidence_endpoint_type <> ''
-                  AND ba.potency_unit <> ''
+                  AND ba.potency_unit <> ''{extra_sql}
                 GROUP BY ba.evidence_endpoint_type, ba.potency_unit
                 ORDER BY COUNT(*) DESC
             """),
-            {"name": common_name},
+            {"name": common_name, **extra_params},
         )
         data = _bioact_hotfix.clean_endpoint_options(
             [dict(r._mapping) for r in rows_result]
@@ -736,6 +753,28 @@ async def get_endpoint_options(
     if not pivot_id:
         return {"data": [], "metadata": {"row_count": 0}}
 
+    # Search selects pairs, so it needs the peer entity's name. r6 pairs
+    # live in mv_chemical_bioactivity keyed (chemical, bioactivity); r5 in
+    # mv_food_bioactivity keyed (food, bioactivity). Matching on both ids
+    # keeps the EXISTS a pair lookup, never a measurement filter.
+    pair_mv, pair_head_col, pair_head_name = (
+        ("mv_chemical_bioactivity", "chemical_foodatlas_id", "chemical_name")
+        if rel == "r6"
+        else ("mv_food_bioactivity", "food_foodatlas_id", "food_name")
+    )
+    name_expr = f"(pm.bioactivity_name || ' ' || pm.{pair_head_name})"
+    extras, extra_params = _attestation_facet_where(
+        filter_evidence_type=filter_evidence_type,
+        filter_source_kind=filter_source_kind,
+        search=search,
+        pair_exists_sql=(
+            f"EXISTS (SELECT 1 FROM {pair_mv} pm"
+            f" WHERE pm.{pair_head_col} = bt.head_id"
+            " AND pm.bioactivity_foodatlas_id = bt.tail_id"
+            f" AND {name_expr} ILIKE :sq)"
+        ),
+    )
+    extra_sql = "".join(f" AND {c}" for c in extras)
     rows_result = await session.execute(
         text(f"""
             SELECT ba.evidence_endpoint_type AS endpoint,
@@ -748,11 +787,11 @@ async def get_endpoint_options(
             WHERE bt.relationship_id = :rel
               AND bt.{pivot_side} = :pivot
               AND ba.evidence_endpoint_type <> ''
-              AND ba.potency_unit <> ''
+              AND ba.potency_unit <> ''{extra_sql}
             GROUP BY ba.evidence_endpoint_type, ba.potency_unit
             ORDER BY COUNT(*) DESC
         """),
-        {"rel": rel, "pivot": pivot_id},
+        {"rel": rel, "pivot": pivot_id, **extra_params},
     )
     # HOTFIX 2026-06-26 — drop leaked-assay/outcome endpoints and fold
     # unit aliases before exposing the chip list. See _bioact_hotfix.py.
@@ -824,6 +863,47 @@ _SEARCH_COL_BY_DIRECTION: dict[str, str] = {
 
 def _search_col_for(direction: str) -> str:
     return _SEARCH_COL_BY_DIRECTION.get(direction, "")
+
+
+def _attestation_facet_where(
+    *,
+    filter_evidence_type: str = "",
+    filter_source_kind: str = "",
+    search: str = "",
+    pair_exists_sql: str = "",
+) -> tuple[list[str], dict]:
+    """Facet predicates for the attestation-level unit/endpoint aggregate.
+
+    get_endpoint_options counts rows of base_attestations_bioactivity, not
+    MV rows, because the MV's ``measurements`` sample is capped at 25 per
+    pair and an MV-based rewrite would silently drop units that only occur
+    past the cap. So evidence type and source kind filter the attestation
+    columns directly.
+
+    ``search`` is different — it selects *pairs*, not measurements — so the
+    caller passes an EXISTS fragment against the relevant MV. That join can
+    only ever exclude whole pairs, never individual measurements, so the
+    unit list stays complete for the pairs that survive.
+    """
+    where: list[str] = []
+    params: dict = {}
+    if filter_evidence_type:
+        etypes = [t.strip() for t in filter_evidence_type.split("+") if t.strip()]
+        if etypes:
+            where.append("ba.evidence_type = ANY(:ets)")
+            params["ets"] = etypes
+    if filter_source_kind == "experimental":
+        where.append("ba.evidence_source ILIKE 'exp%'")
+    elif filter_source_kind == "predicted":
+        where.append(
+            "(ba.evidence_source ILIKE 'pred%' OR ba.evidence_source ILIKE 'comp%')"
+        )
+    if pair_exists_sql:
+        search_pattern = build_ilike_pattern(search)
+        if search_pattern:
+            where.append(pair_exists_sql)
+            params["sq"] = search_pattern
+    return where, params
 
 
 def _sidebar_extra_where(
