@@ -832,11 +832,13 @@ def _sidebar_extra_where(
     filter_unit: str = "",
     filter_category: str = "",
     filter_source_kind: str = "",
+    filter_evidence_type: str = "",
     search: str = "",
     search_col: str = "",
     include_unit: bool = True,
     include_category: bool = True,
     include_source_kind: bool = True,
+    include_evidence_type: bool = True,
 ) -> tuple[list[str], dict]:
     """Build the sidebar-count WHERE fragments applying every OTHER filter.
 
@@ -875,6 +877,14 @@ def _sidebar_extra_where(
             " WHERE (m->>'evidence_source') ILIKE 'pred%'"
             " OR (m->>'evidence_source') ILIKE 'comp%')"
         )
+    if include_evidence_type and filter_evidence_type:
+        etypes = [t.strip() for t in filter_evidence_type.split("+") if t.strip()]
+        if etypes:
+            where.append(
+                f"EXISTS (SELECT 1 FROM jsonb_array_elements({mv_alias}.measurements) m"
+                " WHERE m->>'evidence_type' = ANY(:ets))"
+            )
+            params["ets"] = etypes
     if search_col:
         search_pattern = build_ilike_pattern(search)
         if search_pattern:
@@ -889,6 +899,7 @@ async def get_source_kind_counts(
     direction: str,
     filter_unit: str = "",
     filter_category: str = "",
+    filter_evidence_type: str = "",
     search: str = "",
 ) -> dict[str, object]:
     """Row counts per assay-source kind for the sidebar Assay Source filter.
@@ -902,6 +913,7 @@ async def get_source_kind_counts(
             mv_alias="cb",
             filter_unit=filter_unit,
             filter_category=filter_category,
+            filter_evidence_type=filter_evidence_type,
             search=search,
             search_col="(cb.bioactivity_name || ' ' || fcc.chemical_name)",
             include_source_kind=False,
@@ -952,6 +964,7 @@ async def get_source_kind_counts(
         mv_alias="mv",
         filter_unit=filter_unit,
         filter_category=filter_category if can_category else "",
+        filter_evidence_type=filter_evidence_type,
         search=search,
         search_col=_search_col_for(direction),
         include_source_kind=False,
@@ -990,7 +1003,12 @@ async def get_source_kind_counts(
 
 
 async def get_evidence_type_counts(
-    session: AsyncSession, common_name: str, direction: str
+    session: AsyncSession,
+    common_name: str,
+    direction: str,
+    filter_unit: str = "",
+    filter_source_kind: str = "",
+    search: str = "",
 ) -> dict[str, object]:
     """Per-evidence_type row counts for the sidebar Evidence filter.
 
@@ -1008,8 +1026,17 @@ async def get_evidence_type_counts(
     exactly.
     """
     if direction == "food-inferred-bioactivities":
+        extras, extra_params = _sidebar_extra_where(
+            mv_alias="cb",
+            filter_unit=filter_unit,
+            filter_source_kind=filter_source_kind,
+            search=search,
+            search_col="(cb.bioactivity_name || ' ' || fcc.chemical_name)",
+            include_evidence_type=False,
+        )
+        where = " AND ".join(["fcc.food_name = :name", *extras])
         result = await session.execute(
-            text("""
+            text(f"""
                 SELECT evidence_type, COUNT(*) AS count
                 FROM (
                     SELECT DISTINCT
@@ -1022,19 +1049,29 @@ async def get_evidence_type_counts(
                       ON cb.chemical_foodatlas_id
                        = fcc.chemical_foodatlas_id,
                     LATERAL jsonb_array_elements(cb.measurements) AS m
-                    WHERE fcc.food_name = :name
+                    WHERE {where}
                 ) AS x
                 WHERE evidence_type IS NOT NULL AND evidence_type <> ''
                 GROUP BY evidence_type
                 ORDER BY count DESC
             """),
-            {"name": common_name},
+            {"name": common_name, **extra_params},
         )
     else:
         info = _SOURCE_KIND_DIRECTIONS.get(direction)
         if info is None:
             return {"data": [], "metadata": {"row_count": 0}}
         mv, name_col = info
+        extras, extra_params = _sidebar_extra_where(
+            mv_alias="mv",
+            filter_unit=filter_unit,
+            filter_source_kind=filter_source_kind,
+            search=search,
+            search_col=_search_col_for(direction),
+            include_evidence_type=False,
+            include_category=False,
+        )
+        where = " AND ".join([f"mv.{name_col} = :name", *extras])
         result = await session.execute(
             text(f"""
                 SELECT evidence_type, COUNT(*) AS count
@@ -1044,13 +1081,13 @@ async def get_evidence_type_counts(
                         m->>'evidence_type' AS evidence_type
                     FROM {mv} AS mv,
                     LATERAL jsonb_array_elements(mv.measurements) AS m
-                    WHERE mv.{name_col} = :name
+                    WHERE {where}
                 ) AS x
                 WHERE evidence_type IS NOT NULL AND evidence_type <> ''
                 GROUP BY evidence_type
                 ORDER BY count DESC
             """),
-            {"name": common_name},
+            {"name": common_name, **extra_params},
         )
     data = [dict(r._mapping) for r in result]
     return {"data": data, "metadata": {"row_count": len(data)}}

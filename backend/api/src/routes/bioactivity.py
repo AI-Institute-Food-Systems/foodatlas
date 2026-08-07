@@ -129,6 +129,7 @@ async def bioactivity_source_kind_counts(
     ),
     filter_unit: str = Query(""),
     filter_category: str = Query(""),
+    filter_evidence_type: str = Query(""),
     search: str = Query(""),
     db: AsyncSession = Depends(get_db),
 ):
@@ -139,6 +140,7 @@ async def bioactivity_source_kind_counts(
         direction,
         filter_unit=filter_unit,
         filter_category=filter_category,
+        filter_evidence_type=filter_evidence_type,
         search=search,
     )
 
@@ -154,10 +156,25 @@ async def bioactivity_evidence_type_counts(
             "food-bioactivities, food-inferred-bioactivities."
         ),
     ),
+    filter_unit: str = Query(""),
+    filter_source_kind: str = Query(""),
+    search: str = Query(""),
     db: AsyncSession = Depends(get_db),
 ):
-    """Per-evidence_type row counts for the sidebar Evidence filter."""
-    return await bioactivity.get_evidence_type_counts(db, common_name, direction)
+    """Per-evidence_type row counts for the sidebar Evidence filter.
+
+    Faceted: every OTHER active filter is applied, so each count answers
+    "how many rows would this bucket have if I picked it right now?" —
+    matching /food/composition/counts.
+    """
+    return await bioactivity.get_evidence_type_counts(
+        db,
+        common_name,
+        direction,
+        filter_unit=filter_unit,
+        filter_source_kind=filter_source_kind,
+        search=search,
+    )
 
 
 @router.get("/measurements")
