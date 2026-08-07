@@ -467,6 +467,24 @@ export async function getFoodBioactivities(
   );
 }
 
+// Bioactivities inferred transitively: food contains chemical X, X was
+// measured against bioactivity Y. Rows carry the Hill-fit efficacy columns
+// LEFT JOINed from mv_food_chemical_efficacy (null where a chemical has no
+// fittable curve), so this one call backs the whole inferred table —
+// including the Unit / Evidence / Source filters, which the shared sidebar
+// applies to this table and the direct one alike.
+export async function getFoodInferredBioactivities(
+  commonName: string,
+  params?: BioactivityListParams
+) {
+  return bioactivityListFetch(
+    "/food/inferred-bioactivities",
+    commonName,
+    params,
+    "food inferred bioactivities"
+  );
+}
+
 // Lazy-load FULL measurements for a single (head, bioactivity) pair —
 // bypasses the materialized view's 25-row cap by reading
 // base_attestations_bioactivity directly. relationship is "r6" for

@@ -13,7 +13,7 @@ import EntityPageGate from "@/components/entities/EntityPageGate";
 import {
   getFoodBioactivities,
   getFoodCompositionData,
-  getFoodEfficacy,
+  getFoodInferredBioactivities,
   getMetaData,
 } from "@/utils/fetching";
 import { decodeSpace, toTitleCase } from "@/utils/utils";
@@ -64,7 +64,7 @@ const FoodPage = async ({ params }: FoodPageProps) => {
         "default"
       ).catch(() => null),
       getFoodBioactivities(commonName).catch(() => null),
-      getFoodEfficacy(commonName).catch(() => null),
+      getFoodInferredBioactivities(commonName).catch(() => null),
       getMetaData(commonName, entityType).catch(() => null),
     ]);
   const anchorId = metaPayload?.id ?? null;
@@ -72,12 +72,11 @@ const FoodPage = async ({ params }: FoodPageProps) => {
     (compPayload?.metadata?.total_rows as number | undefined) ?? null;
   const directBio =
     (bioPayload?.metadata?.total_rows as number | undefined) ?? null;
-  // Inferred bioactivity count is derived from /food/efficacy to match the
-  // table below, which renders that endpoint's rows. row_count = one row
-  // per (chemical × bioactivity) pair evaluable against a Hill curve.
-  // (/food/inferred-bioactivities still exists; we just don't use it here.)
+  // Must come from the same endpoint the inferred table renders, or the tab
+  // badge disagrees with the row count underneath it — /food/efficacy counts
+  // only pairs with a fittable Hill curve, which is a strict subset.
   const inferredBio =
-    (inferredBioPayload?.metadata?.row_count as number | undefined) ?? null;
+    (inferredBioPayload?.metadata?.total_rows as number | undefined) ?? null;
   const bioactivitiesCount =
     directBio === null && inferredBio === null
       ? null
