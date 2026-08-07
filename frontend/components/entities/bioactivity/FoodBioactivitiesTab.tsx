@@ -433,7 +433,7 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
               >
                 {selected && <MdCheck className="w-3 h-3" />}
               </span>
-              <span className="font-mono text-xs flex-1 min-w-0 truncate">
+              <span className="font-mono text-xs flex-1 min-w-0 truncate capitalize">
                 {evidence_type}
               </span>
               <span

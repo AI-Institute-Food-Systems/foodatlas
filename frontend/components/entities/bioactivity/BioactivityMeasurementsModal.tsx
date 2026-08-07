@@ -782,7 +782,11 @@ const CheckRow = ({
     >
       {selected && <MdCheck className="w-3 h-3" />}
     </span>
-    <span className="font-mono text-xs flex-1 min-w-0 truncate">{label}</span>
+    {/* CheckRow is evidence-types only, so capitalizing here is safe —
+     * unlike the shared UnitRow, which must not touch unit casing. */}
+    <span className="font-mono text-xs flex-1 min-w-0 truncate capitalize">
+      {label}
+    </span>
     {typeof count === "number" && (
       <span
         className={twMerge(
