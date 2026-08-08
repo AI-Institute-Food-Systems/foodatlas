@@ -129,6 +129,7 @@ async def food_bioactivities(
     filter_endpoint: str = Query(""),
     filter_unit: str = Query(""),
     filter_source_kind: str = Query(""),
+    filter_evidence_type: str = Query(""),
     db: AsyncSession = Depends(get_db),
 ):
     return await bioactivity.get_food_bioactivities(
@@ -141,6 +142,7 @@ async def food_bioactivities(
         filter_endpoint=filter_endpoint,
         filter_unit=filter_unit,
         filter_source_kind=filter_source_kind,
+        filter_evidence_type=filter_evidence_type,
     )
 
 
