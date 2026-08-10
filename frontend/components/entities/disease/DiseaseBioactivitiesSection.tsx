@@ -87,13 +87,21 @@ const DiseaseBioactivitiesSection = ({ commonName }: Props) => {
   );
 
   // Counts on the chips follow the dietary toggle, so a chip never promises
-  // more rows than clicking it produces.
-  const countFor = (name: string) =>
-    rows.filter(
-      (row) =>
-        (name === ALL || row.bioactivity_name === name) &&
-        (!dietaryOnly || row.dietary !== null)
-    ).length;
+  // more rows than clicking it produces. Computed in one pass rather than
+  // per-chip — the largest disease has 6k rows behind 20 chips.
+  const counts = useMemo(() => {
+    const map = new Map<string, number>();
+    let total = 0;
+    for (const row of rows) {
+      if (dietaryOnly && row.dietary === null) continue;
+      total += 1;
+      map.set(row.bioactivity_name, (map.get(row.bioactivity_name) ?? 0) + 1);
+    }
+    map.set(ALL, total);
+    return map;
+  }, [rows, dietaryOnly]);
+
+  const countFor = (name: string) => counts.get(name) ?? 0;
 
   useEffect(() => setVisibleCount(PAGE_SIZE), [bioactivity, dietaryOnly]);
 
