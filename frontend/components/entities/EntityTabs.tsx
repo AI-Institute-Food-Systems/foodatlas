@@ -17,6 +17,7 @@ import { MdCheck, MdKeyboardArrowDown } from "react-icons/md";
 import { twMerge } from "tailwind-merge";
 
 import Card from "@/components/basic/Card";
+import { usePaginations } from "@/context/paginationsContext";
 import { useTabCounts } from "@/context/tabCountsContext";
 
 export type EntityType = "food" | "chemical" | "disease" | "bioactivity";
@@ -46,6 +47,7 @@ const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { counts: dynamicCounts } = useTabCounts();
+  const { resetAllPaginations } = usePaginations();
 
   // Merge dynamic counts published by tab contents (via
   // usePublishTabCount) over the static server-prefetched counts, so
@@ -83,6 +85,12 @@ const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
     const id = tabs[next]?.id;
     if (!id) return;
     setSelectedIndex(next);
+    // Each tab is its own view, so it should open in its default state
+    // rather than inheriting whatever was left behind. Panels unmount on
+    // switch (below), which clears their filter state; page state lives
+    // in a context that survives unmount, so clear it explicitly —
+    // otherwise a table returns with reset filters but on page 7.
+    resetAllPaginations();
     const params = new URLSearchParams(searchParams.toString());
     params.set("tab", id);
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
@@ -197,7 +205,11 @@ const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
           {tabs.map((tab) => (
             <TabPanel
               key={tab.id}
-              unmount={false}
+              // Unmount inactive panels so each tab starts fresh: filter
+              // state lives in the sections' useState and resets with
+              // them. Also means only the visible tab runs its fetches on
+              // page load, instead of every tab fetching at once.
+              unmount
               className="outline-none focus-visible:outline-light-200 data-[selected]:animate-[fadeSlide_180ms_ease-out]"
             >
               {tab.content}
