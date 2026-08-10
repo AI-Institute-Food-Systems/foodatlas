@@ -52,9 +52,7 @@ def build_bridge_evidence(conn: Connection) -> tuple[pd.DataFrame, dict[str, str
     )
 
     evidence = chem_assay.merge(bridge, on="source_assay_id", how="inner")
-    evidence["disease_id"] = evidence["disease_mesh_id"].map(
-        disease_mesh_map(entities)
-    )
+    evidence["disease_id"] = evidence["disease_mesh_id"].map(disease_mesh_map(entities))
     return evidence.dropna(subset=["disease_id"]), name_map
 
 

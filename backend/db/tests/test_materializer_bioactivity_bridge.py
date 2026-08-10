@@ -23,7 +23,12 @@ class TestAssayBioactivityMap:
         out = self._run(
             pd.DataFrame([{"source_assay_id": "AID: 1", "bioactivity_ids": ["E1"]}]),
             pd.DataFrame(
-                [{"foodatlas_id": "b1", "external_ids": {"bioactivity_concept": ["E1"]}}]
+                [
+                    {
+                        "foodatlas_id": "b1",
+                        "external_ids": {"bioactivity_concept": ["E1"]},
+                    }
+                ]
             ),
         )
         assert out.to_dict("records") == [
@@ -60,7 +65,12 @@ class TestAssayBioactivityMap:
                 ]
             ),
             pd.DataFrame(
-                [{"foodatlas_id": "b1", "external_ids": {"bioactivity_concept": ["E1"]}}]
+                [
+                    {
+                        "foodatlas_id": "b1",
+                        "external_ids": {"bioactivity_concept": ["E1"]},
+                    }
+                ]
             ),
         )
         assert out["source_assay_id"].tolist() == ["AID: 1"]
@@ -131,7 +141,9 @@ class TestBuildBridgeEvidence:
                 }
             ]
         )
-        with patch(f"{_MODULE}.pd.read_sql", side_effect=[bridge, r6, active, entities]):
+        with patch(
+            f"{_MODULE}.pd.read_sql", side_effect=[bridge, r6, active, entities]
+        ):
             evidence, names = build_bridge_evidence(MagicMock())
         assert evidence["disease_id"].tolist() == ["d1"]
         assert names["d1"] == "melanoma"
