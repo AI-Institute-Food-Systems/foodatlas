@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pandas as pd
 from src.etl.materializer_composition import (
-    _add_foodatlas_evidence,
+    _add_extraction_evidence,
     _build_evidence_json,
     _compute_median,
     materialize_food_chemical_composition,
@@ -66,7 +66,7 @@ class TestAddFoodatlasEvidence:
         evidences: list = []
         ref = {"pmcid": "PMC123", "text": "Some premise"}
         extraction = {"method": "lit2kg:gpt-3.5-ft"}
-        _add_foodatlas_evidence(evidences, ref, extraction)
+        _add_extraction_evidence(evidences, ref, extraction)
         assert len(evidences) == 1
         assert evidences[0]["premise"] == "Some premise"
         assert evidences[0]["reference"]["id"] == "PMC123"
@@ -74,17 +74,17 @@ class TestAddFoodatlasEvidence:
     def test_groups_by_premise(self):
         evidences: list = []
         ref = {"pmcid": "PMC123", "text": "Same premise"}
-        _add_foodatlas_evidence(evidences, ref, {"method": "m1"})
-        _add_foodatlas_evidence(evidences, ref, {"method": "m2"})
+        _add_extraction_evidence(evidences, ref, {"method": "m1"})
+        _add_extraction_evidence(evidences, ref, {"method": "m2"})
         assert len(evidences) == 1
         assert len(evidences[0]["extraction"]) == 2
 
     def test_different_premises_separate(self):
         evidences: list = []
-        _add_foodatlas_evidence(
+        _add_extraction_evidence(
             evidences, {"pmcid": "1", "text": "A"}, {"method": "m1"}
         )
-        _add_foodatlas_evidence(
+        _add_extraction_evidence(
             evidences, {"pmcid": "2", "text": "B"}, {"method": "m2"}
         )
         assert len(evidences) == 2

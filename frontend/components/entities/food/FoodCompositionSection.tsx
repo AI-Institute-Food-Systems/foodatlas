@@ -76,6 +76,11 @@ const SOURCE_OPTIONS = [
   { value: "ptfi", label: "PTFI" },
 ];
 
+// Every source starts selected. Derived rather than hardcoded — the initial
+// state and the reset handler both used to list sources literally, so adding
+// PTFI silently left it unselected on load and un-selected it again on reset.
+const ALL_SOURCE_VALUES = SOURCE_OPTIONS.map((o) => o.value);
+
 interface FoodCompositionSectionProps {
   commonName: string;
 }
@@ -115,10 +120,7 @@ const FoodCompositionSection = ({
   const [searchTerm, setSearchTerm] = useState(
     searchParams.get("search") ?? ""
   );
-  const [sourceFilters, setSourceFilters] = useState<string[]>([
-    "fdc",
-    "foodatlas",
-  ]);
+  const [sourceFilters, setSourceFilters] = useState<string[]>(ALL_SOURCE_VALUES);
   const [sort, setSort] = useState({
     column: "median_concentration",
     direction: "desc",
@@ -432,7 +434,7 @@ const FoodCompositionSection = ({
 
   const resetAllFilters = () => {
     setSearchTerm("");
-    setSourceFilters(["fdc", "foodatlas"]);
+    setSourceFilters(ALL_SOURCE_VALUES);
     setClassificationFilter([]);
     setShowAllConcentrations(true);
     setShowLowTrust(false);
