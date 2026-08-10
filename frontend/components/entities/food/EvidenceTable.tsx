@@ -34,7 +34,7 @@ import {
   FoodEvidence,
   FoodEvidenceExtraction,
 } from "@/types/Evidence";
-import { formatConcentrationValueAlt } from "@/utils/utils";
+import { formatConcentrationValueAlt, formatUnit } from "@/utils/utils";
 import { greekVariants, matchesWithGreek } from "@/utils/greekLetters";
 
 // A flat "one row per extraction" view. Keeps a back-pointer to its
@@ -428,14 +428,26 @@ const ConcentrationCell = ({
   const c = extraction.converted_concentration;
   const converted =
     c?.unit && c?.value
-      ? `${formatConcentrationValueAlt(c.value)} ${c.unit}`
+      ? `${formatConcentrationValueAlt(c.value)} ${formatUnit(c.unit)}`
       : null;
+
+  // The two lines exist to show source text alongside the normalised
+  // number — worthwhile when the source is prose from a paper. PTFI
+  // reports an already-numeric value, so both lines carry the identical
+  // figure and the top one shows it at full float precision. Detect that
+  // and render a single formatted line instead.
+  const rawIsSameValue =
+    raw != null &&
+    c?.value != null &&
+    raw.trim() === `${c.value} ${c.unit ?? ""}`.trim();
+  const rawDisplay = rawIsSameValue ? converted : raw;
+
   return (
     <div className={twMerge("flex flex-col", align === "right" && "items-end")}>
       <span className="text-light-200 font-mono tabular-nums whitespace-nowrap">
-        {raw ?? "—"}
+        {rawDisplay ?? "—"}
       </span>
-      {converted && (
+      {converted && !rawIsSameValue && (
         <span className="text-[10px] text-light-500 font-mono tabular-nums whitespace-nowrap">
           {converted}
         </span>

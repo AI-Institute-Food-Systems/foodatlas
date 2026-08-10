@@ -202,12 +202,21 @@ export const formatConcentrationValueAlt = (value: number | undefined) => {
     return numValue.toExponential(2);
   }
 
-  // otherwise format with up to 2 decimal places
-  const formatted = numValue.toFixed(2);
-
-  // remove trailing zeros after decimal
-  return formatted.replace(/\.?0+$/, "");
+  // Up to 2 decimals, grouped. PTFI's relative_abundance values run into
+  // the tens of thousands, where an ungrouped 21116.56 is hard to scan.
+  // maximumFractionDigits drops trailing zeros on its own, so 12 stays
+  // "12" rather than becoming "12.00".
+  return numValue.toLocaleString(undefined, { maximumFractionDigits: 2 });
 };
+
+// Units arrive as raw tokens from the source data. Only display is
+// affected — filters and comparisons keep using the underlying value.
+const UNIT_LABELS: Record<string, string> = {
+  relative_abundance: "relative abundance",
+};
+
+export const formatUnit = (unit: string | null | undefined): string =>
+  unit ? (UNIT_LABELS[unit] ?? unit) : "";
 
 // format concentration to table field
 export const formatConcentration = (concentrationData: any) => {
