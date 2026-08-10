@@ -243,7 +243,14 @@ const BioactivityTable = ({
     if (!direction || !pivotName) return;
     let cancelled = false;
     (async () => {
-      const opts = await getBioactivityEndpointOptions(pivotName, direction);
+      // Every OTHER dimension is applied so the Unit counts track the
+      // rest of the sidebar; the Unit selection itself is excluded, since
+      // this list is what the user picks units from.
+      const opts = await getBioactivityEndpointOptions(pivotName, direction, {
+        filterEvidenceType: effectiveEvidenceTypeParam,
+        filterSourceKind: effectiveSourceKindParam,
+        search: effectiveSearchTerm,
+      });
       if (cancelled) return;
       const totals = new Map<string, number>();
       for (const o of opts) {
@@ -259,7 +266,13 @@ const BioactivityTable = ({
     return () => {
       cancelled = true;
     };
-  }, [direction, pivotName]);
+  }, [
+    direction,
+    pivotName,
+    effectiveEvidenceTypeParam,
+    effectiveSourceKindParam,
+    effectiveSearchTerm,
+  ]);
 
   const toggleUnit = (unit: string) => {
     setTablePaginations(tableId, 1, 20);
@@ -316,6 +329,7 @@ const BioactivityTable = ({
       const opts = await getBioactivityCategoryOptions(pivotName, {
         filterUnit: effectiveUnitParam,
         filterSourceKind: effectiveSourceKindParam,
+        filterEvidenceType: effectiveEvidenceTypeParam,
         search: effectiveSearchTerm,
       });
       if (!cancelled) setCategoryOptions(opts);
@@ -328,6 +342,7 @@ const BioactivityTable = ({
     pivotName,
     effectiveUnitParam,
     effectiveSourceKindParam,
+    effectiveEvidenceTypeParam,
     effectiveSearchTerm,
   ]);
 
@@ -349,6 +364,7 @@ const BioactivityTable = ({
         {
           filterUnit: effectiveUnitParam,
           filterCategory: categoryFilterParam,
+          filterEvidenceType: effectiveEvidenceTypeParam,
           search: effectiveSearchTerm,
         },
       );
@@ -362,6 +378,7 @@ const BioactivityTable = ({
     pivotName,
     effectiveUnitParam,
     categoryFilterParam,
+    effectiveEvidenceTypeParam,
     effectiveSearchTerm,
   ]);
 
@@ -379,13 +396,27 @@ const BioactivityTable = ({
     }
     let cancelled = false;
     (async () => {
-      const opts = await getBioactivityEvidenceTypeCounts(pivotName, direction);
+      const opts = await getBioactivityEvidenceTypeCounts(
+        pivotName,
+        direction,
+        {
+          filterUnit: effectiveUnitParam,
+          filterSourceKind: effectiveSourceKindParam,
+          search: effectiveSearchTerm,
+        },
+      );
       if (!cancelled) setEvidenceTypeOptions(opts);
     })();
     return () => {
       cancelled = true;
     };
-  }, [direction, pivotName]);
+  }, [
+    direction,
+    pivotName,
+    effectiveUnitParam,
+    effectiveSourceKindParam,
+    effectiveSearchTerm,
+  ]);
 
   const toggleCategory = (category: string) => {
     setTablePaginations(tableId, 1, 20);
