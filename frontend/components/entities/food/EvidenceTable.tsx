@@ -34,7 +34,7 @@ import {
   FoodEvidence,
   FoodEvidenceExtraction,
 } from "@/types/Evidence";
-import { formatConcentrationValueAlt } from "@/utils/utils";
+import { formatConcentrationValueAlt, formatUnit } from "@/utils/utils";
 import { greekVariants, matchesWithGreek } from "@/utils/greekLetters";
 
 // A flat "one row per extraction" view. Keeps a back-pointer to its
@@ -354,19 +354,39 @@ export default EvidenceTable;
 
 // -------- Cells + badges (kept inline; only used by this table) ---------
 
+// Per-source presentation. Was a binary FDC/not-FDC, which silently
+// relabelled every non-FDC source as FoodAtlas — PTFI rows all rendered as
+// FoodAtlas. Unknown sources now fall through to their own name rather than
+// borrowing someone else's.
+const SOURCE_BADGES: Record<string, { tone: string; title: string }> = {
+  FDC: {
+    tone: "text-sky-400 border-sky-500/60 bg-sky-500/10",
+    title: "USDA FDC database",
+  },
+  FoodAtlas: {
+    tone: "text-accent-400 border-accent-500/60 bg-accent-500/10",
+    title: "FoodAtlas literature extraction",
+  },
+  PTFI: {
+    tone: "text-emerald-400 border-emerald-500/60 bg-emerald-500/10",
+    title: "Periodic Table of Food Initiative",
+  },
+};
+
 const SourceBadge = ({ source }: { source: string }) => {
-  const isFdc = source === "FDC";
+  const meta = SOURCE_BADGES[source] ?? {
+    tone: "text-light-300 border-light-600 bg-light-800/40",
+    title: source,
+  };
   return (
     <span
       className={twMerge(
         "inline-flex items-center justify-center rounded-full border px-2 py-[0.05rem] text-[10px] font-mono tracking-wide whitespace-nowrap",
-        isFdc
-          ? "text-sky-400 border-sky-500/60 bg-sky-500/10"
-          : "text-accent-400 border-accent-500/60 bg-accent-500/10"
+        meta.tone
       )}
-      title={isFdc ? "USDA FDC database" : "FoodAtlas literature extraction"}
+      title={meta.title}
     >
-      {isFdc ? "FDC" : "FoodAtlas"}
+      {source}
     </span>
   );
 };
@@ -408,15 +428,27 @@ const ConcentrationCell = ({
   const c = extraction.converted_concentration;
   const converted =
     c?.unit && c?.value
-      ? `${formatConcentrationValueAlt(c.value)} ${c.unit}`
+      ? `${formatConcentrationValueAlt(c.value)} ${formatUnit(c.unit)}`
       : null;
+
+  // The two lines exist to show source text alongside the normalised
+  // number — worthwhile when the source is prose from a paper. PTFI
+  // reports an already-numeric value, so both lines carry the identical
+  // figure and the top one shows it at full float precision. Detect that
+  // and render a single formatted line instead.
+  const rawIsSameValue =
+    raw != null &&
+    c?.value != null &&
+    raw.trim() === `${c.value} ${c.unit ?? ""}`.trim();
+  const rawDisplay = rawIsSameValue ? converted : raw;
+
   return (
     <div className={twMerge("flex flex-col", align === "right" && "items-end")}>
-      <span className="text-light-200 font-mono tabular-nums whitespace-nowrap">
-        {raw ?? "—"}
+      <span className="text-light-200 font-mono tabular-nums break-words">
+        {rawDisplay ?? "—"}
       </span>
-      {converted && (
-        <span className="text-[10px] text-light-500 font-mono tabular-nums whitespace-nowrap">
+      {converted && !rawIsSameValue && (
+        <span className="text-[10px] text-light-500 font-mono tabular-nums break-words">
           {converted}
         </span>
       )}

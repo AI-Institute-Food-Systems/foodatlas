@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Listbox,
@@ -17,6 +17,7 @@ import { MdCheck, MdKeyboardArrowDown } from "react-icons/md";
 import { twMerge } from "tailwind-merge";
 
 import Card from "@/components/basic/Card";
+import { usePaginations } from "@/context/paginationsContext";
 import { useTabCounts } from "@/context/tabCountsContext";
 
 export type EntityType = "food" | "chemical" | "disease" | "bioactivity";
@@ -46,6 +47,7 @@ const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { counts: dynamicCounts } = useTabCounts();
+  const { resetAllPaginations } = usePaginations();
 
   // Merge dynamic counts published by tab contents (via
   // usePublishTabCount) over the static server-prefetched counts, so
@@ -56,6 +58,39 @@ const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
     return { ...t, count: dyn };
   });
 
+  // The chip row is the nicer control but only while it fits. Entity
+  // pages carry labels like "Chemicals (assay-inferred)", and at four or
+  // five tabs the strip runs past the card on narrower desktop windows.
+  // When that happens we fall back to the same Listbox mobile uses.
+  //
+  // Measuring this needs care: hiding the strip with `display: none`
+  // would zero its width, which reads as "fits", which shows it again —
+  // a flip-flop. So when it overflows the strip stays laid out and is
+  // taken out of flow with `absolute invisible`, keeping scrollWidth
+  // meaningful and the comparison stable.
+  const tabStripRef = useRef<HTMLDivElement>(null);
+  const tabStripWrapRef = useRef<HTMLDivElement>(null);
+  const [stripOverflows, setStripOverflows] = useState(false);
+
+  useEffect(() => {
+    const measure = () => {
+      const strip = tabStripRef.current;
+      const wrap = tabStripWrapRef.current;
+      if (!strip || !wrap) return;
+      // Only meaningful once the wrapper is actually displayed; on mobile
+      // it is `hidden`, clientWidth is 0, and the Listbox already shows.
+      if (wrap.clientWidth === 0) return;
+      // 1px of slack — sub-pixel layout rounding otherwise reports a
+      // permanent 0.5px overflow on some zoom levels.
+      setStripOverflows(strip.scrollWidth > wrap.clientWidth + 1);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    if (tabStripWrapRef.current) ro.observe(tabStripWrapRef.current);
+    return () => ro.disconnect();
+    // Counts change label widths, so re-measure when they land.
+  }, [tabs]);
+
   // Derive initial index from URL, then hold local state so the tab
   // switches immediately on click. Previously this was derived from
   // useSearchParams on every render, but `router.replace` doesn't
@@ -64,9 +99,7 @@ const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
   // had to click twice. Local state avoids the round-trip.
   const urlId = searchParams.get("tab") ?? defaultTabId;
   const urlIdx = tabs.findIndex((t) => t.id === urlId);
-  const [selectedIndex, setSelectedIndex] = useState(
-    urlIdx >= 0 ? urlIdx : 0,
-  );
+  const [selectedIndex, setSelectedIndex] = useState(urlIdx >= 0 ? urlIdx : 0);
 
   // Keep local state in sync when the URL changes from OUTSIDE this
   // component (e.g. browser back/forward, deep link).
@@ -83,6 +116,12 @@ const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
     const id = tabs[next]?.id;
     if (!id) return;
     setSelectedIndex(next);
+    // Each tab is its own view, so it should open in its default state
+    // rather than inheriting whatever was left behind. Panels unmount on
+    // switch (below), which clears their filter state; page state lives
+    // in a context that survives unmount, so clear it explicitly —
+    // otherwise a table returns with reset filters but on page 7.
+    resetAllPaginations();
     const params = new URLSearchParams(searchParams.toString());
     params.set("tab", id);
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
@@ -101,7 +140,7 @@ const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
        * control of trigger and popup positioning. Options carry the
        * count as "· 42" (matching the chip badges) and zero-count
        * options are disabled. */}
-      <div className="sm:hidden mb-2 pl-1">
+      <div className={twMerge("mb-2 pl-1", !stripOverflows && "sm:hidden")}>
         <Listbox value={selectedIndex} onChange={handleChange}>
           <div className="relative">
             <ListboxButton className="w-full font-mono italic text-sm font-medium bg-light-200 text-light-900 rounded-md pl-3 pr-9 py-2 border-[1.5px] border-light-200 shadow-[inset_0_1px_2px_rgba(255,249,242,0.5)] focus:outline-none focus:ring-1 focus:ring-accent-500 text-left">
@@ -143,61 +182,76 @@ const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
         </Listbox>
       </div>
 
-      <TabList className="hidden sm:flex items-end gap-1.5 pl-3">
-        {tabs.map((tab) => (
-          <Tab
-            key={tab.id}
-            className={({ selected }) =>
-              twMerge(
-                // Explicit height locks the tab strip against badge/
-                // no-badge height perception drift. -mb-[1.5px] pulls
-                // tabs down exactly the card border's thickness so
-                // they cover the card's top border in the tab's width
-                // and don't leave side-border "legs" hanging into the
-                // card content.
-                "relative z-10 flex items-center justify-center h-7 md:h-8 px-3 md:px-4",
-                "font-mono italic text-[11px] md:text-xs min-w-[7rem] md:min-w-[9.5rem] font-medium",
-                "rounded-t-lg transition-colors outline-none border-t-[1.5px] border-x-[1.5px]",
-                selected
-                  ? "bg-light-200 text-light-900 border-light-200 shadow-[inset_0_1px_2px_rgba(255,249,242,0.5)]"
-                  : // Border tone matched to the Card's light-50/[0.08]
-                    // so side edges read as one continuous line with
-                    // the cabinet's top border instead of clashing.
-                    "bg-light-950/50 border-light-50/[0.15] text-light-300 hover:text-light-100 hover:border-light-50/25 hover:bg-light-900/70"
-              )
-            }
-          >
-            {({ selected }) => (
-              // min-h-5 locks the inner content height so label-only tabs
-              // ("IDs & Metadata") render the same height as tabs whose
-              // count badge would otherwise bump the row height by a px or
-              // two.
-              <span className="flex items-center justify-center gap-1.5 min-h-5">
-                <span className="leading-none">{tab.label}</span>
-                {typeof tab.count === "number" && (
-                  <span
-                    className={
-                      "not-italic font-mono text-[0.65rem] tracking-wide px-1.5 py-[1px] rounded-full " +
-                      (selected
-                        ? "bg-light-900/15 text-light-700"
-                        : "bg-light-800/80 text-light-400")
-                    }
-                  >
-                    {formatCount(tab.count)}
-                  </span>
-                )}
-              </span>
-            )}
-          </Tab>
-        ))}
-      </TabList>
+      <div ref={tabStripWrapRef} className="hidden sm:block relative">
+        <TabList
+          ref={tabStripRef}
+          className={twMerge(
+            // w-max so the strip reports its natural width instead of
+            // shrinking to the container, which is what makes overflow
+            // detectable at all.
+            "flex w-max items-end gap-1.5 pl-3",
+            stripOverflows && "invisible absolute pointer-events-none",
+          )}
+        >
+          {tabs.map((tab) => (
+            <Tab
+              key={tab.id}
+              className={({ selected }) =>
+                twMerge(
+                  // Explicit height locks the tab strip against badge/
+                  // no-badge height perception drift. -mb-[1.5px] pulls
+                  // tabs down exactly the card border's thickness so
+                  // they cover the card's top border in the tab's width
+                  // and don't leave side-border "legs" hanging into the
+                  // card content.
+                  "relative z-10 flex items-center justify-center h-7 md:h-8 px-3 md:px-4",
+                  "font-mono italic text-[11px] md:text-xs min-w-[7rem] md:min-w-[9.5rem] font-medium",
+                  "rounded-t-lg transition-colors outline-none border-t-[1.5px] border-x-[1.5px]",
+                  selected
+                    ? "bg-light-200 text-light-900 border-light-200 shadow-[inset_0_1px_2px_rgba(255,249,242,0.5)]"
+                    : // Border tone matched to the Card's light-50/[0.08]
+                      // so side edges read as one continuous line with
+                      // the cabinet's top border instead of clashing.
+                      "bg-light-950/50 border-light-50/[0.15] text-light-300 hover:text-light-100 hover:border-light-50/25 hover:bg-light-900/70",
+                )
+              }
+            >
+              {({ selected }) => (
+                // min-h-5 locks the inner content height so label-only tabs
+                // ("IDs & Metadata") render the same height as tabs whose
+                // count badge would otherwise bump the row height by a px or
+                // two.
+                <span className="flex items-center justify-center gap-1.5 min-h-5">
+                  <span className="leading-none">{tab.label}</span>
+                  {typeof tab.count === "number" && (
+                    <span
+                      className={
+                        "not-italic font-mono text-[0.65rem] tracking-wide px-1.5 py-[1px] rounded-full " +
+                        (selected
+                          ? "bg-light-900/15 text-light-700"
+                          : "bg-light-800/80 text-light-400")
+                      }
+                    >
+                      {formatCount(tab.count)}
+                    </span>
+                  )}
+                </span>
+              )}
+            </Tab>
+          ))}
+        </TabList>
+      </div>
 
       <Card>
         <TabPanels>
           {tabs.map((tab) => (
             <TabPanel
               key={tab.id}
-              unmount={false}
+              // Unmount inactive panels so each tab starts fresh: filter
+              // state lives in the sections' useState and resets with
+              // them. Also means only the visible tab runs its fetches on
+              // page load, instead of every tab fetching at once.
+              unmount
               className="outline-none focus-visible:outline-light-200 data-[selected]:animate-[fadeSlide_180ms_ease-out]"
             >
               {tab.content}

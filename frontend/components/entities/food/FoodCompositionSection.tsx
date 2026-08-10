@@ -18,6 +18,7 @@ import {
 import { twMerge } from "tailwind-merge";
 
 import Card from "@/components/basic/Card";
+import ResetFiltersButton from "@/components/basic/ResetFiltersButton";
 import Chip from "@/components/basic/Chip";
 import Link from "@/components/basic/Link";
 import Pagination from "@/components/basic/Pagination";
@@ -76,6 +77,11 @@ const SOURCE_OPTIONS = [
   { value: "ptfi", label: "PTFI" },
 ];
 
+// Every source starts selected. Derived rather than hardcoded — the initial
+// state and the reset handler both used to list sources literally, so adding
+// PTFI silently left it unselected on load and un-selected it again on reset.
+const ALL_SOURCE_VALUES = SOURCE_OPTIONS.map((o) => o.value);
+
 interface FoodCompositionSectionProps {
   commonName: string;
 }
@@ -115,10 +121,7 @@ const FoodCompositionSection = ({
   const [searchTerm, setSearchTerm] = useState(
     searchParams.get("search") ?? ""
   );
-  const [sourceFilters, setSourceFilters] = useState<string[]>([
-    "fdc",
-    "foodatlas",
-  ]);
+  const [sourceFilters, setSourceFilters] = useState<string[]>(ALL_SOURCE_VALUES);
   const [sort, setSort] = useState({
     column: "median_concentration",
     direction: "desc",
@@ -423,16 +426,19 @@ const FoodCompositionSection = ({
   // Reset button only renders in that case so it's not just visual noise.
   const isFiltersDirty =
     searchTerm !== "" ||
-    sourceFilters.length !== 2 ||
-    !sourceFilters.includes("fdc") ||
-    !sourceFilters.includes("foodatlas") ||
+    // Compare against the real default rather than a literal source list.
+    // This was hardcoded to fdc+foodatlas, so once PTFI joined the default
+    // the logic inverted: the untouched panel counted as dirty, and
+    // deselecting PTFI counted as clean.
+    sourceFilters.length !== ALL_SOURCE_VALUES.length ||
+    ALL_SOURCE_VALUES.some((v) => !sourceFilters.includes(v)) ||
     classificationFilter.length > 0 ||
     !showAllConcentrations ||
     showLowTrust;
 
   const resetAllFilters = () => {
     setSearchTerm("");
-    setSourceFilters(["fdc", "foodatlas"]);
+    setSourceFilters(ALL_SOURCE_VALUES);
     setClassificationFilter([]);
     setShowAllConcentrations(true);
     setShowLowTrust(false);
@@ -623,24 +629,15 @@ const FoodCompositionSection = ({
   // drawer per user request).
   const filtersOnlyPanel = (
     <div className="flex flex-col gap-5">
-      {/* Reset link — only appears when the view differs from a fresh
-       * page load, so it's not just visual clutter. Clears search +
-       * every filter to default and snaps pagination back to page 1. */}
-      {isFiltersDirty && (
-        <div className="flex justify-end -mb-3">
-          <button
-            type="button"
-            onClick={resetAllFilters}
-            className="text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
-          >
-            reset all
-          </button>
-        </div>
-      )}
-
-      {/* options — binary switches (not multi-select) so they stay as
-       * toggles rather than checkbox rows. */}
-      <FilterGroup label="Options">
+      {/* Binary switches, not a multi-select — each one ADDS its category
+       * of row to the table rather than selecting among a partition. The
+       * distinction matters: unlike Source, where every row has exactly
+       * one and deselecting all correctly yields nothing, a row can
+       * belong to neither of these categories. Turning both off is
+       * therefore not "show nothing", it's "show only rows that are
+       * neither" — which is exactly what it does. The labels lead with
+       * "Include" so that subtractive behaviour is legible. */}
+      <FilterGroup label="Include">
         <div className="flex flex-col gap-2 pt-0.5">
           <ToggleSwitch
             label="Without concentration"
@@ -712,6 +709,13 @@ const FoodCompositionSection = ({
           })}
         </FilterList>
       </FilterGroup>
+
+      {/* Panel-level action, last so it reads as "undo everything above".
+       * Clears search + every filter and snaps pagination to page 1. */}
+      <ResetFiltersButton
+        isDirty={isFiltersDirty}
+        onReset={resetAllFilters}
+      />
     </div>
   );
 

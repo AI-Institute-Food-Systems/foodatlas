@@ -11,7 +11,7 @@ from src.etl.materializer import (
     _render_siblings_col,
 )
 from src.etl.materializer_composition import (
-    _add_foodatlas_evidence,
+    _add_extraction_evidence,
     _compute_median,
 )
 
@@ -105,13 +105,13 @@ class TestComputeMedian:
 
 
 class TestAddFoodatlasEvidence:
-    """Test _add_foodatlas_evidence grouping logic."""
+    """Test _add_extraction_evidence grouping logic."""
 
     def test_creates_new_entry(self):
         evidences: list = []
         ref = {"pmcid": "PMC123", "text": "Study premise."}
         extraction = {"method": "lit2kg"}
-        _add_foodatlas_evidence(evidences, ref, extraction)
+        _add_extraction_evidence(evidences, ref, extraction)
         assert len(evidences) == 1
         assert evidences[0]["premise"] == "Study premise."
         assert evidences[0]["reference"]["id"] == "PMC123"
@@ -120,28 +120,28 @@ class TestAddFoodatlasEvidence:
     def test_groups_by_premise(self):
         evidences: list = []
         ref = {"pmcid": "PMC123", "text": "Same premise."}
-        _add_foodatlas_evidence(evidences, ref, {"method": "a"})
-        _add_foodatlas_evidence(evidences, ref, {"method": "b"})
+        _add_extraction_evidence(evidences, ref, {"method": "a"})
+        _add_extraction_evidence(evidences, ref, {"method": "b"})
         assert len(evidences) == 1
         assert len(evidences[0]["extraction"]) == 2
 
     def test_different_premises_create_separate_entries(self):
         evidences: list = []
-        _add_foodatlas_evidence(evidences, {"pmcid": "PMC1", "text": "Premise A"}, {})
-        _add_foodatlas_evidence(evidences, {"pmcid": "PMC2", "text": "Premise B"}, {})
+        _add_extraction_evidence(evidences, {"pmcid": "PMC1", "text": "Premise A"}, {})
+        _add_extraction_evidence(evidences, {"pmcid": "PMC2", "text": "Premise B"}, {})
         assert len(evidences) == 2
 
     def test_url_with_pmcid(self):
         evidences: list = []
         ref = {"pmcid": "PMC999", "text": "Test"}
-        _add_foodatlas_evidence(evidences, ref, {})
+        _add_extraction_evidence(evidences, ref, {})
         url = evidences[0]["reference"]["url"]
         assert "PMC999" in url
 
     def test_url_without_pmcid(self):
         evidences: list = []
         ref = {"pmcid": "", "text": "Test"}
-        _add_foodatlas_evidence(evidences, ref, {})
+        _add_extraction_evidence(evidences, ref, {})
         assert evidences[0]["reference"]["url"] == ""
 
 
