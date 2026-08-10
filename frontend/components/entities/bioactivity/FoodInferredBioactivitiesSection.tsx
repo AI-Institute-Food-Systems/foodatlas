@@ -605,13 +605,13 @@ const FoodInferredBioactivitiesSection = ({
                         <span className="ml-1 text-light-500">
                           {conc.unit ?? ""}
                         </span>
-                        {row.conc_quality_flag === "suspect_high" && (
-                          <MdWarningAmber
-                            className="ml-1 inline size-3 text-amber-500"
-                            aria-label="Concentration flagged as implausibly high"
-                          />
-                        )}
                       </>
+                    )}
+                    {row.conc_quality_flag === "suspect_high" && (
+                      <MdWarningAmber
+                        className="ml-1 inline size-3 text-amber-500"
+                        aria-label="Concentration flagged as implausibly high"
+                      />
                     )}
                   </span>
                 </div>
@@ -825,14 +825,21 @@ const Row = ({
             <>
               {formatConcentrationValueAlt(conc.value)}
               <span className="ml-1 text-light-500">{conc.unit ?? ""}</span>
-              {row.conc_quality_flag === "suspect_high" && (
-                <MdWarningAmber
-                  className="ml-1 size-3 text-amber-500 flex-shrink-0"
-                  title="Upstream flagged this concentration as implausibly high (>10% of the food by mass). The efficacy figure is derived from it."
-                  aria-label="Concentration flagged as implausibly high"
-                />
-              )}
             </>
+          )}
+          {/* Outside the null branch on purpose. The flag comes from the
+           * efficacy row (which has its own concentration) while the value
+           * shown here comes from the composition row, and the two disagree
+           * often — 468 of the flagged rows that reach this table have no
+           * composition concentration at all. Nesting the warning inside
+           * meant it stayed hidden on exactly those rows, which are the
+           * ones where the user can least judge the number for themselves. */}
+          {row.conc_quality_flag === "suspect_high" && (
+            <MdWarningAmber
+              className="ml-1 size-3 text-amber-500 flex-shrink-0"
+              title="Upstream flagged the concentration behind this row as implausibly high (>10% of the food by mass). The efficacy figure is derived from it."
+              aria-label="Concentration flagged as implausibly high"
+            />
           )}
         </div>
       </td>
