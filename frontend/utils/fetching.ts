@@ -467,6 +467,24 @@ export async function getFoodBioactivities(
   );
 }
 
+// Bioactivities inferred transitively: food contains chemical X, X was
+// measured against bioactivity Y. Rows carry the Hill-fit efficacy columns
+// LEFT JOINed from mv_food_chemical_efficacy (null where a chemical has no
+// fittable curve), so this one call backs the whole inferred table —
+// including the Unit / Evidence / Source filters, which the shared sidebar
+// applies to this table and the direct one alike.
+export async function getFoodInferredBioactivities(
+  commonName: string,
+  params?: BioactivityListParams
+) {
+  return bioactivityListFetch(
+    "/food/inferred-bioactivities",
+    commonName,
+    params,
+    "food inferred bioactivities"
+  );
+}
+
 // Lazy-load FULL measurements for a single (head, bioactivity) pair —
 // bypasses the materialized view's 25-row cap by reading
 // base_attestations_bioactivity directly. relationship is "r6" for
@@ -513,13 +531,22 @@ export type BioactivityDirection =
 // Returns [] on any fetch failure so the table can render without chips.
 export async function getBioactivityEndpointOptions(
   commonName: string,
-  direction: BioactivityDirection
+  direction: BioactivityDirection,
+  filters: BioactivitySidebarFilters = {}
 ): Promise<{ endpoint: string; unit: string; count: number }[]> {
   try {
+    const params = new URLSearchParams({
+      common_name: commonName,
+      direction,
+    });
+    // Skip unit itself — this endpoint IS the unit list, so its own
+    // selection must not narrow the options it offers.
+    buildBioactivitySidebarParams(params, filters, {
+      skipUnit: true,
+      skipCategory: true,
+    });
     const res = await fetch(
-      `${apiBase()}/bioactivity/endpoints?common_name=${encodeURIComponent(
-        commonName
-      )}&direction=${direction}`,
+      `${apiBase()}/bioactivity/endpoints?${params.toString()}`,
       {
         headers: {
           Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
@@ -547,13 +574,19 @@ interface BioactivitySidebarFilters {
   filterUnit?: string;
   filterCategory?: string;
   filterSourceKind?: string;
+  filterEvidenceType?: string;
   search?: string;
 }
 
 const buildBioactivitySidebarParams = (
   base: URLSearchParams,
   filters: BioactivitySidebarFilters,
-  { skipUnit = false, skipCategory = false, skipSourceKind = false } = {},
+  {
+    skipUnit = false,
+    skipCategory = false,
+    skipSourceKind = false,
+    skipEvidenceType = false,
+  } = {},
 ) => {
   if (!skipUnit && filters.filterUnit) {
     base.set("filter_unit", filters.filterUnit);
@@ -563,6 +596,9 @@ const buildBioactivitySidebarParams = (
   }
   if (!skipSourceKind && filters.filterSourceKind) {
     base.set("filter_source_kind", filters.filterSourceKind);
+  }
+  if (!skipEvidenceType && filters.filterEvidenceType) {
+    base.set("filter_evidence_type", filters.filterEvidenceType);
   }
   if (filters.search) base.set("search", filters.search);
 };
@@ -643,13 +679,22 @@ export async function getBioactivitySourceKindCounts(
 // paginated queries.
 export async function getBioactivityEvidenceTypeCounts(
   commonName: string,
-  direction: string
+  direction: string,
+  filters: BioactivitySidebarFilters = {}
 ): Promise<{ evidence_type: string; count: number }[]> {
   try {
+    const params = new URLSearchParams({
+      common_name: commonName,
+      direction,
+    });
+    // Skip evidence type itself — each bucket answers "what would I get if
+    // I picked this?", so its own selection must not narrow the query.
+    buildBioactivitySidebarParams(params, filters, {
+      skipEvidenceType: true,
+      skipCategory: true,
+    });
     const res = await fetch(
-      `${apiBase()}/bioactivity/evidence_types?common_name=${encodeURIComponent(
-        commonName
-      )}&direction=${encodeURIComponent(direction)}`,
+      `${apiBase()}/bioactivity/evidence_types?${params.toString()}`,
       {
         headers: {
           Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,

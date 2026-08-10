@@ -79,6 +79,7 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
     // kind counts stay in sync with the visible tables.
     const filters = {
       filterUnit: selectedUnits.join("+"),
+      filterEvidenceType: selectedEvidenceTypes.join("+"),
       search: searchTerm,
     };
     (async () => {
@@ -109,7 +110,7 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
     return () => {
       cancelled = true;
     };
-  }, [commonName, selectedUnits, searchTerm]);
+  }, [commonName, selectedUnits, selectedEvidenceTypes, searchTerm]);
 
   const sourceKindParam = selectedSourceKind;
   const unitParam = selectedUnits.join("+");
@@ -122,11 +123,21 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
     if (!commonName) return;
     let cancelled = false;
     (async () => {
+      const evidenceFacets = {
+        filterUnit: selectedUnits.join("+"),
+        filterSourceKind: selectedSourceKind,
+        search: searchTerm,
+      };
       const [direct, inferred] = await Promise.all([
-        getBioactivityEvidenceTypeCounts(commonName, "food-bioactivities"),
         getBioactivityEvidenceTypeCounts(
           commonName,
-          "food-inferred-bioactivities"
+          "food-bioactivities",
+          evidenceFacets
+        ),
+        getBioactivityEvidenceTypeCounts(
+          commonName,
+          "food-inferred-bioactivities",
+          evidenceFacets
         ),
       ]);
       if (cancelled) return;
@@ -145,7 +156,7 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
     return () => {
       cancelled = true;
     };
-  }, [commonName]);
+  }, [commonName, selectedUnits, selectedSourceKind, searchTerm]);
 
   // Aggregated unit list across BOTH tables — direct (food-level
   // measurements, usually just "mmol/100g") + inferred (all measurements
@@ -155,11 +166,21 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      const unitFacets = {
+        filterEvidenceType: selectedEvidenceTypes.join("+"),
+        filterSourceKind: selectedSourceKind,
+        search: searchTerm,
+      };
       const [direct, inferred] = await Promise.all([
-        getBioactivityEndpointOptions(commonName, "food-bioactivities"),
         getBioactivityEndpointOptions(
           commonName,
-          "food-inferred-bioactivities"
+          "food-bioactivities",
+          unitFacets
+        ),
+        getBioactivityEndpointOptions(
+          commonName,
+          "food-inferred-bioactivities",
+          unitFacets
         ),
       ]);
       if (cancelled) return;
@@ -178,7 +199,7 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
     return () => {
       cancelled = true;
     };
-  }, [commonName]);
+  }, [commonName, selectedEvidenceTypes, selectedSourceKind, searchTerm]);
 
   const chooseSourceKind = (kind: string) => setSelectedSourceKind(kind);
   const toggleUnit = (unit: string) => {
@@ -434,7 +455,7 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
               >
                 {selected && <MdCheck className="w-3 h-3" />}
               </span>
-              <span className="font-mono text-xs flex-1 min-w-0 truncate">
+              <span className="font-mono text-xs flex-1 min-w-0 truncate capitalize">
                 {evidence_type}
               </span>
               <span

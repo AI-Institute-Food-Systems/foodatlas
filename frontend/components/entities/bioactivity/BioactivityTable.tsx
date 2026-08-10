@@ -462,6 +462,22 @@ const BioactivityTable = ({
     effectiveEvidenceTypeParam,
   ]);
 
+  // Snap back to page 1 when the server reports fewer pages than the page
+  // we're on. Search and filter chrome can live on a parent (see
+  // `hideChrome`, e.g. FoodBioactivitiesTab), and that parent doesn't know
+  // this table's tableId — so the in-component resets below are unreachable
+  // and a narrowed result set would otherwise strand the user on an
+  // out-of-range page with the paginator unmounted.
+  //
+  // Guards: `!isLoading` because total_pages is 0 mid-flight, and
+  // `totalPages > 0` so a genuinely empty result set keeps its own empty
+  // state instead of bouncing the page.
+  useEffect(() => {
+    if (!isLoading && totalPages > 0 && currentPage > totalPages) {
+      setTablePaginations(tableId, 1, 20);
+    }
+  }, [isLoading, totalPages, currentPage, tableId, setTablePaginations]);
+
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value.toLowerCase());
     setTablePaginations(tableId, 1, 20);
@@ -686,6 +702,7 @@ const BioactivityTable = ({
                 count={count}
                 selected={selectedEvidenceTypes.includes(evidence_type)}
                 onClick={() => toggleEvidenceType(evidence_type)}
+                capitalizeLabel
               />
             ))}
           </div>
@@ -1224,12 +1241,18 @@ const UnitRow = ({
   selected,
   onClick,
   disabled,
+  capitalizeLabel,
 }: {
   unit: string;
   count: number;
   selected: boolean;
   onClick: () => void;
   disabled?: boolean;
+  // Opt-in, because this row is shared between the Unit and Evidence
+  // filters. Evidence types are prose ("in vitro") and read as typos in
+  // lowercase, but units are case-significant — `capitalize` would turn
+  // uM into UM and ug/mL into Ug/mL. So only Evidence passes this.
+  capitalizeLabel?: boolean;
 }) => (
   <button
     type="button"
@@ -1257,7 +1280,14 @@ const UnitRow = ({
     >
       {selected && <MdCheck className="w-3 h-3" />}
     </span>
-    <span className="font-mono text-xs flex-1 min-w-0 truncate">{unit}</span>
+    <span
+      className={twMerge(
+        "font-mono text-xs flex-1 min-w-0 truncate",
+        capitalizeLabel && "capitalize"
+      )}
+    >
+      {unit}
+    </span>
     <span
       className={twMerge(
         "tabular-nums text-[10px] flex-shrink-0",

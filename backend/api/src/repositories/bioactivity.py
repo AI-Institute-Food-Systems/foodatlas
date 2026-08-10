@@ -544,7 +544,25 @@ _INFERRED_SORT = {
     "measurement_count": "cb.measurement_count",
     "active_count": "cb.active_count",
     "inactive_count": "cb.inactive_count",
+    # efficacy_fraction saturates — roughly half a food's rows sit above 0.99
+    # and all render as ">99%" — so ties fall through to dose_over_ac50_log,
+    # which still separates them by orders of magnitude. Mirrors the frontend
+    # comparator this replaces. Multi-column: the direction has to be repeated
+    # per column, since `a, b DESC` would sort `a` ascending.
+    "efficacy": ["eff.efficacy_fraction", "eff.dose_over_ac50_log"],
+    "n_curves": ["eff.n_curves"],
 }
+
+# Efficacy columns LEFT JOINed onto the inferred rows. The join key is food
+# plus chemical plus bioactivity, which is unique in mv_food_chemical_efficacy,
+# so it can never multiply rows — the COUNT query deliberately omits the join.
+# Rows with no Hill fit come back NULL and render as an em-dash.
+_INFERRED_EFFICACY_JOIN = """
+            LEFT JOIN mv_food_chemical_efficacy eff
+              ON eff.food_name = fcc.food_name
+             AND eff.chemical_foodatlas_id = fcc.chemical_foodatlas_id
+             AND eff.bioactivity_foodatlas_id = cb.bioactivity_foodatlas_id
+"""
 
 
 async def get_food_inferred_bioactivities(
@@ -562,6 +580,10 @@ async def get_food_inferred_bioactivities(
     """Bioactivities of the chemicals found in this food (transitive)."""
     sort_col = _INFERRED_SORT.get(sort_by, _INFERRED_SORT["concentration"])
     direction = sort_dir.upper() if sort_dir.upper() in _VALID_DIR else "DESC"
+    # Every column carries its own direction + NULLS LAST; a bare
+    # `ORDER BY a, b DESC` would silently sort `a` ascending.
+    sort_cols = [sort_col] if isinstance(sort_col, str) else sort_col
+    order_by = ", ".join(f"{c} {direction} NULLS LAST" for c in sort_cols)
 
     params: dict = {"name": common_name}
     where_parts = ["fcc.food_name = :name"]
@@ -607,12 +629,18 @@ async def get_food_inferred_bioactivities(
               fcc.chemical_foodatlas_id AS chemical_id,
               fcc.median_concentration,
               cb.measurement_count, cb.active_count, cb.inactive_count,
-              cb.measurements
+              cb.measurements,
+              eff.efficacy_fraction,
+              eff.conc_vs_ac50,
+              eff.dose_over_ac50_log,
+              eff.n_curves,
+              eff.conc_quality_flag
             FROM mv_food_chemical_composition fcc
             JOIN mv_chemical_bioactivity cb
               ON cb.chemical_foodatlas_id = fcc.chemical_foodatlas_id
+            {_INFERRED_EFFICACY_JOIN}
             WHERE {where}
-            ORDER BY {sort_col} {direction} NULLS LAST
+            ORDER BY {order_by}
             OFFSET :offset ROWS FETCH FIRST :limit ROWS ONLY
         """),
         {**params, "offset": offset, "limit": rows_per_page},
@@ -649,86 +677,102 @@ _DIRECTION_PIVOTS: dict[str, tuple[str, str, str]] = {
 
 
 async def get_endpoint_options(
-    session: AsyncSession, common_name: str, direction: str
+    session: AsyncSession,
+    common_name: str,
+    direction: str,
+    filter_evidence_type: str = "",
+    filter_source_kind: str = "",
+    search: str = "",
 ) -> dict[str, object]:
-    """List distinct (endpoint, unit) combinations for the given pivot.
+    """Per-unit ROW counts for the sidebar Unit filter.
 
-    Used to populate the table's endpoint+unit filter chip row. Counts
-    are descending by occurrence so the UI can surface the most useful
-    chips first.
+    Counts rows, not measurements, so each number equals what selecting
+    that unit actually returns. It previously aggregated
+    base_attestations_bioactivity, which counts every measurement — apple
+    advertised "uM 20,222" while the whole table held 1,591 rows and
+    filtering returned 1,465.
 
-    Special direction: "food-inferred-bioactivities" — walks the food's
-    chemistry (mv_food_chemical_composition) and surfaces the units from
-    every chemical's measurements. Used by the food page's shared
-    bioactivities sidebar so its unit list isn't limited to the direct
-    (food-level) measurements alone.
+    Counting over the MV's (capped) ``measurements`` sample is what makes
+    them agree: the filter uses the very same predicate, so the count is
+    exact by construction. The cap does hide units that appear only past
+    the 25th measurement of a pair — one of apple's 15 — but those cannot
+    be filtered on either, so listing them only offers a chip that returns
+    nothing.
 
-    TODO: this endpoint should also become faceted (accept filter_category,
-    filter_source_kind, search) and return per-row unit counts so the
-    Unit chip count stays in sync when other filters are applied. Blocked
-    on rewriting the attestation-based aggregate as an MV-based row-count
-    query without regressing the completeness of the unit list.
+    Every OTHER sidebar dimension is applied, matching
+    /food/composition/counts. ``endpoint`` is no longer returned: both
+    callers summed it away by unit, and summing row counts per
+    (endpoint, unit) would double-count any row carrying two endpoints
+    that share a unit.
     """
     if direction == "food-inferred-bioactivities":
+        extras, extra_params = _sidebar_extra_where(
+            mv_alias="cb",
+            filter_evidence_type=filter_evidence_type,
+            filter_source_kind=filter_source_kind,
+            search=search,
+            search_col="(cb.bioactivity_name || ' ' || fcc.chemical_name)",
+            include_unit=False,
+            include_category=False,
+        )
+        where = " AND ".join(["fcc.food_name = :name", *extras])
         rows_result = await session.execute(
-            text("""
-                SELECT ba.evidence_endpoint_type AS endpoint,
-                       ba.potency_unit AS unit,
-                       COUNT(*) AS count
-                FROM mv_food_chemical_composition fcc
-                JOIN base_triplets bt
-                  ON bt.head_id = fcc.chemical_foodatlas_id
-                 AND bt.relationship_id = 'r6'
-                CROSS JOIN LATERAL unnest(bt.attestation_ids) AS att(bm)
-                JOIN base_attestations_bioactivity ba
-                  ON ba.bioactivity_metadata_id = att.bm
-                WHERE fcc.food_name = :name
-                  AND ba.evidence_endpoint_type <> ''
-                  AND ba.potency_unit <> ''
-                GROUP BY ba.evidence_endpoint_type, ba.potency_unit
-                ORDER BY COUNT(*) DESC
+            text(f"""
+                SELECT unit, COUNT(*) AS count
+                FROM (
+                    SELECT DISTINCT
+                        fcc.food_foodatlas_id,
+                        cb.chemical_foodatlas_id,
+                        cb.bioactivity_foodatlas_id,
+                        m->>'unit' AS unit
+                    FROM mv_food_chemical_composition fcc
+                    JOIN mv_chemical_bioactivity cb
+                      ON cb.chemical_foodatlas_id
+                       = fcc.chemical_foodatlas_id,
+                    LATERAL jsonb_array_elements(cb.measurements) AS m
+                    WHERE {where}
+                ) AS x
+                WHERE unit IS NOT NULL AND unit <> ''
+                GROUP BY unit
+                ORDER BY count DESC
             """),
-            {"name": common_name},
+            {"name": common_name, **extra_params},
         )
         data = _bioact_hotfix.clean_endpoint_options(
             [dict(r._mapping) for r in rows_result]
         )
         return {"data": data, "metadata": {"row_count": len(data)}}
 
-    info = _DIRECTION_PIVOTS.get(direction)
+    info = _SOURCE_KIND_DIRECTIONS.get(direction)
     if info is None:
         return {"data": [], "metadata": {"row_count": 0}}
-    rel, pivot_side, mv = info
-
-    pivot_id = (
-        await session.execute(
-            text(f"SELECT foodatlas_id FROM {mv} WHERE common_name = :name"),
-            {"name": common_name},
-        )
-    ).scalar()
-    if not pivot_id:
-        return {"data": [], "metadata": {"row_count": 0}}
-
+    mv, name_col = info
+    extras, extra_params = _sidebar_extra_where(
+        mv_alias="mv",
+        filter_evidence_type=filter_evidence_type,
+        filter_source_kind=filter_source_kind,
+        search=search,
+        search_col=_search_col_for(direction),
+        include_unit=False,
+        include_category=False,
+    )
+    where = " AND ".join([f"mv.{name_col} = :name", *extras])
     rows_result = await session.execute(
         text(f"""
-            SELECT ba.evidence_endpoint_type AS endpoint,
-                   ba.potency_unit AS unit,
-                   COUNT(*) AS count
-            FROM base_triplets bt
-            CROSS JOIN LATERAL unnest(bt.attestation_ids) AS att(bm)
-            JOIN base_attestations_bioactivity ba
-              ON ba.bioactivity_metadata_id = att.bm
-            WHERE bt.relationship_id = :rel
-              AND bt.{pivot_side} = :pivot
-              AND ba.evidence_endpoint_type <> ''
-              AND ba.potency_unit <> ''
-            GROUP BY ba.evidence_endpoint_type, ba.potency_unit
-            ORDER BY COUNT(*) DESC
+            SELECT unit, COUNT(*) AS count
+            FROM (
+                SELECT DISTINCT mv.ctid, m->>'unit' AS unit
+                FROM {mv} AS mv,
+                LATERAL jsonb_array_elements(mv.measurements) AS m
+                WHERE {where}
+            ) AS x
+            WHERE unit IS NOT NULL AND unit <> ''
+            GROUP BY unit
+            ORDER BY count DESC
         """),
-        {"rel": rel, "pivot": pivot_id},
+        {"name": common_name, **extra_params},
     )
-    # HOTFIX 2026-06-26 — drop leaked-assay/outcome endpoints and fold
-    # unit aliases before exposing the chip list. See _bioact_hotfix.py.
+    # HOTFIX 2026-06-26 — fold unit aliases before exposing the chip list.
     data = _bioact_hotfix.clean_endpoint_options(
         [dict(r._mapping) for r in rows_result]
     )
@@ -799,17 +843,60 @@ def _search_col_for(direction: str) -> str:
     return _SEARCH_COL_BY_DIRECTION.get(direction, "")
 
 
+def _attestation_facet_where(
+    *,
+    filter_evidence_type: str = "",
+    filter_source_kind: str = "",
+    search: str = "",
+    pair_exists_sql: str = "",
+) -> tuple[list[str], dict]:
+    """Facet predicates for the attestation-level unit/endpoint aggregate.
+
+    get_endpoint_options counts rows of base_attestations_bioactivity, not
+    MV rows, because the MV's ``measurements`` sample is capped at 25 per
+    pair and an MV-based rewrite would silently drop units that only occur
+    past the cap. So evidence type and source kind filter the attestation
+    columns directly.
+
+    ``search`` is different — it selects *pairs*, not measurements — so the
+    caller passes an EXISTS fragment against the relevant MV. That join can
+    only ever exclude whole pairs, never individual measurements, so the
+    unit list stays complete for the pairs that survive.
+    """
+    where: list[str] = []
+    params: dict = {}
+    if filter_evidence_type:
+        etypes = [t.strip() for t in filter_evidence_type.split("+") if t.strip()]
+        if etypes:
+            where.append("ba.evidence_type = ANY(:ets)")
+            params["ets"] = etypes
+    if filter_source_kind == "experimental":
+        where.append("ba.evidence_source ILIKE 'exp%'")
+    elif filter_source_kind == "predicted":
+        where.append(
+            "(ba.evidence_source ILIKE 'pred%' OR ba.evidence_source ILIKE 'comp%')"
+        )
+    if pair_exists_sql:
+        search_pattern = build_ilike_pattern(search)
+        if search_pattern:
+            where.append(pair_exists_sql)
+            params["sq"] = search_pattern
+    return where, params
+
+
 def _sidebar_extra_where(
     *,
     mv_alias: str,
     filter_unit: str = "",
     filter_category: str = "",
     filter_source_kind: str = "",
+    filter_evidence_type: str = "",
     search: str = "",
     search_col: str = "",
     include_unit: bool = True,
     include_category: bool = True,
     include_source_kind: bool = True,
+    include_evidence_type: bool = True,
 ) -> tuple[list[str], dict]:
     """Build the sidebar-count WHERE fragments applying every OTHER filter.
 
@@ -848,6 +935,14 @@ def _sidebar_extra_where(
             " WHERE (m->>'evidence_source') ILIKE 'pred%'"
             " OR (m->>'evidence_source') ILIKE 'comp%')"
         )
+    if include_evidence_type and filter_evidence_type:
+        etypes = [t.strip() for t in filter_evidence_type.split("+") if t.strip()]
+        if etypes:
+            where.append(
+                f"EXISTS (SELECT 1 FROM jsonb_array_elements({mv_alias}.measurements) m"
+                " WHERE m->>'evidence_type' = ANY(:ets))"
+            )
+            params["ets"] = etypes
     if search_col:
         search_pattern = build_ilike_pattern(search)
         if search_pattern:
@@ -862,6 +957,7 @@ async def get_source_kind_counts(
     direction: str,
     filter_unit: str = "",
     filter_category: str = "",
+    filter_evidence_type: str = "",
     search: str = "",
 ) -> dict[str, object]:
     """Row counts per assay-source kind for the sidebar Assay Source filter.
@@ -875,6 +971,7 @@ async def get_source_kind_counts(
             mv_alias="cb",
             filter_unit=filter_unit,
             filter_category=filter_category,
+            filter_evidence_type=filter_evidence_type,
             search=search,
             search_col="(cb.bioactivity_name || ' ' || fcc.chemical_name)",
             include_source_kind=False,
@@ -925,6 +1022,7 @@ async def get_source_kind_counts(
         mv_alias="mv",
         filter_unit=filter_unit,
         filter_category=filter_category if can_category else "",
+        filter_evidence_type=filter_evidence_type,
         search=search,
         search_col=_search_col_for(direction),
         include_source_kind=False,
@@ -963,7 +1061,12 @@ async def get_source_kind_counts(
 
 
 async def get_evidence_type_counts(
-    session: AsyncSession, common_name: str, direction: str
+    session: AsyncSession,
+    common_name: str,
+    direction: str,
+    filter_unit: str = "",
+    filter_source_kind: str = "",
+    search: str = "",
 ) -> dict[str, object]:
     """Per-evidence_type row counts for the sidebar Evidence filter.
 
@@ -981,8 +1084,17 @@ async def get_evidence_type_counts(
     exactly.
     """
     if direction == "food-inferred-bioactivities":
+        extras, extra_params = _sidebar_extra_where(
+            mv_alias="cb",
+            filter_unit=filter_unit,
+            filter_source_kind=filter_source_kind,
+            search=search,
+            search_col="(cb.bioactivity_name || ' ' || fcc.chemical_name)",
+            include_evidence_type=False,
+        )
+        where = " AND ".join(["fcc.food_name = :name", *extras])
         result = await session.execute(
-            text("""
+            text(f"""
                 SELECT evidence_type, COUNT(*) AS count
                 FROM (
                     SELECT DISTINCT
@@ -995,19 +1107,29 @@ async def get_evidence_type_counts(
                       ON cb.chemical_foodatlas_id
                        = fcc.chemical_foodatlas_id,
                     LATERAL jsonb_array_elements(cb.measurements) AS m
-                    WHERE fcc.food_name = :name
+                    WHERE {where}
                 ) AS x
                 WHERE evidence_type IS NOT NULL AND evidence_type <> ''
                 GROUP BY evidence_type
                 ORDER BY count DESC
             """),
-            {"name": common_name},
+            {"name": common_name, **extra_params},
         )
     else:
         info = _SOURCE_KIND_DIRECTIONS.get(direction)
         if info is None:
             return {"data": [], "metadata": {"row_count": 0}}
         mv, name_col = info
+        extras, extra_params = _sidebar_extra_where(
+            mv_alias="mv",
+            filter_unit=filter_unit,
+            filter_source_kind=filter_source_kind,
+            search=search,
+            search_col=_search_col_for(direction),
+            include_evidence_type=False,
+            include_category=False,
+        )
+        where = " AND ".join([f"mv.{name_col} = :name", *extras])
         result = await session.execute(
             text(f"""
                 SELECT evidence_type, COUNT(*) AS count
@@ -1017,13 +1139,13 @@ async def get_evidence_type_counts(
                         m->>'evidence_type' AS evidence_type
                     FROM {mv} AS mv,
                     LATERAL jsonb_array_elements(mv.measurements) AS m
-                    WHERE mv.{name_col} = :name
+                    WHERE {where}
                 ) AS x
                 WHERE evidence_type IS NOT NULL AND evidence_type <> ''
                 GROUP BY evidence_type
                 ORDER BY count DESC
             """),
-            {"name": common_name},
+            {"name": common_name, **extra_params},
         )
     data = [dict(r._mapping) for r in result]
     return {"data": data, "metadata": {"row_count": len(data)}}

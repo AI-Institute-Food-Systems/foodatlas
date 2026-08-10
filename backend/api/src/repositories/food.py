@@ -26,19 +26,23 @@ NUTRIENT_KEY_MAP = {
 # 2026-07-06 — the DB column `dmd_evidences` stays populated on
 # `mv_food_chemical_composition` but is no longer selectable / filterable
 # / countable via this API.
-VALID_SOURCES = {"fdc", "foodatlas"}
+# PTFI ships relative_abundance rather than mg/100g, so most of its rows
+# have no median_concentration — they are still real composition evidence
+# and are selectable/filterable/countable like any other source.
+VALID_SOURCES = {"fdc", "foodatlas", "ptfi"}
 VALID_SORT_COLS = {
     "common_name": "chemical_name",
     "median_concentration": "(median_concentration->>'value')::NUMERIC",
     "evidence_count": (
         "COALESCE(jsonb_array_length(fdc_evidences), 0) "
         "+ COALESCE(jsonb_array_length(foodatlas_evidences), 0) "
+        "+ COALESCE(jsonb_array_length(ptfi_evidences), 0) "
         "+ COALESCE(jsonb_array_length(dmd_evidences), 0)"
     ),
 }
 VALID_DIRECTIONS = {"ASC", "DESC"}
 
-ALL_EVIDENCE_COLS = "fdc_evidences, foodatlas_evidences"
+ALL_EVIDENCE_COLS = "fdc_evidences, foodatlas_evidences, ptfi_evidences"
 BASE_SELECT = (
     "chemical_name AS name, chemical_foodatlas_id AS id, "
     "chemical_classification, median_concentration"
@@ -101,7 +105,11 @@ async def get_profile(session: AsyncSession, common_name: str) -> dict[str, obje
 def _collect_attestation_ids(row: dict) -> list[str]:
     """All attestation_ids across a composition row's evidence lists."""
     atts: list[str] = []
-    for ev_list in (row["fdc_evidences"], row["foodatlas_evidences"]):
+    for ev_list in (
+        row["fdc_evidences"],
+        row["foodatlas_evidences"],
+        row.get("ptfi_evidences"),
+    ):
         for ev in ev_list or []:
             for ext in ev.get("extraction") or []:
                 aid = ext.get("attestation_id")
@@ -119,6 +127,7 @@ def _annotate_composition_rows(
         r["_classifications"] = r["chemical_classification"] or []
         r["_has_fdc"] = r["fdc_evidences"] is not None
         r["_has_fa"] = r["foodatlas_evidences"] is not None
+        r["_has_ptfi"] = r.get("ptfi_evidences") is not None
         r["_has_conc"] = r["median_concentration"] is not None
         r["_fully_low"] = bool(atts) and all(
             aid in scores and scores[aid] <= threshold for aid in atts
@@ -159,10 +168,13 @@ async def get_composition_counts(
     result = await session.execute(
         text("""
             SELECT id, chemical_name, chemical_classification,
-                   median_concentration, fdc_evidences, foodatlas_evidences
+                   median_concentration, fdc_evidences, foodatlas_evidences,
+                   ptfi_evidences
             FROM mv_food_chemical_composition
             WHERE food_name = :name
-              AND (fdc_evidences IS NOT NULL OR foodatlas_evidences IS NOT NULL)
+              AND (fdc_evidences IS NOT NULL
+                   OR foodatlas_evidences IS NOT NULL
+                   OR ptfi_evidences IS NOT NULL)
         """),
         {"name": common_name},
     )
@@ -191,8 +203,10 @@ async def get_composition_counts(
     trust_default = trust == "default"
 
     def m_source(r: dict) -> bool:
-        return ("fdc" in active_sources and r["_has_fdc"]) or (
-            "foodatlas" in active_sources and r["_has_fa"]
+        return (
+            ("fdc" in active_sources and r["_has_fdc"])
+            or ("foodatlas" in active_sources and r["_has_fa"])
+            or ("ptfi" in active_sources and r["_has_ptfi"])
         )
 
     def m_class(r: dict) -> bool:
@@ -224,7 +238,7 @@ async def get_composition_counts(
                 cls_counts[cls] = cls_counts.get(cls, 0) + 1
 
     # source_counts — exclude source filter.
-    source_counts = {"fdc": 0, "foodatlas": 0}
+    source_counts = {"fdc": 0, "foodatlas": 0, "ptfi": 0}
     for r in rows:
         if not (m_class(r) and m_conc(r) and m_trust(r) and m_search(r)):
             continue
@@ -232,6 +246,8 @@ async def get_composition_counts(
             source_counts["fdc"] += 1
         if r["_has_fa"]:
             source_counts["foodatlas"] += 1
+        if r["_has_ptfi"]:
+            source_counts["ptfi"] += 1
 
     # Toggle counts — exclude the toggle's own filter, count rows the
     # toggle governs.
@@ -385,10 +401,12 @@ def _build_query_parts(
         # Filter DMD-only rows unconditionally — the public API stopped
         # exposing dmd_evidences in the 2026-07-06 DMD removal (PR #249)
         # so a row with only DMD evidence renders as an empty row on the
-        # composition table. Redundant with the single-source clause
-        # below when a user picks exactly one source, harmless when both
-        # are selected.
-        "(fdc_evidences IS NOT NULL OR foodatlas_evidences IS NOT NULL)",
+        # composition table. Every source we DO expose must be listed
+        # here, otherwise its rows are silently dropped: PTFI rows carry
+        # only ptfi_evidences, so omitting it would hide all 11k of them.
+        "(fdc_evidences IS NOT NULL"
+        " OR foodatlas_evidences IS NOT NULL"
+        " OR ptfi_evidences IS NOT NULL)",
     ]
     params: dict = {"name": common_name}
 

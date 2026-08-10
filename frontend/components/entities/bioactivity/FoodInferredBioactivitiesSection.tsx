@@ -19,6 +19,7 @@ import {
   MdKeyboardArrowUp,
   MdSearch,
   MdUnfoldMore,
+  MdWarningAmber,
 } from "react-icons/md";
 import { twMerge } from "tailwind-merge";
 
@@ -36,101 +37,84 @@ import { usePaginations } from "@/context/paginationsContext";
 import { useLoadingGate } from "@/context/pageReadyContext";
 import {
   getChemicalBioactivities,
-  getFoodEfficacy,
+  getFoodInferredBioactivities,
 } from "@/utils/fetching";
 import { encodeSpace, formatConcentrationValueAlt } from "@/utils/utils";
-import type { BioactivityMeasurement, FoodEfficacyRow } from "@/types";
+import type { BioactivityMeasurement } from "@/types";
 
-// The inferred table row shape now derives from /food/efficacy (the
-// former /food/inferred-bioactivities endpoint was removed on the
-// ptfi-bioactivity-staging refresh). Each row is one (chemical ×
-// bioactivity) evaluated against a Hill fit — the efficacy math lives
-// on `efficacy`; `n_curves` is the count of qualifying Hill curves
-// (the closest analog to the old `measurement_count` for the "N curves"
-// column + the View-measurements modal button).
-interface InferredRow {
+// One row per (chemical in this food × bioactivity that chemical was
+// measured against), served by /food/inferred-bioactivities. That endpoint
+// LEFT JOINs the Hill-fit efficacy columns, so a single call backs the whole
+// table: rows without a fittable curve come back with null efficacy and
+// render an em-dash, and search / sort / filters / pagination all happen
+// server-side. Critically that includes the Unit, Evidence and Source
+// filters, which the shared sidebar applies to this table and the direct
+// one alike — see FoodBioactivitiesTab.
+export interface InferredRow {
   bioactivity: string;
   bioactivity_id: string;
   chemical: string;
   chemical_id: string;
   median_concentration: { value: number | null; unit: string } | null;
+  // Hill curves behind the efficacy figure; the assay chip shows
+  // `n_measurements_total`, which counts every measurement for the pair.
   n_curves: number;
-  // Total assays backing the pair (from mv_chemical_bioactivity). Null on
-  // older API deployments — chip label falls back to "View assays" in that
-  // case. Once every environment ships the backend change, this can be
-  // required.
   n_measurements_total: number | null;
-  efficacy: FoodEfficacyRow;
+  // "suspect_high" when the upstream pipeline measured the chemical at
+  // >10% of the food by mass — implausible for most chemistry, and the
+  // efficacy figure is derived from it, so the row is flagged rather
+  // than silently trusted. 1,560 of 61,119 efficacy rows carry it.
+  conc_quality_flag: string | null;
+  efficacy: {
+    efficacy_fraction: number | null;
+    conc_vs_ac50: string | null;
+  };
 }
 
-const PAGE_SIZE = 20;
+// Shape of a row as the API returns it, before we normalise it.
+interface InferredApiRow {
+  bioactivity?: string;
+  bioactivity_id?: string;
+  chemical?: string;
+  chemical_id?: string;
+  median_concentration?: { value: number | null; unit: string } | null;
+  conc_quality_flag?: string | null;
+  measurement_count?: number | null;
+  n_curves?: number | null;
+  efficacy_fraction?: number | null;
+  conc_vs_ac50?: string | null;
+}
 
-const efficacyToInferredRow = (e: FoodEfficacyRow): InferredRow => ({
-  bioactivity: e.bioactivity_name,
-  bioactivity_id: e.bioactivity_foodatlas_id,
-  chemical: e.chemical_name,
-  chemical_id: e.chemical_foodatlas_id,
-  median_concentration:
-    e.food_conc_mg_per_100g != null
-      ? { value: e.food_conc_mg_per_100g, unit: "mg/100g" }
-      : null,
-  n_curves: e.n_curves ?? 0,
-  n_measurements_total: e.n_measurements_total ?? null,
-  efficacy: e,
+const apiRowToInferredRow = (r: InferredApiRow): InferredRow => ({
+  bioactivity: r.bioactivity ?? "",
+  bioactivity_id: r.bioactivity_id ?? "",
+  chemical: r.chemical ?? "",
+  chemical_id: r.chemical_id ?? "",
+  median_concentration: r.median_concentration ?? null,
+  conc_quality_flag: r.conc_quality_flag ?? null,
+  n_curves: r.n_curves ?? 0,
+  // measurement_count comes from mv_chemical_bioactivity — the same source
+  // the efficacy endpoint exposed as n_measurements_total.
+  n_measurements_total: r.measurement_count ?? null,
+  efficacy: {
+    efficacy_fraction: r.efficacy_fraction ?? null,
+    conc_vs_ac50: r.conc_vs_ac50 ?? null,
+  },
 });
 
-const compare = (a: number | null, b: number | null): number => {
-  if (a == null && b == null) return 0;
-  if (a == null) return 1; // nulls last
-  if (b == null) return -1;
-  return a - b;
-};
-
-const sortInferred = (
-  rows: InferredRow[],
-  by: string,
-  dir: "asc" | "desc"
-): InferredRow[] => {
-  const mult = dir === "asc" ? 1 : -1;
-  const copy = [...rows];
-  copy.sort((r1, r2) => {
-    switch (by) {
-      case "bioactivity":
-        return mult * r1.bioactivity.localeCompare(r2.bioactivity);
-      case "chemical":
-        return mult * r1.chemical.localeCompare(r2.chemical);
-      case "concentration":
-        return (
-          mult *
-          compare(
-            r1.median_concentration?.value ?? null,
-            r2.median_concentration?.value ?? null
-          )
-        );
-      case "efficacy":
-        return (
-          mult *
-          compare(
-            r1.efficacy.efficacy_fraction,
-            r2.efficacy.efficacy_fraction
-          )
-        );
-      case "n_curves":
-        // Sort by the total shown on the chip when available, falling back
-        // to the contributed count on older API deployments.
-        return (
-          mult *
-          compare(
-            r1.n_measurements_total ?? r1.n_curves,
-            r2.n_measurements_total ?? r2.n_curves
-          )
-        );
-      default:
-        return 0;
-    }
-  });
-  return copy;
-};
+// Sorting is server-side (see _INFERRED_SORT in the API's bioactivity
+// repository). The nulls-last rule and the efficacy tie-break on
+// dose_over_ac50_log both live in SQL now, so there is no client-side
+// comparator to keep in sync.
+//
+// Sort keys the table exposes, mapped to what the API accepts.
+const SORT_KEYS = {
+  bioactivity: "bioactivity",
+  chemical: "chemical",
+  concentration: "concentration",
+  efficacy: "efficacy",
+  n_curves: "measurement_count",
+} as const;
 
 type SortDir = "asc" | "desc";
 
@@ -181,10 +165,12 @@ const FoodInferredBioactivitiesSection = ({
     dir: "desc",
   });
 
-  // /food/efficacy returns every (chemical × bioactivity) row for the
-  // food in a single response (typical: 0–200 rows), so all filtering,
-  // sorting, and pagination is done client-side against `allRows`.
-  const [allRows, setAllRows] = useState<InferredRow[]>([]);
+  // Server-driven: the endpoint applies search, filters, sort and paging,
+  // so `rows` is exactly the page to render and `totalRows` comes from the
+  // response metadata.
+  const [rows, setRows] = useState<InferredRow[]>([]);
+  const [totalRows, setTotalRows] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   useLoadingGate(isLoading);
   // Modal state. The efficacy endpoint doesn't carry raw measurements,
@@ -239,59 +225,67 @@ const FoodInferredBioactivitiesSection = ({
         : undefined,
   });
 
-  // Single fetch per commonName — the efficacy endpoint returns
-  // everything for the food in one shot. External filter props
-  // (effectiveSourceKind/Unit/EvidenceType) don't apply to efficacy
-  // rows (those concepts live on raw bioactivity measurements, not on
-  // Hill-fit efficacy) so they're intentionally ignored here.
+  // One request per (food, page, search, sort, filter) tuple. The three
+  // filter props are forwarded so this table narrows in step with the
+  // direct table above it — the shared sidebar drives both.
   useEffect(() => {
     let cancelled = false;
     setIsLoading(true);
     (async () => {
-      const payload = await getFoodEfficacy(commonName);
+      const payload = await getFoodInferredBioactivities(commonName, {
+        page: currentPage,
+        search: effectiveSearchTerm || undefined,
+        sortBy: SORT_KEYS[sort.by as keyof typeof SORT_KEYS] ?? "concentration",
+        sortDir: sort.dir,
+        filterSourceKind: effectiveSourceKind || undefined,
+        filterUnit: effectiveUnit || undefined,
+        filterEvidenceType: effectiveEvidenceType || undefined,
+      });
       if (cancelled) return;
-      const eff = (payload?.data as FoodEfficacyRow[] | undefined) ?? [];
-      // UNCLASSIFIED rows (bioactivity_id_raw === "UNCLASSIFIED") have no
-      // canonical bioactivity target, so /chemical/bioactivities has no
-      // bucket for them and the assays modal can't drill in. Per Pranav
-      // 2026-08-04: drop them until upstream labels the underlying targets.
-      const classified = eff.filter(
-        (r) => r.bioactivity_id_raw !== "UNCLASSIFIED"
-      );
-      setAllRows(classified.map(efficacyToInferredRow));
+      const data = (payload?.data as InferredApiRow[] | undefined) ?? [];
+      const meta = payload?.metadata as
+        | { total_rows?: number; total_pages?: number }
+        | undefined;
+      setRows(data.map(apiRowToInferredRow));
+      setTotalRows(meta?.total_rows ?? 0);
+      setTotalPages(Math.max(1, meta?.total_pages ?? 1));
       setIsLoading(false);
     })();
     return () => {
       cancelled = true;
     };
-  }, [commonName]);
-
-  // Client-side filter + sort + paginate.
-  const filteredRows = useMemo(() => {
-    if (!effectiveSearchTerm) return allRows;
-    const q = effectiveSearchTerm.trim().toLowerCase();
-    if (!q) return allRows;
-    return allRows.filter(
-      (r) =>
-        r.bioactivity.toLowerCase().includes(q) ||
-        r.chemical.toLowerCase().includes(q)
-    );
-  }, [allRows, effectiveSearchTerm]);
-  const sortedRows = useMemo(
-    () => sortInferred(filteredRows, sort.by, sort.dir),
-    [filteredRows, sort]
-  );
-  const totalRows = sortedRows.length;
-  const totalPages = Math.max(1, Math.ceil(totalRows / PAGE_SIZE));
-  const rows = useMemo(
-    () =>
-      sortedRows.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
-    [sortedRows, currentPage]
-  );
+  }, [
+    commonName,
+    currentPage,
+    effectiveSearchTerm,
+    sort,
+    effectiveSourceKind,
+    effectiveUnit,
+    effectiveEvidenceType,
+  ]);
 
   useEffect(() => {
     if (onTotalRowsChange && !isLoading) onTotalRowsChange(totalRows);
   }, [onTotalRowsChange, totalRows, isLoading]);
+
+  // Snap back to page 1 when the row set shrinks below the current page.
+  // The search box lives on the parent (FoodBioactivitiesTab) whenever
+  // `hideChrome` is set, so the in-component handlers that reset the page
+  // are unreachable — without this, filtering while on a later page slices
+  // past the end and renders "no matches" over real results, with the
+  // paginator unmounted (totalPages === 1) and no way back.
+  //
+  // Same shape as EvidenceTable / BioactivityMeasurementsModal, adapted to
+  // PaginationsContext. `setTablePaginations` isn't referentially stable,
+  // so this effect re-runs often — the guard is what keeps that safe.
+  // The `!isLoading` guard matters: rows are empty on the first render, so
+  // totalPages is 1 before the fetch resolves and an unguarded clamp would
+  // discard a legitimately persisted page on every mount.
+  useEffect(() => {
+    if (!isLoading && currentPage > totalPages) {
+      setTablePaginations(tableId, 1, 20);
+    }
+  }, [isLoading, currentPage, totalPages, tableId, setTablePaginations]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value.toLowerCase());
@@ -540,6 +534,7 @@ const FoodInferredBioactivitiesSection = ({
                     pendingKey ===
                     `${row.chemical_id}::${row.bioactivity_id}`
                   }
+                  anyPending={pendingKey !== null}
                   onOpen={() => openModal(row)}
                   rowReportProps={reporter.getRowProps(buildRowContext(row))}
                 />
@@ -610,6 +605,12 @@ const FoodInferredBioactivitiesSection = ({
                         <span className="ml-1 text-light-500">
                           {conc.unit ?? ""}
                         </span>
+                        {row.conc_quality_flag === "suspect_high" && (
+                          <MdWarningAmber
+                            className="ml-1 inline size-3 text-amber-500"
+                            aria-label="Concentration flagged as implausibly high"
+                          />
+                        )}
                       </>
                     )}
                   </span>
@@ -660,10 +661,14 @@ const FoodInferredBioactivitiesSection = ({
         </div>
       )}
 
-      {/* Measurements sample is loaded via openModal → getChemicalBioactivities
-       * (the efficacy endpoint doesn't carry the raw sample, and the
-       * /bioactivity/measurements route was removed on the staging refresh).
-       * Cached per chemical so subsequent row opens are instant. */}
+      {/* openModal pre-loads a measurements sample via
+       * getChemicalBioactivities (the efficacy endpoint doesn't carry raw
+       * measurements), cached per chemical. That sample is only a
+       * placeholder + fallback: the modal itself then fetches the
+       * authoritative set from /bioactivity/measurements, which carries the
+       * Hill-fit fields the sample lacks. The pre-fetch is therefore a
+       * blocking round-trip we could drop — tracked as a follow-up, since
+       * removing it also removes the fallback when that fetch fails. */}
       <BioactivityMeasurementsModal
         isOpen={selected !== null}
         onClose={() => setSelected(null)}
@@ -746,7 +751,11 @@ const SortableTh = ({
 // food_chemical_efficacy.csv dictionary. `conc_vs_ac50` chip is the
 // categorical above/below indicator (fraction > 0.5 ⇔ "above"). Renders
 // "—" when the row's efficacy_fraction is null.
-const EfficacyCell = ({ efficacy }: { efficacy: FoodEfficacyRow }) => {
+const EfficacyCell = ({
+  efficacy,
+}: {
+  efficacy: InferredRow["efficacy"];
+}) => {
   if (efficacy.efficacy_fraction == null) {
     return <span className="text-light-600">—</span>;
   }
@@ -773,11 +782,13 @@ const EfficacyCell = ({ efficacy }: { efficacy: FoodEfficacyRow }) => {
 const Row = ({
   row,
   isPending,
+  anyPending,
   onOpen,
   rowReportProps,
 }: {
   row: InferredRow;
   isPending: boolean;
+  anyPending: boolean;
   onOpen: () => void;
   rowReportProps?: Record<string, unknown>;
 }) => {
@@ -814,6 +825,13 @@ const Row = ({
             <>
               {formatConcentrationValueAlt(conc.value)}
               <span className="ml-1 text-light-500">{conc.unit ?? ""}</span>
+              {row.conc_quality_flag === "suspect_high" && (
+                <MdWarningAmber
+                  className="ml-1 size-3 text-amber-500 flex-shrink-0"
+                  title="Upstream flagged this concentration as implausibly high (>10% of the food by mass). The efficacy figure is derived from it."
+                  aria-label="Concentration flagged as implausibly high"
+                />
+              )}
             </>
           )}
         </div>
@@ -839,8 +857,14 @@ const Row = ({
             tone="outline"
             size="md"
             onClick={onOpen}
+            // `anyPending`, not just this row's `isPending`: two overlapping
+            // fetches would both resolve and the second would swap the open
+            // modal's chemical out from under the user. Matches the mobile
+            // card's guard.
             disabled={
-              (row.n_measurements_total ?? row.n_curves) === 0 || isPending
+              (row.n_measurements_total ?? row.n_curves) === 0 ||
+              isPending ||
+              anyPending
             }
           />
         </div>

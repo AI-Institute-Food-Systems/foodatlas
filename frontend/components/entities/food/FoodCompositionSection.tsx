@@ -73,6 +73,7 @@ const CLASSIFICATION_OPTIONS = [
 const SOURCE_OPTIONS = [
   { value: "fdc", label: "FDC" },
   { value: "foodatlas", label: "FoodAtlas" },
+  { value: "ptfi", label: "PTFI" },
 ];
 
 interface FoodCompositionSectionProps {
@@ -505,6 +506,7 @@ const FoodCompositionSection = ({
     const all = [
       ...(row.foodatlas_evidences ?? []),
       ...(row.fdc_evidences ?? []),
+      ...(row.ptfi_evidences ?? []),
     ];
     return all.filter((ev) =>
       ev.extraction.some((ex) => (ex.chemical_candidates?.length ?? 0) > 1)
@@ -518,6 +520,7 @@ const FoodCompositionSection = ({
     const all = [
       ...(row.foodatlas_evidences ?? []),
       ...(row.fdc_evidences ?? []),
+      ...(row.ptfi_evidences ?? []),
     ];
     return all.filter((ev) => ev.extraction.some((ex) => ex.trust_low === true))
       .length;
@@ -561,7 +564,8 @@ const FoodCompositionSection = ({
 
   const getRowEvidenceCount = (row: FoodCompositionData) =>
     (row.foodatlas_evidences?.length || 0) +
-    (row.fdc_evidences?.length || 0);
+    (row.fdc_evidences?.length || 0) +
+    (row.ptfi_evidences?.length || 0);
 
   // number of placeholder rows to make up for the total of 20 rows
   const placeholderRowsCount = data ? 20 - data?.length : 20;
@@ -1236,6 +1240,7 @@ const FoodCompositionSection = ({
             return [
               ...(selectedRow.fdc_evidences ?? []),
               ...(selectedRow.foodatlas_evidences ?? []),
+              ...(selectedRow.ptfi_evidences ?? []),
             ];
           })()}
           isOpen={selectedEvidenceName !== ""}
