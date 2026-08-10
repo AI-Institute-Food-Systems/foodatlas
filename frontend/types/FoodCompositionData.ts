@@ -13,5 +13,8 @@ export type FoodCompositionData = {
   median_concentration: Concentration | null;
   foodatlas_evidences: FoodEvidence[] | null;
   fdc_evidences: FoodEvidence[] | null;
+  // PTFI ships relative_abundance rather than mg/100g, so these rows
+  // usually have no median_concentration — the evidence is still real.
+  ptfi_evidences: FoodEvidence[] | null;
   chemical_classification: string[];
 };

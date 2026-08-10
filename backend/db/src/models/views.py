@@ -89,6 +89,11 @@ class MVFoodChemicalComposition(Base):
     fdc_evidences: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     foodatlas_evidences: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     dmd_evidences: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    # PTFI ships relative_abundance rather than mg/100g, so these rows carry
+    # evidence but usually no median_concentration. Kept in their own bucket
+    # so the source filter can name them instead of folding them into
+    # FoodAtlas, which is where unknown sources used to land.
+    ptfi_evidences: Mapped[list | None] = mapped_column(JSONB, nullable=True)
 
     __table_args__ = (
         Index("ix_mv_fcc_food_name", "food_name"),

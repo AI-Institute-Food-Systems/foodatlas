@@ -239,7 +239,7 @@ class TestFoodGetCompositionCounts:
             "carbohydrate": 1,
             "flavonoid": 1,
         }
-        assert data["source_counts"] == {"fdc": 1, "foodatlas": 1}
+        assert data["source_counts"] == {"fdc": 1, "foodatlas": 1, "ptfi": 0}
         assert data["no_concentration_count"] == 1
         assert data["low_trust_count"] == 0
 
@@ -272,7 +272,7 @@ class TestFoodGetCompositionCounts:
         )
         data = out["data"]
         # source + no-conc excludes flavonoid rows once class filter is on.
-        assert data["source_counts"] == {"fdc": 1, "foodatlas": 0}
+        assert data["source_counts"] == {"fdc": 1, "foodatlas": 0, "ptfi": 0}
         assert data["no_concentration_count"] == 0
         # classification_counts is faceted (excludes class dim) — still
         # shows both classifications.
@@ -306,4 +306,4 @@ class TestFoodGetCompositionCounts:
         data = out["data"]
         # Only quercetin passes search → no carbohydrate, one flavonoid.
         assert data["classification_counts"] == {"flavonoid": 1}
-        assert data["source_counts"] == {"fdc": 0, "foodatlas": 1}
+        assert data["source_counts"] == {"fdc": 0, "foodatlas": 1, "ptfi": 0}

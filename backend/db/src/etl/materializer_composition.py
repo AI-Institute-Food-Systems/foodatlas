@@ -96,7 +96,12 @@ def materialize_food_chemical_composition(conn: Connection) -> None:
         ev = _build_evidence_from_rows(rows)
         if not any(ev.values()):
             continue
-        all_ev = (ev["fdc"] or []) + (ev["foodatlas"] or []) + (ev["dmd"] or [])
+        all_ev = (
+            (ev["fdc"] or [])
+            + (ev["foodatlas"] or [])
+            + (ev["dmd"] or [])
+            + (ev["ptfi"] or [])
+        )
         median_conc = _compute_median(all_ev)
         result_rows.append(
             {
@@ -113,6 +118,7 @@ def materialize_food_chemical_composition(conn: Connection) -> None:
                 if ev["foodatlas"]
                 else None,
                 "dmd_evidences": json.dumps(ev["dmd"]) if ev["dmd"] else None,
+                "ptfi_evidences": json.dumps(ev["ptfi"]) if ev["ptfi"] else None,
             }
         )
 
@@ -129,6 +135,7 @@ def materialize_food_chemical_composition(conn: Connection) -> None:
         "fdc_evidences",
         "foodatlas_evidences",
         "dmd_evidences",
+        "ptfi_evidences",
     ]
     bulk_copy(conn, "mv_food_chemical_composition", result, columns)
     logger.info("Food-chemical composition: %d rows", len(result))
@@ -267,6 +274,7 @@ def _build_evidence_from_rows(
     fdc: list[dict] = []
     foodatlas: list[dict] = []
     dmd: list[dict] = []
+    ptfi: list[dict] = []
 
     for source, ref, extraction in rows:
         if source in ("fdc", "dmd"):
@@ -286,6 +294,10 @@ def _build_evidence_from_rows(
                     "extraction": [extraction],
                 }
             )
+        elif source == "ptfi":
+            # Same shape as a FoodAtlas evidence so the UI can render it
+            # with the existing component, just kept in its own bucket.
+            _add_foodatlas_evidence(ptfi, ref, extraction)
         else:
             _add_foodatlas_evidence(foodatlas, ref, extraction)
 
@@ -293,6 +305,7 @@ def _build_evidence_from_rows(
         "fdc": fdc or None,
         "foodatlas": foodatlas or None,
         "dmd": dmd or None,
+        "ptfi": ptfi or None,
     }
 
 
