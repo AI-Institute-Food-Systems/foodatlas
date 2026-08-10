@@ -744,6 +744,19 @@ export const getChemicalDiseaseAssociations = (commonName: string) =>
 export const getDiseaseChemicalAssociations = (commonName: string) =>
   assayInferredFetch("/disease/chemical-associations", commonName);
 
+// Disease bioactivity profile — one row per bioactivity, attributed through
+// the bridging assay rather than through the chemical. Returns
+// { data: DiseaseBioactivitySummary[], metadata: { row_count } }.
+export const getDiseaseBioactivities = (commonName: string) =>
+  assayInferredFetch("/disease/bioactivities", commonName);
+
+// The chemicals behind those bioactivities, each carrying the food where its
+// dietary dose comes closest to the chemical's AC50 (null for the ~97% that
+// don't occur in food). Ordered dietary-first by the API. Returns
+// { data: DiseaseBioactivityChemical[], metadata: { row_count, n_dietary } }.
+export const getDiseaseBioactivityChemicals = (commonName: string) =>
+  assayInferredFetch("/disease/bioactivity-chemicals", commonName);
+
 // Per-food efficacy rows (chemical × bioactivity) — see
 // inferred-bioactivity-efficacy-column.md for semantics. The inferred-
 // bioactivities table joins these onto its rows client-side; not every

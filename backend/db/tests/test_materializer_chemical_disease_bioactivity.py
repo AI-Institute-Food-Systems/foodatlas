@@ -1,9 +1,9 @@
 """Tests for src.etl.materializer_chemical_disease_bioactivity."""
 
 import pandas as pd
+from src.etl.materializer_bioactivity_bridge import disease_mesh_map
 from src.etl.materializer_chemical_disease_bioactivity import (
     _as_list,
-    _disease_mesh_map,
     _target_genes_per_pair,
 )
 
@@ -35,7 +35,7 @@ class TestDiseaseMeshMap:
                 },
             ]
         )
-        assert _disease_mesh_map(entities) == {"D001": "d1"}
+        assert disease_mesh_map(entities) == {"D001": "d1"}
 
     def test_ignores_non_dict_external_ids(self):
         entities = pd.DataFrame(
@@ -47,7 +47,7 @@ class TestDiseaseMeshMap:
                 }
             ]
         )
-        assert _disease_mesh_map(entities) == {}
+        assert disease_mesh_map(entities) == {}
 
 
 class TestTargetGenesPerPair:

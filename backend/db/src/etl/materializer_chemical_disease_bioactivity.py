@@ -11,6 +11,10 @@ measurement in an assay that the bioactivity-disease bridge ties to that disease
 Aggregated to one row per (chemical, disease) with the shared assays, target
 genes, relationship type(s), and counts. Distinct from CTD literature
 correlations (mv_chemical_disease_correlation).
+
+The graph walk itself lives in ``materializer_bioactivity_bridge`` — shared
+with ``mv_disease_bioactivity``, which keeps the bridging assay's bioactivity
+instead of collapsing it away.
 """
 
 import logging
@@ -20,6 +24,7 @@ from sqlalchemy import text
 from sqlalchemy.engine import Connection
 
 from .bulk_insert import bulk_copy
+from .materializer_bioactivity_bridge import build_bridge_evidence
 
 logger = logging.getLogger(__name__)
 
@@ -40,75 +45,14 @@ _MV_COLUMNS = [
 
 def materialize_chemical_disease_bioactivity(conn: Connection) -> None:
     """Infer chemical↔disease associations from shared bioactivity assays."""
-    bridge = pd.read_sql(
-        text(
-            "SELECT disease_mesh_id, source_assay_id, relationship,"
-            " bioactivity_disease_metadata_id FROM base_bioactivity_disease"
-        ),
-        conn,
-    )
-    chem_assay = _chemical_active_assays(conn)
-    if bridge.empty or chem_assay.empty:
-        logger.info("No bioactivity-disease inputs to materialize (skipping).")
-        return
-
-    entities = pd.read_sql(
-        text(
-            "SELECT foodatlas_id, entity_type, common_name, external_ids"
-            " FROM base_entities"
-        ),
-        conn,
-    )
-    name_map = dict(
-        zip(entities["foodatlas_id"], entities["common_name"], strict=False)
-    )
-    mesh_to_disease = _disease_mesh_map(entities)
-    target_map = _target_gene_map(conn)
-
-    evidence = chem_assay.merge(bridge, on="source_assay_id", how="inner")
-    evidence["disease_id"] = evidence["disease_mesh_id"].map(mesh_to_disease)
-    evidence = evidence.dropna(subset=["disease_id"])
+    evidence, name_map = build_bridge_evidence(conn)
     if evidence.empty:
         logger.info("No chemical-disease associations inferred (skipping).")
         return
 
-    result = _aggregate(evidence, name_map, target_map)
+    result = _aggregate(evidence, name_map, _target_gene_map(conn))
     bulk_copy(conn, "mv_chemical_disease_bioactivity", result, _MV_COLUMNS)
     logger.info("Chemical-disease (bioactivity): %d associations.", len(result))
-
-
-def _chemical_active_assays(conn: Connection) -> pd.DataFrame:
-    """(chemical_id, source_assay_id, bm) for each ACTIVE measurement of an r6 edge."""
-    r6 = pd.read_sql(
-        text(
-            "SELECT head_id, attestation_ids FROM base_triplets"
-            " WHERE relationship_id = 'r6'"
-        ),
-        conn,
-    )
-    r6 = r6.explode("attestation_ids").dropna(subset=["attestation_ids"])
-    r6 = r6.rename(columns={"head_id": "chemical_id", "attestation_ids": "bm"})
-    active = pd.read_sql(
-        text(
-            "SELECT bioactivity_metadata_id AS bm, source_assay_id"
-            " FROM base_attestations_bioactivity"
-            " WHERE reported_activity_outcome = 'Active'"
-        ),
-        conn,
-    )
-    merged = r6.merge(active, on="bm", how="inner")
-    return merged[["chemical_id", "source_assay_id", "bm"]].drop_duplicates()
-
-
-def _disease_mesh_map(entities: pd.DataFrame) -> dict[str, str]:
-    """MeSH id (from disease external_ids.ctd) → disease foodatlas_id."""
-    out: dict[str, str] = {}
-    diseases = entities[entities["entity_type"] == "disease"]
-    pairs = zip(diseases["foodatlas_id"], diseases["external_ids"], strict=False)
-    for fid, ext in pairs:
-        for mesh in (ext.get("ctd", []) if isinstance(ext, dict) else []) or []:
-            out.setdefault(str(mesh), fid)
-    return out
 
 
 def _target_gene_map(conn: Connection) -> dict[str, list[str]]:

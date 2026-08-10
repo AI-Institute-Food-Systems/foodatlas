@@ -14,11 +14,13 @@ class TestMVTablesConstant:
         assert "mv_disease_entities" in MV_TABLES
         assert "mv_food_chemical_composition" in MV_TABLES
         assert "mv_chemical_disease_correlation" in MV_TABLES
+        assert "mv_disease_bioactivity" in MV_TABLES
 
 
 class TestRefreshAll:
     """Test refresh_all orchestration."""
 
+    @patch("src.etl.materializer.materialize_disease_bioactivity")
     @patch("src.etl.materializer.materialize_chemical_disease_bioactivity")
     @patch("src.etl.materializer.materialize_food_chemical_efficacy")
     @patch("src.etl.materializer.materialize_bioactivity")
@@ -35,6 +37,7 @@ class TestRefreshAll:
         mock_bio,
         mock_efficacy,
         mock_cdb,
+        mock_dbio,
     ):
         conn = MagicMock()
         refresh_all(conn)
@@ -45,4 +48,5 @@ class TestRefreshAll:
         mock_bio.assert_called_once_with(conn)
         mock_efficacy.assert_called_once_with(conn)
         mock_cdb.assert_called_once_with(conn)
+        mock_dbio.assert_called_once_with(conn)
         conn.commit.assert_called_once()

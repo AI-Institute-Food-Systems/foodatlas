@@ -93,3 +93,38 @@ class MVChemicalDiseaseBioactivity(Base):
         Index("ix_mv_cdb_chemical", "chemical_name"),
         Index("ix_mv_cdb_disease", "disease_name"),
     )
+
+
+class MVDiseaseBioactivity(Base):
+    """Disease↔bioactivity↔chemical, attributed at the *assay* level.
+
+    One row per (disease, bioactivity, chemical). Built from the same evidence
+    as ``mv_chemical_disease_bioactivity``, but keeps the bioactivity of the
+    bridging assay instead of collapsing it away.
+
+    That distinction is the whole point. Going disease → chemical → *all* of
+    that chemical's bioactivities credits a disease with every activity its
+    chemicals happen to have — melanoma comes out with 1,571 "antiviral"
+    chemicals. Attributing through the assay that actually bridges to the
+    disease gives 4. The loose path measures how many chemicals a disease has;
+    this one measures which activities characterise it.
+    """
+
+    __tablename__ = "mv_disease_bioactivity"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    disease_name: Mapped[str] = mapped_column(Text, nullable=False)
+    disease_foodatlas_id: Mapped[str] = mapped_column(String(20), nullable=False)
+    bioactivity_name: Mapped[str] = mapped_column(Text, nullable=False)
+    bioactivity_foodatlas_id: Mapped[str] = mapped_column(String(20), nullable=False)
+    chemical_name: Mapped[str] = mapped_column(Text, nullable=False)
+    chemical_foodatlas_id: Mapped[str] = mapped_column(String(20), nullable=False)
+    n_assays: Mapped[int] = mapped_column(Integer, server_default="0")
+    n_active_measurements: Mapped[int] = mapped_column(Integer, server_default="0")
+    relationships: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default="{}")
+
+    __table_args__ = (
+        Index("ix_mv_db_disease", "disease_name"),
+        Index("ix_mv_db_disease_bio", "disease_name", "bioactivity_name"),
+        Index("ix_mv_db_chemical", "chemical_name"),
+    )
