@@ -19,6 +19,7 @@ import {
   MdKeyboardArrowUp,
   MdSearch,
   MdUnfoldMore,
+  MdWarningAmber,
 } from "react-icons/md";
 import { twMerge } from "tailwind-merge";
 
@@ -59,6 +60,11 @@ export interface InferredRow {
   // `n_measurements_total`, which counts every measurement for the pair.
   n_curves: number;
   n_measurements_total: number | null;
+  // "suspect_high" when the upstream pipeline measured the chemical at
+  // >10% of the food by mass — implausible for most chemistry, and the
+  // efficacy figure is derived from it, so the row is flagged rather
+  // than silently trusted. 1,560 of 61,119 efficacy rows carry it.
+  conc_quality_flag: string | null;
   efficacy: {
     efficacy_fraction: number | null;
     conc_vs_ac50: string | null;
@@ -72,6 +78,7 @@ interface InferredApiRow {
   chemical?: string;
   chemical_id?: string;
   median_concentration?: { value: number | null; unit: string } | null;
+  conc_quality_flag?: string | null;
   measurement_count?: number | null;
   n_curves?: number | null;
   efficacy_fraction?: number | null;
@@ -84,6 +91,7 @@ const apiRowToInferredRow = (r: InferredApiRow): InferredRow => ({
   chemical: r.chemical ?? "",
   chemical_id: r.chemical_id ?? "",
   median_concentration: r.median_concentration ?? null,
+  conc_quality_flag: r.conc_quality_flag ?? null,
   n_curves: r.n_curves ?? 0,
   // measurement_count comes from mv_chemical_bioactivity — the same source
   // the efficacy endpoint exposed as n_measurements_total.
@@ -597,6 +605,12 @@ const FoodInferredBioactivitiesSection = ({
                         <span className="ml-1 text-light-500">
                           {conc.unit ?? ""}
                         </span>
+                        {row.conc_quality_flag === "suspect_high" && (
+                          <MdWarningAmber
+                            className="ml-1 inline size-3 text-amber-500"
+                            aria-label="Concentration flagged as implausibly high"
+                          />
+                        )}
                       </>
                     )}
                   </span>
@@ -811,6 +825,13 @@ const Row = ({
             <>
               {formatConcentrationValueAlt(conc.value)}
               <span className="ml-1 text-light-500">{conc.unit ?? ""}</span>
+              {row.conc_quality_flag === "suspect_high" && (
+                <MdWarningAmber
+                  className="ml-1 size-3 text-amber-500 flex-shrink-0"
+                  title="Upstream flagged this concentration as implausibly high (>10% of the food by mass). The efficacy figure is derived from it."
+                  aria-label="Concentration flagged as implausibly high"
+                />
+              )}
             </>
           )}
         </div>

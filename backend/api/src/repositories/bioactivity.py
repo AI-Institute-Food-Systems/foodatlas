@@ -633,7 +633,8 @@ async def get_food_inferred_bioactivities(
               eff.efficacy_fraction,
               eff.conc_vs_ac50,
               eff.dose_over_ac50_log,
-              eff.n_curves
+              eff.n_curves,
+              eff.conc_quality_flag
             FROM mv_food_chemical_composition fcc
             JOIN mv_chemical_bioactivity cb
               ON cb.chemical_foodatlas_id = fcc.chemical_foodatlas_id
