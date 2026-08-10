@@ -212,7 +212,7 @@ export const formatConcentrationValueAlt = (value: number | undefined) => {
 // Units arrive as raw tokens from the source data. Only display is
 // affected — filters and comparisons keep using the underlying value.
 const UNIT_LABELS: Record<string, string> = {
-  relative_abundance: "relative abundance",
+  relative_abundance: "rel. abundance",
 };
 
 export const formatUnit = (unit: string | null | undefined): string =>

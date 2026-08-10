@@ -426,9 +426,12 @@ const FoodCompositionSection = ({
   // Reset button only renders in that case so it's not just visual noise.
   const isFiltersDirty =
     searchTerm !== "" ||
-    sourceFilters.length !== 2 ||
-    !sourceFilters.includes("fdc") ||
-    !sourceFilters.includes("foodatlas") ||
+    // Compare against the real default rather than a literal source list.
+    // This was hardcoded to fdc+foodatlas, so once PTFI joined the default
+    // the logic inverted: the untouched panel counted as dirty, and
+    // deselecting PTFI counted as clean.
+    sourceFilters.length !== ALL_SOURCE_VALUES.length ||
+    ALL_SOURCE_VALUES.some((v) => !sourceFilters.includes(v)) ||
     classificationFilter.length > 0 ||
     !showAllConcentrations ||
     showLowTrust;

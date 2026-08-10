@@ -444,11 +444,11 @@ const ConcentrationCell = ({
 
   return (
     <div className={twMerge("flex flex-col", align === "right" && "items-end")}>
-      <span className="text-light-200 font-mono tabular-nums whitespace-nowrap">
+      <span className="text-light-200 font-mono tabular-nums break-words">
         {rawDisplay ?? "—"}
       </span>
       {converted && !rawIsSameValue && (
-        <span className="text-[10px] text-light-500 font-mono tabular-nums whitespace-nowrap">
+        <span className="text-[10px] text-light-500 font-mono tabular-nums break-words">
           {converted}
         </span>
       )}
