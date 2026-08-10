@@ -132,11 +132,15 @@ def _load_assoc_counts(conn: Connection) -> dict[str, int]:
         # Composition: food ↔ chemical
         "SELECT food_foodatlas_id AS fid, COUNT(*) AS n"
         " FROM mv_food_chemical_composition"
-        " WHERE fdc_evidences IS NOT NULL OR foodatlas_evidences IS NOT NULL"
+        " WHERE fdc_evidences IS NOT NULL"
+        " OR foodatlas_evidences IS NOT NULL"
+        " OR ptfi_evidences IS NOT NULL"
         " GROUP BY food_foodatlas_id",
         "SELECT chemical_foodatlas_id AS fid, COUNT(*) AS n"
         " FROM mv_food_chemical_composition"
-        " WHERE fdc_evidences IS NOT NULL OR foodatlas_evidences IS NOT NULL"
+        " WHERE fdc_evidences IS NOT NULL"
+        " OR foodatlas_evidences IS NOT NULL"
+        " OR ptfi_evidences IS NOT NULL"
         " GROUP BY chemical_foodatlas_id",
         # Correlation: chemical ↔ disease
         "SELECT chemical_foodatlas_id AS fid, COUNT(*) AS n"

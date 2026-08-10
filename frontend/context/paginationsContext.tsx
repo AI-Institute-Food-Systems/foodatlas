@@ -14,6 +14,11 @@ interface PaginationssContextProps {
     rowsPerPage?: number
   ) => void;
   getTablePaginations: (tableId: string) => PaginationssSettings;
+  // Drop every table's page state. Entries are keyed by tableId and are
+  // otherwise never removed, so a table that unmounts and remounts (e.g.
+  // switching entity tabs) would come back on whatever page it was left
+  // on — with its filters freshly reset, which reads as a bug.
+  resetAllPaginations: () => void;
 }
 
 const PaginationsContext = createContext<PaginationssContextProps | undefined>(
@@ -46,9 +51,11 @@ export const PaginationsProvider: React.FC<PaginationsProviderProps> = ({
     return paginations[tableId] || { currentPage: 1, rowsPerPage: 10 };
   };
 
+  const resetAllPaginations = () => setPaginations({});
+
   return (
     <PaginationsContext.Provider
-      value={{ setTablePaginations, getTablePaginations }}
+      value={{ setTablePaginations, getTablePaginations, resetAllPaginations }}
     >
       {children}
     </PaginationsContext.Provider>

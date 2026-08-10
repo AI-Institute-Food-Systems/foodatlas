@@ -295,11 +295,14 @@ def _build_evidence_from_rows(
                 }
             )
         elif source == "ptfi":
-            # Same shape as a FoodAtlas evidence so the UI can render it
-            # with the existing component, just kept in its own bucket.
-            _add_foodatlas_evidence(ptfi, ref, extraction)
+            # Same premise-grouping as FoodAtlas, but stamped PTFI: the UI
+            # keys its source badge and the evidence modal's source picker
+            # off reference.source_name, so reusing "FoodAtlas" here made
+            # every PTFI data point render as FoodAtlas and left PTFI out
+            # of the picker entirely.
+            _add_extraction_evidence(ptfi, ref, extraction, source_name="PTFI")
         else:
-            _add_foodatlas_evidence(foodatlas, ref, extraction)
+            _add_extraction_evidence(foodatlas, ref, extraction)
 
     return {
         "fdc": fdc or None,
@@ -309,8 +312,23 @@ def _build_evidence_from_rows(
     }
 
 
-def _add_foodatlas_evidence(evidences: list, ref: dict, extraction: dict) -> None:
-    """Add a FoodAtlas evidence, grouping by premise."""
+def _add_extraction_evidence(
+    evidences: list,
+    ref: dict,
+    extraction: dict,
+    source_name: str = "FoodAtlas",
+) -> None:
+    """Add an extraction-style evidence, grouping by premise.
+
+    Shared by FoodAtlas and PTFI: both are per-extraction records grouped
+    under a premise, unlike the FDC/DMD database references built inline
+    above. ``source_name`` is what the UI badges and filters on, so it has
+    to name the real source.
+
+    PTFI carries no publication, so the PMC id/url/label are only attached
+    when one is actually present — otherwise the row would advertise a
+    "PMC ID" it doesn't have.
+    """
     pmcid = ref.get("pmcid", "")
     premise = ref.get("text", "")
     for existing in evidences:
@@ -323,8 +341,8 @@ def _add_foodatlas_evidence(evidences: list, ref: dict, extraction: dict) -> Non
             "reference": {
                 "id": str(pmcid),
                 "url": f"{PMC_URL}{pmcid}" if pmcid else "",
-                "source_name": "FoodAtlas",
-                "display_name": "PMC ID",
+                "source_name": source_name,
+                "display_name": "PMC ID" if pmcid else source_name,
             },
             "extraction": [extraction],
         }

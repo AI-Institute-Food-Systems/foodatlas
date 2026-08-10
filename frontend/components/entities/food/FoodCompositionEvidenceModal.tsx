@@ -14,14 +14,30 @@ const isLowTrust = (ex: FoodEvidenceExtraction): boolean => Boolean(ex.trust_low
 export type EvidenceFilter = "all" | "low-trust";
 
 // Mirrors the BioactivityMeasurementsModal's Assay Source picker so users
-// see the same radio-row shape on both modals. FoodEvidence.reference
-// carries `source_name` = "FoodAtlas" | "FDC" — we render "both" as the
-// default no-filter option.
-const SOURCE_KINDS: { key: string; label: string }[] = [
-  { key: "", label: "both" },
-  { key: "FoodAtlas", label: "FoodAtlas" },
-  { key: "FDC", label: "FDC" },
-];
+// see the same radio-row shape on both modals. "both" leads as the
+// no-filter option; the rest are derived from the evidence actually
+// present, because this list used to be hardcoded to FoodAtlas + FDC and
+// so could never offer PTFI. Known sources keep a stable order; anything
+// new sorts after them rather than being dropped.
+const SOURCE_ORDER = ["FDC", "FoodAtlas", "PTFI"];
+
+const buildSourceKinds = (
+  counts: Record<string, number>
+): { key: string; label: string }[] => {
+  const present = Object.keys(counts).filter((k) => k !== "" && counts[k] > 0);
+  present.sort((a, b) => {
+    const ia = SOURCE_ORDER.indexOf(a);
+    const ib = SOURCE_ORDER.indexOf(b);
+    if (ia !== -1 && ib !== -1) return ia - ib;
+    if (ia !== -1) return -1;
+    if (ib !== -1) return 1;
+    return a.localeCompare(b);
+  });
+  return [
+    { key: "", label: "both" },
+    ...present.map((k) => ({ key: k, label: k })),
+  ];
+};
 
 const matchesSource = (
   ev: FoodEvidence,
@@ -80,7 +96,7 @@ const FoodCompositionEvidenceModal = ({
   // as the user narrows the view (they reflect "what would clicking this
   // source give me", not the current filtered subset).
   const sourceCounts = useMemo(() => {
-    const counts: Record<string, number> = { "": 0, FoodAtlas: 0, FDC: 0 };
+    const counts: Record<string, number> = { "": 0 };
     evidences?.forEach((ev) => {
       const key = ev.reference.source_name;
       counts[key] = (counts[key] ?? 0) + ev.extraction.length;
@@ -335,7 +351,7 @@ const FiltersPanel = ({
         role="radiogroup"
         aria-label="Evidence source"
       >
-        {SOURCE_KINDS.map(({ key, label }) => (
+        {buildSourceKinds(sourceCounts).map(({ key, label }) => (
           <RadioRow
             key={label}
             label={label}
