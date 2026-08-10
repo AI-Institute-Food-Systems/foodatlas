@@ -683,54 +683,57 @@ async def get_endpoint_options(
     filter_source_kind: str = "",
     search: str = "",
 ) -> dict[str, object]:
-    """List distinct (endpoint, unit) combinations for the given pivot.
+    """Per-unit ROW counts for the sidebar Unit filter.
 
-    Used to populate the table's endpoint+unit filter chip row. Counts
-    are descending by occurrence so the UI can surface the most useful
-    chips first.
+    Counts rows, not measurements, so each number equals what selecting
+    that unit actually returns. It previously aggregated
+    base_attestations_bioactivity, which counts every measurement — apple
+    advertised "uM 20,222" while the whole table held 1,591 rows and
+    filtering returned 1,465.
 
-    Special direction: "food-inferred-bioactivities" — walks the food's
-    chemistry (mv_food_chemical_composition) and surfaces the units from
-    every chemical's measurements. Used by the food page's shared
-    bioactivities sidebar so its unit list isn't limited to the direct
-    (food-level) measurements alone.
+    Counting over the MV's (capped) ``measurements`` sample is what makes
+    them agree: the filter uses the very same predicate, so the count is
+    exact by construction. The cap does hide units that appear only past
+    the 25th measurement of a pair — one of apple's 15 — but those cannot
+    be filtered on either, so listing them only offers a chip that returns
+    nothing.
 
-    Faceted on evidence type, source kind and search, so the Unit counts
-    track the rest of the sidebar. The aggregate stays attestation-level
-    on purpose — see _attestation_facet_where for why an MV rewrite would
-    lose units.
+    Every OTHER sidebar dimension is applied, matching
+    /food/composition/counts. ``endpoint`` is no longer returned: both
+    callers summed it away by unit, and summing row counts per
+    (endpoint, unit) would double-count any row carrying two endpoints
+    that share a unit.
     """
     if direction == "food-inferred-bioactivities":
-        extras, extra_params = _attestation_facet_where(
+        extras, extra_params = _sidebar_extra_where(
+            mv_alias="cb",
             filter_evidence_type=filter_evidence_type,
             filter_source_kind=filter_source_kind,
             search=search,
-            pair_exists_sql=(
-                "EXISTS (SELECT 1 FROM mv_chemical_bioactivity cb"
-                " WHERE cb.chemical_foodatlas_id = fcc.chemical_foodatlas_id"
-                " AND cb.bioactivity_foodatlas_id = bt.tail_id"
-                " AND (cb.bioactivity_name || ' ' || cb.chemical_name)"
-                " ILIKE :sq)"
-            ),
+            search_col="(cb.bioactivity_name || ' ' || fcc.chemical_name)",
+            include_unit=False,
+            include_category=False,
         )
-        extra_sql = "".join(f" AND {c}" for c in extras)
+        where = " AND ".join(["fcc.food_name = :name", *extras])
         rows_result = await session.execute(
             text(f"""
-                SELECT ba.evidence_endpoint_type AS endpoint,
-                       ba.potency_unit AS unit,
-                       COUNT(*) AS count
-                FROM mv_food_chemical_composition fcc
-                JOIN base_triplets bt
-                  ON bt.head_id = fcc.chemical_foodatlas_id
-                 AND bt.relationship_id = 'r6'
-                CROSS JOIN LATERAL unnest(bt.attestation_ids) AS att(bm)
-                JOIN base_attestations_bioactivity ba
-                  ON ba.bioactivity_metadata_id = att.bm
-                WHERE fcc.food_name = :name
-                  AND ba.evidence_endpoint_type <> ''
-                  AND ba.potency_unit <> ''{extra_sql}
-                GROUP BY ba.evidence_endpoint_type, ba.potency_unit
-                ORDER BY COUNT(*) DESC
+                SELECT unit, COUNT(*) AS count
+                FROM (
+                    SELECT DISTINCT
+                        fcc.food_foodatlas_id,
+                        cb.chemical_foodatlas_id,
+                        cb.bioactivity_foodatlas_id,
+                        m->>'unit' AS unit
+                    FROM mv_food_chemical_composition fcc
+                    JOIN mv_chemical_bioactivity cb
+                      ON cb.chemical_foodatlas_id
+                       = fcc.chemical_foodatlas_id,
+                    LATERAL jsonb_array_elements(cb.measurements) AS m
+                    WHERE {where}
+                ) AS x
+                WHERE unit IS NOT NULL AND unit <> ''
+                GROUP BY unit
+                ORDER BY count DESC
             """),
             {"name": common_name, **extra_params},
         )
@@ -739,62 +742,36 @@ async def get_endpoint_options(
         )
         return {"data": data, "metadata": {"row_count": len(data)}}
 
-    info = _DIRECTION_PIVOTS.get(direction)
+    info = _SOURCE_KIND_DIRECTIONS.get(direction)
     if info is None:
         return {"data": [], "metadata": {"row_count": 0}}
-    rel, pivot_side, mv = info
-
-    pivot_id = (
-        await session.execute(
-            text(f"SELECT foodatlas_id FROM {mv} WHERE common_name = :name"),
-            {"name": common_name},
-        )
-    ).scalar()
-    if not pivot_id:
-        return {"data": [], "metadata": {"row_count": 0}}
-
-    # Search selects pairs, so it needs the peer entity's name. r6 pairs
-    # live in mv_chemical_bioactivity keyed (chemical, bioactivity); r5 in
-    # mv_food_bioactivity keyed (food, bioactivity). Matching on both ids
-    # keeps the EXISTS a pair lookup, never a measurement filter.
-    pair_mv, pair_head_col, pair_head_name = (
-        ("mv_chemical_bioactivity", "chemical_foodatlas_id", "chemical_name")
-        if rel == "r6"
-        else ("mv_food_bioactivity", "food_foodatlas_id", "food_name")
-    )
-    name_expr = f"(pm.bioactivity_name || ' ' || pm.{pair_head_name})"
-    extras, extra_params = _attestation_facet_where(
+    mv, name_col = info
+    extras, extra_params = _sidebar_extra_where(
+        mv_alias="mv",
         filter_evidence_type=filter_evidence_type,
         filter_source_kind=filter_source_kind,
         search=search,
-        pair_exists_sql=(
-            f"EXISTS (SELECT 1 FROM {pair_mv} pm"
-            f" WHERE pm.{pair_head_col} = bt.head_id"
-            " AND pm.bioactivity_foodatlas_id = bt.tail_id"
-            f" AND {name_expr} ILIKE :sq)"
-        ),
+        search_col=_search_col_for(direction),
+        include_unit=False,
+        include_category=False,
     )
-    extra_sql = "".join(f" AND {c}" for c in extras)
+    where = " AND ".join([f"mv.{name_col} = :name", *extras])
     rows_result = await session.execute(
         text(f"""
-            SELECT ba.evidence_endpoint_type AS endpoint,
-                   ba.potency_unit AS unit,
-                   COUNT(*) AS count
-            FROM base_triplets bt
-            CROSS JOIN LATERAL unnest(bt.attestation_ids) AS att(bm)
-            JOIN base_attestations_bioactivity ba
-              ON ba.bioactivity_metadata_id = att.bm
-            WHERE bt.relationship_id = :rel
-              AND bt.{pivot_side} = :pivot
-              AND ba.evidence_endpoint_type <> ''
-              AND ba.potency_unit <> ''{extra_sql}
-            GROUP BY ba.evidence_endpoint_type, ba.potency_unit
-            ORDER BY COUNT(*) DESC
+            SELECT unit, COUNT(*) AS count
+            FROM (
+                SELECT DISTINCT mv.ctid, m->>'unit' AS unit
+                FROM {mv} AS mv,
+                LATERAL jsonb_array_elements(mv.measurements) AS m
+                WHERE {where}
+            ) AS x
+            WHERE unit IS NOT NULL AND unit <> ''
+            GROUP BY unit
+            ORDER BY count DESC
         """),
-        {"rel": rel, "pivot": pivot_id, **extra_params},
+        {"name": common_name, **extra_params},
     )
-    # HOTFIX 2026-06-26 — drop leaked-assay/outcome endpoints and fold
-    # unit aliases before exposing the chip list. See _bioact_hotfix.py.
+    # HOTFIX 2026-06-26 — fold unit aliases before exposing the chip list.
     data = _bioact_hotfix.clean_endpoint_options(
         [dict(r._mapping) for r in rows_result]
     )
