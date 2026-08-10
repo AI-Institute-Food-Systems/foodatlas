@@ -626,9 +626,15 @@ const FoodCompositionSection = ({
   // drawer per user request).
   const filtersOnlyPanel = (
     <div className="flex flex-col gap-5">
-      {/* options — binary switches (not multi-select) so they stay as
-       * toggles rather than checkbox rows. */}
-      <FilterGroup label="Options">
+      {/* Binary switches, not a multi-select — each one ADDS its category
+       * of row to the table rather than selecting among a partition. The
+       * distinction matters: unlike Source, where every row has exactly
+       * one and deselecting all correctly yields nothing, a row can
+       * belong to neither of these categories. Turning both off is
+       * therefore not "show nothing", it's "show only rows that are
+       * neither" — which is exactly what it does. The labels lead with
+       * "Include" so that subtractive behaviour is legible. */}
+      <FilterGroup label="Include">
         <div className="flex flex-col gap-2 pt-0.5">
           <ToggleSwitch
             label="Without concentration"
