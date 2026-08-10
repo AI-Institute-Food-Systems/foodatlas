@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
 import DiseaseAssayInferredSection from "@/components/entities/disease/DiseaseAssayInferredSection";
+import DiseaseBioactivitiesSection from "@/components/entities/disease/DiseaseBioactivitiesSection";
 import DiseaseCorrelationsSection from "@/components/entities/disease/DiseaseCorrelationsSection";
 import HeaderSection from "@/components/entities/HeaderSection";
 import EntityDetailLayout from "@/components/entities/EntityDetailLayout";
@@ -40,7 +41,7 @@ const DiseasePage = async ({ params }: DiseasePageProps) => {
   const entityType = "disease" as const;
 
   return (
-    <EntityPageGate entityType={entityType} tabCount={3}>
+    <EntityPageGate entityType={entityType} tabCount={4}>
       <Suspense fallback={<HeaderSectionSuspense entityType={entityType} />}>
         <HeaderSection commonName={commonName} entityType={entityType} />
       </Suspense>
@@ -57,6 +58,11 @@ const DiseasePage = async ({ params }: DiseasePageProps) => {
             id: "assay-inferred",
             label: "Chemicals (assay-inferred)",
             content: <DiseaseAssayInferredSection commonName={commonName} />,
+          },
+          {
+            id: "bioactivities",
+            label: "Bioactivities",
+            content: <DiseaseBioactivitiesSection commonName={commonName} />,
           },
           {
             id: "overview",

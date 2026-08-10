@@ -15,6 +15,7 @@ from .materializer_chemical_disease_bioactivity import (
 )
 from .materializer_composition import materialize_food_chemical_composition
 from .materializer_correlation import materialize_chemical_disease_correlation
+from .materializer_disease_bioactivity import materialize_disease_bioactivity
 from .materializer_food_chemical_efficacy import materialize_food_chemical_efficacy
 
 logger = logging.getLogger(__name__)
@@ -29,6 +30,7 @@ MV_TABLES = [
     "mv_food_bioactivity",
     "mv_food_chemical_efficacy",
     "mv_chemical_disease_bioactivity",
+    "mv_disease_bioactivity",
 ]
 
 
@@ -47,6 +49,8 @@ def refresh_all(conn: Connection) -> None:
     materialize_food_chemical_efficacy(conn)
     logger.info("Building chemical-disease (bioactivity) view...")
     materialize_chemical_disease_bioactivity(conn)
+    logger.info("Building disease-bioactivity view...")
+    materialize_disease_bioactivity(conn)
     conn.commit()
 
 

@@ -24,7 +24,11 @@ from .views import (
     MVMetadataStatistics,
     MVSearchAutoComplete,
 )
-from .views_bioactivity import MVChemicalDiseaseBioactivity, MVFoodChemicalEfficacy
+from .views_bioactivity import (
+    MVChemicalDiseaseBioactivity,
+    MVDiseaseBioactivity,
+    MVFoodChemicalEfficacy,
+)
 
 __all__ = [
     "Base",
@@ -43,6 +47,7 @@ __all__ = [
     "MVChemicalDiseaseBioactivity",
     "MVChemicalDiseaseCorrelation",
     "MVChemicalEntity",
+    "MVDiseaseBioactivity",
     "MVDiseaseEntity",
     "MVFoodBioactivity",
     "MVFoodChemicalComposition",
