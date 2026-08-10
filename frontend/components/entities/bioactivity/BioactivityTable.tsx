@@ -29,6 +29,7 @@ import Chip from "@/components/basic/Chip";
 import Link from "@/components/basic/Link";
 import LoadingCard from "@/components/basic/LoadingCard";
 import Pagination from "@/components/basic/Pagination";
+import ResetFiltersButton from "@/components/basic/ResetFiltersButton";
 import SortListbox from "@/components/basic/SortListbox";
 import { useReportRows } from "@/context/reportModeContext";
 import BioactivityMeasurementsModal from "@/components/entities/bioactivity/BioactivityMeasurementsModal";
@@ -586,20 +587,6 @@ const BioactivityTable = ({
   // uses this alone (search stays visible outside the drawer).
   const filtersOnlyPanel = (
     <div className="flex flex-col gap-5">
-      {/* Reset link — only appears when the view differs from a fresh
-       * load so it's not just visual clutter. */}
-      {isFiltersDirty && (
-        <div className="flex justify-end -mb-3">
-          <button
-            type="button"
-            onClick={resetAllFilters}
-            className="text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
-          >
-            reset all
-          </button>
-        </div>
-      )}
-
       {unitOptions.length > 0 && (
         <div className="flex flex-col gap-1.5">
           <div className="flex items-baseline justify-between gap-2">
@@ -742,6 +729,9 @@ const BioactivityTable = ({
           })}
         </div>
       </div>
+
+      {/* Panel-level action, last so it reads as "undo everything above". */}
+      <ResetFiltersButton isDirty={isFiltersDirty} onReset={resetAllFilters} />
     </div>
   );
 

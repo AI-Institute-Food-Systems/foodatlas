@@ -18,6 +18,7 @@ import {
 import { twMerge } from "tailwind-merge";
 
 import Card from "@/components/basic/Card";
+import ResetFiltersButton from "@/components/basic/ResetFiltersButton";
 import Chip from "@/components/basic/Chip";
 import Link from "@/components/basic/Link";
 import Pagination from "@/components/basic/Pagination";
@@ -625,21 +626,6 @@ const FoodCompositionSection = ({
   // drawer per user request).
   const filtersOnlyPanel = (
     <div className="flex flex-col gap-5">
-      {/* Reset link — only appears when the view differs from a fresh
-       * page load, so it's not just visual clutter. Clears search +
-       * every filter to default and snaps pagination back to page 1. */}
-      {isFiltersDirty && (
-        <div className="flex justify-end -mb-3">
-          <button
-            type="button"
-            onClick={resetAllFilters}
-            className="text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
-          >
-            reset all
-          </button>
-        </div>
-      )}
-
       {/* options — binary switches (not multi-select) so they stay as
        * toggles rather than checkbox rows. */}
       <FilterGroup label="Options">
@@ -714,6 +700,13 @@ const FoodCompositionSection = ({
           })}
         </FilterList>
       </FilterGroup>
+
+      {/* Panel-level action, last so it reads as "undo everything above".
+       * Clears search + every filter and snaps pagination to page 1. */}
+      <ResetFiltersButton
+        isDirty={isFiltersDirty}
+        onReset={resetAllFilters}
+      />
     </div>
   );
 

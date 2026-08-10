@@ -12,6 +12,7 @@ import { MdCheck, MdClose, MdSearch, MdTune } from "react-icons/md";
 import { twMerge } from "tailwind-merge";
 
 import Card from "@/components/basic/Card";
+import ResetFiltersButton from "@/components/basic/ResetFiltersButton";
 import FoodBioactivitiesSection from "@/components/entities/bioactivity/FoodBioactivitiesSection";
 import FoodInferredBioactivitiesSection from "@/components/entities/bioactivity/FoodInferredBioactivitiesSection";
 import {
@@ -476,20 +477,10 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
   const filterPanel = (
     <div className="flex flex-col gap-5">
       {searchInput}
-      {isFiltersDirty && (
-        <div className="flex justify-end -mt-3 -mb-3">
-          <button
-            type="button"
-            onClick={resetAllFilters}
-            className="text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
-          >
-            reset all
-          </button>
-        </div>
-      )}
       {unitFilter}
       {evidenceFilter}
       {sourceFilter}
+      <ResetFiltersButton isDirty={isFiltersDirty} onReset={resetAllFilters} />
     </div>
   );
 
