@@ -576,8 +576,22 @@ async def get_food_inferred_bioactivities(
     filter_source_kind: str = "",
     filter_unit: str = "",
     filter_evidence_type: str = "",
+    filter_conc_flag: str = "",
 ) -> dict[str, object]:
-    """Bioactivities of the chemicals found in this food (transitive)."""
+    """Bioactivities of the chemicals found in this food (transitive).
+
+    ``filter_conc_flag="suspect_high"`` narrows to rows whose concentration the
+    pipeline flagged as implausible. Those rows carry a warning icon, but at 9
+    of apple's 1,591 rows spread over 80 pages they were effectively
+    unreachable — the warning only ever showed to someone who already happened
+    to be on the right page. ``metadata.n_flagged`` reports how many exist
+    under the *other* active filters, so the UI can offer them directly.
+
+    Note the count is smaller than mv_food_chemical_efficacy suggests (apple
+    has 38 flagged rows there). Only those whose (chemical, bioactivity) pair
+    also survives the composition join reach this table, so n_flagged counts
+    what the user can actually get to — and equals what filtering returns.
+    """
     sort_col = _INFERRED_SORT.get(sort_by, _INFERRED_SORT["concentration"])
     direction = sort_dir.upper() if sort_dir.upper() in _VALID_DIR else "DESC"
     # Every column carries its own direction + NULLS LAST; a bare
@@ -605,19 +619,42 @@ async def get_food_inferred_bioactivities(
         has_pair=False,
         measurements_col="cb.measurements",
     )
-    where = " AND ".join(where_parts)
+    # Held apart from the flag clause so n_flagged can apply every other
+    # active filter but not its own — the same faceting rule the sidebars use.
+    where_unflagged = " AND ".join(where_parts)
+    flag_clause = "eff.conc_quality_flag = 'suspect_high'"
+    where = (
+        f"{where_unflagged} AND {flag_clause}"
+        if filter_conc_flag == "suspect_high"
+        else where_unflagged
+    )
 
-    total_result = await session.execute(
-        text(f"""
+    # The efficacy join is LEFT and its key is unique per
+    # (food, chemical, bioactivity), so counting through it cannot fan rows out.
+    count_sql = """
             SELECT COUNT(*)
             FROM mv_food_chemical_composition fcc
             JOIN mv_chemical_bioactivity cb
               ON cb.chemical_foodatlas_id = fcc.chemical_foodatlas_id
+            {join}
             WHERE {where}
-        """),
+    """
+    total_result = await session.execute(
+        text(count_sql.format(join=_INFERRED_EFFICACY_JOIN, where=where)),
         params,
     )
     total = int(total_result.scalar() or 0)
+
+    flagged_result = await session.execute(
+        text(
+            count_sql.format(
+                join=_INFERRED_EFFICACY_JOIN,
+                where=f"{where_unflagged} AND {flag_clause}",
+            )
+        ),
+        params,
+    )
+    n_flagged = int(flagged_result.scalar() or 0)
 
     offset = rows_per_page * (page - 1)
     rows_result = await session.execute(
@@ -652,7 +689,10 @@ async def get_food_inferred_bioactivities(
     )
     return {
         "data": data,
-        "metadata": _build_meta(total, page, rows_per_page, len(data)),
+        "metadata": {
+            **_build_meta(total, page, rows_per_page, len(data)),
+            "n_flagged": n_flagged,
+        },
     }
 
 

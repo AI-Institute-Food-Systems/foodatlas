@@ -127,6 +127,12 @@ def _load_assoc_counts(conn: Connection) -> dict[str, int]:
     mv_food_bioactivity, and a chemical like quercetin didn't get credit for its
     rows in mv_chemical_bioactivity. The two new queries at the bottom close
     that gap so autocomplete association counts reflect the full graph.
+
+    A food also reaches bioactivities *through its chemicals*, which nothing
+    counted: onion showed 256 (254 composition + 2 directly measured) while its
+    chemicals span 21 bioactivities. The last query adds those, excluding any
+    bioactivity already counted on the direct edge so a food reached both ways
+    isn't credited twice.
     """
     queries = (
         # Composition: food ↔ chemical
@@ -157,6 +163,22 @@ def _load_assoc_counts(conn: Connection) -> dict[str, int]:
         " FROM mv_food_bioactivity GROUP BY food_foodatlas_id",
         "SELECT chemical_foodatlas_id AS fid, COUNT(*) AS n"
         " FROM mv_chemical_bioactivity GROUP BY chemical_foodatlas_id",
+        # Bioactivity — reached from a food via its chemicals. DISTINCT because
+        # dozens of a food's chemicals share one bioactivity; NOT EXISTS drops
+        # the ones mv_food_bioactivity already counted above.
+        "SELECT c.food_foodatlas_id AS fid,"
+        " COUNT(DISTINCT cb.bioactivity_foodatlas_id) AS n"
+        " FROM mv_food_chemical_composition c"
+        " JOIN mv_chemical_bioactivity cb"
+        " ON cb.chemical_foodatlas_id = c.chemical_foodatlas_id"
+        " WHERE (c.fdc_evidences IS NOT NULL"
+        " OR c.foodatlas_evidences IS NOT NULL"
+        " OR c.ptfi_evidences IS NOT NULL)"
+        " AND NOT EXISTS ("
+        " SELECT 1 FROM mv_food_bioactivity fb"
+        " WHERE fb.food_foodatlas_id = c.food_foodatlas_id"
+        " AND fb.bioactivity_foodatlas_id = cb.bioactivity_foodatlas_id)"
+        " GROUP BY c.food_foodatlas_id",
     )
     counts: dict[str, int] = {}
     for sql in queries:

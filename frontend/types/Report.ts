@@ -99,6 +99,40 @@ export type ReportContext =
       concentration?: string;
     }
   | {
+      // "Chemicals/Diseases (assay-inferred)" tables — one row per peer
+      // entity linked through a shared bioactivity assay.
+      kind: "assay-inferred-row";
+      // The page the report was filed from; the row is the other side.
+      entityType: "chemical" | "disease";
+      entitySlug?: string;
+      peerId?: string;
+      peerName?: string;
+      nAssays?: number;
+      nActiveMeasurements?: number;
+    }
+  | {
+      // Disease page's "Bioactivities" tab — one row per (bioactivity,
+      // chemical) attributed through the bridging assay.
+      kind: "disease-bioactivity-row";
+      entityType: "disease";
+      entitySlug?: string;
+      bioactivityId?: string;
+      bioactivityName?: string;
+      chemicalId?: string;
+      chemicalName?: string;
+      nAssays?: number;
+    }
+  | {
+      // Bioactivity page's "Diseases" tab — the mirror of the above.
+      kind: "bioactivity-disease-row";
+      entityType: "bioactivity";
+      entitySlug?: string;
+      diseaseId?: string;
+      diseaseName?: string;
+      nChemicals?: number;
+      nAssays?: number;
+    }
+  | {
       // Individual item on the entity's "IDs & Metadata" tab —
       // external IDs, classification, synonyms, ontology parents, or
       // taxonomy tree nodes. `field` distinguishes the sub-surface so

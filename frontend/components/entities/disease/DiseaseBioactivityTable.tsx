@@ -8,6 +8,7 @@ import { MdArrowForward, MdKeyboardArrowDown } from "react-icons/md";
 import { twMerge } from "tailwind-merge";
 
 import Link from "@/components/basic/Link";
+import { useReportRows } from "@/context/reportModeContext";
 import { encodeSpace } from "@/utils/utils";
 import type { DiseaseBioactivityChemical } from "@/types";
 
@@ -15,6 +16,8 @@ interface Props {
   rows: DiseaseBioactivityChemical[];
   visibleCount: number;
   onShowAll: () => void;
+  // Disease whose page this table sits on — carried into issue reports.
+  commonName: string;
 }
 
 const entityHref = (kind: string, name: string) =>
@@ -33,11 +36,28 @@ const RelationshipChips = ({ relationships }: { relationships: string[] }) => (
   </span>
 );
 
-const DiseaseBioactivityTable = ({ rows, visibleCount, onShowAll }: Props) => {
+const DiseaseBioactivityTable = ({
+  rows,
+  visibleCount,
+  onShowAll,
+  commonName,
+}: Props) => {
   const visible = rows.slice(0, visibleCount);
   const hiddenCount = rows.length - visible.length;
   const rowKey = (r: DiseaseBioactivityChemical) =>
     `${r.bioactivity_foodatlas_id}-${r.chemical_foodatlas_id}`;
+  const reporter = useReportRows();
+  const rowReportProps = (row: DiseaseBioactivityChemical) =>
+    reporter.getRowProps({
+      kind: "disease-bioactivity-row",
+      entityType: "disease",
+      entitySlug: commonName,
+      bioactivityId: row.bioactivity_foodatlas_id,
+      bioactivityName: row.bioactivity_name,
+      chemicalId: row.chemical_foodatlas_id,
+      chemicalName: row.chemical_name,
+      nAssays: row.n_assays,
+    });
 
   return (
     <div className="flex flex-col gap-4">
@@ -70,7 +90,7 @@ const DiseaseBioactivityTable = ({ rows, visibleCount, onShowAll }: Props) => {
           </thead>
           <tbody className="text-sm">
             {visible.map((row) => (
-              <tr key={rowKey(row)}>
+              <tr key={rowKey(row)} {...rowReportProps(row)}>
                 <td className="py-1.5 pr-4">
                   <div className="flex min-h-9 items-center capitalize">
                     <Link
@@ -109,7 +129,11 @@ const DiseaseBioactivityTable = ({ rows, visibleCount, onShowAll }: Props) => {
       {/* Mobile cards */}
       <div className="md:hidden divide-y divide-light-800">
         {visible.map((row) => (
-          <div key={rowKey(row)} className="py-3 flex flex-col gap-2">
+          <div
+            key={rowKey(row)}
+            className="py-3 flex flex-col gap-2"
+            {...rowReportProps(row)}
+          >
             <div className="flex items-baseline justify-between gap-2 capitalize">
               <Link
                 href={entityHref("chemical", row.chemical_name)}

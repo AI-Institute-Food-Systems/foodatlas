@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 from src.repositories.disease_bioactivity import (
+    get_bioactivity_diseases,
     get_disease_bioactivities,
     get_disease_bioactivity_chemicals,
 )
@@ -120,6 +121,50 @@ class TestGetDiseaseBioactivities:
         assert "mv_food_chemical_efficacy" not in str(session.execute.call_args[0][0])
 
 
+class TestGetBioactivityDiseases:
+    """The mirror direction, powering the Diseases tab on bioactivity pages."""
+
+    @pytest.mark.asyncio
+    async def test_returns_rows_and_count(self):
+        session = _mock_session(
+            [
+                {
+                    "disease_name": "carcinoma, hepatocellular",
+                    "disease_foodatlas_id": "d1",
+                    "n_chemicals": 2038,
+                    "n_assays": 8275,
+                    "n_active_measurements": 8275,
+                }
+            ]
+        )
+        out = await get_bioactivity_diseases(session, "anticancer")
+        assert out["metadata"] == {"row_count": 1}
+        assert out["data"][0]["disease_name"] == "carcinoma, hepatocellular"
+
+    @pytest.mark.asyncio
+    async def test_filters_on_bioactivity_and_groups_by_disease(self):
+        session = _mock_session([])
+        await get_bioactivity_diseases(session, "anticancer")
+        sql = str(session.execute.call_args[0][0])
+        assert "WHERE bioactivity_name = :name" in sql
+        assert "GROUP BY disease_name" in sql
+        assert session.execute.call_args[0][1] == {"name": "anticancer"}
+
+    @pytest.mark.asyncio
+    async def test_reads_only_the_assay_attributed_view(self):
+        """Must not fall back to the loose chemical→disease view."""
+        session = _mock_session([])
+        await get_bioactivity_diseases(session, "anticancer")
+        sql = str(session.execute.call_args[0][0])
+        assert "mv_disease_bioactivity" in sql
+        assert "mv_chemical_disease_bioactivity" not in sql
+
+    @pytest.mark.asyncio
+    async def test_empty_result(self):
+        out = await get_bioactivity_diseases(_mock_session([]), "nope")
+        assert out == {"data": [], "metadata": {"row_count": 0}}
+
+
 # -- routes -----------------------------------------------------------------
 
 _SUMMARY = {"data": [{"bioactivity_name": "anticancer"}], "metadata": {"row_count": 1}}
@@ -161,3 +206,25 @@ class TestDiseaseBioactivityRoutes:
             )
         assert resp.status_code == 200
         assert mock_repo.call_args[0][2] is None
+
+    def test_bioactivity_diseases_route(self, client: TestClient) -> None:
+        """The mirror route lives under /bioactivity, not /disease."""
+        payload = {
+            "data": [{"disease_name": "carcinoma, hepatocellular"}],
+            "metadata": {"row_count": 1},
+        }
+        with patch(
+            "src.repositories.disease_bioactivity.get_bioactivity_diseases",
+            return_value=payload,
+        ) as mock_repo:
+            resp = client.get(
+                "/bioactivity/diseases", params={"common_name": "anticancer"}
+            )
+        assert resp.status_code == 200
+        assert resp.json()["data"][0]["disease_name"] == "carcinoma, hepatocellular"
+        assert mock_repo.call_args[0][1] == "anticancer"
+
+    def test_bioactivity_diseases_requires_common_name(
+        self, client: TestClient
+    ) -> None:
+        assert client.get("/bioactivity/diseases").status_code == 422

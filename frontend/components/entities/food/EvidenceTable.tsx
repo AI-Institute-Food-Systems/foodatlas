@@ -486,20 +486,34 @@ const RowActions = ({
 }) => {
   const isFdc = row.evidence.reference.source_name === "FDC";
   const linkLabel = isFdc ? "View source" : "View paper";
+  // Not every source has somewhere to link to. PTFI evidence carries no PMC
+  // reference, so its url is "" — rendering the anchor anyway navigated to the
+  // current page and dumped the user on a blank view. Show the source name as
+  // plain text instead, so the row still says where the number came from.
+  const { url } = row.evidence.reference;
   return (
     <div className="flex items-center justify-end gap-2 flex-wrap">
-      <a
-        href={row.evidence.reference.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex items-center gap-1 text-xs font-mono italic text-light-300 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
-        onClick={(e) => e.stopPropagation()}
-        aria-label={linkLabel}
-        title={row.evidence.reference.display_name}
-      >
-        {linkLabel}
-        <MdOpenInNew className="size-3 shrink-0" aria-hidden />
-      </a>
+      {url ? (
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-xs font-mono italic text-light-300 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
+          onClick={(e) => e.stopPropagation()}
+          aria-label={linkLabel}
+          title={row.evidence.reference.display_name}
+        >
+          {linkLabel}
+          <MdOpenInNew className="size-3 shrink-0" aria-hidden />
+        </a>
+      ) : (
+        <span
+          className="text-xs font-mono italic text-light-500"
+          title={`${row.evidence.reference.source_name} provides no linkable reference`}
+        >
+          {row.evidence.reference.source_name}
+        </span>
+      )}
       {expandable && (
         <Chip
           icon={

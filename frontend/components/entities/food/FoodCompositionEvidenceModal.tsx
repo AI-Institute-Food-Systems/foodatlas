@@ -14,18 +14,22 @@ const isLowTrust = (ex: FoodEvidenceExtraction): boolean => Boolean(ex.trust_low
 export type EvidenceFilter = "all" | "low-trust";
 
 // Mirrors the BioactivityMeasurementsModal's Assay Source picker so users
-// see the same radio-row shape on both modals. "both" leads as the
-// no-filter option; the rest are derived from the evidence actually
-// present, because this list used to be hardcoded to FoodAtlas + FDC and
-// so could never offer PTFI. Known sources keep a stable order; anything
-// new sorts after them rather than being dropped.
+// see the same radio-row shape on both modals. "All" leads as the no-filter
+// option; the rest are derived from the evidence actually present, because
+// this list used to be hardcoded to FoodAtlas + FDC and so could never offer
+// PTFI. Known sources keep a stable order; anything new sorts after them
+// rather than being dropped.
+//
+// The option list comes from the UNFILTERED evidence set on purpose. Its
+// counts are faceted (see countExtractions), and deriving the list from those
+// counts would make a source vanish the moment another filter zeroed it —
+// leaving no way to click back to it. The row disables at zero instead.
 const SOURCE_ORDER = ["FDC", "FoodAtlas", "PTFI"];
 
 const buildSourceKinds = (
-  counts: Record<string, number>
+  keys: string[],
 ): { key: string; label: string }[] => {
-  const present = Object.keys(counts).filter((k) => k !== "" && counts[k] > 0);
-  present.sort((a, b) => {
+  const present = [...keys].sort((a, b) => {
     const ia = SOURCE_ORDER.indexOf(a);
     const ib = SOURCE_ORDER.indexOf(b);
     if (ia !== -1 && ib !== -1) return ia - ib;
@@ -34,7 +38,7 @@ const buildSourceKinds = (
     return a.localeCompare(b);
   });
   return [
-    { key: "", label: "both" },
+    { key: "", label: "All" },
     ...present.map((k) => ({ key: k, label: k })),
   ];
 };
@@ -43,6 +47,33 @@ const matchesSource = (
   ev: FoodEvidence,
   sourceKey: string,
 ): boolean => !sourceKey || ev.reference.source_name === sourceKey;
+
+const matchesSearch = (
+  ev: FoodEvidence,
+  ex: FoodEvidenceExtraction,
+  q: string,
+): boolean => {
+  if (!q) return true;
+  // Deliberately excludes ev.premise — the source text often mentions
+  // dozens of unrelated chemicals/foods, so searching it would surface
+  // extractions that don't actually mention the search term as the
+  // extracted entity. Users search to filter on WHAT was extracted,
+  // not what appeared somewhere in the paragraph.
+  const haystack = [
+    ex.extracted_chemical_name,
+    ex.extracted_food_name,
+    ex.extracted_concentration,
+    ex.method,
+    ev.reference.display_name,
+    ev.reference.id,
+    ...(ex.chemical_candidates ?? []),
+    ...(ex.food_candidates ?? []),
+  ]
+    .filter((s): s is string => Boolean(s))
+    .join(" ")
+    .toLowerCase();
+  return haystack.includes(q);
+};
 
 interface FoodCompositionEvidenceModalProps {
   foodName: string;
@@ -77,33 +108,71 @@ const FoodCompositionEvidenceModal = ({
     }
   }, [isOpen, initialFilter]);
 
-  // Extraction-level counts now that the table renders one row per
-  // extraction — chip labels stay in sync with what the table actually
-  // shows after filtering.
-  const { totalCount, lowTrustCount } = useMemo(() => {
-    let total = 0;
-    let low = 0;
+  const query = searchTerm.trim().toLowerCase();
+
+  // Counts every extraction passing the given filter combination. Callers
+  // omit the dimension whose own chip they're labelling, which is what makes
+  // the counts faceted: a number answers "what would I get if I clicked
+  // this?", never "what am I looking at right now".
+  //
+  // Previously both count sets were computed off the full evidence list, so
+  // narrowing by search or quality left every source number unchanged — the
+  // one place in the app that ignored the joint-filtering rule the sidebars
+  // follow.
+  const countExtractions = useMemo(
+    () =>
+      ({
+        source,
+        lowTrustOnly = false,
+      }: {
+        source: string;
+        lowTrustOnly?: boolean;
+      }): number => {
+        let n = 0;
+        evidences?.forEach((ev) => {
+          if (!matchesSource(ev, source)) return;
+          ev.extraction.forEach((ex) => {
+            if (lowTrustOnly && !isLowTrust(ex)) return;
+            if (!matchesSearch(ev, ex, query)) return;
+            n += 1;
+          });
+        });
+        return n;
+      },
+    [evidences, query],
+  );
+
+  // Quality counts hold source + search fixed, varying only quality.
+  const lowTrustOnly = filter === "low-trust";
+  const totalCount = useMemo(
+    () => countExtractions({ source: sourceKind }),
+    [countExtractions, sourceKind],
+  );
+  const lowTrustCount = useMemo(
+    () => countExtractions({ source: sourceKind, lowTrustOnly: true }),
+    [countExtractions, sourceKind],
+  );
+
+  // Source counts hold quality + search fixed, varying only source. The key
+  // list stays derived from the full set so options never disappear.
+  const sourceKeys = useMemo(() => {
+    const keys: string[] = [];
     evidences?.forEach((ev) => {
-      ev.extraction.forEach((ex) => {
-        total += 1;
-        if (isLowTrust(ex)) low += 1;
-      });
+      const name = ev.reference.source_name;
+      if (name && !keys.includes(name)) keys.push(name);
     });
-    return { totalCount: total, lowTrustCount: low };
+    return keys;
   }, [evidences]);
 
-  // Source counts — computed off the FULL row set so labels stay stable
-  // as the user narrows the view (they reflect "what would clicking this
-  // source give me", not the current filtered subset).
   const sourceCounts = useMemo(() => {
-    const counts: Record<string, number> = { "": 0 };
-    evidences?.forEach((ev) => {
-      const key = ev.reference.source_name;
-      counts[key] = (counts[key] ?? 0) + ev.extraction.length;
-      counts[""] += ev.extraction.length;
+    const counts: Record<string, number> = {
+      "": countExtractions({ source: "", lowTrustOnly }),
+    };
+    sourceKeys.forEach((key) => {
+      counts[key] = countExtractions({ source: key, lowTrustOnly });
     });
     return counts;
-  }, [evidences]);
+  }, [countExtractions, sourceKeys, lowTrustOnly]);
 
   const cycleLowTrustFilter = () =>
     setFilter((f) => {
@@ -112,52 +181,24 @@ const FoodCompositionEvidenceModal = ({
       return LOW_TRUST_CYCLE[(idx + 1) % LOW_TRUST_CYCLE.length];
     });
 
-  const matchesSearch = (
-    ev: FoodEvidence,
-    ex: FoodEvidenceExtraction,
-    q: string,
-  ): boolean => {
-    if (!q) return true;
-    // Deliberately excludes ev.premise — the source text often mentions
-    // dozens of unrelated chemicals/foods, so searching it would surface
-    // extractions that don't actually mention the search term as the
-    // extracted entity. Users search to filter on WHAT was extracted,
-    // not what appeared somewhere in the paragraph.
-    const haystack = [
-      ex.extracted_chemical_name,
-      ex.extracted_food_name,
-      ex.extracted_concentration,
-      ex.method,
-      ev.reference.display_name,
-      ev.reference.id,
-      ...(ex.chemical_candidates ?? []),
-      ...(ex.food_candidates ?? []),
-    ]
-      .filter((s): s is string => Boolean(s))
-      .join(" ")
-      .toLowerCase();
-    return haystack.includes(q);
-  };
-
   // Filter is applied at the extraction level so the table's row set
   // exactly matches the active chip's count. Evidences with no rows
   // remaining after the extraction filter are dropped so their paper
   // header doesn't dangle empty in the expanded row.
   const displayedEvidences = useMemo(() => {
     if (!evidences) return evidences;
-    const q = searchTerm.trim().toLowerCase();
     const chipPredicate = (ex: FoodEvidenceExtraction) =>
-      filter === "low-trust" ? isLowTrust(ex) : true;
+      lowTrustOnly ? isLowTrust(ex) : true;
     return evidences
       .filter((ev) => matchesSource(ev, sourceKind))
       .map((ev) => ({
         ...ev,
         extraction: ev.extraction.filter(
-          (ex) => chipPredicate(ex) && matchesSearch(ev, ex, q),
+          (ex) => chipPredicate(ex) && matchesSearch(ev, ex, query),
         ),
       }))
       .filter((ev) => ev.extraction.length > 0);
-  }, [evidences, filter, searchTerm, sourceKind]);
+  }, [evidences, lowTrustOnly, query, sourceKind]);
 
   const filteredCount = useMemo(
     () =>
@@ -184,6 +225,7 @@ const FoodCompositionEvidenceModal = ({
   const filtersPanel = (
     <FiltersPanel
       sourceKind={sourceKind}
+      sourceKeys={sourceKeys}
       sourceCounts={sourceCounts}
       onSourceKindChange={setSourceKind}
       filter={filter}
@@ -324,6 +366,7 @@ const SearchInput = ({
 
 const FiltersPanel = ({
   sourceKind,
+  sourceKeys,
   sourceCounts,
   onSourceKindChange,
   filter,
@@ -333,6 +376,7 @@ const FiltersPanel = ({
   lowTrustLabel,
 }: {
   sourceKind: string;
+  sourceKeys: string[];
   sourceCounts: Record<string, number>;
   onSourceKindChange: (k: string) => void;
   filter: EvidenceFilter;
@@ -351,7 +395,7 @@ const FiltersPanel = ({
         role="radiogroup"
         aria-label="Evidence source"
       >
-        {buildSourceKinds(sourceCounts).map(({ key, label }) => (
+        {buildSourceKinds(sourceKeys).map(({ key, label }) => (
           <RadioRow
             key={label}
             label={label}

@@ -1,14 +1,16 @@
 """Disease↔bioactivity repository — reads ``mv_disease_bioactivity``.
 
 Answers "what do this disease's assay evidence actually measure, and which
-chemicals carry it?"
+chemicals carry it?" — and the same question from the other side.
 
-Two grains off one view:
+Three grains off one view:
 
 * :func:`get_disease_bioactivities` — one row per bioactivity, for the tab's
   summary/filter chips.
 * :func:`get_disease_bioactivity_chemicals` — one row per (bioactivity,
   chemical).
+* :func:`get_bioactivity_diseases` — the mirror image, one row per disease, for
+  the Diseases tab on bioactivity pages.
 
 Deliberately does **not** join ``mv_food_chemical_efficacy``. An earlier
 revision attached, per chemical, the food whose dietary dose sat furthest above
@@ -41,6 +43,32 @@ async def get_disease_bioactivities(
             WHERE disease_name = :name
             GROUP BY bioactivity_name, bioactivity_foodatlas_id
             ORDER BY n_chemicals DESC, n_assays DESC
+        """),
+        {"name": common_name},
+    )
+    data = [dict(row._mapping) for row in result]
+    return {"data": data, "metadata": {"row_count": len(data)}}
+
+
+async def get_bioactivity_diseases(
+    session: AsyncSession, common_name: str
+) -> dict[str, object]:
+    """Diseases whose bridging assays measure this bioactivity.
+
+    Mirror of :func:`get_disease_bioactivities`. Flat rather than two-level:
+    a bioactivity reaches at most 1,282 diseases, few enough to list directly
+    without the chip-and-drilldown shape the disease side needs.
+    """
+    result = await session.execute(
+        text("""
+            SELECT disease_name, disease_foodatlas_id,
+                   COUNT(DISTINCT chemical_foodatlas_id) AS n_chemicals,
+                   SUM(n_assays) AS n_assays,
+                   SUM(n_active_measurements) AS n_active_measurements
+            FROM mv_disease_bioactivity
+            WHERE bioactivity_name = :name
+            GROUP BY disease_name, disease_foodatlas_id
+            ORDER BY n_chemicals DESC, n_assays DESC, disease_name
         """),
         {"name": common_name},
     )

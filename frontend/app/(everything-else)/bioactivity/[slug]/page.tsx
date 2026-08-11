@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
 import BioactivityChemicalsSection from "@/components/entities/bioactivity/BioactivityChemicalsSection";
+import BioactivityDiseasesSection from "@/components/entities/bioactivity/BioactivityDiseasesSection";
 import BioactivityFoodsSection from "@/components/entities/bioactivity/BioactivityFoodsSection";
 import HeaderSection from "@/components/entities/HeaderSection";
 import HeaderSectionSuspense from "@/components/entities/HeaderSectionSuspense";
@@ -55,7 +56,7 @@ const BioactivityPage = async ({ params }: BioactivityPageProps) => {
   const anchorId = metaPayload?.id ?? null;
 
   return (
-    <EntityPageGate entityType={entityType} tabCount={3}>
+    <EntityPageGate entityType={entityType} tabCount={4}>
       <Suspense fallback={<HeaderSectionSuspense entityType={entityType} />}>
         <HeaderSection commonName={commonName} entityType={entityType} />
       </Suspense>
@@ -84,6 +85,11 @@ const BioactivityPage = async ({ params }: BioactivityPageProps) => {
                 anchorId={anchorId}
               />
             ),
+          },
+          {
+            id: "diseases",
+            label: "Diseases",
+            content: <BioactivityDiseasesSection commonName={commonName} />,
           },
           {
             id: "overview",

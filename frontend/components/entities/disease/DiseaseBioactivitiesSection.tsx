@@ -136,6 +136,10 @@ const DiseaseBioactivitiesSection = ({ commonName }: Props) => {
             count={counts.get(s.bioactivity_name) ?? 0}
             tone={bioactivity === s.bioactivity_name ? "cream" : "outline"}
             size="md"
+            // Bioactivity names arrive lowercase from the KG ("anticancer");
+            // the table cells already capitalize, so the chips looked unfinished
+            // next to them.
+            className="capitalize"
             onClick={() => setBioactivity(s.bioactivity_name)}
             aria-pressed={bioactivity === s.bioactivity_name}
           />
@@ -146,6 +150,7 @@ const DiseaseBioactivitiesSection = ({ commonName }: Props) => {
         rows={filtered}
         visibleCount={visibleCount}
         onShowAll={() => setVisibleCount(filtered.length)}
+        commonName={commonName}
       />
     </div>
   );
