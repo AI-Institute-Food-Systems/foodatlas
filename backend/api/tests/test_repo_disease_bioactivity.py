@@ -52,7 +52,13 @@ class TestGetDiseaseBioactivityChemicals:
             _mock_session([_chemical_row()]), "melanoma"
         )
         row = out["data"][0]
-        for banned in ("dietary", "food_name", "efficacy_fraction", "dose_over_ac50_log"):
+        banned_fields = (
+            "dietary",
+            "food_name",
+            "efficacy_fraction",
+            "dose_over_ac50_log",
+        )
+        for banned in banned_fields:
             assert banned not in row
 
     @pytest.mark.asyncio
@@ -75,9 +81,7 @@ class TestGetDiseaseBioactivityChemicals:
         await get_disease_bioactivity_chemicals(session, "melanoma", "anticancer")
         params = session.execute.call_args[0][1]
         assert params == {"name": "melanoma", "bioactivity": "anticancer"}
-        assert "bioactivity_name = :bioactivity" in str(
-            session.execute.call_args[0][0]
-        )
+        assert "bioactivity_name = :bioactivity" in str(session.execute.call_args[0][0])
 
     @pytest.mark.asyncio
     async def test_omits_filter_clause_when_unset(self):
@@ -202,3 +206,25 @@ class TestDiseaseBioactivityRoutes:
             )
         assert resp.status_code == 200
         assert mock_repo.call_args[0][2] is None
+
+    def test_bioactivity_diseases_route(self, client: TestClient) -> None:
+        """The mirror route lives under /bioactivity, not /disease."""
+        payload = {
+            "data": [{"disease_name": "carcinoma, hepatocellular"}],
+            "metadata": {"row_count": 1},
+        }
+        with patch(
+            "src.repositories.disease_bioactivity.get_bioactivity_diseases",
+            return_value=payload,
+        ) as mock_repo:
+            resp = client.get(
+                "/bioactivity/diseases", params={"common_name": "anticancer"}
+            )
+        assert resp.status_code == 200
+        assert resp.json()["data"][0]["disease_name"] == "carcinoma, hepatocellular"
+        assert mock_repo.call_args[0][1] == "anticancer"
+
+    def test_bioactivity_diseases_requires_common_name(
+        self, client: TestClient
+    ) -> None:
+        assert client.get("/bioactivity/diseases").status_code == 422

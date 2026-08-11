@@ -237,8 +237,9 @@ class TestLoadAssocCounts:
             {
                 "food_foodatlas_id AS fid,"
                 " COUNT(*) AS n FROM mv_food_chemical_composition": [("f1", 254)],
-                "food_foodatlas_id AS fid,"
-                " COUNT(*) AS n FROM mv_food_bioactivity": [("f1", 2)],
+                "food_foodatlas_id AS fid, COUNT(*) AS n FROM mv_food_bioactivity": [
+                    ("f1", 2)
+                ],
                 "COUNT(DISTINCT cb.bioactivity_foodatlas_id)": [("f1", 19)],
             }
         )
