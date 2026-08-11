@@ -30,9 +30,12 @@ export type TabSpec = {
   content: ReactNode;
 };
 
+// Abbreviate only where the badge would otherwise get wide. Below 10k the
+// exact number fits, and abbreviating there actively misleads: 1,038 rendered
+// as "1.0k" reads as a flat thousand, and 1,412 vs 1,038 both collapse toward
+// "1k" at a glance — which is exactly how a correct badge got reported as wrong.
 const formatCount = (n: number): string => {
   if (n >= 10000) return `${(n / 1000).toFixed(0)}k`;
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
   return n.toLocaleString();
 };
 
