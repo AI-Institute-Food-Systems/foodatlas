@@ -24,6 +24,7 @@ import { MdArrowForward, MdKeyboardArrowDown } from "react-icons/md";
 import Link from "@/components/basic/Link";
 import LoadingCard from "@/components/basic/LoadingCard";
 import { useLoadingGate } from "@/context/pageReadyContext";
+import { useReportRows } from "@/context/reportModeContext";
 import { usePublishTabCount } from "@/context/tabCountsContext";
 import { encodeSpace } from "@/utils/utils";
 import type { AssayInferredAssociation } from "@/types";
@@ -60,6 +61,21 @@ const AssayInferredAssociationsTable = ({
   const [isLoading, setIsLoading] = useState(true);
   useLoadingGate(isLoading);
   const [showAll, setShowAll] = useState(false);
+  const reporter = useReportRows();
+
+  // The anchor page is whichever side we're NOT listing: on a chemical page
+  // we list diseases, so a report about one is filed against the chemical.
+  const anchorType = peer === "disease" ? "chemical" : "disease";
+  const rowReportProps = (row: AssayInferredAssociation) =>
+    reporter.getRowProps({
+      kind: "assay-inferred-row",
+      entityType: anchorType,
+      entitySlug: commonName,
+      peerId: peerId(row, peer),
+      peerName: peerName(row, peer),
+      nAssays: row.n_assays,
+      nActiveMeasurements: row.n_active_measurements,
+    });
 
   usePublishTabCount(tabId, isLoading ? null : rows.length);
 
@@ -138,7 +154,12 @@ const AssayInferredAssociationsTable = ({
           </thead>
           <tbody className="text-sm">
             {visible.map((row) => (
-              <PeerRow key={peerId(row, peer)} row={row} peer={peer} />
+              <PeerRow
+                key={peerId(row, peer)}
+                row={row}
+                peer={peer}
+                reportProps={rowReportProps(row)}
+              />
             ))}
           </tbody>
         </table>
@@ -147,7 +168,12 @@ const AssayInferredAssociationsTable = ({
       {/* Mobile card view */}
       <div className="md:hidden divide-y divide-light-800">
         {visible.map((row) => (
-          <PeerCard key={peerId(row, peer)} row={row} peer={peer} />
+          <PeerCard
+            key={peerId(row, peer)}
+            row={row}
+            peer={peer}
+            reportProps={rowReportProps(row)}
+          />
         ))}
       </div>
 
@@ -194,11 +220,13 @@ const RelationshipChips = ({
 const PeerRow = ({
   row,
   peer,
+  reportProps,
 }: {
   row: AssayInferredAssociation;
   peer: PeerDirection;
+  reportProps: ReturnType<ReturnType<typeof useReportRows>["getRowProps"]>;
 }) => (
-  <tr>
+  <tr {...reportProps}>
     <td className="py-1.5 pr-4">
       <div className="flex min-h-9 items-center capitalize">
         <Link href={peerHref(row, peer)} isExternal={false}>
@@ -221,11 +249,13 @@ const PeerRow = ({
 const PeerCard = ({
   row,
   peer,
+  reportProps,
 }: {
   row: AssayInferredAssociation;
   peer: PeerDirection;
+  reportProps: ReturnType<ReturnType<typeof useReportRows>["getRowProps"]>;
 }) => (
-  <div className="py-3 flex flex-col gap-2">
+  <div className="py-3 flex flex-col gap-2" {...reportProps}>
     <div className="flex items-baseline justify-between gap-2 capitalize">
       <Link href={peerHref(row, peer)} isExternal={false}>
         {peerName(row, peer)}

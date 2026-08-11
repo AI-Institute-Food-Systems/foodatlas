@@ -36,3 +36,18 @@ export type DiseaseBioactivitySummary = {
   n_assays: number;
   n_active_measurements: number;
 };
+
+// The mirror image, for the Diseases tab on bioactivity pages:
+//   GET /bioactivity/diseases?common_name=<bioactivity>
+//
+// Flat rather than two-level — a bioactivity reaches at most 1,282 diseases,
+// few enough to list without the chip-and-drilldown shape the disease side
+// needs for its 20 bioactivities.
+export type BioactivityDisease = {
+  disease_name: string;
+  disease_foodatlas_id: string;
+  // Distinct chemicals linking this disease to the bioactivity.
+  n_chemicals: number;
+  n_assays: number;
+  n_active_measurements: number;
+};

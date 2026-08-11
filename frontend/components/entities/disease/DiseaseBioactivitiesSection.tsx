@@ -150,6 +150,7 @@ const DiseaseBioactivitiesSection = ({ commonName }: Props) => {
         rows={filtered}
         visibleCount={visibleCount}
         onShowAll={() => setVisibleCount(filtered.length)}
+        commonName={commonName}
       />
     </div>
   );

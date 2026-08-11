@@ -755,6 +755,12 @@ export const getDiseaseBioactivities = (commonName: string) =>
 export const getDiseaseBioactivityChemicals = (commonName: string) =>
   assayInferredFetch("/disease/bioactivity-chemicals", commonName);
 
+// Same view read from the bioactivity side — the diseases whose bridging
+// assays measure this activity, most chemicals first.
+// Returns { data: BioactivityDisease[], metadata: { row_count } }.
+export const getBioactivityDiseases = (commonName: string) =>
+  assayInferredFetch("/bioactivity/diseases", commonName);
+
 // Per-food efficacy rows (chemical × bioactivity) — see
 // inferred-bioactivity-efficacy-column.md for semantics. The inferred-
 // bioactivities table joins these onto its rows client-side; not every
