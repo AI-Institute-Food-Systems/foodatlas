@@ -129,10 +129,17 @@ interface Props {
   externalSourceKind?: string;
   externalUnit?: string;
   externalEvidenceType?: string;
+  // "suspect_high" narrows to rows whose concentration the pipeline flagged
+  // as implausible. Server-side: at ~9 flagged rows in apple's 1,591 across
+  // 80 pages, a client-side filter would only ever search the current page.
+  externalConcFlag?: string;
   hideChrome?: boolean;
   // Fires whenever the filtered totalRows changes so a wrapper (the
   // Food Bioactivities tab) can sum direct + inferred for its tab badge.
   onTotalRowsChange?: (total: number) => void;
+  // How many flagged rows exist under the OTHER active filters — drives the
+  // sidebar chip's count without it having to re-query.
+  onFlaggedCountChange?: (n: number) => void;
   // When externally driven, this callback lets the table's empty-state
   // "clear filters" button reset the parent's sidebar too.
   onResetFilters?: () => void;
@@ -146,8 +153,10 @@ const FoodInferredBioactivitiesSection = ({
   externalSourceKind,
   externalUnit,
   externalEvidenceType,
+  externalConcFlag,
   hideChrome = false,
   onTotalRowsChange,
+  onFlaggedCountChange,
   onResetFilters,
 }: Props) => {
   const tableId = `${TABLE_ID_PREFIX}-${commonName}`;
@@ -160,6 +169,7 @@ const FoodInferredBioactivitiesSection = ({
   const effectiveSourceKind = externalSourceKind ?? "";
   const effectiveUnit = externalUnit ?? "";
   const effectiveEvidenceType = externalEvidenceType ?? "";
+  const effectiveConcFlag = externalConcFlag ?? "";
   const [sort, setSort] = useState<{ by: string; dir: SortDir }>({
     by: "concentration",
     dir: "desc",
@@ -170,6 +180,7 @@ const FoodInferredBioactivitiesSection = ({
   // response metadata.
   const [rows, setRows] = useState<InferredRow[]>([]);
   const [totalRows, setTotalRows] = useState(0);
+  const [flaggedCount, setFlaggedCount] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   useLoadingGate(isLoading);
@@ -240,15 +251,17 @@ const FoodInferredBioactivitiesSection = ({
         filterSourceKind: effectiveSourceKind || undefined,
         filterUnit: effectiveUnit || undefined,
         filterEvidenceType: effectiveEvidenceType || undefined,
+        filterConcFlag: effectiveConcFlag || undefined,
       });
       if (cancelled) return;
       const data = (payload?.data as InferredApiRow[] | undefined) ?? [];
       const meta = payload?.metadata as
-        | { total_rows?: number; total_pages?: number }
+        | { total_rows?: number; total_pages?: number; n_flagged?: number }
         | undefined;
       setRows(data.map(apiRowToInferredRow));
       setTotalRows(meta?.total_rows ?? 0);
       setTotalPages(Math.max(1, meta?.total_pages ?? 1));
+      setFlaggedCount(meta?.n_flagged ?? 0);
       setIsLoading(false);
     })();
     return () => {
@@ -262,11 +275,16 @@ const FoodInferredBioactivitiesSection = ({
     effectiveSourceKind,
     effectiveUnit,
     effectiveEvidenceType,
+    effectiveConcFlag,
   ]);
 
   useEffect(() => {
     if (onTotalRowsChange && !isLoading) onTotalRowsChange(totalRows);
   }, [onTotalRowsChange, totalRows, isLoading]);
+
+  useEffect(() => {
+    if (onFlaggedCountChange && !isLoading) onFlaggedCountChange(flaggedCount);
+  }, [onFlaggedCountChange, flaggedCount, isLoading]);
 
   // Snap back to page 1 when the row set shrinks below the current page.
   // The search box lives on the parent (FoodBioactivitiesTab) whenever

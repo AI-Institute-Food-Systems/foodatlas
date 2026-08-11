@@ -360,6 +360,10 @@ export type BioactivityListParams = {
   // inspecting the capped `measurements` sample's evidence_source
   // values ("exp*" vs "pred*"/"comp*").
   filterSourceKind?: string;
+  // "suspect_high" narrows to rows whose concentration the pipeline flagged
+  // as implausible. Applied by /food/inferred-bioactivities only; that
+  // response also carries metadata.n_flagged for the chip's count.
+  filterConcFlag?: string;
 };
 
 const buildBioactivityQuery = (params?: BioactivityListParams): string => {
@@ -375,6 +379,8 @@ const buildBioactivityQuery = (params?: BioactivityListParams): string => {
   if (params?.filterCategory) p.set("filter_category", params.filterCategory);
   if (params?.filterSourceKind)
     p.set("filter_source_kind", params.filterSourceKind);
+  if (params?.filterConcFlag)
+    p.set("filter_conc_flag", params.filterConcFlag);
   const qs = p.toString();
   return qs ? `&${qs}` : "";
 };
