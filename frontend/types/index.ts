@@ -26,14 +26,12 @@ import {
   FoodEfficacyRow,
 } from "./Bioactivity";
 import {
-  DietaryDose,
   DiseaseBioactivityChemical,
   DiseaseBioactivitySummary,
 } from "./DiseaseBioactivity";
 
 export type {
   AssayInferredAssociation,
-  DietaryDose,
   DiseaseBioactivityChemical,
   DiseaseBioactivitySummary,
   TeamMember,

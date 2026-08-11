@@ -2,18 +2,19 @@
 
 // "Bioactivities" tab on disease pages.
 //
-// Answers two questions the other disease tabs don't: which biological
-// activities does this disease's assay evidence actually measure, and which
-// food chemicals get closest to an active dose for them.
+// Answers what the other disease tabs don't: which biological activities this
+// disease's assay evidence actually measures, and which chemicals carry them.
 //
 // The attribution is assay-level on purpose. Health Impacts is CTD literature;
 // Chemicals (assay-inferred) lists chemicals but drops what the assays were
 // measuring. Going disease → chemical → all of that chemical's bioactivities
 // would credit melanoma with 1,571 "antiviral" chemicals; attributing through
 // the assay that bridges to the disease gives 3.
+//
+// Scope is deliberately narrow: assay counts only. Attaching each chemical's
+// best food dose was tried and pulled — see the repository docstring for why.
 
 import { useEffect, useMemo, useState } from "react";
-import { MdRestaurant } from "react-icons/md";
 
 import Chip from "@/components/basic/Chip";
 import LoadingCard from "@/components/basic/LoadingCard";
@@ -43,10 +44,6 @@ const DiseaseBioactivitiesSection = ({ commonName }: Props) => {
   useLoadingGate(isLoading);
 
   const [bioactivity, setBioactivity] = useState<string>(ALL);
-  // Most chemicals here reached the graph through assay data alone and never
-  // occur in food. Defaulting to the dietary subset keeps the tab answering
-  // the food question; the chip says exactly how many rows that hides.
-  const [dietaryOnly, setDietaryOnly] = useState(true);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   usePublishTabCount("bioactivities", isLoading ? null : summary.length);
@@ -69,41 +66,28 @@ const DiseaseBioactivitiesSection = ({ commonName }: Props) => {
     };
   }, [commonName]);
 
-  // Both filters are applied client-side: the payload is already in memory,
-  // and re-fetching per chip would trade a 1-frame filter for a round trip.
+  // Filtering client-side: the payload is already in memory, and re-fetching
+  // per chip would trade a one-frame filter for a round trip.
   const filtered = useMemo(
     () =>
-      rows.filter(
-        (row) =>
-          (bioactivity === ALL || row.bioactivity_name === bioactivity) &&
-          (!dietaryOnly || row.dietary !== null)
-      ),
-    [rows, bioactivity, dietaryOnly]
+      bioactivity === ALL
+        ? rows
+        : rows.filter((row) => row.bioactivity_name === bioactivity),
+    [rows, bioactivity]
   );
 
-  const dietaryTotal = useMemo(
-    () => rows.filter((r) => r.dietary !== null).length,
-    [rows]
-  );
-
-  // Counts on the chips follow the dietary toggle, so a chip never promises
-  // more rows than clicking it produces. Computed in one pass rather than
-  // per-chip — the largest disease has 6k rows behind 20 chips.
+  // One pass rather than per-chip — the largest disease has 6k rows behind
+  // 20 chips.
   const counts = useMemo(() => {
     const map = new Map<string, number>();
-    let total = 0;
     for (const row of rows) {
-      if (dietaryOnly && row.dietary === null) continue;
-      total += 1;
       map.set(row.bioactivity_name, (map.get(row.bioactivity_name) ?? 0) + 1);
     }
-    map.set(ALL, total);
+    map.set(ALL, rows.length);
     return map;
-  }, [rows, dietaryOnly]);
+  }, [rows]);
 
-  const countFor = (name: string) => counts.get(name) ?? 0;
-
-  useEffect(() => setVisibleCount(PAGE_SIZE), [bioactivity, dietaryOnly]);
+  useEffect(() => setVisibleCount(PAGE_SIZE), [bioactivity]);
 
   if (isLoading) {
     return (
@@ -132,62 +116,37 @@ const DiseaseBioactivitiesSection = ({ commonName }: Props) => {
         means the chemical was <em>Active</em> in an assay that both bridges to
         this disease and is classified under that activity — so the activity is
         one this disease&apos;s own evidence measured, not merely something the
-        chemical does elsewhere.
+        chemical does elsewhere. Many of these chemicals are pharmaceuticals
+        rather than food constituents.
       </p>
 
-      <div className="flex flex-col gap-3">
-        <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap gap-1.5">
+        <Chip
+          label="All"
+          count={counts.get(ALL) ?? 0}
+          tone={bioactivity === ALL ? "cream" : "outline"}
+          size="md"
+          onClick={() => setBioactivity(ALL)}
+          aria-pressed={bioactivity === ALL}
+        />
+        {summary.map((s) => (
           <Chip
-            label="All"
-            count={countFor(ALL)}
-            tone={bioactivity === ALL ? "cream" : "outline"}
+            key={s.bioactivity_foodatlas_id}
+            label={s.bioactivity_name}
+            count={counts.get(s.bioactivity_name) ?? 0}
+            tone={bioactivity === s.bioactivity_name ? "cream" : "outline"}
             size="md"
-            onClick={() => setBioactivity(ALL)}
-            aria-pressed={bioactivity === ALL}
+            onClick={() => setBioactivity(s.bioactivity_name)}
+            aria-pressed={bioactivity === s.bioactivity_name}
           />
-          {summary.map((s) => (
-            <Chip
-              key={s.bioactivity_foodatlas_id}
-              label={s.bioactivity_name}
-              count={countFor(s.bioactivity_name)}
-              tone={bioactivity === s.bioactivity_name ? "cream" : "outline"}
-              size="md"
-              onClick={() => setBioactivity(s.bioactivity_name)}
-              aria-pressed={bioactivity === s.bioactivity_name}
-            />
-          ))}
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <Chip
-            icon={<MdRestaurant className="size-3" />}
-            label="Found in food"
-            count={dietaryTotal}
-            tone={dietaryOnly ? "cream" : "outline"}
-            size="md"
-            onClick={() => setDietaryOnly((v) => !v)}
-            aria-pressed={dietaryOnly}
-            title="Only chemicals that occur in a food we have a concentration for"
-          />
-          <span className="text-[11px] font-mono italic text-light-500">
-            {dietaryOnly
-              ? `hiding ${(rows.length - dietaryTotal).toLocaleString()} assay-only rows`
-              : `${(rows.length - dietaryTotal).toLocaleString()} of ${rows.length.toLocaleString()} rows have no dietary dose`}
-          </span>
-        </div>
+        ))}
       </div>
 
-      {filtered.length === 0 ? (
-        <p className="text-sm text-light-500 italic">
-          No rows match this combination.
-        </p>
-      ) : (
-        <DiseaseBioactivityTable
-          rows={filtered}
-          visibleCount={visibleCount}
-          onShowAll={() => setVisibleCount(filtered.length)}
-        />
-      )}
+      <DiseaseBioactivityTable
+        rows={filtered}
+        visibleCount={visibleCount}
+        onShowAll={() => setVisibleCount(filtered.length)}
+      />
     </div>
   );
 };
