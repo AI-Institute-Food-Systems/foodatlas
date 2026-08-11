@@ -51,7 +51,13 @@ class TestGetDiseaseBioactivityChemicals:
             _mock_session([_chemical_row()]), "melanoma"
         )
         row = out["data"][0]
-        for banned in ("dietary", "food_name", "efficacy_fraction", "dose_over_ac50_log"):
+        banned_fields = (
+            "dietary",
+            "food_name",
+            "efficacy_fraction",
+            "dose_over_ac50_log",
+        )
+        for banned in banned_fields:
             assert banned not in row
 
     @pytest.mark.asyncio
@@ -74,9 +80,7 @@ class TestGetDiseaseBioactivityChemicals:
         await get_disease_bioactivity_chemicals(session, "melanoma", "anticancer")
         params = session.execute.call_args[0][1]
         assert params == {"name": "melanoma", "bioactivity": "anticancer"}
-        assert "bioactivity_name = :bioactivity" in str(
-            session.execute.call_args[0][0]
-        )
+        assert "bioactivity_name = :bioactivity" in str(session.execute.call_args[0][0])
 
     @pytest.mark.asyncio
     async def test_omits_filter_clause_when_unset(self):
