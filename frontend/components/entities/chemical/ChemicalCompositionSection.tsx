@@ -18,6 +18,19 @@ const ChemicalCompositionSection = async ({
   const compositionData = await getChemicalCompositionData(commonName);
   const metaData = await getMetaData(commonName, "chemical");
 
+  // When neither section has rows, the two per-section messages would state
+  // the absence twice from opposite directions. Say it once instead.
+  const withConc = compositionData?.with_concentrations ?? [];
+  const withoutConc = compositionData?.without_concentrations ?? [];
+  if (withConc.length === 0 && withoutConc.length === 0) {
+    return (
+      <p className="text-sm text-light-500 italic">
+        <span className="capitalize">{commonName}</span> is not recorded in any
+        food in the current data.
+      </p>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-7">
       <div className="flex flex-col gap-7">

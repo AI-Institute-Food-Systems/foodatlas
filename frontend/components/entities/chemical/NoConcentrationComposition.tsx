@@ -101,7 +101,9 @@ const NoConcentrationComposition = ({
         </div>
       ) : (
         <div className="h-16 flex items-center justify-center text-light-300 gap-2">
-          <MdInfoOutline /> No foods found
+          {/* Mirrors the known-concentration section's wording so the two
+           * read as a pair rather than as two independent verdicts. */}
+          <MdInfoOutline /> No foods with an unknown concentration
         </div>
       )}
     </div>
