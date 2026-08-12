@@ -338,7 +338,11 @@ const ConcentrationCompositionPlot = ({ data, chemicalName }: DotPlotProps) => {
         </div>
       ) : (
         <div className="h-16 flex items-center justify-center text-light-300 gap-2">
-          <MdInfoOutline /> No foods found
+          {/* Scoped to this section. A bare "No foods found" here read as
+           * "this chemical is in no foods" while the section directly below
+           * listed 224 of them — xanthohumol is in plenty of foods, none of
+           * them with a measured amount. */}
+          <MdInfoOutline /> No foods with a known concentration
         </div>
       )}
     </div>
