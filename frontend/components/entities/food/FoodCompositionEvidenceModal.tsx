@@ -467,7 +467,12 @@ const RadioRow = ({
         : "text-light-400 hover:text-light-100 hover:bg-light-900/50",
     )}
   >
-    <span className="font-mono text-xs flex-1 min-w-0 truncate">{label}</span>
+    {/* Source names come from the data, so a future lowercase one would
+     * otherwise render lowercase here while its sibling modal capitalizes.
+     * Harmless on the current values — CSS capitalize leaves FDC/PTFI alone. */}
+    <span className="font-mono text-xs flex-1 min-w-0 truncate capitalize">
+      {label}
+    </span>
     <span
       className={twMerge(
         "tabular-nums text-[10px] flex-shrink-0",

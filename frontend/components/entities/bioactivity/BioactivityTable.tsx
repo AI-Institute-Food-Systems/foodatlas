@@ -447,9 +447,9 @@ const BioactivityTable = ({
   // the chosen kind (backend classifies against the capped
   // measurements sample by evidence_source prefix).
   const SOURCE_KINDS: { key: string; label: string }[] = [
-    { key: "", label: "both" },
-    { key: "experimental", label: "experimental" },
-    { key: "predicted", label: "predicted" },
+    { key: "", label: "All" },
+    { key: "experimental", label: "Experimental" },
+    { key: "predicted", label: "Predicted" },
   ];
   const chooseSourceKind = (kind: string) => {
     setTablePaginations(tableId, 1, 20);
@@ -690,6 +690,7 @@ const BioactivityTable = ({
                 count={count}
                 selected={selectedCategories.includes(category)}
                 onClick={() => toggleCategory(category)}
+                capitalizeLabel
               />
             ))}
           </div>

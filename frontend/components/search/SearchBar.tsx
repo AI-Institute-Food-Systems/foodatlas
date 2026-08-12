@@ -350,20 +350,31 @@ const SearchBar = () => {
       aria-hidden={!isVisible}
     >
       <div
-        className={`z-50 w-full absolute px-4 md:px-24 ${
-          // When focused, use `fixed` positioning so the overlay is
-          // tied to the viewport, not the document. iOS Safari's
-          // "scroll input into view" logic sees a fixed-positioned
-          // input as already-in-view at its viewport-space top,
-          // whereas an `absolute` input at the same visual position
-          // still has a document-space Y that Safari tries to scroll
-          // to — yanking the page down on tap. Same top values as
-          // before (72 mobile / 84 desktop = navbar bottom + half a
-          // navbar height).
-          isFocused ? "fixed inset-0 top-[72px] md:top-[84px] -right-4" : ""
+        className={`z-50 w-full px-4 md:px-24 ${
+          // Exactly ONE position utility, chosen here rather than layered.
+          // This used to emit `absolute` unconditionally and append `fixed`
+          // when focused; with both classes present Tailwind's source order
+          // decides, and it emits `.absolute` after `.fixed`, so the intended
+          // fixed positioning always lost. At scroll top the two are visually
+          // identical, so it only surfaced when opening search partway down a
+          // page — the bar stayed pinned to its document position and scrolled
+          // away instead of sitting under the navbar.
+          //
+          // Fixed also matters on iOS: Safari's "scroll input into view" sees
+          // a fixed input as already in view, whereas an absolute one at the
+          // same visual spot still has a document-space Y it tries to scroll
+          // to, yanking the page down on tap.
+          //
+          // 72 mobile / 84 desktop = navbar bottom + half a navbar height.
+          isFocused
+            ? "fixed inset-0 top-[72px] md:top-[84px] -right-4"
+            : "absolute"
         } ${isResultsPage || suppressTransition ? "" : "duration-[250ms]"}`}
         ref={containerRef}
-        style={{ top: offsetTop || 50 }}
+        // Inline top wins over the responsive `top-*` classes, so it must not
+        // be applied while focused — otherwise the docked offset would drag
+        // the fixed overlay back to a stale document-space position.
+        style={isFocused ? undefined : { top: offsetTop || 50 }}
       >
           {/* Outer wrapper already applies `px-3 md:px-12` (matches
            * navbar / footer / page layout inset). The inner content
