@@ -72,9 +72,9 @@ type OutcomeFilter = (typeof OUTCOME_OPTIONS)[number];
 // buckets everywhere. Client-side match against measurement.evidence_source
 // prefix (backend classifies rows the same way).
 const SOURCE_KINDS: { key: string; label: string }[] = [
-  { key: "", label: "both" },
-  { key: "experimental", label: "experimental" },
-  { key: "predicted", label: "predicted" },
+  { key: "", label: "All" },
+  { key: "experimental", label: "Experimental" },
+  { key: "predicted", label: "Predicted" },
 ];
 
 const matchesSourceKind = (

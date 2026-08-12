@@ -8,17 +8,10 @@
 // `externalSourceKind` / `hideChrome` props.
 
 import { useEffect, useState } from "react";
-import {
-  MdCheck,
-  MdClose,
-  MdSearch,
-  MdTune,
-  MdWarningAmber,
-} from "react-icons/md";
+import { MdCheck, MdClose, MdSearch, MdTune } from "react-icons/md";
 import { twMerge } from "tailwind-merge";
 
 import Card from "@/components/basic/Card";
-import Chip from "@/components/basic/Chip";
 import ResetFiltersButton from "@/components/basic/ResetFiltersButton";
 import FoodBioactivitiesSection from "@/components/entities/bioactivity/FoodBioactivitiesSection";
 import FoodInferredBioactivitiesSection from "@/components/entities/bioactivity/FoodInferredBioactivitiesSection";
@@ -35,9 +28,9 @@ interface Props {
 }
 
 const SOURCE_KINDS: { key: string; label: string }[] = [
-  { key: "", label: "both" },
-  { key: "experimental", label: "experimental" },
-  { key: "predicted", label: "predicted" },
+  { key: "", label: "All" },
+  { key: "experimental", label: "Experimental" },
+  { key: "predicted", label: "Predicted" },
 ];
 
 const TOP_UNITS = 5;
@@ -57,10 +50,6 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
     { evidence_type: string; count: number }[]
   >([]);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
-  // Flagged-concentration filter. Only the inferred table carries
-  // concentrations, so the direct table can never match — see the render.
-  const [concFlagOnly, setConcFlagOnly] = useState(false);
-  const [flaggedCount, setFlaggedCount] = useState(0);
 
   // Aggregated filtered totals from direct + inferred tables → the
   // "Bioactivities" tab badge. Each sub-table reports null while its
@@ -68,14 +57,10 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
   // reported, so the badge starts refreshing as soon as data lands.
   const [directTotal, setDirectTotal] = useState<number | null>(null);
   const [inferredTotal, setInferredTotal] = useState<number | null>(null);
-  // The direct table is unmounted while the flagged filter is on, so its last
-  // reported total is stale — count it as zero rather than letting the badge
-  // claim rows the user can't see.
-  const effectiveDirectTotal = concFlagOnly ? 0 : directTotal;
   const combinedTotal =
-    effectiveDirectTotal === null && inferredTotal === null
+    directTotal === null && inferredTotal === null
       ? null
-      : (effectiveDirectTotal ?? 0) + (inferredTotal ?? 0);
+      : (directTotal ?? 0) + (inferredTotal ?? 0);
   usePublishTabCount("bioactivities", combinedTotal);
 
   // Source-kind counts for the sidebar Assay Source picker. Aggregated
@@ -420,37 +405,13 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
     searchTerm !== "" ||
     selectedUnits.length > 0 ||
     selectedEvidenceTypes.length > 0 ||
-    selectedSourceKind !== "" ||
-    concFlagOnly;
+    selectedSourceKind !== "";
   const resetAllFilters = () => {
     setSearchTerm("");
     setSelectedUnits([]);
     setSelectedEvidenceTypes([]);
     setSelectedSourceKind("");
-    setConcFlagOnly(false);
   };
-
-  // The pipeline flags concentrations above 10% of the food by mass as
-  // implausible. Those rows always rendered a warning icon, but there was no
-  // way to find them: apple carries 9 flagged rows among 1,591 across 80
-  // pages, so in practice the warning only appeared by accident.
-  const flaggedFilter = (flaggedCount > 0 || concFlagOnly) && (
-    <div className="flex flex-col gap-1.5">
-      <span className="font-mono italic text-[11px] uppercase tracking-wider text-light-400">
-        Concentration
-      </span>
-      <Chip
-        icon={<MdWarningAmber className="size-3" />}
-        label="Flagged only"
-        count={flaggedCount}
-        tone={concFlagOnly ? "cream" : "outline"}
-        size="md"
-        onClick={() => setConcFlagOnly((v) => !v)}
-        aria-pressed={concFlagOnly}
-        className="w-full justify-start"
-      />
-    </div>
-  );
 
   const evidenceFilter = evidenceTypeOptions.length > 0 && (
     <div className="flex flex-col gap-1.5">
@@ -519,7 +480,6 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
       {unitFilter}
       {evidenceFilter}
       {sourceFilter}
-      {flaggedFilter}
       <ResetFiltersButton isDirty={isFiltersDirty} onReset={resetAllFilters} />
     </div>
   );
@@ -548,29 +508,17 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
         </button>
       </div>
 
-      {/* Shared filters narrow both tables jointly. "Flagged only" is the one
-       * that can't: a flagged concentration is a property of the chemical's
-       * amount in the food, which directly-measured bioactivities don't have.
-       * Rather than leave this table showing unfiltered rows beside a filtered
-       * one, say plainly that it has nothing to match. */}
-      {concFlagOnly ? (
-        <p className="text-sm text-light-500 italic">
-          Directly measured bioactivities carry no concentration, so none can
-          be flagged. Clear the concentration filter to see them again.
-        </p>
-      ) : (
-        <FoodBioactivitiesSection
-          commonName={commonName}
-          anchorId={anchorId}
-          externalSearch={searchTerm}
-          externalSourceKind={sourceKindParam}
-          externalUnit={unitParam}
-          externalEvidenceType={evidenceTypeParam}
-          hideChrome
-          onTotalRowsChange={setDirectTotal}
-          onResetFilters={resetAllFilters}
-        />
-      )}
+      <FoodBioactivitiesSection
+        commonName={commonName}
+        anchorId={anchorId}
+        externalSearch={searchTerm}
+        externalSourceKind={sourceKindParam}
+        externalUnit={unitParam}
+        externalEvidenceType={evidenceTypeParam}
+        hideChrome
+        onTotalRowsChange={setDirectTotal}
+        onResetFilters={resetAllFilters}
+      />
       <div className="border-t-2 border-double border-light-700/60" />
       <FoodInferredBioactivitiesSection
         commonName={commonName}
@@ -578,10 +526,8 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
         externalSourceKind={sourceKindParam}
         externalUnit={unitParam}
         externalEvidenceType={evidenceTypeParam}
-        externalConcFlag={concFlagOnly ? "suspect_high" : ""}
         hideChrome
         onTotalRowsChange={setInferredTotal}
-        onFlaggedCountChange={setFlaggedCount}
         onResetFilters={resetAllFilters}
       />
 
