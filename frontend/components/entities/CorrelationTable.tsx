@@ -18,7 +18,6 @@ import Pagination from "@/components/basic/Pagination";
 import CorrelationEvidenceModal from "@/components/entities/CorrelationEvidenceModal";
 import { useReportRows } from "@/context/reportModeContext";
 import { usePaginations } from "@/context/paginationsContext";
-import { useLoadingGate } from "@/context/pageReadyContext";
 import { getDiseaseData } from "@/utils/fetching";
 import { encodeSpace } from "@/utils/utils";
 import { ChemicalCorrelation } from "@/types";
@@ -43,7 +42,6 @@ const CorrelationTable = ({
   const tableId = tableLocation + "-" + correlationType + "-table";
   const [data, setData] = useState<ChemicalCorrelation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  useLoadingGate(isLoading);
   const [isError, setIsError] = useState(false);
   const [numberOfPages, setNumberOfPages] = useState(1);
   const [totalRows, setTotalRows] = useState<number | null>(null);

@@ -9,7 +9,6 @@ import HeaderSectionSuspense from "@/components/entities/HeaderSectionSuspense";
 import EntityDetailLayout from "@/components/entities/EntityDetailLayout";
 import EntityOverviewPanel from "@/components/entities/EntityOverviewPanel";
 import EntityOverviewPanelSuspense from "@/components/entities/EntityOverviewPanelSuspense";
-import EntityPageGate from "@/components/entities/EntityPageGate";
 import {
   getFoodBioactivities,
   getFoodCompositionData,
@@ -83,7 +82,7 @@ const FoodPage = async ({ params }: FoodPageProps) => {
       : (directBio ?? 0) + (inferredBio ?? 0);
 
   return (
-    <EntityPageGate entityType={entityType} tabCount={3}>
+    <>
       <Suspense fallback={<HeaderSectionSuspense entityType={entityType} />}>
         <HeaderSection commonName={commonName} entityType={entityType} />
       </Suspense>
@@ -126,7 +125,7 @@ const FoodPage = async ({ params }: FoodPageProps) => {
           },
         ]}
       />
-    </EntityPageGate>
+    </>
   );
 };
 

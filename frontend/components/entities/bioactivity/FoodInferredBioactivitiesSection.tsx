@@ -34,7 +34,6 @@ import BioactivityMeasurementsModal from "@/components/entities/bioactivity/Bioa
 import { formatEfficacyFraction } from "@/components/entities/bioactivity/efficacy";
 import { useReportRows } from "@/context/reportModeContext";
 import { usePaginations } from "@/context/paginationsContext";
-import { useLoadingGate } from "@/context/pageReadyContext";
 import {
   getChemicalBioactivities,
   getFoodInferredBioactivities,
@@ -172,7 +171,6 @@ const FoodInferredBioactivitiesSection = ({
   const [totalRows, setTotalRows] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
-  useLoadingGate(isLoading);
   // Modal state. The efficacy endpoint doesn't carry raw measurements,
   // so when a user clicks "View N curves" we lazy-fetch the chemical's
   // full bioactivity list (which does carry the per-bioactivity

@@ -23,7 +23,6 @@ import { MdArrowForward, MdKeyboardArrowDown } from "react-icons/md";
 
 import Link from "@/components/basic/Link";
 import LoadingCard from "@/components/basic/LoadingCard";
-import { useLoadingGate } from "@/context/pageReadyContext";
 import { useReportRows } from "@/context/reportModeContext";
 import { usePublishTabCount } from "@/context/tabCountsContext";
 import { encodeSpace } from "@/utils/utils";
@@ -59,7 +58,6 @@ const AssayInferredAssociationsTable = ({
 }: Props) => {
   const [rows, setRows] = useState<AssayInferredAssociation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  useLoadingGate(isLoading);
   const [showAll, setShowAll] = useState(false);
   const reporter = useReportRows();
 

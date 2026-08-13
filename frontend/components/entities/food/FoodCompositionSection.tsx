@@ -31,7 +31,6 @@ import FoodCompositionEvidenceModal, {
   EvidenceFilter,
 } from "@/components/entities/food/FoodCompositionEvidenceModal";
 import { usePaginations } from "@/context/paginationsContext";
-import { useLoadingGate } from "@/context/pageReadyContext";
 import { usePublishTabCount } from "@/context/tabCountsContext";
 import { encodeSpace, formatConcentrationValueAlt } from "@/utils/utils";
 import {
@@ -94,7 +93,6 @@ const FoodCompositionSection = ({
   const searchParams = useSearchParams();
   const [data, setData] = useState<FoodCompositionData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  useLoadingGate(isLoading);
   const [isError, setIsError] = useState(false);
   const { getTablePaginations, setTablePaginations } = usePaginations();
   const { currentPage } = getTablePaginations("food-composition-table");

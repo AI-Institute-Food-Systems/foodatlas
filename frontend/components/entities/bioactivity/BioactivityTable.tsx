@@ -9,7 +9,6 @@
 
 import { ReactNode, useEffect, useState } from "react";
 
-import { useLoadingGate } from "@/context/pageReadyContext";
 import { usePublishTabCount } from "@/context/tabCountsContext";
 import {
   MdCheck,
@@ -297,7 +296,6 @@ const BioactivityTable = ({
   const [totalPages, setTotalPages] = useState(0);
   const [totalRows, setTotalRows] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
-  useLoadingGate(isLoading);
   // Publish filtered total to the tab-count context OR bubble to a
   // wrapper via callback (never both — pick one at the call site).
   usePublishTabCount(

@@ -19,7 +19,6 @@ import { useEffect, useMemo, useState } from "react";
 import Chip from "@/components/basic/Chip";
 import LoadingCard from "@/components/basic/LoadingCard";
 import DiseaseBioactivityTable from "@/components/entities/disease/DiseaseBioactivityTable";
-import { useLoadingGate } from "@/context/pageReadyContext";
 import { usePublishTabCount } from "@/context/tabCountsContext";
 import {
   getDiseaseBioactivities,
@@ -41,7 +40,6 @@ const DiseaseBioactivitiesSection = ({ commonName }: Props) => {
   const [summary, setSummary] = useState<DiseaseBioactivitySummary[]>([]);
   const [rows, setRows] = useState<DiseaseBioactivityChemical[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  useLoadingGate(isLoading);
 
   const [bioactivity, setBioactivity] = useState<string>(ALL);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);

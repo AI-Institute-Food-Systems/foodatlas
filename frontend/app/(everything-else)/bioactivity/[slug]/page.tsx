@@ -10,7 +10,6 @@ import HeaderSectionSuspense from "@/components/entities/HeaderSectionSuspense";
 import EntityDetailLayout from "@/components/entities/EntityDetailLayout";
 import EntityOverviewPanel from "@/components/entities/EntityOverviewPanel";
 import EntityOverviewPanelSuspense from "@/components/entities/EntityOverviewPanelSuspense";
-import EntityPageGate from "@/components/entities/EntityPageGate";
 import {
   getBioactivityChemicals,
   getBioactivityFoods,
@@ -56,7 +55,7 @@ const BioactivityPage = async ({ params }: BioactivityPageProps) => {
   const anchorId = metaPayload?.id ?? null;
 
   return (
-    <EntityPageGate entityType={entityType} tabCount={4}>
+    <>
       <Suspense fallback={<HeaderSectionSuspense entityType={entityType} />}>
         <HeaderSection commonName={commonName} entityType={entityType} />
       </Suspense>
@@ -109,7 +108,7 @@ const BioactivityPage = async ({ params }: BioactivityPageProps) => {
           },
         ]}
       />
-    </EntityPageGate>
+    </>
   );
 };
 

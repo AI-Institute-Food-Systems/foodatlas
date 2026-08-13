@@ -14,9 +14,6 @@ vi.mock("@/utils/fetching", () => ({
   getDiseaseBioactivityChemicals: vi.fn(),
 }));
 
-vi.mock("@/context/pageReadyContext", () => ({
-  useLoadingGate: () => undefined,
-}));
 vi.mock("@/context/tabCountsContext", () => ({
   usePublishTabCount: () => undefined,
 }));

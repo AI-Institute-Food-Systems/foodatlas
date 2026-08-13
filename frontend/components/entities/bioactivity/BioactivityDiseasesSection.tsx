@@ -16,7 +16,6 @@ import { MdArrowForward, MdKeyboardArrowDown } from "react-icons/md";
 
 import Link from "@/components/basic/Link";
 import LoadingCard from "@/components/basic/LoadingCard";
-import { useLoadingGate } from "@/context/pageReadyContext";
 import { useReportRows } from "@/context/reportModeContext";
 import { usePublishTabCount } from "@/context/tabCountsContext";
 import { getBioactivityDiseases } from "@/utils/fetching";
@@ -33,7 +32,6 @@ const BioactivityDiseasesSection = ({ commonName }: Props) => {
   const [rows, setRows] = useState<BioactivityDisease[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
-  useLoadingGate(isLoading);
   const reporter = useReportRows();
 
   usePublishTabCount("diseases", isLoading ? null : rows.length);
