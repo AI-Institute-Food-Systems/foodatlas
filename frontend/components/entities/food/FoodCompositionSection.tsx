@@ -22,6 +22,7 @@ import ResetFiltersButton from "@/components/basic/ResetFiltersButton";
 import Chip from "@/components/basic/Chip";
 import Link from "@/components/basic/Link";
 import Pagination from "@/components/basic/Pagination";
+import Skeleton from "@/components/basic/Skeleton";
 import {
   TableSkeletonCards,
   TableSkeletonRows,
@@ -35,6 +36,7 @@ import FoodCompositionEvidenceModal, {
 } from "@/components/entities/food/FoodCompositionEvidenceModal";
 import { usePaginations } from "@/context/paginationsContext";
 import { usePublishTabCount } from "@/context/tabCountsContext";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { encodeSpace, formatConcentrationValueAlt } from "@/utils/utils";
 import {
   getFoodCompositionCounts,
@@ -118,6 +120,12 @@ const FoodCompositionSection = ({
   const [data, setData] = useState<FoodCompositionData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
+  // A fetch with rows already on screen is a REFETCH (page, sort, filter,
+  // search), and blanking the table for it was the single most visible
+  // flash in this tab. Only show the skeleton when there is nothing to
+  // keep; otherwise dim what's there and let it be replaced in place.
+  const showSkeleton = isLoading && data.length === 0;
+  const isRefetching = isLoading && data.length > 0;
   const { getTablePaginations, setTablePaginations } = usePaginations();
   const { currentPage } = getTablePaginations("food-composition-table");
   // Highlight a single row when the user arrived from a chemical page link
@@ -143,6 +151,9 @@ const FoodCompositionSection = ({
   const [searchTerm, setSearchTerm] = useState(
     searchParams.get("search") ?? ""
   );
+  // The input stays instant; only the fetch waits. Without this every
+  // keystroke was its own request.
+  const debouncedSearch = useDebouncedValue(searchTerm);
   const [sourceFilters, setSourceFilters] = useState<string[]>(ALL_SOURCE_VALUES);
   const [sort, setSort] = useState({
     column: "median_concentration",
@@ -155,6 +166,10 @@ const FoodCompositionSection = ({
   const [evidenceFilter, setEvidenceFilter] =
     useState<EvidenceFilter>("all");
   const [sourceCounts, setSourceCounts] = useState<Record<string, number>>({});
+  // Tracks whether the facet-count fetch has settled at all. `{}` alone
+  // can't tell "still loading" from "all zero", and treating the former
+  // as the latter disabled filter rows retroactively.
+  const [countsLoaded, setCountsLoaded] = useState(false);
   // Empty selection means "no class filter" (show all rows). Users
   // pre-2026-07 saw every checkbox pre-checked which inverted the mental
   // model — clicking "flavonoid" REMOVED it, so rows returned were the
@@ -243,12 +258,16 @@ const FoodCompositionSection = ({
         setClassificationCounts(counts.classification_counts);
         setNoConcentrationCount(counts.no_concentration_count);
         setLowTrustCount(counts.low_trust_count);
+        setCountsLoaded(true);
       } catch {
         if (cancelled) return;
         setSourceCounts({});
         setClassificationCounts({});
         setNoConcentrationCount(undefined);
         setLowTrustCount(undefined);
+        // Settled either way — a failed count fetch shouldn't leave the
+        // filter rows showing placeholders forever.
+        setCountsLoaded(true);
       }
     };
     fetchCounts();
@@ -286,7 +305,7 @@ const FoodCompositionSection = ({
           commonName,
           currentPage,
           sourceFilters,
-          searchTerm,
+          debouncedSearch,
           sort,
           showAllConcentrations,
           activeClsFilter,
@@ -335,7 +354,7 @@ const FoodCompositionSection = ({
     currentPage,
     commonName,
     sourceFilters,
-    searchTerm,
+    debouncedSearch,
     sort,
     showAllConcentrations,
     showLowTrust,
@@ -686,9 +705,10 @@ const FoodCompositionSection = ({
                 key={opt.value}
                 label={opt.label}
                 count={c}
+                countsLoaded={countsLoaded}
                 selected={sourceFilters.includes(opt.value)}
                 onClick={() => toggleSource(opt.value)}
-                disabled={c === 0}
+                disabled={countsLoaded && c === 0}
               />
             );
           })}
@@ -717,15 +737,18 @@ const FoodCompositionSection = ({
       >
         <FilterList maxHeightClass="max-h-72">
           {visibleClassOptions.map((cls) => {
-            const c = classificationCounts[cls] ?? 0;
+            // Deliberately not `?? 0`: before the counts land every row
+            // would read as a real zero and disable itself.
+            const c = countsLoaded ? (classificationCounts[cls] ?? 0) : undefined;
             return (
               <FilterListItem
                 key={cls}
                 label={cls === "n/a" ? "unclassified" : cls}
                 count={c}
+                countsLoaded={countsLoaded}
                 selected={classificationFilter.includes(cls)}
                 onClick={() => toggleClassification(cls)}
-                disabled={c === 0}
+                disabled={countsLoaded && c === 0}
               />
             );
           })}
@@ -817,7 +840,13 @@ const FoodCompositionSection = ({
           {/* table — desktop only. Card list below covers mobile. */}
           <div
             ref={tableWrapperRef}
-            className="hidden md:block overflow-x-auto relative"
+            aria-busy={isRefetching}
+            className={twMerge(
+              "hidden md:block overflow-x-auto relative",
+              // Keep the current rows readable but visibly stale, and
+              // inert so a click doesn't act on data about to be replaced.
+              isRefetching && "opacity-60 pointer-events-none transition-opacity"
+            )}
           >
             {highlightName && overlayRect && (
               <div
@@ -888,7 +917,7 @@ const FoodCompositionSection = ({
                 </tr>
               </thead>
               <tbody className="text-sm font-light">
-                {isLoading ? (
+                {showSkeleton ? (
                   <TableSkeletonRows columns={TABLE_HEADERS} />
                 ) : isError ? (
                   // error message
@@ -1050,11 +1079,17 @@ const FoodCompositionSection = ({
           {/* Mobile card list — replaces the table below md:. Sort
            * control lives in the row-count header above (no column
            * headers to click in card view). */}
-          <div className="md:hidden">
-            {isLoading && <TableSkeletonCards columns={TABLE_HEADERS} />}
+          <div
+            className={twMerge(
+              "md:hidden",
+              isRefetching && "opacity-60 pointer-events-none transition-opacity"
+            )}
+            aria-busy={isRefetching}
+          >
+            {showSkeleton && <TableSkeletonCards columns={TABLE_HEADERS} />}
             <div
               className={
-                isLoading
+                showSkeleton
                   ? "hidden"
                   : "w-full flex flex-col divide-y divide-light-800"
               }
@@ -1200,7 +1235,8 @@ const FoodCompositionSection = ({
               <Pagination
                 tableId={"food-composition-table"}
                 numberOfPages={numberOfPages}
-                isLoading={isLoading}
+                isLoading={showSkeleton}
+                isBusy={isRefetching}
               />
             </div>
           )}
@@ -1373,12 +1409,18 @@ const FilterListItem = ({
   selected,
   onClick,
   disabled,
+  countsLoaded = true,
 }: {
   label: string;
   count?: number;
   selected: boolean;
   onClick: () => void;
   disabled?: boolean;
+  // False while the facet counts are still in flight. Distinguishes "not
+  // fetched yet" from "genuinely zero" — without it a row shows no count,
+  // stays enabled, and then greys out under the user's cursor when the
+  // counts land.
+  countsLoaded?: boolean;
 }) => (
   <button
     type="button"
@@ -1409,7 +1451,7 @@ const FilterListItem = ({
     <span className="capitalize font-mono italic text-xs flex-1 min-w-0 truncate">
       {label}
     </span>
-    {typeof count === "number" && (
+    {typeof count === "number" ? (
       <span
         className={twMerge(
           "not-italic tabular-nums text-[10px] flex-shrink-0",
@@ -1418,6 +1460,10 @@ const FilterListItem = ({
       >
         {count}
       </span>
+    ) : (
+      // Reserve the slot so the label doesn't reflow when the number
+      // arrives.
+      !countsLoaded && <Skeleton className="h-3 w-5 flex-shrink-0" />
     )}
   </button>
 );

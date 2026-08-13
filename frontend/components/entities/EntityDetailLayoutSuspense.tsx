@@ -8,6 +8,17 @@ import {
   type EntityType,
 } from "@/components/entities/entityTabs.config";
 
+// Literal classes, not interpolated — Tailwind only emits what it can
+// see. Ragged widths so the stack reads like filter labels.
+const FILTER_SKELETON_WIDTHS = [
+  "w-24",
+  "w-20",
+  "w-28",
+  "w-16",
+  "w-24",
+  "w-20",
+] as const;
+
 const SHELL_COLUMNS: SkeletonColumn[] = [
   { key: "name", width: "w-[50%]" },
   { key: "metric-a", width: "w-[25%]", align: "right" },
@@ -74,10 +85,27 @@ const EntityDetailLayoutSuspense = ({ entityType }: Props) => {
         </div>
 
         <Card>
-          {/* Filter chrome row: search field + filters button placeholder.
-           * Matches the mobile filter row (`!hideChrome && <flex row>`)
-           * the client tables render above their skeleton body. */}
-          <div className="mb-4 flex items-center gap-3">
+          {/* The sticky filter sidebar the real tables show from 1440px
+            * up, mirrored so wide viewports reserve the same gutter.
+            * Absolutely positioned off the Card, exactly as the real one
+            * is, so it costs the body no layout. */}
+          <aside className="hidden min-[1440px]:block absolute right-full mr-10 -top-[17px] bottom-0 w-48">
+            <div className="sticky top-4">
+              <Card className="gap-3">
+                <Skeleton shape="block" className="h-8 w-full rounded-md" />
+                {FILTER_SKELETON_WIDTHS.map((w, i) => (
+                  <Skeleton key={i} className={`h-3 ${w}`} />
+                ))}
+              </Card>
+            </div>
+          </aside>
+
+          {/* Filter chrome: search field + filters button. Hidden at
+            * min-[1440px], because that's where the real tables move this
+            * chrome out of the card and into a sticky aside — rendering it
+            * inline at every width meant wide viewports saw a search bar
+            * the loaded page never has. */}
+          <div className="mb-4 flex items-center gap-3 min-[1440px]:hidden">
             <div className="flex-1 min-w-0 max-w-xs">
               <Skeleton shape="block" className="h-8 w-full rounded-md" />
             </div>

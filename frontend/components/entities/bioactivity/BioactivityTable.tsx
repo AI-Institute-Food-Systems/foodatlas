@@ -37,6 +37,7 @@ import { useReportRows } from "@/context/reportModeContext";
 import BioactivityMeasurementsModal from "@/components/entities/bioactivity/BioactivityMeasurementsModal";
 import { formatTopMeasurement, topMeasurementOf } from "@/components/entities/bioactivity/format";
 import { usePaginations } from "@/context/paginationsContext";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { encodeSpace } from "@/utils/utils";
 import {
   getBioactivityCategoryOptions,
@@ -226,8 +227,12 @@ const BioactivityTable = ({
   // External overrides win when present so a parent (e.g. the food
   // page's Bioactivities tab) can drive search + source kind + unit +
   // evidence type for its tables from one shared sidebar.
-  const effectiveSearchTerm =
-    externalSearch !== undefined ? externalSearch : searchTerm;
+  // Debounced after the external/internal choice so both paths get it:
+  // the input stays instant, only the fetch waits. Previously every
+  // keystroke was its own request that blanked the table.
+  const effectiveSearchTerm = useDebouncedValue(
+    externalSearch !== undefined ? externalSearch : searchTerm
+  );
   const effectiveSourceKindParam =
     externalSourceKind !== undefined ? externalSourceKind : selectedSourceKind;
   const effectiveUnitParam =
@@ -299,6 +304,11 @@ const BioactivityTable = ({
   const [totalPages, setTotalPages] = useState(0);
   const [totalRows, setTotalRows] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  // A fetch with rows already on screen is a refetch (page, sort, filter,
+  // search) — keep them and dim, rather than blanking the table. Only a
+  // fetch with nothing to keep gets the skeleton.
+  const showSkeleton = isLoading && rows.length === 0;
+  const isRefetching = isLoading && rows.length > 0;
   // Publish filtered total to the tab-count context OR bubble to a
   // wrapper via callback (never both — pick one at the call site).
   usePublishTabCount(
@@ -838,7 +848,15 @@ const BioactivityTable = ({
           />
         </div>
       )}
-      <div className="hidden md:block overflow-x-auto">
+      <div
+        aria-busy={isRefetching}
+        className={twMerge(
+          "hidden md:block overflow-x-auto",
+          // Current rows stay readable but visibly stale, and inert so a
+          // click can't act on data that's about to be replaced.
+          isRefetching && "opacity-60 pointer-events-none transition-opacity"
+        )}
+      >
         <table className="w-full table-fixed">
           <colgroup>
             {columns.map((c) => (
@@ -887,7 +905,7 @@ const BioactivityTable = ({
             </tr>
           </thead>
           <tbody className="text-sm font-light">
-            {isLoading ? (
+            {showSkeleton ? (
               <TableSkeletonRows columns={columns} />
             ) : showEmpty ? (
               <tr>
@@ -930,10 +948,16 @@ const BioactivityTable = ({
        * That way every consumer (bioactivity chemicals / foods /
        * measurements) gets a mobile view without a per-caller
        * override. */}
-      {isLoading ? (
+      {showSkeleton ? (
         <TableSkeletonCards columns={columns} />
       ) : (
-      <div className="md:hidden w-full flex flex-col divide-y divide-light-800">
+      <div
+        aria-busy={isRefetching}
+        className={twMerge(
+          "md:hidden w-full flex flex-col divide-y divide-light-800",
+          isRefetching && "opacity-60 pointer-events-none transition-opacity"
+        )}
+      >
         {showEmpty ? (
           <div className="w-full py-6 flex items-center justify-center">
             {emptyStateBody}
@@ -998,7 +1022,8 @@ const BioactivityTable = ({
           <Pagination
             tableId={tableId}
             numberOfPages={totalPages}
-            isLoading={isLoading}
+            isLoading={showSkeleton}
+            isBusy={isRefetching}
           />
         </div>
       )}
