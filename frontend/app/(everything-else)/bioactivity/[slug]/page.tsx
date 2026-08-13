@@ -8,6 +8,8 @@ import BioactivityFoodsSection from "@/components/entities/bioactivity/Bioactivi
 import HeaderSection from "@/components/entities/HeaderSection";
 import HeaderSectionSuspense from "@/components/entities/HeaderSectionSuspense";
 import EntityDetailLayout from "@/components/entities/EntityDetailLayout";
+import { buildTabs } from "@/components/entities/buildTabs";
+import { DEFAULT_TAB_ID } from "@/components/entities/entityTabs.config";
 import EntityOverviewPanel from "@/components/entities/EntityOverviewPanel";
 import EntityOverviewPanelSuspense from "@/components/entities/EntityOverviewPanelSuspense";
 import {
@@ -61,11 +63,9 @@ const BioactivityPage = async ({ params }: BioactivityPageProps) => {
       </Suspense>
       <EntityDetailLayout
         entityType={entityType}
-        defaultTabId="foods"
-        tabs={[
-          {
-            id: "foods",
-            label: "Foods Exhibiting",
+        defaultTabId={DEFAULT_TAB_ID[entityType]}
+        tabs={buildTabs(entityType, {
+          foods: {
             count: foodsCount,
             content: (
               <BioactivityFoodsSection
@@ -74,9 +74,7 @@ const BioactivityPage = async ({ params }: BioactivityPageProps) => {
               />
             ),
           },
-          {
-            id: "chemicals",
-            label: "Chemicals Measured",
+          chemicals: {
             count: chemicalsCount,
             content: (
               <BioactivityChemicalsSection
@@ -85,14 +83,10 @@ const BioactivityPage = async ({ params }: BioactivityPageProps) => {
               />
             ),
           },
-          {
-            id: "diseases",
-            label: "Diseases",
+          diseases: {
             content: <BioactivityDiseasesSection commonName={commonName} />,
           },
-          {
-            id: "overview",
-            label: "IDs & Metadata",
+          overview: {
             content: (
               <Suspense
                 fallback={
@@ -106,7 +100,7 @@ const BioactivityPage = async ({ params }: BioactivityPageProps) => {
               </Suspense>
             ),
           },
-        ]}
+        })}
       />
     </>
   );

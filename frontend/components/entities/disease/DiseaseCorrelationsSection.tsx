@@ -16,13 +16,14 @@ const DiseaseCorrelationsSection = ({
   commonName,
 }: DiseaseCorrelationsSectionProps) => {
   // Aggregated Improves + Worsens totals → the "Health Impacts" tab badge.
+  // The two tables resolve independently, so publish only once both have
+  // reported — otherwise the badge shows one table's count and then
+  // visibly jumps when the other lands.
   const [posTotal, setPosTotal] = useState<number | null>(null);
   const [negTotal, setNegTotal] = useState<number | null>(null);
   usePublishTabCount(
     "health",
-    posTotal === null && negTotal === null
-      ? null
-      : (posTotal ?? 0) + (negTotal ?? 0),
+    posTotal === null || negTotal === null ? null : posTotal + negTotal,
   );
 
   return (

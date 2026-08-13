@@ -8,6 +8,8 @@ import ChemicalBioactivitiesSection from "@/components/entities/bioactivity/Chem
 import HeaderSection from "@/components/entities/HeaderSection";
 import HeaderSectionSuspense from "@/components/entities/HeaderSectionSuspense";
 import EntityDetailLayout from "@/components/entities/EntityDetailLayout";
+import { buildTabs } from "@/components/entities/buildTabs";
+import { DEFAULT_TAB_ID } from "@/components/entities/entityTabs.config";
 import EntityOverviewPanel from "@/components/entities/EntityOverviewPanel";
 import EntityOverviewPanelSuspense from "@/components/entities/EntityOverviewPanelSuspense";
 import ChemicalCompositionSectionSuspense from "@/components/entities/chemical/ChemicalCompositionSectionSuspense";
@@ -64,11 +66,9 @@ const ChemicalPage = async ({ params }: ChemicalPageProps) => {
       </Suspense>
       <EntityDetailLayout
         entityType={entityType}
-        defaultTabId="composition"
-        tabs={[
-          {
-            id: "composition",
-            label: "Foods Containing",
+        defaultTabId={DEFAULT_TAB_ID[entityType]}
+        tabs={buildTabs(entityType, {
+          composition: {
             count: compositionCount,
             content: (
               <Suspense fallback={<ChemicalCompositionSectionSuspense />}>
@@ -76,9 +76,7 @@ const ChemicalPage = async ({ params }: ChemicalPageProps) => {
               </Suspense>
             ),
           },
-          {
-            id: "bioactivities",
-            label: "Bioactivities",
+          bioactivities: {
             count: bioactivitiesCount,
             content: (
               <ChemicalBioactivitiesSection
@@ -87,21 +85,13 @@ const ChemicalPage = async ({ params }: ChemicalPageProps) => {
               />
             ),
           },
-          {
-            id: "health",
-            label: "Health Impacts",
+          health: {
             content: <ChemicalCorrelationSection commonName={commonName} />,
           },
-          {
-            id: "assay-inferred",
-            label: "Diseases (assay-inferred)",
-            content: (
-              <ChemicalAssayInferredSection commonName={commonName} />
-            ),
+          "assay-inferred": {
+            content: <ChemicalAssayInferredSection commonName={commonName} />,
           },
-          {
-            id: "overview",
-            label: "IDs & Metadata",
+          overview: {
             content: (
               <Suspense
                 fallback={
@@ -115,7 +105,7 @@ const ChemicalPage = async ({ params }: ChemicalPageProps) => {
               </Suspense>
             ),
           },
-        ]}
+        })}
       />
     </>
   );

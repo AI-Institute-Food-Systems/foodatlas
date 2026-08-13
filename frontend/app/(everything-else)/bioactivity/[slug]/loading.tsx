@@ -1,12 +1,6 @@
-import EntityDetailLayoutSuspense from "@/components/entities/EntityDetailLayoutSuspense";
-import HeaderSectionSuspense from "@/components/entities/HeaderSectionSuspense";
+import EntityLoadingShell from "@/components/entities/EntityLoadingShell";
 
-const Loading = () => (
-  <div>
-    <HeaderSectionSuspense entityType="bioactivity" />
-    <EntityDetailLayoutSuspense tabCount={3} />
-  </div>
-);
+const Loading = () => <EntityLoadingShell entityType="bioactivity" />;
 
 Loading.displayName = "BioactivityLoading";
 

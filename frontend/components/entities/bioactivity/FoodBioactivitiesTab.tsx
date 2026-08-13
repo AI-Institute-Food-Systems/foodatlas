@@ -53,14 +53,17 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
 
   // Aggregated filtered totals from direct + inferred tables → the
   // "Bioactivities" tab badge. Each sub-table reports null while its
-  // fetch is in flight; we publish the SUM once at least one has
-  // reported, so the badge starts refreshing as soon as data lands.
+  // fetch is in flight, and the two resolve independently — so the sum
+  // is only meaningful once BOTH have reported. Publishing as soon as
+  // either landed made the badge show a partial count and then visibly
+  // jump (e.g. 12 -> 348) when the second table finished. Staying null
+  // until both are in keeps the placeholder up for that whole window.
   const [directTotal, setDirectTotal] = useState<number | null>(null);
   const [inferredTotal, setInferredTotal] = useState<number | null>(null);
   const combinedTotal =
-    directTotal === null && inferredTotal === null
+    directTotal === null || inferredTotal === null
       ? null
-      : (directTotal ?? 0) + (inferredTotal ?? 0);
+      : directTotal + inferredTotal;
   usePublishTabCount("bioactivities", combinedTotal);
 
   // Source-kind counts for the sidebar Assay Source picker. Aggregated

@@ -17,15 +17,25 @@ import { MdCheck, MdKeyboardArrowDown } from "react-icons/md";
 import { twMerge } from "tailwind-merge";
 
 import Card from "@/components/basic/Card";
+import Skeleton from "@/components/basic/Skeleton";
 import { usePaginations } from "@/context/paginationsContext";
 import { useTabCounts } from "@/context/tabCountsContext";
 
-export type EntityType = "food" | "chemical" | "disease" | "bioactivity";
+// Owned by the (React-free, server-readable) config so `loading.tsx` can
+// import it without pulling this client component across the boundary.
+// Re-exported here because most callers reach for it alongside TabSpec.
+import type { EntityType } from "@/components/entities/entityTabs.config";
+
+export type { EntityType };
 
 export type TabSpec = {
   id: string;
   label: string;
-  // optional badge count rendered after the label; omit when not yet known.
+  // Whether this tab ever carries a count badge. Supplied by the shared
+  // config via buildTabs, and distinct from `count == null` — that means
+  // the count is still pending, which is what the placeholder covers.
+  hasCount?: boolean;
+  // The badge count itself; null while the tab's fetch is in flight.
   count?: number | null;
   content: ReactNode;
 };
@@ -84,9 +94,17 @@ const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
       // Only meaningful once the wrapper is actually displayed; on mobile
       // it is `hidden`, clientWidth is 0, and the Listbox already shows.
       if (wrap.clientWidth === 0) return;
-      // 1px of slack — sub-pixel layout rounding otherwise reports a
-      // permanent 0.5px overflow on some zoom levels.
-      setStripOverflows(strip.scrollWidth > wrap.clientWidth + 1);
+      // Asymmetric thresholds: flip to the Listbox as soon as the strip
+      // genuinely overflows (1px of slack absorbs sub-pixel rounding,
+      // which otherwise reports a permanent 0.5px overflow at some zoom
+      // levels), but only flip back once there is real room to spare.
+      // Equal thresholds let a width that lands exactly on the boundary
+      // oscillate, since each flip changes what is being measured.
+      setStripOverflows((prev) =>
+        prev
+          ? strip.scrollWidth > wrap.clientWidth - 8
+          : strip.scrollWidth > wrap.clientWidth + 1
+      );
     };
     measure();
     const ro = new ResizeObserver(measure);
@@ -150,11 +168,14 @@ const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
             <ListboxButton className="w-full font-mono italic text-sm font-medium bg-light-200 text-light-900 rounded-md pl-3 pr-9 py-2 border-[1.5px] border-light-200 shadow-[inset_0_1px_2px_rgba(255,249,242,0.5)] focus:outline-none focus:ring-1 focus:ring-accent-500 text-left">
               <span className="flex items-center gap-1.5">
                 <span>{tabs[selectedIndex]?.label ?? ""}</span>
-                {typeof tabs[selectedIndex]?.count === "number" && (
-                  <span className="text-light-700 not-italic">
-                    · {formatCount(tabs[selectedIndex]!.count!)}
-                  </span>
-                )}
+                {tabs[selectedIndex]?.hasCount &&
+                  (typeof tabs[selectedIndex]?.count === "number" ? (
+                    <span className="text-light-700 not-italic">
+                      · {formatCount(tabs[selectedIndex]!.count!)}
+                    </span>
+                  ) : (
+                    <Skeleton shape="pill" className="h-3 w-6" />
+                  ))}
               </span>
               <MdKeyboardArrowDown
                 aria-hidden
@@ -169,16 +190,19 @@ const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
                 <ListboxOption
                   key={tab.id}
                   value={i}
-                  disabled={tab.count === 0}
+                  disabled={tab.hasCount === true && tab.count === 0}
                   className="group flex items-center gap-2 px-3 py-2 font-mono italic text-sm text-light-200 data-[focus]:bg-light-900/60 data-[selected]:text-light-100 data-[disabled]:opacity-40 data-[disabled]:cursor-not-allowed cursor-pointer"
                 >
                   <MdCheck className="w-4 h-4 opacity-0 group-data-[selected]:opacity-100 text-accent-500" />
                   <span>{tab.label}</span>
-                  {typeof tab.count === "number" && (
-                    <span className="text-light-500 not-italic">
-                      · {formatCount(tab.count)}
-                    </span>
-                  )}
+                  {tab.hasCount &&
+                    (typeof tab.count === "number" ? (
+                      <span className="text-light-500 not-italic">
+                        · {formatCount(tab.count)}
+                      </span>
+                    ) : (
+                      <Skeleton shape="pill" className="h-3 w-6" />
+                    ))}
                 </ListboxOption>
               ))}
             </ListboxOptions>
@@ -227,18 +251,26 @@ const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
                 // two.
                 <span className="flex items-center justify-center gap-1.5 min-h-5">
                   <span className="leading-none">{tab.label}</span>
-                  {typeof tab.count === "number" && (
-                    <span
-                      className={
-                        "not-italic font-mono text-[0.65rem] tracking-wide px-1.5 py-[1px] rounded-full " +
-                        (selected
-                          ? "bg-light-900/15 text-light-700"
-                          : "bg-light-800/80 text-light-400")
-                      }
-                    >
-                      {formatCount(tab.count)}
-                    </span>
-                  )}
+                  {tab.hasCount &&
+                    (typeof tab.count === "number" ? (
+                      <span
+                        className={
+                          "not-italic font-mono text-[0.65rem] tracking-wide px-1.5 py-[1px] rounded-full " +
+                          (selected
+                            ? "bg-light-900/15 text-light-700"
+                            : "bg-light-800/80 text-light-400")
+                        }
+                      >
+                        {formatCount(tab.count)}
+                      </span>
+                    ) : (
+                      // Same box as the real badge, so the chip's width is
+                      // final from first paint. Without this the badge
+                      // popping in widens the chip, which re-runs the
+                      // overflow observer above and can flip the whole
+                      // strip into the mobile Listbox mid-load.
+                      <Skeleton shape="pill" className="h-[0.95rem] w-6" />
+                    ))}
                 </span>
               )}
             </Tab>

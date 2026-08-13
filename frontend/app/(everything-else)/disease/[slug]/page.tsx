@@ -8,6 +8,8 @@ import DiseaseCorrelationsSection from "@/components/entities/disease/DiseaseCor
 import HeaderSection from "@/components/entities/HeaderSection";
 import EntityDetailLayout from "@/components/entities/EntityDetailLayout";
 import EntityOverviewPanel from "@/components/entities/EntityOverviewPanel";
+import { buildTabs } from "@/components/entities/buildTabs";
+import { DEFAULT_TAB_ID } from "@/components/entities/entityTabs.config";
 import EntityOverviewPanelSuspense from "@/components/entities/EntityOverviewPanelSuspense";
 import HeaderSectionSuspense from "@/components/entities/HeaderSectionSuspense";
 import { getMetaData } from "@/utils/fetching";
@@ -46,26 +48,18 @@ const DiseasePage = async ({ params }: DiseasePageProps) => {
       </Suspense>
       <EntityDetailLayout
         entityType={entityType}
-        defaultTabId="health"
-        tabs={[
-          {
-            id: "health",
-            label: "Health Impacts",
+        defaultTabId={DEFAULT_TAB_ID[entityType]}
+        tabs={buildTabs(entityType, {
+          health: {
             content: <DiseaseCorrelationsSection commonName={commonName} />,
           },
-          {
-            id: "assay-inferred",
-            label: "Chemicals (assay-inferred)",
+          "assay-inferred": {
             content: <DiseaseAssayInferredSection commonName={commonName} />,
           },
-          {
-            id: "bioactivities",
-            label: "Bioactivities",
+          bioactivities: {
             content: <DiseaseBioactivitiesSection commonName={commonName} />,
           },
-          {
-            id: "overview",
-            label: "IDs & Metadata",
+          overview: {
             content: (
               <Suspense
                 fallback={
@@ -79,7 +73,7 @@ const DiseasePage = async ({ params }: DiseasePageProps) => {
               </Suspense>
             ),
           },
-        ]}
+        })}
       />
     </>
   );
