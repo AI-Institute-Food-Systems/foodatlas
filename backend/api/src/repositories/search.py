@@ -3,6 +3,8 @@
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ._search_util import escape_like
+
 ROWS_PER_PAGE = 10
 
 
@@ -38,9 +40,14 @@ async def search(
         OFFSET :offset ROWS
         FETCH FIRST :limit ROWS ONLY
     """)
+    # `%` and `_` are LIKE metacharacters, and users type both: searching "%"
+    # returned all 9,141 entities, and DMD peptide names like CBL_0001 contain
+    # a literal underscore. `word` stays raw — it feeds array containment and
+    # similarity(), neither of which is a LIKE pattern.
+    escaped = escape_like(word)
     params = {
-        "pattern": f"%{word}%",
-        "prefix": f"{word}%",
+        "pattern": f"%{escaped}%",
+        "prefix": f"{escaped}%",
         "word": word,
         "offset": offset,
         "limit": rows_per_page,
@@ -53,7 +60,7 @@ async def search(
         SELECT COUNT(*) FROM mv_search_auto_complete
         WHERE substr_auto LIKE :pattern
     """)
-    count_result = await session.execute(count_query, {"pattern": f"%{word}%"})
+    count_result = await session.execute(count_query, {"pattern": params["pattern"]})
     total_rows = count_result.scalar() or 0
     total_pages = (total_rows + rows_per_page - 1) // rows_per_page if total_rows else 0
 

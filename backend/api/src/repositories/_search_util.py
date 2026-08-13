@@ -21,6 +21,19 @@ in x.
 from __future__ import annotations
 
 
+def escape_like(term: str) -> str:
+    """Escape the three LIKE metacharacters, leaving the term otherwise intact.
+
+    Split out from :func:`build_ilike_pattern` for callers that need a
+    differently-anchored pattern — the autocomplete's prefix bucket wants
+    ``term%``, not ``%term%``, but needs the same escaping.
+
+    Postgres treats ``\\`` as LIKE's default escape character, so no explicit
+    ESCAPE clause is required at the call site.
+    """
+    return term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 def build_ilike_pattern(term: str | None) -> str | None:
     """Return a wildcard-wrapped, escape-safe ILIKE pattern.
 
@@ -33,5 +46,4 @@ def build_ilike_pattern(term: str | None) -> str | None:
     cleaned = term.strip()
     if not cleaned:
         return None
-    escaped = cleaned.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-    return f"%{escaped}%"
+    return f"%{escape_like(cleaned)}%"

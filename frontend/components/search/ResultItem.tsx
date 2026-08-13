@@ -12,6 +12,7 @@ import FoodIcon from "@/components/icons/FoodIcon";
 import BioactivityIcon from "@/components/icons/BioactivityIcon";
 import { SearchContext } from "@/context/searchContext";
 import { Suggestion } from "@/types/Suggestion";
+import { escapeRegExp } from "@/utils/regex";
 import { encodeSpace } from "@/utils/utils";
 
 const colorScheme = {
@@ -32,17 +33,30 @@ const icon = {
 
 const highlightMatch = (text: string, searchTerm: string) => {
   if (!searchTerm) return text;
-  const regex = new RegExp(`(${searchTerm})`, "gi");
-  const parts = text.split(regex);
-  return parts.map((part, index) =>
-    regex.test(part) ? (
-      <span key={index} className="bg-accent-500/50">
-        {part}
-      </span>
-    ) : (
-      part
-    )
-  );
+  // Escape first: entity names carry regex metacharacters, so users type them
+  // too. A bare "(" produced new RegExp("(()") — a SyntaxError that took the
+  // whole page down rather than just failing to highlight.
+  const regex = new RegExp(`(${escapeRegExp(searchTerm)})`, "gi");
+  // split() on a single-capture-group pattern interleaves the matches at odd
+  // indices, so parity identifies them exactly.
+  //
+  // This replaces a regex.test(part) call per segment. That wasn't producing
+  // wrong output — `test` advances lastIndex on a /g regex, but the
+  // non-matching separators between matches fail and reset it to 0, so the
+  // alternation happened to self-correct. It was one stray edit away from
+  // breaking, and re-running the regex to re-derive what split already told
+  // us was redundant either way.
+  return text
+    .split(regex)
+    .map((part, index) =>
+      index % 2 === 1 ? (
+        <span key={index} className="bg-accent-500/50">
+          {part}
+        </span>
+      ) : (
+        part
+      )
+    );
 };
 
 interface ResultItemProps {
