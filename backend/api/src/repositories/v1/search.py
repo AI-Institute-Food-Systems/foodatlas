@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import text
 
+from .._search_util import escape_like
 from .pagination import offset as _offset
 
 if TYPE_CHECKING:
@@ -29,10 +30,14 @@ async def search(
     if not word:
         return [], 0
 
+    # `%` and `_` are LIKE metacharacters and users type both — see
+    # ``repositories/search.py`` for the full rationale. `word` stays raw: it
+    # feeds array containment and similarity(), neither of which is a pattern.
+    escaped = escape_like(word)
     where = ["substr_auto LIKE :pattern"]
     params: dict[str, object] = {
-        "pattern": f"%{word}%",
-        "prefix": f"{word}%",
+        "pattern": f"%{escaped}%",
+        "prefix": f"{escaped}%",
         "word": word,
     }
     if entity_type:
