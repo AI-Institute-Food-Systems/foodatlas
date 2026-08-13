@@ -114,12 +114,12 @@ const BioactivityDiseasesSection = ({ commonName }: Props) => {
       <div className="hidden md:block overflow-x-auto">
         <table className="w-full table-fixed">
           <colgroup>
-            <col className="w-[30%]" />
-            <col className="w-[10%]" />
-            <col className="w-[10%]" />
-            <col className="w-[10%]" />
-            <col className="w-[22%]" />
-            <col className="w-[18%]" />
+            <col className="w-[27%]" />
+            <col className="w-[9%]" />
+            <col className="w-[9%]" />
+            <col className="w-[9%]" />
+            <col className="w-[26%]" />
+            <col className="w-[20%]" />
           </colgroup>
           <thead className="text-light-400 text-left">
             <tr>

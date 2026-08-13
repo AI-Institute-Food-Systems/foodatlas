@@ -25,10 +25,13 @@ export const targetUrl = (id: string): string | null => {
   return null;
 };
 
-// Labels are free text from the assay record and run long ("nuclear factor
-// erythroid 2-related factor 2 isoform 1 [Homo sapiens]"). Truncate for the
-// chip and keep the full string in the tooltip.
-const MAX_LABEL = 28;
+// Labels are free text from the assay record and run long — "isocitrate
+// dehydrogenase [NADP] cytoplasmic", "nuclear factor erythroid 2-related
+// factor 2 isoform 1 [Homo sapiens]". These sit in a ~180px column, so a chip
+// that wrapped internally turned a 30px row into a 115px one and left the
+// overflow marker orphaned on its own line. Truncate hard, never wrap, and
+// keep the full string in the tooltip where it costs no layout.
+const MAX_LABEL = 18;
 const short = (label: string) =>
   label.length > MAX_LABEL ? `${label.slice(0, MAX_LABEL - 1)}…` : label;
 
@@ -43,7 +46,7 @@ const TargetGeneChips = ({ targets, visible = DEFAULT_VISIBLE }: Props) => {
   const hidden = targets.length - shown.length;
 
   return (
-    <span className="inline-flex flex-wrap items-baseline gap-1">
+    <span className="inline-flex flex-wrap items-center gap-1">
       {shown.map((target) => (
         <TargetChip key={target.id} target={target} />
       ))}
@@ -54,7 +57,9 @@ const TargetGeneChips = ({ targets, visible = DEFAULT_VISIBLE }: Props) => {
             .map((t) => t.label ?? t.id)
             .join(", ")}
         >
-          <span className="text-[10px] font-mono text-light-500">+{hidden}</span>
+          <span className="text-[10px] font-mono text-light-500 whitespace-nowrap">
+            +{hidden}
+          </span>
         </Tooltip>
       )}
     </span>
@@ -64,19 +69,22 @@ const TargetGeneChips = ({ targets, visible = DEFAULT_VISIBLE }: Props) => {
 const TargetChip = ({ target }: { target: AssayTarget }) => {
   const url = targetUrl(target.id);
   const text = target.label ? short(target.label) : target.id;
+  const className = "text-[10px] font-mono no-underline whitespace-nowrap";
   const body = url ? (
-    <Link href={url} className="text-[10px] font-mono no-underline">
+    <Link href={url} className={className}>
       {text}
     </Link>
   ) : (
-    <span className="text-[10px] font-mono text-light-300">{text}</span>
+    <span className={`${className} text-light-300`}>{text}</span>
   );
 
   // Always tooltip the id, so a reader can tell which of the two identifier
   // systems backs the label they're looking at.
   return (
     <Tooltip content={target.label ? `${target.label} — ${target.id}` : target.id}>
-      <span className="rounded border border-light-700 px-1 py-[1px]">{body}</span>
+      <span className="inline-block rounded border border-light-700 px-1 py-[1px] whitespace-nowrap">
+        {body}
+      </span>
     </Tooltip>
   );
 };

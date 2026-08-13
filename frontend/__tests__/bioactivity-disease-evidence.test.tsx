@@ -101,7 +101,10 @@ describe("Bioactivity Diseases tab", () => {
   it("names the protein target rather than showing a bare gene id", async () => {
     await mount([diseaseRow()]);
     await waitFor(() => expect(shown("melanoma")).toBe(true));
-    expect(shown(/Cellular tumor antigen/)).toBe(true);
+    // Long labels are truncated to keep the chip on one line, so match the
+    // readable stem rather than the whole string.
+    expect(shown(/^Cellular tumor an/)).toBe(true);
+    expect(shown("NCBIGene: 7157")).toBe(false);
   });
 
   it("still renders when the API predates the evidence fields", async () => {
@@ -148,6 +151,27 @@ describe("TargetGeneChips", () => {
   it("falls back to the id when no label was resolved", () => {
     render(<TargetGeneChips targets={[{ id: "NCBIGene: 999", label: null }]} />);
     expect(screen.getAllByText("NCBIGene: 999").length).toBeGreaterThan(0);
+  });
+
+  it("truncates long labels so a chip cannot wrap the row open", () => {
+    // Untruncated, this label wrapped inside its ~180px column and took the
+    // row from 30px to 115px.
+    render(
+      <TargetGeneChips
+        targets={[
+          {
+            id: "NCBIGene: 3417",
+            label: "Isocitrate dehydrogenase [NADP] cytoplasmic",
+          },
+        ]}
+      />,
+    );
+    // textContent also carries Link's trailing external-link arrow, so measure
+    // the label up to the ellipsis.
+    const chip = screen.getAllByText(/^Isocitrate/)[0];
+    const label = chip.textContent!.split("…")[0] + "…";
+    expect(label.length).toBeLessThanOrEqual(18);
+    expect(chip.textContent).toContain("…");
   });
 
   it("collapses the overflow rather than listing every target", () => {
