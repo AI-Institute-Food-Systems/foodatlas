@@ -19,19 +19,23 @@
 // affordance for the long tail.
 
 import { useEffect, useMemo, useState } from "react";
-import { MdArrowForward, MdKeyboardArrowDown } from "react-icons/md";
+import { MdKeyboardArrowDown } from "react-icons/md";
 
-import Link from "@/components/basic/Link";
 import LoadingCard from "@/components/basic/LoadingCard";
+import {
+  PeerCard,
+  PeerRow,
+  peerId,
+  peerName,
+  type PeerDirection,
+} from "@/components/entities/shared/AssayInferredRow";
+import { Th } from "@/components/entities/shared/EvidenceTable";
 import { useLoadingGate } from "@/context/pageReadyContext";
 import { useReportRows } from "@/context/reportModeContext";
 import { usePublishTabCount } from "@/context/tabCountsContext";
-import { encodeSpace } from "@/utils/utils";
 import type { AssayInferredAssociation } from "@/types";
 
-// Which side of the pair the *other* entity is on — determines which
-// name/id to render and where its detail page lives.
-export type PeerDirection = "disease" | "chemical";
+export type { PeerDirection };
 
 interface Props {
   // Anchor entity's common_name — used only in the empty-state copy.
@@ -125,31 +129,35 @@ const AssayInferredAssociationsTable = ({
       <div className="hidden md:block overflow-x-auto">
         <table className="w-full table-fixed">
           <colgroup>
-            <col className="w-[40%]" />
-            <col className="w-[10%]" />
-            <col className="w-[10%]" />
-            <col className="w-[40%]" />
+            <col className="w-[26%]" />
+            <col className="w-[8%]" />
+            <col className="w-[8%]" />
+            <col className="w-[24%]" />
+            <col className="w-[20%]" />
+            <col className="w-[14%]" />
           </colgroup>
           <thead className="text-light-400 text-left">
             <tr>
-              <th className="h-9 border-b border-light-700 py-1.5 pr-4 uppercase text-xs font-medium">
-                {peerLabel}
-              </th>
-              <th
-                className="h-9 border-b border-light-700 py-1.5 px-4 text-right uppercase text-xs font-medium"
+              <Th>{peerLabel}</Th>
+              <Th
+                align="right"
                 title="Number of distinct shared bioactivity assays backing this association"
               >
                 Assays
-              </th>
-              <th
-                className="h-9 border-b border-light-700 py-1.5 px-4 text-right uppercase text-xs font-medium"
+              </Th>
+              <Th
+                align="right"
                 title="Number of Active measurements across those assays"
               >
                 Active
-              </th>
-              <th className="h-9 border-b border-light-700 py-1.5 px-4 uppercase text-xs font-medium">
+              </Th>
+              <Th title="How CTD classifies the link: therapeutic (treats) or marker/mechanism (marks or drives). Opposite directions.">
                 Signal
-              </th>
+              </Th>
+              <Th title="The protein target the bridging assays measure — what the association runs through">
+                Target
+              </Th>
+              <Th title="The source assays behind this association">Evidence</Th>
             </tr>
           </thead>
           <tbody className="text-sm">
@@ -190,97 +198,6 @@ const AssayInferredAssociationsTable = ({
     </div>
   );
 };
-
-const peerId = (row: AssayInferredAssociation, peer: PeerDirection) =>
-  peer === "disease" ? row.disease_foodatlas_id : row.chemical_foodatlas_id;
-
-const peerName = (row: AssayInferredAssociation, peer: PeerDirection) =>
-  peer === "disease" ? row.disease_name : row.chemical_name;
-
-const peerHref = (row: AssayInferredAssociation, peer: PeerDirection) =>
-  `/${peer}/${encodeURIComponent(encodeSpace(peerName(row, peer)))}`;
-
-const RelationshipChips = ({
-  relationships,
-}: {
-  relationships: string[];
-}) => (
-  <span className="inline-flex flex-wrap gap-1">
-    {relationships.map((r) => (
-      <span
-        key={r}
-        className="text-[9px] font-mono italic uppercase tracking-[0.1em] text-light-300 border border-light-700 rounded-full px-1.5 py-[1px]"
-      >
-        {r}
-      </span>
-    ))}
-  </span>
-);
-
-const PeerRow = ({
-  row,
-  peer,
-  reportProps,
-}: {
-  row: AssayInferredAssociation;
-  peer: PeerDirection;
-  reportProps: ReturnType<ReturnType<typeof useReportRows>["getRowProps"]>;
-}) => (
-  <tr {...reportProps}>
-    <td className="py-1.5 pr-4">
-      <div className="flex min-h-9 items-center capitalize">
-        <Link href={peerHref(row, peer)} isExternal={false}>
-          {peerName(row, peer)}
-        </Link>
-      </div>
-    </td>
-    <td className="py-1.5 px-4 text-right tabular-nums text-light-200">
-      {row.n_assays.toLocaleString()}
-    </td>
-    <td className="py-1.5 px-4 text-right tabular-nums text-emerald-300">
-      {row.n_active_measurements.toLocaleString()}
-    </td>
-    <td className="py-1.5 px-4">
-      <RelationshipChips relationships={row.relationships} />
-    </td>
-  </tr>
-);
-
-const PeerCard = ({
-  row,
-  peer,
-  reportProps,
-}: {
-  row: AssayInferredAssociation;
-  peer: PeerDirection;
-  reportProps: ReturnType<ReturnType<typeof useReportRows>["getRowProps"]>;
-}) => (
-  <div className="py-3 flex flex-col gap-2" {...reportProps}>
-    <div className="flex items-baseline justify-between gap-2 capitalize">
-      <Link href={peerHref(row, peer)} isExternal={false}>
-        {peerName(row, peer)}
-      </Link>
-      <MdArrowForward className="w-3.5 h-3.5 text-light-500" />
-    </div>
-    <div className="flex items-baseline justify-between text-[11px] font-mono">
-      <span className="text-light-500">Assays</span>
-      <span className="tabular-nums text-light-200">
-        {row.n_assays.toLocaleString()}
-      </span>
-    </div>
-    <div className="flex items-baseline justify-between text-[11px] font-mono">
-      <span className="text-light-500">Active</span>
-      <span className="tabular-nums text-emerald-300">
-        {row.n_active_measurements.toLocaleString()}
-      </span>
-    </div>
-    {row.relationships.length > 0 && (
-      <div>
-        <RelationshipChips relationships={row.relationships} />
-      </div>
-    )}
-  </div>
-);
 
 AssayInferredAssociationsTable.displayName = "AssayInferredAssociationsTable";
 export default AssayInferredAssociationsTable;
