@@ -572,6 +572,9 @@ const highlightPremise = (evidence: FoodEvidence): React.ReactNode => {
     ].flatMap((name) => greekVariants(name))
   );
   if (terms.length === 0) return evidence.premise;
+  // Safe to interpolate without escaping here: greekVariants() returns
+  // already-escaped strings. Escaping again would double the backslashes and
+  // stop matching anything.
   const regex = new RegExp(`(${terms.join("|")})`, "gi");
   return evidence.premise.split(regex).map((part, index) => {
     const match = evidence.extraction.find(
