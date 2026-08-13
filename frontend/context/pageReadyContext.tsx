@@ -30,6 +30,12 @@ const PageReadyContext = createContext<PageReadyContextValue>({
 //
 // Safety net: if a loader stalls or forgets to complete, the gate
 // reveals after 8s so the user isn't stuck on a skeleton forever.
+//
+// `ready` is one-way: this gate is about the page's *first* paint. Content
+// that mounts later (opening an entity tab for the first time) registers
+// loaders too, which would otherwise push `registered` back above
+// `completed` and drop the whole page — header and tab strip included —
+// back to a skeleton. Those sections show their own inline loading state.
 export const PageReadyProvider = ({
   children,
 }: {
@@ -38,6 +44,7 @@ export const PageReadyProvider = ({
   const [registered, setRegistered] = useState(0);
   const [completed, setCompleted] = useState(0);
   const [forceReady, setForceReady] = useState(false);
+  const [latched, setLatched] = useState(false);
 
   useEffect(() => {
     const t = window.setTimeout(() => setForceReady(true), 8000);
@@ -53,7 +60,12 @@ export const PageReadyProvider = ({
     [],
   );
 
-  const ready = forceReady || (registered > 0 && completed >= registered);
+  const ready =
+    latched || forceReady || (registered > 0 && completed >= registered);
+
+  useEffect(() => {
+    if (ready) setLatched(true);
+  }, [ready]);
 
   return (
     <PageReadyContext.Provider

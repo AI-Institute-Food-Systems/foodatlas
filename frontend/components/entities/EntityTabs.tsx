@@ -1,7 +1,7 @@
 "use client";
 
 import { ReactNode, useEffect, useRef, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   Listbox,
   ListboxButton,
@@ -17,7 +17,6 @@ import { MdCheck, MdKeyboardArrowDown } from "react-icons/md";
 import { twMerge } from "tailwind-merge";
 
 import Card from "@/components/basic/Card";
-import { usePaginations } from "@/context/paginationsContext";
 import { useTabCounts } from "@/context/tabCountsContext";
 
 export type EntityType = "food" | "chemical" | "disease" | "bioactivity";
@@ -47,11 +46,9 @@ interface Props {
 }
 
 const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
-  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { counts: dynamicCounts } = useTabCounts();
-  const { resetAllPaginations } = usePaginations();
 
   // Merge dynamic counts published by tab contents (via
   // usePublishTabCount) over the static server-prefetched counts, so
@@ -105,6 +102,22 @@ const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
   const urlIdx = tabs.findIndex((t) => t.id === urlId);
   const [selectedIndex, setSelectedIndex] = useState(urlIdx >= 0 ? urlIdx : 0);
 
+  // Panels are mounted lazily and then kept alive (see TabPanel below), so
+  // track which tabs the user has actually opened. Seeded with the landing
+  // tab so the first paint has content rather than an empty card.
+  const [visited, setVisited] = useState<Set<string>>(() => {
+    const first = rawTabs[urlIdx >= 0 ? urlIdx : 0]?.id;
+    return new Set(first ? [first] : []);
+  });
+
+  const selectedId = tabs[selectedIndex]?.id;
+  useEffect(() => {
+    if (!selectedId) return;
+    setVisited((prev) =>
+      prev.has(selectedId) ? prev : new Set(prev).add(selectedId),
+    );
+  }, [selectedId]);
+
   // Keep local state in sync when the URL changes from OUTSIDE this
   // component (e.g. browser back/forward, deep link).
   useEffect(() => {
@@ -120,15 +133,15 @@ const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
     const id = tabs[next]?.id;
     if (!id) return;
     setSelectedIndex(next);
-    // Each tab is its own view, so it should open in its default state
-    // rather than inheriting whatever was left behind. Panels unmount on
-    // switch (below), which clears their filter state; page state lives
-    // in a context that survives unmount, so clear it explicitly —
-    // otherwise a table returns with reset filters but on page 7.
-    resetAllPaginations();
-    const params = new URLSearchParams(searchParams.toString());
+    // The `tab` param is bookkeeping for deep links and sharing — no page
+    // reads it during render, so going through the router would only buy a
+    // wasted RSC round-trip (and re-run the server-side badge-count
+    // prefetch). Next supports the native history methods for exactly this.
+    // Read from window.location rather than the useSearchParams snapshot so
+    // params written natively elsewhere on the page aren't clobbered.
+    const params = new URLSearchParams(window.location.search);
     params.set("tab", id);
-    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    window.history.replaceState(null, "", `${pathname}?${params.toString()}`);
   };
 
   return (
@@ -251,14 +264,18 @@ const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
           {tabs.map((tab) => (
             <TabPanel
               key={tab.id}
-              // Unmount inactive panels so each tab starts fresh: filter
-              // state lives in the sections' useState and resets with
-              // them. Also means only the visible tab runs its fetches on
-              // page load, instead of every tab fetching at once.
-              unmount
+              // Keep panels mounted once opened, so coming back to a tab is
+              // instant and finds it exactly as it was left — same filters,
+              // sort and page, no refetch. Headless UI hides an inactive
+              // panel with `hidden` rather than tearing it down.
+              //
+              // Content is still gated on `visited`, so an unopened tab
+              // renders nothing: page load only pays for the tab you land
+              // on, instead of every tab fetching at once.
+              unmount={false}
               className="outline-none focus-visible:outline-light-200 data-[selected]:animate-[fadeSlide_180ms_ease-out]"
             >
-              {tab.content}
+              {visited.has(tab.id) ? tab.content : null}
             </TabPanel>
           ))}
         </TabPanels>
