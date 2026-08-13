@@ -8,7 +8,12 @@ import { NextRequest, NextResponse } from "next/server";
  */
 
 const ENTITY_ID_RE = /^e\d+$/;
-const ENTITY_ROUTES = new Set(["food", "chemical", "disease"]);
+const ENTITY_ROUTES = new Set([
+  "food",
+  "chemical",
+  "disease",
+  "bioactivity",
+]);
 
 function encodeSpace(phrase: string) {
   return phrase.replace(/ /g, "--");
@@ -53,5 +58,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/(food|chemical|disease)/:slug*"],
+  matcher: ["/(food|chemical|disease|bioactivity)/:slug*"],
 };

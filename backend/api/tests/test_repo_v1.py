@@ -535,6 +535,18 @@ class TestSearchRepo:
         params = session.execute.call_args_list[0][0][1]
         assert params["etype"] == "chemical"
 
+    @pytest.mark.asyncio
+    async def test_like_metacharacters_are_literals(self) -> None:
+        """`%` used to match every entity on the public endpoint."""
+        session = AsyncMock()
+        session.execute.side_effect = [_scalar_result(0), _iter_result([])]
+        await search.search(session, q="CBL_0001")
+        params = session.execute.call_args_list[0][0][1]
+        assert params["pattern"] == r"%cbl\_0001%"
+        assert params["prefix"] == r"cbl\_0001%"
+        # `word` feeds array containment and similarity(), not a LIKE.
+        assert params["word"] == "cbl_0001"
+
 
 def _stat_row(field_value: str, count_value: int) -> MagicMock:
     row = MagicMock()

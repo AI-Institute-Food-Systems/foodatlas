@@ -220,7 +220,9 @@ const SearchBar = () => {
     setSelectedSuggestion(-1);
     inputRef.current?.blur();
     startNav();
-    router.push(`/results?term=${searchTerm}`);
+    // Terms carry `&`, `#` and `+` (e.g. `vitamin b6 & b12`); unencoded they
+    // truncate or corrupt the query string the results page reads back.
+    router.push(`/results?term=${encodeURIComponent(searchTerm)}`);
   };
 
   // @ts-ignore
@@ -249,7 +251,7 @@ const SearchBar = () => {
               : 72,
           );
           startNav();
-          router.push(`/results?term=${searchTerm}`);
+          router.push(`/results?term=${encodeURIComponent(searchTerm)}`);
         }
       }
     } else if (event.key === "ArrowDown") {
