@@ -8,6 +8,11 @@ import { MdArrowForward, MdKeyboardArrowDown } from "react-icons/md";
 import { twMerge } from "tailwind-merge";
 
 import Link from "@/components/basic/Link";
+import {
+  TableSkeletonCards,
+  TableSkeletonRows,
+} from "@/components/basic/TableSkeleton";
+import type { SkeletonColumn } from "@/components/basic/skeletonTokens";
 import { useReportRows } from "@/context/reportModeContext";
 import { encodeSpace } from "@/utils/utils";
 import type { DiseaseBioactivityChemical } from "@/types";
@@ -18,7 +23,20 @@ interface Props {
   onShowAll: () => void;
   // Disease whose page this table sits on — carried into issue reports.
   commonName: string;
+  // Renders the skeleton body in place of rows. The table keeps its
+  // header and column geometry while loading, so the section's heading,
+  // description and chip row stay put instead of being replaced wholesale.
+  isLoading?: boolean;
 }
+
+// Mirrors the <colgroup> and cell alignment of the real table below.
+const SKELETON_COLUMNS: SkeletonColumn[] = [
+  { key: "bioactivity", width: "w-[20%]" },
+  { key: "chemical", width: "w-[34%]" },
+  { key: "assays", width: "w-[10%]", align: "right" },
+  { key: "active", width: "w-[10%]", align: "right" },
+  { key: "signal", width: "w-[26%]" },
+];
 
 const entityHref = (kind: string, name: string) =>
   `/${kind}/${encodeURIComponent(encodeSpace(name))}`;
@@ -41,6 +59,7 @@ const DiseaseBioactivityTable = ({
   visibleCount,
   onShowAll,
   commonName,
+  isLoading = false,
 }: Props) => {
   const visible = rows.slice(0, visibleCount);
   const hiddenCount = rows.length - visible.length;
@@ -89,7 +108,9 @@ const DiseaseBioactivityTable = ({
             </tr>
           </thead>
           <tbody className="text-sm">
-            {visible.map((row) => (
+            {isLoading && <TableSkeletonRows columns={SKELETON_COLUMNS} />}
+            {!isLoading &&
+              visible.map((row) => (
               <tr key={rowKey(row)} {...rowReportProps(row)}>
                 <td className="py-1.5 pr-4">
                   <div className="flex min-h-9 items-center capitalize">
@@ -127,6 +148,9 @@ const DiseaseBioactivityTable = ({
       </div>
 
       {/* Mobile cards */}
+      {isLoading ? (
+        <TableSkeletonCards columns={SKELETON_COLUMNS} />
+      ) : (
       <div className="md:hidden divide-y divide-light-800">
         {visible.map((row) => (
           <div
@@ -169,6 +193,7 @@ const DiseaseBioactivityTable = ({
           </div>
         ))}
       </div>
+      )}
 
       {hiddenCount > 0 && (
         <button

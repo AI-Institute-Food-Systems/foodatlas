@@ -15,7 +15,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { MdArrowForward, MdKeyboardArrowDown } from "react-icons/md";
 
 import Link from "@/components/basic/Link";
-import LoadingCard from "@/components/basic/LoadingCard";
+import {
+  TableSkeletonCards,
+  TableSkeletonRows,
+} from "@/components/basic/TableSkeleton";
+import type { SkeletonColumn } from "@/components/basic/skeletonTokens";
 import { useReportRows } from "@/context/reportModeContext";
 import { usePublishTabCount } from "@/context/tabCountsContext";
 import { getBioactivityDiseases } from "@/utils/fetching";
@@ -27,6 +31,15 @@ interface Props {
 }
 
 const PAGE_SIZE = 50;
+
+// Mirrors the <colgroup> and cell alignment of the real table below, so
+// the loading grid lines up with the loaded one.
+const SKELETON_COLUMNS: SkeletonColumn[] = [
+  { key: "disease", width: "w-[54%]" },
+  { key: "chemicals", width: "w-[15%]", align: "right" },
+  { key: "assays", width: "w-[15%]", align: "right" },
+  { key: "active", width: "w-[16%]", align: "right" },
+];
 
 const BioactivityDiseasesSection = ({ commonName }: Props) => {
   const [rows, setRows] = useState<BioactivityDisease[]>([]);
@@ -69,17 +82,7 @@ const BioactivityDiseasesSection = ({ commonName }: Props) => {
     [reporter, commonName],
   );
 
-  if (isLoading) {
-    return (
-      <div className="flex flex-col gap-2">
-        {Array.from({ length: 8 }).map((_, i) => (
-          <LoadingCard key={i} className="h-8" />
-        ))}
-      </div>
-    );
-  }
-
-  if (rows.length === 0) {
+  if (!isLoading && rows.length === 0) {
     return (
       <p className="text-sm text-light-500 italic">
         No assay-attributed diseases for{" "}
@@ -136,7 +139,9 @@ const BioactivityDiseasesSection = ({ commonName }: Props) => {
             </tr>
           </thead>
           <tbody className="text-sm">
-            {visible.map((row) => {
+            {isLoading && <TableSkeletonRows columns={SKELETON_COLUMNS} />}
+            {!isLoading &&
+              visible.map((row) => {
               const report = rowReportProps(row);
               return (
                 <tr key={row.disease_foodatlas_id} {...report}>
@@ -167,6 +172,9 @@ const BioactivityDiseasesSection = ({ commonName }: Props) => {
       </div>
 
       {/* Mobile cards */}
+      {isLoading ? (
+        <TableSkeletonCards columns={SKELETON_COLUMNS} />
+      ) : (
       <div className="md:hidden divide-y divide-light-800">
         {visible.map((row) => {
           const report = rowReportProps(row);
@@ -193,6 +201,7 @@ const BioactivityDiseasesSection = ({ commonName }: Props) => {
           );
         })}
       </div>
+      )}
 
       {hiddenCount > 0 && (
         <button

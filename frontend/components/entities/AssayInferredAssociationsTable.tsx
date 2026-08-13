@@ -22,7 +22,11 @@ import { useEffect, useMemo, useState } from "react";
 import { MdArrowForward, MdKeyboardArrowDown } from "react-icons/md";
 
 import Link from "@/components/basic/Link";
-import LoadingCard from "@/components/basic/LoadingCard";
+import {
+  TableSkeletonCards,
+  TableSkeletonRows,
+} from "@/components/basic/TableSkeleton";
+import type { SkeletonColumn } from "@/components/basic/skeletonTokens";
 import { useReportRows } from "@/context/reportModeContext";
 import { usePublishTabCount } from "@/context/tabCountsContext";
 import { encodeSpace } from "@/utils/utils";
@@ -31,6 +35,16 @@ import type { AssayInferredAssociation } from "@/types";
 // Which side of the pair the *other* entity is on — determines which
 // name/id to render and where its detail page lives.
 export type PeerDirection = "disease" | "chemical";
+
+// Mirrors the <colgroup> and cell alignment of the real table below, so
+// the loading grid lines up with the loaded one. Kept next to them: if
+// one changes, the other is a line away.
+const SKELETON_COLUMNS: SkeletonColumn[] = [
+  { key: "peer", width: "w-[40%]" },
+  { key: "assays", width: "w-[10%]", align: "right" },
+  { key: "active", width: "w-[10%]", align: "right" },
+  { key: "signal", width: "w-[40%]" },
+];
 
 interface Props {
   // Anchor entity's common_name — used only in the empty-state copy.
@@ -99,17 +113,7 @@ const AssayInferredAssociationsTable = ({
 
   const peerLabel = peer === "disease" ? "Disease" : "Chemical";
 
-  if (isLoading) {
-    return (
-      <div className="flex flex-col gap-2">
-        {Array.from({ length: 8 }).map((_, i) => (
-          <LoadingCard key={i} className="h-8" />
-        ))}
-      </div>
-    );
-  }
-
-  if (rows.length === 0) {
+  if (!isLoading && rows.length === 0) {
     return (
       <p className="text-sm text-light-500 italic">
         No assay-inferred {peer} associations for{" "}
@@ -151,29 +155,37 @@ const AssayInferredAssociationsTable = ({
             </tr>
           </thead>
           <tbody className="text-sm">
-            {visible.map((row) => (
-              <PeerRow
-                key={peerId(row, peer)}
-                row={row}
-                peer={peer}
-                reportProps={rowReportProps(row)}
-              />
-            ))}
+            {isLoading ? (
+              <TableSkeletonRows columns={SKELETON_COLUMNS} />
+            ) : (
+              visible.map((row) => (
+                <PeerRow
+                  key={peerId(row, peer)}
+                  row={row}
+                  peer={peer}
+                  reportProps={rowReportProps(row)}
+                />
+              ))
+            )}
           </tbody>
         </table>
       </div>
 
       {/* Mobile card view */}
-      <div className="md:hidden divide-y divide-light-800">
-        {visible.map((row) => (
-          <PeerCard
-            key={peerId(row, peer)}
-            row={row}
-            peer={peer}
-            reportProps={rowReportProps(row)}
-          />
-        ))}
-      </div>
+      {isLoading ? (
+        <TableSkeletonCards columns={SKELETON_COLUMNS} />
+      ) : (
+        <div className="md:hidden divide-y divide-light-800">
+          {visible.map((row) => (
+            <PeerCard
+              key={peerId(row, peer)}
+              row={row}
+              peer={peer}
+              reportProps={rowReportProps(row)}
+            />
+          ))}
+        </div>
+      )}
 
       {hiddenCount > 0 && (
         <button
