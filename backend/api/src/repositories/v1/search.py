@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import text
 
-from .._search_util import escape_like
+from .._search_util import escape_like, foodatlas_id_pattern
 from .pagination import offset as _offset
 
 if TYPE_CHECKING:
@@ -34,12 +34,22 @@ async def search(
     # ``repositories/search.py`` for the full rationale. `word` stays raw: it
     # feeds array containment and similarity(), neither of which is a pattern.
     escaped = escape_like(word)
-    where = ["substr_auto LIKE :pattern"]
     params: dict[str, object] = {
         "pattern": f"%{escaped}%",
         "prefix": f"{escaped}%",
         "word": word,
     }
+
+    # FoodAtlas IDs aren't tokenized into `substr_auto` — see
+    # ``repositories/search.py``. OR'd into the match clause (not appended to
+    # `where`, which joins with AND) so an `entity_type` filter still narrows it.
+    match_sql = "substr_auto LIKE :pattern"
+    id_pattern = foodatlas_id_pattern(word)
+    if id_pattern:
+        match_sql = f"({match_sql} OR foodatlas_id LIKE :id_pattern)"
+        params["id_pattern"] = id_pattern
+
+    where = [match_sql]
     if entity_type:
         where.append("entity_type = :etype")
         params["etype"] = entity_type
@@ -53,7 +63,7 @@ async def search(
 
     params["limit"] = page_size
     params["offset"] = _offset(page, page_size)
-    # Bucketed ranking: exact token → prefix token → substring. See
+    # Bucketed ranking: exact ID → exact token → prefix token → substring. See
     # ``repositories/search.py`` for the rationale — kept identical here so
     # /search and /v1/search rank results the same way.
     sql = f"""
@@ -67,6 +77,7 @@ async def search(
         WHERE {where_sql}
         ORDER BY
             CASE
+                WHEN foodatlas_id = :word THEN 0
                 WHEN exact_auto @> ARRAY[:word] THEN 1
                 WHEN EXISTS (
                     SELECT 1 FROM unnest(exact_auto) AS t WHERE t LIKE :prefix

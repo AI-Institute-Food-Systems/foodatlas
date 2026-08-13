@@ -1,4 +1,4 @@
-"""Search-input normalization shared by table-side ILIKE filters.
+"""Search-input normalization shared by the autocomplete and table filters.
 
 Every table's search box (bioactivity, food composition, inferred
 bioactivity, ...) builds an ILIKE substring pattern like ``f"%{term}%"``
@@ -19,6 +19,34 @@ in x.
 """
 
 from __future__ import annotations
+
+import re
+
+# FoodAtlas IDs are `e` + digits (`e2908`), shared across every entity type —
+# see FAID_PREFIX in the KGC entity registry.
+_FAID_RE = re.compile(r"^e\d+$")
+
+
+def foodatlas_id_pattern(term: str) -> str | None:
+    """Return a prefix LIKE pattern when ``term`` looks like a FoodAtlas ID.
+
+    The search index (``substr_auto``) tokenizes names, synonyms and external
+    IDs but not ``foodatlas_id``, so pasting an ID returned nothing at all.
+    Callers OR this pattern into their WHERE clause to close that gap.
+
+    Prefix rather than exact, so the ID matches while the user is still typing
+    (``e29`` finds ``e2908``). Requiring at least one digit keeps a bare ``e``
+    from matching every row.
+
+    Unlike :func:`escape_like`, no escaping is applied — and none is needed:
+    the pattern is anchored to ``^e\\d+$``, and neither ``e`` nor a digit is a
+    LIKE metacharacter. Returns ``None`` for anything else, including the empty
+    string, so the caller can skip the clause and its bind parameter entirely.
+    """
+    cleaned = term.strip().lower()
+    if not _FAID_RE.match(cleaned):
+        return None
+    return f"{cleaned}%"
 
 
 def escape_like(term: str) -> str:
