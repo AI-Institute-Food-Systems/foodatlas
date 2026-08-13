@@ -20,8 +20,14 @@ from sqlalchemy.engine import Connection
 
 from .bulk_insert import bulk_copy
 from .materializer_bioactivity_bridge import (
+    ASSAY_CAP,
+    as_list,
     assay_bioactivity_map,
+    attach_literature,
     build_bridge_evidence,
+    literature_directions,
+    target_gene_map,
+    target_genes_per_pair,
 )
 
 logger = logging.getLogger(__name__)
@@ -36,6 +42,9 @@ _MV_COLUMNS = [
     "n_assays",
     "n_active_measurements",
     "relationships",
+    "target_genes",
+    "assays",
+    "literature_directions",
 ]
 
 
@@ -56,12 +65,16 @@ def materialize_disease_bioactivity(conn: Connection) -> None:
         logger.info("No bridging assay carried a bioactivity (skipping).")
         return
 
-    result = _aggregate(evidence, name_map)
+    result = _aggregate(
+        evidence, name_map, target_gene_map(conn), literature_directions(conn)
+    )
     bulk_copy(conn, "mv_disease_bioactivity", result, _MV_COLUMNS)
     logger.info("Disease-bioactivity: %d rows.", len(result))
 
 
-def _aggregate(evidence: pd.DataFrame, name_map: dict) -> pd.DataFrame:
+def _aggregate(
+    evidence: pd.DataFrame, name_map: dict, target_map: dict, lit: pd.DataFrame
+) -> pd.DataFrame:
     """Collapse to one row per (disease, bioactivity, chemical)."""
     keys = ["disease_id", "bioactivity_id", "chemical_id"]
     out = (
@@ -69,13 +82,15 @@ def _aggregate(evidence: pd.DataFrame, name_map: dict) -> pd.DataFrame:
         .agg(
             n_assays=("source_assay_id", "nunique"),
             n_active_measurements=("bm", "nunique"),
+            assays=("source_assay_id", lambda s: sorted(set(s))[:ASSAY_CAP]),
         )
         .join(_relationships_per_row(evidence, keys))
+        .join(target_genes_per_pair(evidence, target_map, keys))
         .reset_index()
     )
-    out["relationships"] = out["relationships"].apply(
-        lambda v: v if isinstance(v, list) else []
-    )
+    for col in ("relationships", "target_genes"):
+        out[col] = out[col].apply(as_list)
+    out = attach_literature(out, lit)
     for src, dest in (
         ("disease_id", "disease_name"),
         ("bioactivity_id", "bioactivity_name"),

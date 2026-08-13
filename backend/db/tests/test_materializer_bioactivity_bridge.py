@@ -5,8 +5,10 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 from src.etl.materializer_bioactivity_bridge import (
     assay_bioactivity_map,
+    attach_literature,
     build_bridge_evidence,
     chemical_active_assays,
+    literature_directions,
 )
 
 _MODULE = "src.etl.materializer_bioactivity_bridge"
@@ -147,3 +149,86 @@ class TestBuildBridgeEvidence:
             evidence, names = build_bridge_evidence(MagicMock())
         assert evidence["disease_id"].tolist() == ["d1"]
         assert names["d1"] == "melanoma"
+
+
+class TestLiteratureDirections:
+    """CTD relationship ids map onto the assay bridge's own vocabulary."""
+
+    def _run(self, df: pd.DataFrame) -> pd.DataFrame:
+        with patch(f"{_MODULE}.pd.read_sql", return_value=df):
+            return literature_directions(MagicMock())
+
+    def test_maps_r3_and_r4_to_bridge_vocabulary(self):
+        out = self._run(
+            pd.DataFrame(
+                [
+                    {
+                        "chemical_id": "c1",
+                        "disease_id": "d1",
+                        "relationship_id": "r3",
+                    },
+                    {
+                        "chemical_id": "c1",
+                        "disease_id": "d1",
+                        "relationship_id": "r4",
+                    },
+                ]
+            )
+        )
+        assert out["literature_directions"].tolist() == [
+            ["marker/mechanism", "therapeutic"]
+        ]
+
+    def test_drops_unmapped_relationship_ids(self):
+        # r1/r2 are composition edges — they say nothing about disease direction.
+        out = self._run(
+            pd.DataFrame(
+                [
+                    {
+                        "chemical_id": "c1",
+                        "disease_id": "d1",
+                        "relationship_id": "r1",
+                    }
+                ]
+            )
+        )
+        assert out.empty
+
+    def test_empty_input_returns_typed_frame(self):
+        out = self._run(pd.DataFrame())
+        assert list(out.columns) == [
+            "chemical_id",
+            "disease_id",
+            "literature_directions",
+        ]
+
+
+class TestAttachLiterature:
+    def test_pairs_without_literature_get_empty_list(self):
+        out = attach_literature(
+            pd.DataFrame(
+                [
+                    {"chemical_id": "c1", "disease_id": "d1"},
+                    {"chemical_id": "c2", "disease_id": "d2"},
+                ]
+            ),
+            pd.DataFrame(
+                [
+                    {
+                        "chemical_id": "c1",
+                        "disease_id": "d1",
+                        "literature_directions": ["therapeutic"],
+                    }
+                ]
+            ),
+        )
+        assert out["literature_directions"].tolist() == [["therapeutic"], []]
+
+    def test_no_literature_at_all_still_yields_the_column(self):
+        out = attach_literature(
+            pd.DataFrame([{"chemical_id": "c1", "disease_id": "d1"}]),
+            pd.DataFrame(
+                columns=["chemical_id", "disease_id", "literature_directions"]
+            ),
+        )
+        assert out["literature_directions"].tolist() == [[]]

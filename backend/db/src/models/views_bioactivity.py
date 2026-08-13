@@ -88,6 +88,13 @@ class MVChemicalDiseaseBioactivity(Base):
     relationships: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default="{}")
     target_genes: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default="{}")
     assays: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default="{}")
+    # Same vocabulary as ``relationships``, but sourced from CTD *literature*
+    # (mv_chemical_disease_correlation) rather than from the assay bridge —
+    # so the two can be compared. Empty for ~97.5% of rows; that rarity is
+    # what makes a match worth showing.
+    literature_directions: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), server_default="{}"
+    )
 
     __table_args__ = (
         Index("ix_mv_cdb_chemical", "chemical_name"),
@@ -122,9 +129,37 @@ class MVDiseaseBioactivity(Base):
     n_assays: Mapped[int] = mapped_column(Integer, server_default="0")
     n_active_measurements: Mapped[int] = mapped_column(Integer, server_default="0")
     relationships: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default="{}")
+    target_genes: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default="{}")
+    assays: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default="{}")
+    literature_directions: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), server_default="{}"
+    )
 
     __table_args__ = (
         Index("ix_mv_db_disease", "disease_name"),
         Index("ix_mv_db_disease_bio", "disease_name", "bioactivity_name"),
         Index("ix_mv_db_chemical", "chemical_name"),
+        Index("ix_mv_db_bioactivity", "bioactivity_name"),
     )
+
+
+class MVAssayTargetLabel(Base):
+    """Gene id → human-readable protein name, for labelling assay targets.
+
+    ``base_bioassays`` stores a free-text ``target_name`` per assay, so the same
+    gene picks up several spellings ("Nuclear factor erythroid 2-related factor
+    2", "Keap1/Nrf2", "…isoform 1 [Homo sapiens]"). This view keeps the *modal*
+    name per gene id, which also collapses the Entrez/UniProt split — both
+    ``NCBIGene: 4780`` and ``UniProt: Q16236`` resolve to the same label.
+
+    A lookup table rather than a ``target_labels[]`` column on the big views:
+    parallel arrays have to stay index-aligned with ``target_genes`` forever,
+    and ~6k rows joined on demand costs nothing.
+    """
+
+    __tablename__ = "mv_assay_target_labels"
+
+    # Prefixed id exactly as it appears in ``target_genes`` — "NCBIGene: 4780"
+    # or "UniProt: Q16236" — so the join needs no string surgery.
+    gene_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    label: Mapped[str] = mapped_column(Text, server_default="")
