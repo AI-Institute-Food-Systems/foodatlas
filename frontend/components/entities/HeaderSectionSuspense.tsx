@@ -3,7 +3,7 @@ import FoodIcon from "@/components/icons/FoodIcon";
 import ChemicalIcon from "@/components/icons/ChemicalIcon";
 import DiseaseIcon from "@/components/icons/DiseaseIcon";
 import BioactivityIcon from "@/components/icons/BioactivityIcon";
-import LoadingCard from "@/components/basic/LoadingCard";
+import Skeleton from "@/components/basic/Skeleton";
 
 const colorScheme = {
   food: "text-amber-600 border-amber-600 bg-amber-600/10 shadow-amber-600/50",
@@ -38,12 +38,12 @@ const HeaderSectionSuspense = ({
         >
           {entityType}
         </Badge>
-        <LoadingCard className="h-9 md:h-10 w-56" />
+        <Skeleton className="h-9 md:h-10 w-56" />
         <span className="absolute right-0 top-1/2 -translate-y-1/2 flex items-baseline gap-1.5 whitespace-nowrap">
           <span className="font-mono italic text-[10px] uppercase tracking-[0.12em] text-light-500">
             FoodAtlas ID
           </span>
-          <LoadingCard className="w-14 h-3" />
+          <Skeleton className="w-14 h-3" />
         </span>
       </div>
     </div>

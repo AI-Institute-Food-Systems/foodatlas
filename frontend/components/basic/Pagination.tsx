@@ -8,7 +8,7 @@ import {
 } from "react-icons/md";
 
 import Button from "@/components/basic/Button";
-import LoadingCard from "@/components/basic/LoadingCard";
+import Skeleton from "@/components/basic/Skeleton";
 import { usePaginations } from "@/context/paginationsContext";
 
 interface PagintationProps {
@@ -68,7 +68,7 @@ const Pagination = ({
         <MdKeyboardArrowLeft />
       </Button>
       {isLoading ? (
-        <LoadingCard className="h-6 w-32" />
+        <Skeleton className="h-6 w-32" />
       ) : (
         <span className="w-40 text-center">
           Page {numberOfPages! > 0 ? currentPage : 0} of {numberOfPages}

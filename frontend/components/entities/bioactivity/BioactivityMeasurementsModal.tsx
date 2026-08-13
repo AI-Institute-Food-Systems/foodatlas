@@ -36,7 +36,9 @@ import Button from "@/components/basic/Button";
 import Card from "@/components/basic/Card";
 import Chip from "@/components/basic/Chip";
 import Link from "@/components/basic/Link";
-import LoadingCard from "@/components/basic/LoadingCard";
+import Skeleton from "@/components/basic/Skeleton";
+import { TableSkeletonRows } from "@/components/basic/TableSkeleton";
+import type { SkeletonColumn } from "@/components/basic/skeletonTokens";
 import Modal from "@/components/basic/Modal";
 import { useReportRows } from "@/context/reportModeContext";
 import HillCurveSparkline from "@/components/entities/bioactivity/HillCurveSparkline";
@@ -65,6 +67,16 @@ const rowKey = (m: ModalRow, i: number): string =>
   m.bioactivity_metadata_id ?? `row-${i}`;
 
 const PAGE_SIZE = 20;
+
+// Mirrors the <colgroup> and the "Value" column's right alignment below.
+const MODAL_COLUMNS: SkeletonColumn[] = [
+  { key: "assay", width: "w-[24%]" },
+  { key: "endpoint", width: "w-[14%]" },
+  { key: "outcome", width: "w-[10%]" },
+  { key: "source", width: "w-[12%]" },
+  { key: "evidence", width: "w-[14%]" },
+  { key: "value", width: "w-[26%]", align: "right" },
+];
 const OUTCOME_OPTIONS = ["all", "active", "inactive", "unspecified", "inconclusive"] as const;
 type OutcomeFilter = (typeof OUTCOME_OPTIONS)[number];
 
@@ -965,17 +977,23 @@ const MeasurementsTable = ({
             </Fragment>
           );
         })}
-        {Array.from({ length: padCount }).map((_, i) => (
-          <tr key={`pad-${i}`}>
-            <td className="py-1.5 pr-2" colSpan={6}>
-              {skeleton ? (
-                <LoadingCard className="h-5" />
-              ) : (
+        {skeleton ? (
+          <TableSkeletonRows
+            columns={MODAL_COLUMNS}
+            rows={padCount}
+            cellClassName="px-2 first:pl-0 last:pr-0"
+          />
+        ) : (
+          // Not a skeleton — blank rows that hold the table's height
+          // steady on a short last page.
+          Array.from({ length: padCount }).map((_, i) => (
+            <tr key={`pad-${i}`}>
+              <td className="py-1.5 pr-2" colSpan={6}>
                 <div className="h-5" />
-              )}
-            </td>
-          </tr>
-        ))}
+              </td>
+            </tr>
+          ))
+        )}
       </tbody>
     </table>
 
@@ -986,7 +1004,7 @@ const MeasurementsTable = ({
       {skeleton
         ? Array.from({ length: PAGE_SIZE }).map((_, i) => (
             <div key={`sk-${i}`} className="w-full py-3">
-              <LoadingCard className="h-5" />
+              <Skeleton className="h-5" />
             </div>
           ))
         : dataRows.map((m, i) => {

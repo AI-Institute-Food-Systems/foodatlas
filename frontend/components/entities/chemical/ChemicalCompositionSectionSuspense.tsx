@@ -1,4 +1,4 @@
-import LoadingCard from "@/components/basic/LoadingCard";
+import Skeleton from "@/components/basic/Skeleton";
 import Heading from "@/components/basic/Heading";
 
 const ChemicalCompositionSectionSuspense = () => {
@@ -18,7 +18,10 @@ const ChemicalCompositionSectionSuspense = () => {
               Foods containing this chemical with known concentration
             </p>
           </div>
-          <LoadingCard className="min-h-[7.625rem] flex-shrink-0" />
+          {/* Symmetric with its sibling below: only this one carried a
+            * flex-shrink-0, so the two panels compressed differently.
+            * min-h already holds the floor, making it redundant. */}
+          <Skeleton shape="block" className="min-h-[7.625rem]" />
         </div>
         {/* without concentration section */}
         <div className="flex flex-col gap-5">
@@ -30,7 +33,7 @@ const ChemicalCompositionSectionSuspense = () => {
               Foods containing this chemical of unknown concentration
             </p>
           </div>
-          <LoadingCard className="min-h-[7.625rem]" />
+          <Skeleton shape="block" className="min-h-[7.625rem]" />
         </div>
       </div>
     </div>

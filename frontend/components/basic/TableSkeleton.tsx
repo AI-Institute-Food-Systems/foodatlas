@@ -23,6 +23,10 @@ import {
 interface RowsProps {
   columns: SkeletonColumn[];
   rows?: number;
+  // Overrides the default cell padding for tables that use their own
+  // scheme (the measurements modal is tighter than the entity tables).
+  // Merged last, so it wins over the default.
+  cellClassName?: string;
 }
 
 // <tr> fragment for tables that already own their <table>/<colgroup>/
@@ -32,6 +36,7 @@ interface RowsProps {
 export const TableSkeletonRows = ({
   columns,
   rows = TABLE_SKELETON_ROWS,
+  cellClassName,
 }: RowsProps) => (
   <>
     {Array.from({ length: rows }).map((_, r) => (
@@ -39,7 +44,11 @@ export const TableSkeletonRows = ({
         {columns.map((c, i) => (
           <td
             key={c.key}
-            className={twMerge("py-1.5", cellPadding(i, columns.length))}
+            className={twMerge(
+              "py-1.5",
+              cellPadding(i, columns.length),
+              cellClassName
+            )}
           >
             <div
               className={twMerge(

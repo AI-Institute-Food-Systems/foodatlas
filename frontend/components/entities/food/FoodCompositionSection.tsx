@@ -22,7 +22,10 @@ import ResetFiltersButton from "@/components/basic/ResetFiltersButton";
 import Chip from "@/components/basic/Chip";
 import Link from "@/components/basic/Link";
 import Pagination from "@/components/basic/Pagination";
-import LoadingCard from "@/components/basic/LoadingCard";
+import {
+  TableSkeletonCards,
+  TableSkeletonRows,
+} from "@/components/basic/TableSkeleton";
 import SortListbox from "@/components/basic/SortListbox";
 import { useReportRows } from "@/context/reportModeContext";
 import { AmbiguityBadge } from "@/components/basic/Ambiguity";
@@ -40,15 +43,36 @@ import {
 import { FoodCompositionData } from "@/types";
 
 // headers for table
+// One spec drives the <colgroup>, the <th>s and the loading skeleton, so
+// the placeholder grid can't drift from the real one.
 const TABLE_HEADERS = [
-  { label: "Chemical", sortName: "common_name", align: "left" as const },
-  { label: "Classification", align: "left" as const },
   {
+    key: "chemical",
+    label: "Chemical",
+    sortName: "common_name",
+    align: "left" as const,
+    width: "w-[30%]",
+  },
+  {
+    key: "classification",
+    label: "Classification",
+    align: "left" as const,
+    width: "w-[20%]",
+  },
+  {
+    key: "concentration",
     label: "Concentration (mg/100g)",
     sortName: "median_concentration",
     align: "right" as const,
+    width: "w-[25%]",
   },
-  { label: "Evidence", sortName: "evidence_count", align: "right" as const },
+  {
+    key: "evidence",
+    label: "Evidence",
+    sortName: "evidence_count",
+    align: "right" as const,
+    width: "w-[25%]",
+  },
 ];
 
 const CLASSIFICATION_OPTIONS = [
@@ -811,10 +835,9 @@ const FoodCompositionSection = ({
             )}
             <table className="w-full table-fixed">
               <colgroup>
-                <col className="w-[30%]" />
-                <col className="w-[20%]" />
-                <col className="w-[25%]" />
-                <col className="w-[25%]" />
+                {TABLE_HEADERS.map((h) => (
+                  <col key={h.key} className={h.width} />
+                ))}
               </colgroup>
               <thead className="text-light-400 text-left">
                 <tr>
@@ -866,19 +889,7 @@ const FoodCompositionSection = ({
               </thead>
               <tbody className="text-sm font-light">
                 {isLoading ? (
-                  // loading skeleton
-                  Array.from({ length: 20 }, (_, index) => (
-                    <tr key={index}>
-                      <td
-                        className="w-full py-1.5"
-                        colSpan={TABLE_HEADERS.length}
-                      >
-                        <div className="h-9 flex items-center">
-                          <LoadingCard className="h-5" />
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                  <TableSkeletonRows columns={TABLE_HEADERS} />
                 ) : isError ? (
                   // error message
                   <tr>
@@ -1040,14 +1051,15 @@ const FoodCompositionSection = ({
            * control lives in the row-count header above (no column
            * headers to click in card view). */}
           <div className="md:hidden">
-            <div className="w-full flex flex-col divide-y divide-light-800">
-              {isLoading ? (
-                Array.from({ length: 8 }, (_, index) => (
-                  <div key={index} className="w-full py-3">
-                    <LoadingCard className="h-5" />
-                  </div>
-                ))
-              ) : isError ? (
+            {isLoading && <TableSkeletonCards columns={TABLE_HEADERS} />}
+            <div
+              className={
+                isLoading
+                  ? "hidden"
+                  : "w-full flex flex-col divide-y divide-light-800"
+              }
+            >
+              {isError ? (
                 <div className="w-full py-6 flex items-center justify-center text-red-400 gap-2">
                   <MdErrorOutline /> An error occurred fetching data, please
                   refresh the page

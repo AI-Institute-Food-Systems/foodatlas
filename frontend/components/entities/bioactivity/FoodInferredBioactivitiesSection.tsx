@@ -26,7 +26,11 @@ import { twMerge } from "tailwind-merge";
 import Card from "@/components/basic/Card";
 import Chip from "@/components/basic/Chip";
 import Link from "@/components/basic/Link";
-import LoadingCard from "@/components/basic/LoadingCard";
+import {
+  TableSkeletonCards,
+  TableSkeletonRows,
+} from "@/components/basic/TableSkeleton";
+import type { SkeletonColumn } from "@/components/basic/skeletonTokens";
 import Pagination from "@/components/basic/Pagination";
 import SortListbox from "@/components/basic/SortListbox";
 import { Tooltip } from "@/components/basic/Tooltip";
@@ -40,6 +44,17 @@ import {
 } from "@/utils/fetching";
 import { encodeSpace, formatConcentrationValueAlt } from "@/utils/utils";
 import type { BioactivityMeasurement } from "@/types";
+
+// Drives both the <colgroup> and the loading skeleton, so the placeholder
+// grid matches the real one. Order and alignment mirror the SortableTh
+// row below.
+const SKELETON_COLUMNS: SkeletonColumn[] = [
+  { key: "bioactivity", width: "w-[24%]" },
+  { key: "chemical", width: "w-[20%]" },
+  { key: "concentration", width: "w-[18%]", align: "right" },
+  { key: "efficacy", width: "w-[22%]", align: "right" },
+  { key: "assays", width: "w-[16%]", align: "right" },
+];
 
 // One row per (chemical in this food × bioactivity that chemical was
 // measured against), served by /food/inferred-bioactivities. That endpoint
@@ -429,11 +444,9 @@ const FoodInferredBioactivitiesSection = ({
       <div className="hidden md:block overflow-x-auto">
         <table className="w-full table-fixed">
           <colgroup>
-            <col className="w-[24%]" />
-            <col className="w-[20%]" />
-            <col className="w-[18%]" />
-            <col className="w-[22%]" />
-            <col className="w-[16%]" />
+            {SKELETON_COLUMNS.map((c) => (
+              <col key={c.key} className={c.width} />
+            ))}
           </colgroup>
           <thead className="text-light-400 text-left">
             <tr>
@@ -506,15 +519,7 @@ const FoodInferredBioactivitiesSection = ({
           </thead>
           <tbody className="text-sm font-light">
             {isLoading ? (
-              Array.from({ length: 20 }).map((_, i) => (
-                <tr key={`l-${i}`}>
-                  <td className="w-full py-1.5" colSpan={5}>
-                    <div className="h-9 flex items-center">
-                      <LoadingCard className="h-5" />
-                    </div>
-                  </td>
-                </tr>
-              ))
+              <TableSkeletonRows columns={SKELETON_COLUMNS} />
             ) : showEmpty ? (
               <tr>
                 <td colSpan={5}>
@@ -545,14 +550,11 @@ const FoodInferredBioactivitiesSection = ({
       {/* Card list — mobile. Primary line pairs Bioactivity → Chemical
        * (the inference chain). Concentration + Assays + Top + View
        * button sit below as label:value rows. */}
+      {isLoading ? (
+        <TableSkeletonCards columns={SKELETON_COLUMNS} />
+      ) : (
       <div className="md:hidden w-full flex flex-col divide-y divide-light-800">
-        {isLoading ? (
-          Array.from({ length: 8 }).map((_, i) => (
-            <div key={`l-${i}`} className="w-full py-3">
-              <LoadingCard className="h-5" />
-            </div>
-          ))
-        ) : showEmpty ? (
+        {showEmpty ? (
           <div className="w-full py-6 flex items-center justify-center">
             {emptyStateBody}
           </div>
@@ -648,6 +650,7 @@ const FoodInferredBioactivitiesSection = ({
           })
         )}
       </div>
+      )}
 
       {showingPaginator && (
         <div className="mt-2 max-w-xl w-full mx-auto">

@@ -1,11 +1,18 @@
 import Card from "@/components/basic/Card";
-import LoadingCard from "@/components/basic/LoadingCard";
 import Skeleton from "@/components/basic/Skeleton";
+import { TableSkeleton } from "@/components/basic/TableSkeleton";
+import type { SkeletonColumn } from "@/components/basic/skeletonTokens";
 import {
   DEFAULT_TAB_ID,
   ENTITY_TABS,
   type EntityType,
 } from "@/components/entities/entityTabs.config";
+
+const SHELL_COLUMNS: SkeletonColumn[] = [
+  { key: "name", width: "w-[50%]" },
+  { key: "metric-a", width: "w-[25%]", align: "right" },
+  { key: "metric-b", width: "w-[25%]", align: "right" },
+];
 
 interface Props {
   entityType: EntityType;
@@ -72,34 +79,17 @@ const EntityDetailLayoutSuspense = ({ entityType }: Props) => {
            * the client tables render above their skeleton body. */}
           <div className="mb-4 flex items-center gap-3">
             <div className="flex-1 min-w-0 max-w-xs">
-              <LoadingCard className="h-8 w-full rounded-md" />
+              <Skeleton shape="block" className="h-8 w-full rounded-md" />
             </div>
-            <LoadingCard className="h-8 w-20 rounded-md" />
+            <Skeleton shape="block" className="h-8 w-20 rounded-md" />
           </div>
 
-          <div className="hidden md:block">
-            <table className="w-full">
-              <tbody>
-                {Array.from({ length: 20 }).map((_, i) => (
-                  <tr key={i}>
-                    <td className="w-full py-1.5">
-                      <div className="h-9 flex items-center">
-                        <LoadingCard className="h-5 w-full" />
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="md:hidden w-full flex flex-col divide-y divide-light-800">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="w-full py-3">
-                <LoadingCard className="h-5" />
-              </div>
-            ))}
-          </div>
+          {/* The shell can't know which tab will render, so this is a
+           * deliberately neutral name + two-metric grid — the shape every
+           * default tab's table shares. It shows only for the moment
+           * before the SSR shell arrives, after which each table's own
+           * skeleton takes over with its real column spec. */}
+          <TableSkeleton columns={SHELL_COLUMNS} />
         </Card>
       </section>
     </div>
