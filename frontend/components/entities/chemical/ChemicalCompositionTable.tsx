@@ -6,19 +6,17 @@ import {
   MdInfoOutline,
   MdKeyboardArrowDown,
   MdKeyboardArrowUp,
-  MdSearch,
   MdUnfoldMore,
 } from "react-icons/md";
 import { twMerge } from "tailwind-merge";
 
-import Chip from "@/components/basic/Chip";
 import Pagination from "@/components/basic/Pagination";
-import SortListbox from "@/components/basic/SortListbox";
 import { cellPadding } from "@/components/basic/skeletonTokens";
 import ChemicalCompositionCards from "@/components/entities/chemical/ChemicalCompositionCards";
 import ChemicalCompositionTableRow, {
   COLUMN_COUNT,
 } from "@/components/entities/chemical/ChemicalCompositionRow";
+import ChemicalCompositionToolbar from "@/components/entities/chemical/ChemicalCompositionToolbar";
 import { usePaginations } from "@/context/paginationsContext";
 import { useReportRows } from "@/context/reportModeContext";
 import {
@@ -43,15 +41,6 @@ import { encodeSpace } from "@/utils/utils";
 // the page counter in agreement.
 const ROWS_PER_PAGE = 20;
 const TABLE_ID = "chemical-composition-table";
-
-const SORT_OPTIONS: { value: string; label: string }[] = [
-  { value: "median_concentration:desc", label: "Concentration (high → low)" },
-  { value: "median_concentration:asc", label: "Concentration (low → high)" },
-  { value: "name:asc", label: "Food (A → Z)" },
-  { value: "name:desc", label: "Food (Z → A)" },
-  { value: "evidence_count:desc", label: "Evidence (most first)" },
-  { value: "evidence_count:asc", label: "Evidence (fewest first)" },
-];
 
 interface ChemicalCompositionTableProps {
   withConcentrations: Row[] | null | undefined;
@@ -165,67 +154,27 @@ const ChemicalCompositionTable = ({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* toolbar */}
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="flex items-center gap-2 rounded-full bg-light-800 py-1.5 px-3 md:w-64">
-          <MdSearch className="text-light-400 flex-shrink-0" />
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setTablePaginations(TABLE_ID, 1, ROWS_PER_PAGE);
-            }}
-            placeholder="Search foods"
-            aria-label="Search foods"
-            className="w-full bg-transparent text-sm text-light-100 placeholder:text-light-500 focus:outline-none"
-          />
-        </div>
-
-        <div className="flex items-center gap-2 flex-wrap">
-          {sourceCounts.map(({ key, label, count }) => (
-            <Chip
-              key={key}
-              label={label}
-              count={count}
-              tone={sources.includes(key) ? "cream" : "outline"}
-              size="md"
-              onClick={() => toggleSource(key)}
-              aria-pressed={sources.includes(key)}
-            />
-          ))}
-          {unmeasuredCount > 0 && (
-            <Chip
-              label="Include without concentration"
-              count={unmeasuredCount}
-              tone={includeUnmeasured ? "cream" : "outline"}
-              size="md"
-              aria-pressed={includeUnmeasured}
-              onClick={() => {
-                setIncludeUnmeasured((v) => !v);
-                setTablePaginations(TABLE_ID, 1, ROWS_PER_PAGE);
-              }}
-            />
-          )}
-        </div>
-      </div>
-
-      {/* mobile sort — no column headers to click in card view */}
-      <div className="md:hidden">
-        <SortListbox
-          ariaLabel="Sort foods"
-          value={`${sort.column}:${sort.direction}`}
-          options={SORT_OPTIONS}
-          onChange={(value) => {
-            const [column, direction] = value.split(":");
-            setSort({
-              column: column as SortColumn,
-              direction: direction as SortDirection,
-            });
-            setTablePaginations(TABLE_ID, 1, ROWS_PER_PAGE);
-          }}
-        />
-      </div>
+      <ChemicalCompositionToolbar
+        search={search}
+        onSearchChange={(value) => {
+          setSearch(value);
+          setTablePaginations(TABLE_ID, 1, ROWS_PER_PAGE);
+        }}
+        sourceCounts={sourceCounts}
+        selectedSources={sources}
+        onToggleSource={toggleSource}
+        unmeasuredCount={unmeasuredCount}
+        includeUnmeasured={includeUnmeasured}
+        onToggleUnmeasured={() => {
+          setIncludeUnmeasured((v) => !v);
+          setTablePaginations(TABLE_ID, 1, ROWS_PER_PAGE);
+        }}
+        sort={sort}
+        onSortChange={(next) => {
+          setSort(next);
+          setTablePaginations(TABLE_ID, 1, ROWS_PER_PAGE);
+        }}
+      />
 
       {/* desktop table */}
       <div className="hidden md:block overflow-x-auto">

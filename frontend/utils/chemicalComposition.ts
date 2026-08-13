@@ -32,12 +32,12 @@ export const COLUMNS: {
   align?: "left" | "right";
   sort?: SortColumn;
 }[] = [
-  { key: "name", label: "Food", width: "w-[26%]", sort: "name" },
-  { key: "sources", label: "Sources", width: "w-[16%]" },
+  { key: "name", label: "Food", width: "w-[30%]", sort: "name" },
+  { key: "sources", label: "Sources", width: "w-[14%]" },
   {
     key: "concentration",
     label: "Concentration (mg/100g)",
-    width: "w-[38%]",
+    width: "w-[36%]",
     sort: "median_concentration",
   },
   {
@@ -118,6 +118,12 @@ export const barPercent = (
   return Math.max(MIN_BAR_PERCENT, Math.min(100, (value / max) * 100));
 };
 
+// Below this the two-decimal readout renders "0.00%", which states the
+// opposite of the truth: the amount is small, not zero. The exact mg/100g
+// figure sits right next to it, so dropping the share is a strict
+// improvement over printing a misleading zero.
+const MIN_MEANINGFUL_PERCENT = 0.005;
+
 // Percentage of the food's mass. mg/100g -> /1000; decimals scale with
 // magnitude so trace values don't all collapse to "0%". Mirrors the food
 // composition table's readout so the same number reads the same on both
@@ -130,6 +136,7 @@ export const formatPercentByMass = (
   if (v === null || !unit) return null;
   if (unit.replace(/\s+/g, "").toLowerCase() !== "mg/100g") return null;
   const pct = v / 1000;
+  if (pct < MIN_MEANINGFUL_PERCENT) return null;
   if (pct >= 10) return `${pct.toFixed(0)}%`;
   if (pct >= 1) return `${pct.toFixed(1)}%`;
   return `${pct.toFixed(2)}%`;
