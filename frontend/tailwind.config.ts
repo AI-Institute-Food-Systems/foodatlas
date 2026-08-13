@@ -66,6 +66,20 @@ const config: Config = {
         DEFAULT: "0 0 1rem rgba(255,255,255,0.5)",
         lg: "0 0 1.5rem rgba(255,255,255,0.55)",
       },
+      keyframes: {
+        // Loading placeholders rest at light-800 — subtle by design, only
+        // ~1.13:1 against a Card. Brightening toward light-700 keeps them
+        // legible through the cycle; Tailwind's opacity-based
+        // `animate-pulse` would instead fade light-800 to ~1.06:1 and
+        // make the placeholder disappear for half of every period.
+        "skeleton-pulse": {
+          "0%, 100%": { backgroundColor: colors.light["800"] },
+          "50%": { backgroundColor: colors.light["700"] },
+        },
+      },
+      animation: {
+        "skeleton-pulse": "skeleton-pulse 2s ease-in-out infinite",
+      },
     },
   },
   plugins: [

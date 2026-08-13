@@ -20,6 +20,10 @@ const ENTITIES_DIR = path.join(process.cwd(), "components", "entities");
 const DELEGATES_TO_CHILD = new Set<string>([
   // Renders <DiseaseBioactivityTable/>, which is wired.
   "disease/DiseaseBioactivitiesSection.tsx",
+  // Owns the <tbody> but builds each <tr> from
+  // <ChemicalCompositionRow/>, which spreads the getRowProps this
+  // component computes per row.
+  "chemical/ChemicalCompositionTable.tsx",
 ]);
 
 // Loading skeletons render placeholder <tbody> rows that hold no data, so

@@ -1,4 +1,12 @@
 import { DownloadEntry, MacroAndMicroData, Metadata, TaxonomyData } from "@/types";
+import { ChemicalCompositionRow } from "@/utils/chemicalComposition";
+
+// /chemical/composition splits foods by whether a median concentration
+// could be computed. Both buckets carry the same row shape.
+export type ChemicalCompositionData = {
+  with_concentrations: ChemicalCompositionRow[];
+  without_concentrations: ChemicalCompositionRow[];
+};
 
 // API base URL. On the server we hit the upstream ALB directly (it may be
 // HTTP — that's fine server-side). On the client we route through a
@@ -238,8 +246,14 @@ export async function getFoodCompositionCounts(
   };
 }
 
-// fetch chemical composition data, i.e. the foods containing it
-export async function getChemicalCompositionData(commonName: string) {
+// fetch chemical composition data, i.e. the foods containing it.
+//
+// Returns null rather than throwing: this runs in a Server Component, so a
+// throw here becomes a user-facing 500 for the whole chemical page. The
+// section renders its own empty state from a null result instead.
+export async function getChemicalCompositionData(
+  commonName: string
+): Promise<ChemicalCompositionData | null> {
   const res = await fetch(
     `${apiBase()}/chemical/composition?common_name=${encodeURIComponent(commonName)}`,
     {
@@ -250,15 +264,11 @@ export async function getChemicalCompositionData(commonName: string) {
     }
   );
 
-  if (!res.ok) {
-    throw new Error(
-      `Failed to fetch composition data for chemical ${commonName}`
-    );
-  }
+  if (!res.ok) return null;
 
   const { data } = await res.json();
 
-  return data;
+  return data ?? null;
 }
 
 // fetch disease correlation data for a certain chemical, either negative or positive
