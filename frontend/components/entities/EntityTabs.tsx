@@ -53,20 +53,27 @@ const formatCount = (n: number): string => {
 // Badge geometry, declared once and shared with the loading placeholder
 // below. The widest string formatCount emits in practice is four
 // characters ("1.5k"), which at text-[0.65rem] mono plus px-1.5 needs
-// ~2.3rem; a three-digit count needs ~1.9rem. Pinning a min-width does
-// two things: larger counts stop looking cramped against the pill edge,
-// and every badge in the strip is the same width so the labels line up.
+// ~2.3rem; a three-digit count needs ~1.9rem. A FIXED width — not a
+// min-width — because the chip is a flex row: a badge that can grow
+// makes the label the thing that gives, and a long label like
+// "Diseases (assay-inferred)" then wraps onto a second line and
+// changes the chip's height.
+//
+// `shrink-0` for the same reason, and the label carries
+// `whitespace-nowrap` so the chip grows past its min-width instead of
+// breaking the text. The strip's overflow observer already handles a
+// strip that outgrows its container by switching to the mobile Listbox.
 //
 // The placeholder MUST use the same value. It previously reserved w-6
 // (1.5rem) against a real badge of 1.9–2.3rem, so the chip still grew
 // when the count landed — the exact reflow the placeholder exists to
-// prevent, and which re-runs the overflow observer that decides between
-// the desktop strip and the mobile Listbox.
-const BADGE_MIN_W = "min-w-[2.5rem]";
+// prevent.
+const BADGE_W = "w-[2.5rem] shrink-0";
 
-// The inline "· 1.5k" form used by the mobile Listbox renders at text-sm,
-// so it needs a wider box than the desktop pill.
-const INLINE_COUNT_MIN_W = "min-w-[2.75rem]";
+// The inline "· 1.5k" form used by the mobile Listbox renders at text-sm.
+// It sits in a full-width button rather than a fixed chip, so it only
+// needs to not wrap.
+const INLINE_COUNT_W = "shrink-0 whitespace-nowrap";
 
 interface Props {
   entityType: EntityType;
@@ -189,14 +196,14 @@ const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
                 {tabs[selectedIndex]?.hasCount &&
                   (typeof tabs[selectedIndex]?.count === "number" ? (
                     <span
-                      className={`text-light-700 not-italic ${INLINE_COUNT_MIN_W}`}
+                      className={`text-light-700 not-italic ${INLINE_COUNT_W}`}
                     >
                       · {formatCount(tabs[selectedIndex]!.count!)}
                     </span>
                   ) : (
                     <Skeleton
                       shape="pill"
-                      className={`h-3 ${INLINE_COUNT_MIN_W}`}
+                      className={`h-3 ${INLINE_COUNT_W}`}
                     />
                   ))}
               </span>
@@ -221,14 +228,14 @@ const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
                   {tab.hasCount &&
                     (typeof tab.count === "number" ? (
                       <span
-                        className={`text-light-500 not-italic ${INLINE_COUNT_MIN_W}`}
+                        className={`text-light-500 not-italic ${INLINE_COUNT_W}`}
                       >
                         · {formatCount(tab.count)}
                       </span>
                     ) : (
                       <Skeleton
                         shape="pill"
-                        className={`h-3 ${INLINE_COUNT_MIN_W}`}
+                        className={`h-3 ${INLINE_COUNT_W}`}
                       />
                     ))}
                 </ListboxOption>
@@ -278,13 +285,15 @@ const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
                 // count badge would otherwise bump the row height by a px or
                 // two.
                 <span className="flex items-center justify-center gap-1.5 min-h-5">
-                  <span className="leading-none">{tab.label}</span>
+                  <span className="leading-none whitespace-nowrap">
+                    {tab.label}
+                  </span>
                   {tab.hasCount &&
                     (typeof tab.count === "number" ? (
                       <span
                         className={
-                          "not-italic font-mono text-[0.65rem] tracking-wide px-1.5 py-[1px] rounded-full " +
-                          `inline-flex items-center justify-center ${BADGE_MIN_W} ` +
+                          "not-italic font-mono text-[0.65rem] tracking-wide py-[1px] rounded-full " +
+                          `inline-flex items-center justify-center ${BADGE_W} ` +
                           (selected
                             ? "bg-light-900/15 text-light-700"
                             : "bg-light-800/80 text-light-400")
@@ -300,7 +309,7 @@ const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
                       // strip into the mobile Listbox mid-load.
                       <Skeleton
                         shape="pill"
-                        className={`h-[0.95rem] ${BADGE_MIN_W}`}
+                        className={`h-[0.95rem] ${BADGE_W}`}
                       />
                     ))}
                 </span>

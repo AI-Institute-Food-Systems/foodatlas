@@ -61,12 +61,12 @@ describe("tab count badges", () => {
     // The placeholder previously reserved w-6 (1.5rem) against a real
     // badge of 1.9–2.3rem, so the chip still grew when the count landed —
     // the exact reflow the placeholder exists to prevent. Pin the two to
-    // the same min-width so they cannot drift apart again.
+    // the same fixed width so they cannot drift apart again.
     const pending = renderTabs([tab({ count: null })]);
     const landed = renderTabs([tab({ count: 1234 })]);
 
     const widthClass = (el: Element | null) =>
-      Array.from(el?.classList ?? []).find((c) => c.startsWith("min-w-"));
+      Array.from(el?.classList ?? []).find((c) => /^w-\[/.test(c));
 
     // Scoped to the desktop chip strip: the mobile Listbox renders its own
     // pill-shaped placeholder at a different (text-sm) width, so an
@@ -82,9 +82,33 @@ describe("tab count badges", () => {
 
   it("keeps a four-character count inside one badge box", () => {
     // 1,234 formats to "1.2k" — the widest string formatCount emits in
-    // practice, and the case that looked cramped before the min-width.
+    // practice, and the case that looked cramped before the fixed width.
     const { getAllByText } = renderTabs([tab({ count: 1234 })]);
     expect(getAllByText("1.2k").length).toBeGreaterThan(0);
+  });
+
+  it("never lets the badge push a long label onto a second line", () => {
+    // The chip is a flex row, so a badge that can grow makes the label the
+    // thing that gives. "Diseases (assay-inferred)" is the longest label
+    // shipped and was wrapping once the badge widened.
+    const { container } = renderTabs([
+      tab({ id: "assay-inferred", label: "Diseases (assay-inferred)" }),
+    ]);
+    // Innermost match only: the chip's flex wrapper has the same
+    // textContent (the placeholder contributes none), and it is the one
+    // that must NOT carry nowrap.
+    const label = Array.from(
+      container.querySelectorAll('[role="tab"] span')
+    ).find(
+      (s) =>
+        s.childElementCount === 0 &&
+        s.textContent === "Diseases (assay-inferred)"
+    );
+    expect(label).toBeDefined();
+    expect(label).toHaveClass("whitespace-nowrap");
+
+    const badge = container.querySelector('[role="tab"] .rounded-full');
+    expect(badge).toHaveClass("shrink-0");
   });
 
   it("renders no badge slot for a tab that never counts", () => {
