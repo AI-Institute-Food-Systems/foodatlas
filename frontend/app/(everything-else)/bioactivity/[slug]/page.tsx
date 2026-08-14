@@ -9,6 +9,7 @@ import HeaderSection from "@/components/entities/HeaderSection";
 import HeaderSectionSuspense from "@/components/entities/HeaderSectionSuspense";
 import EntityDetailLayout from "@/components/entities/EntityDetailLayout";
 import { buildTabs } from "@/components/entities/buildTabs";
+import { bioactivityDiseasesCount } from "@/utils/tabCounts";
 import { DEFAULT_TAB_ID } from "@/components/entities/entityTabs.config";
 import EntityOverviewPanel from "@/components/entities/EntityOverviewPanel";
 import EntityOverviewPanelSuspense from "@/components/entities/EntityOverviewPanelSuspense";
@@ -45,11 +46,15 @@ const BioactivityPage = async ({ params }: BioactivityPageProps) => {
   const commonName = decodeSpace(decodeURIComponent(slug));
   const entityType = "bioactivity" as const;
 
-  const [chemPayload, foodPayload, metaPayload] = await Promise.all([
-    getBioactivityChemicals(commonName).catch(() => null),
-    getBioactivityFoods(commonName).catch(() => null),
-    getMetaData(commonName, entityType).catch(() => null),
-  ]);
+  const [chemPayload, foodPayload, metaPayload, diseasesCount] =
+    await Promise.all([
+      getBioactivityChemicals(commonName).catch(() => null),
+      getBioactivityFoods(commonName).catch(() => null),
+      getMetaData(commonName, entityType).catch(() => null),
+      // Without this the Diseases badge placeholder pulses until the tab
+      // is opened, since a tab publishes its count only once mounted.
+      bioactivityDiseasesCount(commonName),
+    ]);
   const chemicalsCount =
     (chemPayload?.metadata?.total_rows as number | undefined) ?? null;
   const foodsCount =
@@ -84,6 +89,7 @@ const BioactivityPage = async ({ params }: BioactivityPageProps) => {
             ),
           },
           diseases: {
+            count: diseasesCount,
             content: <BioactivityDiseasesSection commonName={commonName} />,
           },
           overview: {

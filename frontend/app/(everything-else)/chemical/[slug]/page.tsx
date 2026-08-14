@@ -9,6 +9,10 @@ import HeaderSection from "@/components/entities/HeaderSection";
 import HeaderSectionSuspense from "@/components/entities/HeaderSectionSuspense";
 import EntityDetailLayout from "@/components/entities/EntityDetailLayout";
 import { buildTabs } from "@/components/entities/buildTabs";
+import {
+  chemicalAssayInferredCount,
+  healthImpactsCount,
+} from "@/utils/tabCounts";
 import { DEFAULT_TAB_ID } from "@/components/entities/entityTabs.config";
 import EntityOverviewPanel from "@/components/entities/EntityOverviewPanel";
 import EntityOverviewPanelSuspense from "@/components/entities/EntityOverviewPanelSuspense";
@@ -43,14 +47,18 @@ const ChemicalPage = async ({ params }: ChemicalPageProps) => {
   const commonName = decodeSpace(decodeURIComponent(slug));
   const entityType = "chemical" as const;
 
-  // Parallel best-effort count fetches for the tab badges. Health Impacts
-  // count would require two paginated requests (positive + negative); we
-  // omit it for now (tab renders without a badge).
-  const [composition, bioPayload, metaPayload] = await Promise.all([
-    getChemicalCompositionData(commonName).catch(() => null),
-    getChemicalBioactivities(commonName).catch(() => null),
-    getMetaData(commonName, entityType).catch(() => null),
-  ]);
+  // Parallel best-effort count fetches for the tab badges. Every counted
+  // tab needs one: a tab only mounts when opened, so without a count from
+  // here its badge placeholder pulses for the life of the page. These are
+  // counts, not content — the tabs still load lazily.
+  const [composition, bioPayload, metaPayload, healthCount, inferredCount] =
+    await Promise.all([
+      getChemicalCompositionData(commonName).catch(() => null),
+      getChemicalBioactivities(commonName).catch(() => null),
+      getMetaData(commonName, entityType).catch(() => null),
+      healthImpactsCount(commonName, "chemical"),
+      chemicalAssayInferredCount(commonName),
+    ]);
   const compositionCount = composition
     ? (composition.with_concentrations?.length ?? 0) +
       (composition.without_concentrations?.length ?? 0)
@@ -86,9 +94,11 @@ const ChemicalPage = async ({ params }: ChemicalPageProps) => {
             ),
           },
           health: {
+            count: healthCount,
             content: <ChemicalCorrelationSection commonName={commonName} />,
           },
           "assay-inferred": {
+            count: inferredCount,
             content: <ChemicalAssayInferredSection commonName={commonName} />,
           },
           overview: {
