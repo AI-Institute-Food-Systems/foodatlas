@@ -19,13 +19,16 @@ describe("Skeleton", () => {
     expect(renderSkeleton(<Skeleton />)).toHaveAttribute("aria-hidden");
   });
 
-  it("rests at light-800 and brightens rather than fading", () => {
+  it("rests at light-700 and brightens rather than fading", () => {
     // Regression guard for the original defect: the fill was bg-light-950,
     // identical to Card, so skeletons inside a Card were invisible. An
     // opacity-based animate-pulse would reintroduce that mid-cycle, hence
     // the dedicated keyframe.
+    //
+    // light-700 rather than light-800: the darker resting fill measured
+    // 1.13:1 against a Card and was reported as barely visible in use.
     const el = renderSkeleton(<Skeleton />);
-    expect(el).toHaveClass("bg-light-800");
+    expect(el).toHaveClass("bg-light-700");
     expect(el).toHaveClass("motion-safe:animate-skeleton-pulse");
     expect(el.className).not.toMatch(/(^|\s|:)animate-pulse\b/);
   });
@@ -33,14 +36,14 @@ describe("Skeleton", () => {
   it("rests at a lighter fill when motion is reduced", () => {
     // With no pulse to carry the signal, the fill has to.
     expect(renderSkeleton(<Skeleton />)).toHaveClass(
-      "motion-reduce:bg-light-700"
+      "motion-reduce:bg-light-600"
     );
   });
 
   it("supports the cream tone for genuinely cream elements", () => {
     const el = renderSkeleton(<Skeleton tone="cream" />);
     expect(el).toHaveClass("bg-light-200/60");
-    expect(el).not.toHaveClass("bg-light-800");
+    expect(el).not.toHaveClass("bg-light-700");
   });
 
   it.each([

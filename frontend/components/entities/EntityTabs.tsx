@@ -50,6 +50,24 @@ const formatCount = (n: number): string => {
   return n.toLocaleString();
 };
 
+// Badge geometry, declared once and shared with the loading placeholder
+// below. The widest string formatCount emits in practice is four
+// characters ("1.5k"), which at text-[0.65rem] mono plus px-1.5 needs
+// ~2.3rem; a three-digit count needs ~1.9rem. Pinning a min-width does
+// two things: larger counts stop looking cramped against the pill edge,
+// and every badge in the strip is the same width so the labels line up.
+//
+// The placeholder MUST use the same value. It previously reserved w-6
+// (1.5rem) against a real badge of 1.9–2.3rem, so the chip still grew
+// when the count landed — the exact reflow the placeholder exists to
+// prevent, and which re-runs the overflow observer that decides between
+// the desktop strip and the mobile Listbox.
+const BADGE_MIN_W = "min-w-[2.5rem]";
+
+// The inline "· 1.5k" form used by the mobile Listbox renders at text-sm,
+// so it needs a wider box than the desktop pill.
+const INLINE_COUNT_MIN_W = "min-w-[2.75rem]";
+
 interface Props {
   entityType: EntityType;
   tabs: TabSpec[];
@@ -170,11 +188,16 @@ const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
                 <span>{tabs[selectedIndex]?.label ?? ""}</span>
                 {tabs[selectedIndex]?.hasCount &&
                   (typeof tabs[selectedIndex]?.count === "number" ? (
-                    <span className="text-light-700 not-italic">
+                    <span
+                      className={`text-light-700 not-italic ${INLINE_COUNT_MIN_W}`}
+                    >
                       · {formatCount(tabs[selectedIndex]!.count!)}
                     </span>
                   ) : (
-                    <Skeleton shape="pill" className="h-3 w-6" />
+                    <Skeleton
+                      shape="pill"
+                      className={`h-3 ${INLINE_COUNT_MIN_W}`}
+                    />
                   ))}
               </span>
               <MdKeyboardArrowDown
@@ -197,11 +220,16 @@ const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
                   <span>{tab.label}</span>
                   {tab.hasCount &&
                     (typeof tab.count === "number" ? (
-                      <span className="text-light-500 not-italic">
+                      <span
+                        className={`text-light-500 not-italic ${INLINE_COUNT_MIN_W}`}
+                      >
                         · {formatCount(tab.count)}
                       </span>
                     ) : (
-                      <Skeleton shape="pill" className="h-3 w-6" />
+                      <Skeleton
+                        shape="pill"
+                        className={`h-3 ${INLINE_COUNT_MIN_W}`}
+                      />
                     ))}
                 </ListboxOption>
               ))}
@@ -256,6 +284,7 @@ const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
                       <span
                         className={
                           "not-italic font-mono text-[0.65rem] tracking-wide px-1.5 py-[1px] rounded-full " +
+                          `inline-flex items-center justify-center ${BADGE_MIN_W} ` +
                           (selected
                             ? "bg-light-900/15 text-light-700"
                             : "bg-light-800/80 text-light-400")
@@ -269,7 +298,10 @@ const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
                       // popping in widens the chip, which re-runs the
                       // overflow observer above and can flip the whole
                       // strip into the mobile Listbox mid-load.
-                      <Skeleton shape="pill" className="h-[0.95rem] w-6" />
+                      <Skeleton
+                        shape="pill"
+                        className={`h-[0.95rem] ${BADGE_MIN_W}`}
+                      />
                     ))}
                 </span>
               )}

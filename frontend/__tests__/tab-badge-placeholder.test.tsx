@@ -57,6 +57,36 @@ describe("tab count badges", () => {
     expect(getAllByText("42").length).toBeGreaterThan(0);
   });
 
+  it("reserves the same width the real badge will occupy", () => {
+    // The placeholder previously reserved w-6 (1.5rem) against a real
+    // badge of 1.9–2.3rem, so the chip still grew when the count landed —
+    // the exact reflow the placeholder exists to prevent. Pin the two to
+    // the same min-width so they cannot drift apart again.
+    const pending = renderTabs([tab({ count: null })]);
+    const landed = renderTabs([tab({ count: 1234 })]);
+
+    const widthClass = (el: Element | null) =>
+      Array.from(el?.classList ?? []).find((c) => c.startsWith("min-w-"));
+
+    // Scoped to the desktop chip strip: the mobile Listbox renders its own
+    // pill-shaped placeholder at a different (text-sm) width, so an
+    // unscoped `.rounded-full` compares two different elements.
+    const desktopBadge = (c: HTMLElement) =>
+      c.querySelector('[role="tab"] .rounded-full');
+
+    expect(widthClass(desktopBadge(pending.container))).toBeDefined();
+    expect(widthClass(desktopBadge(pending.container))).toBe(
+      widthClass(desktopBadge(landed.container))
+    );
+  });
+
+  it("keeps a four-character count inside one badge box", () => {
+    // 1,234 formats to "1.2k" — the widest string formatCount emits in
+    // practice, and the case that looked cramped before the min-width.
+    const { getAllByText } = renderTabs([tab({ count: 1234 })]);
+    expect(getAllByText("1.2k").length).toBeGreaterThan(0);
+  });
+
   it("renders no badge slot for a tab that never counts", () => {
     // Overview is metadata, not a collection — it should not reserve a
     // badge box it will never fill.

@@ -8,14 +8,17 @@ export type SkeletonTone = "default" | "cream";
 export type SkeletonShape = "text" | "block" | "pill";
 
 export const SKELETON_TONE: Record<SkeletonTone, string> = {
-  // Resting fill is light-800 (#21201f) — deliberately subtle, only
-  // ~1.13:1 against a Card (bg-light-950). The pulse BRIGHTENS toward
-  // light-700 rather than fading opacity: an opacity fade on light-800
-  // bottoms out near 1.06:1, so the placeholder would vanish for half of
-  // every cycle. Under prefers-reduced-motion there is no animation to
-  // carry the signal, so the fill rests at light-700 instead.
+  // Resting fill is light-700 (#383634) — 1.53:1 against a Card
+  // (bg-light-950) — brightening toward light-600 at 2.45:1. The pulse
+  // BRIGHTENS rather than fading opacity, which would take the fill to
+  // nothing for half of every cycle. Under prefers-reduced-motion there
+  // is no animation to carry the signal, so the fill rests at light-600.
+  //
+  // These were one stop darker (light-800 resting, 1.13:1). It looked
+  // tasteful in isolation and was reported as barely visible in use — a
+  // loading affordance nobody notices is not doing its job.
   default:
-    "bg-light-800 motion-safe:animate-skeleton-pulse motion-reduce:bg-light-700",
+    "bg-light-700 motion-safe:animate-skeleton-pulse motion-reduce:bg-light-600",
   // Stands in for genuinely cream elements (overview section chips, the
   // selected tab chip). Already high-contrast on dark, so a plain
   // opacity pulse reads fine here.
