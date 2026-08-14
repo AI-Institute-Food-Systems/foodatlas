@@ -31,7 +31,6 @@ import { useReportRows } from "@/context/reportModeContext";
 import { usePublishTabCount } from "@/context/tabCountsContext";
 import { encodeSpace } from "@/utils/utils";
 import type { AssayInferredAssociation } from "@/types";
-import { useDeferredLoading } from "@/hooks/useDeferredLoading";
 
 // Which side of the pair the *other* entity is on — determines which
 // name/id to render and where its detail page lives.
@@ -73,9 +72,6 @@ const AssayInferredAssociationsTable = ({
 }: Props) => {
   const [rows, setRows] = useState<AssayInferredAssociation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  // Skeleton only once the fetch has been slow enough to be worth
-  // announcing; the empty state below still branches on isLoading.
-  const showSkeleton = useDeferredLoading(isLoading);
   const [showAll, setShowAll] = useState(false);
   const reporter = useReportRows();
 
@@ -159,7 +155,7 @@ const AssayInferredAssociationsTable = ({
             </tr>
           </thead>
           <tbody className="text-sm">
-            {showSkeleton ? (
+            {isLoading ? (
               <TableSkeletonRows columns={SKELETON_COLUMNS} />
             ) : (
               visible.map((row) => (
@@ -176,7 +172,7 @@ const AssayInferredAssociationsTable = ({
       </div>
 
       {/* Mobile card view */}
-      {showSkeleton ? (
+      {isLoading ? (
         <TableSkeletonCards columns={SKELETON_COLUMNS} />
       ) : (
         <div className="md:hidden divide-y divide-light-800">

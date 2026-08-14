@@ -61,11 +61,6 @@ const DiseaseBioactivityTable = ({
   commonName,
   isLoading = false,
 }: Props) => {
-  // NOT deferred here. The section above renders chip placeholders from
-  // the same fetch, and deferring in both places let them disagree — the
-  // chips flashing while the table stayed blank. The section owns the
-  // deferral and passes the already-deferred flag in.
-  const showSkeleton = isLoading;
   const visible = rows.slice(0, visibleCount);
   const hiddenCount = rows.length - visible.length;
   const rowKey = (r: DiseaseBioactivityChemical) =>
@@ -113,7 +108,7 @@ const DiseaseBioactivityTable = ({
             </tr>
           </thead>
           <tbody className="text-sm">
-            {showSkeleton && <TableSkeletonRows columns={SKELETON_COLUMNS} />}
+            {isLoading && <TableSkeletonRows columns={SKELETON_COLUMNS} />}
             {!isLoading &&
               visible.map((row) => (
               <tr key={rowKey(row)} {...rowReportProps(row)}>
@@ -153,7 +148,7 @@ const DiseaseBioactivityTable = ({
       </div>
 
       {/* Mobile cards */}
-      {showSkeleton ? (
+      {isLoading ? (
         <TableSkeletonCards columns={SKELETON_COLUMNS} />
       ) : (
       <div className="md:hidden divide-y divide-light-800">

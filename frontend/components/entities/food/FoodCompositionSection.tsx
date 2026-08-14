@@ -43,7 +43,6 @@ import {
   getFoodCompositionData,
 } from "@/utils/fetching";
 import { FoodCompositionData } from "@/types";
-import { useDeferredLoading } from "@/hooks/useDeferredLoading";
 
 // headers for table
 // One spec drives the <colgroup>, the <th>s and the loading skeleton, so
@@ -125,7 +124,7 @@ const FoodCompositionSection = ({
   // search), and blanking the table for it was the single most visible
   // flash in this tab. Only show the skeleton when there is nothing to
   // keep; otherwise dim what's there and let it be replaced in place.
-  const showSkeleton = useDeferredLoading(isLoading && data.length === 0);
+  const showSkeleton = isLoading && data.length === 0;
   const isRefetching = isLoading && data.length > 0;
   const { getTablePaginations, setTablePaginations } = usePaginations();
   const { currentPage } = getTablePaginations("food-composition-table");
@@ -1053,12 +1052,7 @@ const FoodCompositionSection = ({
                     </tr>
                     );
                   })
-                ) : isLoading ? // The deferred skeleton means the first 200ms
-                // of a fetch renders neither placeholder nor rows. Without
-                // this guard that gap falls through to "No associations
-                // found", which is a worse flash than the one the delay
-                // removes — and it asserts something false.
-                null : (
+                ) : (
                   // no rows
                   <tr>
                     <td colSpan={TABLE_HEADERS.length}>
@@ -1227,8 +1221,7 @@ const FoodCompositionSection = ({
                     </div>
                   );
                 })
-              ) : isLoading ? null : (
-                // Same deferred-window guard as the desktop table above.
+              ) : (
                 <div className="w-full py-6 flex items-center justify-center">
                   {emptyStateBody}
                 </div>

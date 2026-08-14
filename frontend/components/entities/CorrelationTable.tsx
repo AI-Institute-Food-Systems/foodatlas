@@ -25,7 +25,6 @@ import { usePaginations } from "@/context/paginationsContext";
 import { getDiseaseData } from "@/utils/fetching";
 import { encodeSpace } from "@/utils/utils";
 import { ChemicalCorrelation } from "@/types";
-import { useDeferredLoading } from "@/hooks/useDeferredLoading";
 
 interface DiseaseTableProps {
   commonName: string;
@@ -55,9 +54,6 @@ const CorrelationTable = ({
   }));
   const [data, setData] = useState<ChemicalCorrelation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  // Skeleton only once the fetch has been slow enough to be worth
-  // announcing; empty/error states still branch on isLoading.
-  const showSkeleton = useDeferredLoading(isLoading);
   const [isError, setIsError] = useState(false);
   const [numberOfPages, setNumberOfPages] = useState(1);
   const [totalRows, setTotalRows] = useState<number | null>(null);
@@ -146,7 +142,7 @@ const CorrelationTable = ({
             </thead>
             {/* table body */}
             <tbody className="text-sm font-light">
-              {showSkeleton ? (
+              {isLoading ? (
                 <TableSkeletonRows columns={skeletonColumns} />
               ) : isError ? (
                 // error message
@@ -257,11 +253,7 @@ const CorrelationTable = ({
                     </td>
                   </tr>
                 ))
-              ) : isLoading ? // Deferred skeleton means the first ~200ms of a
-              // fetch renders neither placeholder nor rows. Without this
-              // guard that gap falls through to "No evidence found",
-              // which is a worse flash than the one the delay removes.
-              null : (
+              ) : (
                 // no rows
                 <tr>
                   <td colSpan={headers.length}>
@@ -282,7 +274,7 @@ const CorrelationTable = ({
          * source chemical + a disease/other entity), the source
          * chemical link sits on the primary line and the impacted
          * entity + evidence sit below it. */}
-        {showSkeleton ? (
+        {isLoading ? (
           <TableSkeletonCards columns={skeletonColumns} />
         ) : (
         <div className="md:hidden w-full flex flex-col divide-y divide-light-800">
@@ -362,8 +354,7 @@ const CorrelationTable = ({
               </div>
               );
             })
-          ) : isLoading ? null : (
-            // Same deferred-window guard as the desktop table above.
+          ) : (
             <div className="w-full py-6 flex items-center justify-center text-light-300 gap-2">
               <MdInfoOutline /> No evidence found
             </div>

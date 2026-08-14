@@ -44,7 +44,6 @@ import {
 } from "@/utils/fetching";
 import { encodeSpace, formatConcentrationValueAlt } from "@/utils/utils";
 import type { BioactivityMeasurement } from "@/types";
-import { useDeferredLoading } from "@/hooks/useDeferredLoading";
 
 // Drives both the <colgroup> and the loading skeleton, so the placeholder
 // grid matches the real one. Order and alignment mirror the SortableTh
@@ -187,9 +186,6 @@ const FoodInferredBioactivitiesSection = ({
   const [totalRows, setTotalRows] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
-  // Skeleton only once the fetch has been slow enough to be worth
-  // announcing; empty/error states still branch on isLoading.
-  const showSkeleton = useDeferredLoading(isLoading);
   // Modal state. The efficacy endpoint doesn't carry raw measurements,
   // so when a user clicks "View N curves" we lazy-fetch the chemical's
   // full bioactivity list (which does carry the per-bioactivity
@@ -522,7 +518,7 @@ const FoodInferredBioactivitiesSection = ({
             </tr>
           </thead>
           <tbody className="text-sm font-light">
-            {showSkeleton ? (
+            {isLoading ? (
               <TableSkeletonRows columns={SKELETON_COLUMNS} />
             ) : showEmpty ? (
               <tr>
@@ -554,7 +550,7 @@ const FoodInferredBioactivitiesSection = ({
       {/* Card list — mobile. Primary line pairs Bioactivity → Chemical
        * (the inference chain). Concentration + Assays + Top + View
        * button sit below as label:value rows. */}
-      {showSkeleton ? (
+      {isLoading ? (
         <TableSkeletonCards columns={SKELETON_COLUMNS} />
       ) : (
       <div className="md:hidden w-full flex flex-col divide-y divide-light-800">
