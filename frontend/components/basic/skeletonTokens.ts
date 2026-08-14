@@ -9,14 +9,15 @@ export type SkeletonShape = "text" | "block" | "pill";
 
 export const SKELETON_TONE: Record<SkeletonTone, string> = {
   // Resting fill is light-700 (#383634) — 1.53:1 against a Card
-  // (bg-light-950) — brightening toward light-600 at 2.45:1. The pulse
-  // BRIGHTENS rather than fading opacity, which would take the fill to
-  // nothing for half of every cycle. Under prefers-reduced-motion there
-  // is no animation to carry the signal, so the fill rests at light-600.
+  // (bg-light-950) — brightening to light-500 at 4.58:1 (see the
+  // skeleton-pulse keyframe). The pulse BRIGHTENS rather than fading
+  // opacity, which would take the fill to nothing for half of every
+  // cycle. Under prefers-reduced-motion there is no animation to carry
+  // the signal, so the fill rests at light-600.
   //
-  // These were one stop darker (light-800 resting, 1.13:1). It looked
-  // tasteful in isolation and was reported as barely visible in use — a
-  // loading affordance nobody notices is not doing its job.
+  // Both the resting fill and the swing were tuned against a real
+  // display, not in isolation: light-800 resting (1.13:1) was invisible,
+  // and a light-600 peak was too small a step to register as motion.
   default:
     "bg-light-700 motion-safe:animate-skeleton-pulse motion-reduce:bg-light-600",
   // Stands in for genuinely cream elements (overview section chips, the
