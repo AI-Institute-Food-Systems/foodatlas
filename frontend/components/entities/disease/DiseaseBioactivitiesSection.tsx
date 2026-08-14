@@ -20,6 +20,7 @@ import Chip from "@/components/basic/Chip";
 import Skeleton from "@/components/basic/Skeleton";
 import DiseaseBioactivityTable from "@/components/entities/disease/DiseaseBioactivityTable";
 import { usePublishTabCount } from "@/context/tabCountsContext";
+import { useDeferredLoading } from "@/hooks/useDeferredLoading";
 import {
   getDiseaseBioactivities,
   getDiseaseBioactivityChemicals,
@@ -52,6 +53,11 @@ const DiseaseBioactivitiesSection = ({ commonName }: Props) => {
   const [summary, setSummary] = useState<DiseaseBioactivitySummary[]>([]);
   const [rows, setRows] = useState<DiseaseBioactivityChemical[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  // One deferral for the whole section: the chip row and the table are
+  // filled by the same fetch, so they must appear and disappear together.
+  // Deferring inside the table instead let the chips flash their
+  // placeholders while the table below stayed blank.
+  const showSkeleton = useDeferredLoading(isLoading);
 
   const [bioactivity, setBioactivity] = useState<string>(ALL);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
@@ -125,11 +131,11 @@ const DiseaseBioactivitiesSection = ({ commonName }: Props) => {
          * so while loading there is nothing to render them from. Stand-ins
          * keep the row's height and rhythm instead of letting the table
          * jump up and then back down when the real chips appear. */}
-        {isLoading &&
+        {showSkeleton &&
           CHIP_SKELETON_WIDTHS.map((w, i) => (
             <Skeleton key={i} shape="pill" className={`h-6 ${w}`} />
           ))}
-        {!isLoading && (
+        {!showSkeleton && (
           <Chip
             label="All"
             count={counts.get(ALL) ?? 0}
@@ -139,7 +145,7 @@ const DiseaseBioactivitiesSection = ({ commonName }: Props) => {
             aria-pressed={bioactivity === ALL}
           />
         )}
-        {!isLoading &&
+        {!showSkeleton &&
           summary.map((s) => (
           <Chip
             key={s.bioactivity_foodatlas_id}
@@ -162,7 +168,7 @@ const DiseaseBioactivitiesSection = ({ commonName }: Props) => {
         visibleCount={visibleCount}
         onShowAll={() => setVisibleCount(filtered.length)}
         commonName={commonName}
-        isLoading={isLoading}
+        isLoading={showSkeleton}
       />
     </div>
   );

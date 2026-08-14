@@ -362,7 +362,8 @@ const CorrelationTable = ({
               </div>
               );
             })
-          ) : (
+          ) : isLoading ? null : (
+            // Same deferred-window guard as the desktop table above.
             <div className="w-full py-6 flex items-center justify-center text-light-300 gap-2">
               <MdInfoOutline /> No evidence found
             </div>
