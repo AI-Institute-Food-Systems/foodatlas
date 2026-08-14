@@ -216,11 +216,18 @@ const EntityTabs = ({ entityType, tabs: rawTabs, defaultTabId }: Props) => {
         </Listbox>
       </div>
 
-      <div
-        data-tab-strip
-        className={twMerge(fits.stripBlock, "relative")}
-      >
-        <TabList className="flex w-max items-end gap-1.5 pl-3">
+      {/* The breakpoint is measured at a 16px root font. A reader with a
+        * larger default font scales the chips (rem widths) without
+        * changing the viewport in CSS px, so the strip can need more room
+        * than the number assumes. Scrolling it beats pushing the page
+        * wider. No effect at the default font, where it never overflows.
+        * Safe as a scroll container: the chips carry no negative margin
+        * and their shadows are inset, so nothing bleeds out to be clipped. */}
+      <div className={twMerge(fits.stripBlock, "relative overflow-x-auto")}>
+        <TabList
+          data-tab-strip
+          className="flex w-max items-end gap-1.5 pl-3"
+        >
           {tabs.map((tab) => (
             <Tab
               key={tab.id}

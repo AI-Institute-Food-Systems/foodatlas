@@ -65,10 +65,13 @@ const EntityDetailLayoutSuspense = ({ entityType }: Props) => {
           </div>
         </div>
 
-        <div
-          data-tab-strip
-          className={`${fits.stripFlex} w-max items-end gap-1.5 pl-3`}
-        >
+        {/* Wrapper/row split and overflow-x-auto both mirror EntityTabs,
+          * so an over-wide strip scrolls here exactly as it does there. */}
+        <div className={`${fits.stripBlock} relative overflow-x-auto`}>
+          <div
+            data-tab-strip
+            className="flex w-max items-end gap-1.5 pl-3"
+          >
           {tabs.map((tab) => {
             const selected = tab.id === defaultTabId;
             return (
@@ -95,8 +98,9 @@ const EntityDetailLayoutSuspense = ({ entityType }: Props) => {
                   )}
                 </span>
               </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
 
         <Card>

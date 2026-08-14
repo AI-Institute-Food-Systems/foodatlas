@@ -77,8 +77,13 @@ export type TabIdOf<E extends EntityType> =
 // chemical page, every width from 640px to 1200px.
 //
 // A CSS breakpoint is less clever and always agrees with itself, which is
-// what this needs. The cost is adaptivity: at unusual zoom or font
-// scaling a strip may fit slightly sooner or later than the number says.
+// what this needs. Browser zoom is not a factor — it scales the viewport
+// and these rem-based chips together. A non-default ROOT FONT SIZE is:
+// it widens the chips without changing the viewport in CSS px, so the
+// strip can need more room than the number assumes. Both surfaces then
+// render the same too-wide strip rather than disagreeing, and the
+// overflow-x-auto wrapper they share lets it scroll instead of pushing
+// the page wider.
 //
 // The numbers are measured, not derived: the threshold depends on label
 // length as well as tab count, which is why disease and bioactivity differ
