@@ -8,18 +8,22 @@ export type SkeletonTone = "default" | "cream";
 export type SkeletonShape = "text" | "block" | "pill";
 
 export const SKELETON_TONE: Record<SkeletonTone, string> = {
-  // Resting fill is light-700 (#383634) — 1.53:1 against a Card
-  // (bg-light-950) — brightening to light-500 at 4.58:1 (see the
-  // skeleton-pulse keyframe). The pulse BRIGHTENS rather than fading
-  // opacity, which would take the fill to nothing for half of every
-  // cycle. Under prefers-reduced-motion there is no animation to carry
-  // the signal, so the fill rests at light-600.
+  // NO static bg-* utility here, deliberately. This config sets
+  // `important: true`, so Tailwind emits `.bg-light-700 {
+  // background-color: … !important }` — and per the CSS cascade an
+  // !important author declaration beats a CSS animation. A static
+  // background therefore pins the fill and the pulse renders no visible
+  // change at all, however wide its keyframes are. That bug shipped in
+  // the first version of this file and survived two rounds of colour
+  // tuning precisely because the animation *was* running; only its
+  // effect was being overridden.
   //
-  // Both the resting fill and the swing were tuned against a real
-  // display, not in isolation: light-800 resting (1.13:1) was invisible,
-  // and a light-600 peak was too small a step to register as motion.
-  default:
-    "bg-light-700 motion-safe:animate-skeleton-pulse motion-reduce:bg-light-600",
+  // So the keyframe owns background-color outright: 0%/100% is the
+  // resting light-700 (1.53:1 against a Card at bg-light-950) and 50% the
+  // brighter peak. Under prefers-reduced-motion there is no animation to
+  // carry the signal, so a static fill is both correct and safe there —
+  // nothing is competing with it.
+  default: "motion-safe:animate-skeleton-pulse motion-reduce:bg-light-600",
   // Stands in for genuinely cream elements (overview section chips, the
   // selected tab chip). Already high-contrast on dark, so a plain
   // opacity pulse reads fine here.

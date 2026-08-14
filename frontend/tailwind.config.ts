@@ -67,22 +67,19 @@ const config: Config = {
         lg: "0 0 1.5rem rgba(255,255,255,0.55)",
       },
       keyframes: {
-        // Loading placeholders rest at light-700 and brighten to light-500,
-        // i.e. 1.53:1 → 4.58:1 against a Card (bg-light-950).
+        // This keyframe is the ONLY source of a default skeleton's
+        // background-color. `important: true` below means any static bg-*
+        // utility would carry !important and beat the animation outright,
+        // so skeletonTokens deliberately sets none — see the long note
+        // there before adding one back.
         //
-        // Two passes got this wrong by aiming for subtlety. Resting at
-        // light-800 (1.13:1) was reported as barely visible. Raising the
-        // rest to light-700 fixed that, but a light-600 peak is only ~31
-        // of 255 per channel — about 12% — which on something the size of
-        // a tab badge does not read as motion at all. The swing has to be
-        // large enough to notice out of the corner of your eye, since
-        // that is the entire job: signalling that content is still coming.
-        //
-        // Tailwind's opacity-based `animate-pulse` remains wrong here — it
-        // would fade the fill out entirely for half of every period.
+        // 0%/100% is the resting fill, light-700, at 1.53:1 against a Card
+        // (bg-light-950); 50% peaks at light-600, 2.45:1. Tailwind's
+        // opacity-based `animate-pulse` is wrong here — it would fade the
+        // fill out entirely for half of every period.
         "skeleton-pulse": {
           "0%, 100%": { backgroundColor: colors.light["700"] },
-          "50%": { backgroundColor: colors.light["500"] },
+          "50%": { backgroundColor: colors.light["600"] },
         },
       },
       animation: {

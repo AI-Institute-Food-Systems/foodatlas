@@ -19,18 +19,28 @@ describe("Skeleton", () => {
     expect(renderSkeleton(<Skeleton />)).toHaveAttribute("aria-hidden");
   });
 
-  it("rests at light-700 and brightens rather than fading", () => {
+  it("brightens via the dedicated keyframe rather than fading", () => {
     // Regression guard for the original defect: the fill was bg-light-950,
     // identical to Card, so skeletons inside a Card were invisible. An
     // opacity-based animate-pulse would reintroduce that mid-cycle, hence
     // the dedicated keyframe.
-    //
-    // light-700 rather than light-800: the darker resting fill measured
-    // 1.13:1 against a Card and was reported as barely visible in use.
     const el = renderSkeleton(<Skeleton />);
-    expect(el).toHaveClass("bg-light-700");
     expect(el).toHaveClass("motion-safe:animate-skeleton-pulse");
     expect(el.className).not.toMatch(/(^|\s|:)animate-pulse\b/);
+  });
+
+  it("sets no unconditional background, which would kill the pulse", () => {
+    // tailwind.config sets `important: true`, so a static bg-* utility is
+    // emitted with !important — and an !important author declaration beats
+    // a CSS animation. Adding one back pins the fill and the pulse becomes
+    // invisible while still technically running, which is exactly how this
+    // went unnoticed through two rounds of colour tuning. The keyframe owns
+    // background-color; only the motion-reduce fallback may set one.
+    const el = renderSkeleton(<Skeleton />);
+    const unconditionalBg = Array.from(el.classList).filter((c) =>
+      /^bg-/.test(c)
+    );
+    expect(unconditionalBg).toEqual([]);
   });
 
   it("rests at a lighter fill when motion is reduced", () => {
