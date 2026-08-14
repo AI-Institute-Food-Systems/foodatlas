@@ -39,6 +39,7 @@ import { formatTopMeasurement, topMeasurementOf } from "@/components/entities/bi
 import { usePaginations } from "@/context/paginationsContext";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { encodeSpace } from "@/utils/utils";
+import { useDeferredLoading } from "@/hooks/useDeferredLoading";
 import {
   getBioactivityCategoryOptions,
   getBioactivityEndpointOptions,
@@ -306,8 +307,9 @@ const BioactivityTable = ({
   const [isLoading, setIsLoading] = useState(true);
   // A fetch with rows already on screen is a refetch (page, sort, filter,
   // search) — keep them and dim, rather than blanking the table. Only a
-  // fetch with nothing to keep gets the skeleton.
-  const showSkeleton = isLoading && rows.length === 0;
+  // fetch with nothing to keep gets the skeleton, and only once it has
+  // been slow enough to be worth announcing.
+  const showSkeleton = useDeferredLoading(isLoading && rows.length === 0);
   const isRefetching = isLoading && rows.length > 0;
   // Publish filtered total to the tab-count context OR bubble to a
   // wrapper via callback (never both — pick one at the call site).

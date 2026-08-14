@@ -19,11 +19,12 @@ export const SKELETON_TONE: Record<SkeletonTone, string> = {
   // effect was being overridden.
   //
   // So the keyframe owns background-color outright: 0%/100% is the
-  // resting light-700 (1.53:1 against a Card at bg-light-950) and 50% the
-  // brighter peak. Under prefers-reduced-motion there is no animation to
-  // carry the signal, so a static fill is both correct and safe there —
-  // nothing is competing with it.
-  default: "motion-safe:animate-skeleton-pulse motion-reduce:bg-light-600",
+  // resting light-800 (1.13:1 against a Card at bg-light-950) and 50%
+  // peaks at light-700. Under prefers-reduced-motion there is no
+  // animation to carry the signal, so the static fill sits a stop
+  // brighter — and it is safe there precisely because nothing is
+  // competing with it.
+  default: "motion-safe:animate-skeleton-pulse motion-reduce:bg-light-700",
   // Stands in for genuinely cream elements (overview section chips, the
   // selected tab chip). Already high-contrast on dark, so a plain
   // opacity pulse reads fine here.

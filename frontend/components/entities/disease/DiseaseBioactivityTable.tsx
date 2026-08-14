@@ -16,6 +16,7 @@ import type { SkeletonColumn } from "@/components/basic/skeletonTokens";
 import { useReportRows } from "@/context/reportModeContext";
 import { encodeSpace } from "@/utils/utils";
 import type { DiseaseBioactivityChemical } from "@/types";
+import { useDeferredLoading } from "@/hooks/useDeferredLoading";
 
 interface Props {
   rows: DiseaseBioactivityChemical[];
@@ -61,6 +62,10 @@ const DiseaseBioactivityTable = ({
   commonName,
   isLoading = false,
 }: Props) => {
+  // Deferred here rather than in the parent: this component owns the
+  // skeleton, so it should own the decision about when showing one is
+  // worth the flicker. The parent's isLoading still gates the rows.
+  const showSkeleton = useDeferredLoading(isLoading);
   const visible = rows.slice(0, visibleCount);
   const hiddenCount = rows.length - visible.length;
   const rowKey = (r: DiseaseBioactivityChemical) =>
@@ -108,7 +113,7 @@ const DiseaseBioactivityTable = ({
             </tr>
           </thead>
           <tbody className="text-sm">
-            {isLoading && <TableSkeletonRows columns={SKELETON_COLUMNS} />}
+            {showSkeleton && <TableSkeletonRows columns={SKELETON_COLUMNS} />}
             {!isLoading &&
               visible.map((row) => (
               <tr key={rowKey(row)} {...rowReportProps(row)}>
@@ -148,7 +153,7 @@ const DiseaseBioactivityTable = ({
       </div>
 
       {/* Mobile cards */}
-      {isLoading ? (
+      {showSkeleton ? (
         <TableSkeletonCards columns={SKELETON_COLUMNS} />
       ) : (
       <div className="md:hidden divide-y divide-light-800">

@@ -44,9 +44,10 @@ describe("Skeleton", () => {
   });
 
   it("rests at a lighter fill when motion is reduced", () => {
-    // With no pulse to carry the signal, the fill has to.
+    // With no pulse to carry the signal, the fill has to — a stop above
+    // the keyframe's resting light-800.
     expect(renderSkeleton(<Skeleton />)).toHaveClass(
-      "motion-reduce:bg-light-600"
+      "motion-reduce:bg-light-700"
     );
   });
 

@@ -43,6 +43,7 @@ import {
   getFoodCompositionData,
 } from "@/utils/fetching";
 import { FoodCompositionData } from "@/types";
+import { useDeferredLoading } from "@/hooks/useDeferredLoading";
 
 // headers for table
 // One spec drives the <colgroup>, the <th>s and the loading skeleton, so
@@ -124,7 +125,7 @@ const FoodCompositionSection = ({
   // search), and blanking the table for it was the single most visible
   // flash in this tab. Only show the skeleton when there is nothing to
   // keep; otherwise dim what's there and let it be replaced in place.
-  const showSkeleton = isLoading && data.length === 0;
+  const showSkeleton = useDeferredLoading(isLoading && data.length === 0);
   const isRefetching = isLoading && data.length > 0;
   const { getTablePaginations, setTablePaginations } = usePaginations();
   const { currentPage } = getTablePaginations("food-composition-table");

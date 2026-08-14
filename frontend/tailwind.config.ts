@@ -73,13 +73,19 @@ const config: Config = {
         // so skeletonTokens deliberately sets none — see the long note
         // there before adding one back.
         //
-        // 0%/100% is the resting fill, light-700, at 1.53:1 against a Card
-        // (bg-light-950); 50% peaks at light-600, 2.45:1. Tailwind's
-        // opacity-based `animate-pulse` is wrong here — it would fade the
-        // fill out entirely for half of every period.
+        // 0%/100% is the resting fill, light-800, at 1.13:1 against a Card
+        // (bg-light-950); 50% peaks at light-700, 1.53:1. These are the
+        // values this keyframe originally shipped with: the colour choice
+        // was right all along, and the reports of an invisible pulse were
+        // the !important override described above, not the palette. With
+        // the pulse actually rendering, the motion carries the signal and
+        // the fill can stay this restrained.
+        //
+        // Tailwind's opacity-based `animate-pulse` is wrong here — it
+        // would fade the fill out entirely for half of every period.
         "skeleton-pulse": {
-          "0%, 100%": { backgroundColor: colors.light["700"] },
-          "50%": { backgroundColor: colors.light["600"] },
+          "0%, 100%": { backgroundColor: colors.light["800"] },
+          "50%": { backgroundColor: colors.light["700"] },
         },
       },
       animation: {

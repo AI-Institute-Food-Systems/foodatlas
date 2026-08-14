@@ -25,6 +25,7 @@ import { usePublishTabCount } from "@/context/tabCountsContext";
 import { getBioactivityDiseases } from "@/utils/fetching";
 import { encodeSpace } from "@/utils/utils";
 import type { BioactivityDisease } from "@/types";
+import { useDeferredLoading } from "@/hooks/useDeferredLoading";
 
 interface Props {
   commonName: string;
@@ -44,6 +45,9 @@ const SKELETON_COLUMNS: SkeletonColumn[] = [
 const BioactivityDiseasesSection = ({ commonName }: Props) => {
   const [rows, setRows] = useState<BioactivityDisease[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  // Skeleton only once the fetch has been slow enough to be worth
+  // announcing; empty/error states still branch on isLoading.
+  const showSkeleton = useDeferredLoading(isLoading);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const reporter = useReportRows();
 
@@ -139,7 +143,7 @@ const BioactivityDiseasesSection = ({ commonName }: Props) => {
             </tr>
           </thead>
           <tbody className="text-sm">
-            {isLoading && <TableSkeletonRows columns={SKELETON_COLUMNS} />}
+            {showSkeleton && <TableSkeletonRows columns={SKELETON_COLUMNS} />}
             {!isLoading &&
               visible.map((row) => {
               const report = rowReportProps(row);
@@ -172,7 +176,7 @@ const BioactivityDiseasesSection = ({ commonName }: Props) => {
       </div>
 
       {/* Mobile cards */}
-      {isLoading ? (
+      {showSkeleton ? (
         <TableSkeletonCards columns={SKELETON_COLUMNS} />
       ) : (
       <div className="md:hidden divide-y divide-light-800">
