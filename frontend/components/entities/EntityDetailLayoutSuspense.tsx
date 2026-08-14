@@ -67,7 +67,7 @@ const EntityDetailLayoutSuspense = ({ entityType }: Props) => {
 
         <div
           data-tab-strip
-          className={`${fits.strip} w-max items-end gap-1.5 pl-3`}
+          className={`${fits.stripFlex} w-max items-end gap-1.5 pl-3`}
         >
           {tabs.map((tab) => {
             const selected = tab.id === defaultTabId;

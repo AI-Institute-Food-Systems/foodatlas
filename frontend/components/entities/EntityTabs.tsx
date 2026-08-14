@@ -26,6 +26,7 @@ import { useTabCounts } from "@/context/tabCountsContext";
 // Re-exported here because most callers reach for it alongside TabSpec.
 import {
   TAB_BADGE_W,
+  TAB_STRIP_FITS,
   type EntityType,
 } from "@/components/entities/entityTabs.config";
 
@@ -87,7 +88,7 @@ interface Props {
   defaultTabId: string;
 }
 
-const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
+const EntityTabs = ({ entityType, tabs: rawTabs, defaultTabId }: Props) => {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -103,46 +104,10 @@ const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
     return { ...t, count: dyn };
   });
 
-  // The chip row is the nicer control but only while it fits. Entity
-  // pages carry labels like "Chemicals (assay-inferred)", and at four or
-  // five tabs the strip runs past the card on narrower desktop windows.
-  // When that happens we fall back to the same Listbox mobile uses.
-  //
-  // Measuring this needs care: hiding the strip with `display: none`
-  // would zero its width, which reads as "fits", which shows it again —
-  // a flip-flop. So when it overflows the strip stays laid out and is
-  // taken out of flow with `absolute invisible`, keeping scrollWidth
-  // meaningful and the comparison stable.
-  const tabStripRef = useRef<HTMLDivElement>(null);
-  const tabStripWrapRef = useRef<HTMLDivElement>(null);
-  const [stripOverflows, setStripOverflows] = useState(false);
-
-  useEffect(() => {
-    const measure = () => {
-      const strip = tabStripRef.current;
-      const wrap = tabStripWrapRef.current;
-      if (!strip || !wrap) return;
-      // Only meaningful once the wrapper is actually displayed; on mobile
-      // it is `hidden`, clientWidth is 0, and the Listbox already shows.
-      if (wrap.clientWidth === 0) return;
-      // Asymmetric thresholds: flip to the Listbox as soon as the strip
-      // genuinely overflows (1px of slack absorbs sub-pixel rounding,
-      // which otherwise reports a permanent 0.5px overflow at some zoom
-      // levels), but only flip back once there is real room to spare.
-      // Equal thresholds let a width that lands exactly on the boundary
-      // oscillate, since each flip changes what is being measured.
-      setStripOverflows((prev) =>
-        prev
-          ? strip.scrollWidth > wrap.clientWidth - 8
-          : strip.scrollWidth > wrap.clientWidth + 1
-      );
-    };
-    measure();
-    const ro = new ResizeObserver(measure);
-    if (tabStripWrapRef.current) ro.observe(tabStripWrapRef.current);
-    return () => ro.disconnect();
-    // Counts change label widths, so re-measure when they land.
-  }, [tabs]);
+  // Strip vs Listbox is a CSS breakpoint, not a measurement — see
+  // TAB_STRIP_FITS. It has to be, so that this component's first paint and
+  // the server-rendered loading shell agree at every width.
+  const fits = TAB_STRIP_FITS[entityType];
 
   // Derive initial index from URL, then hold local state so the tab
   // switches immediately on click. Previously this was derived from
@@ -193,7 +158,7 @@ const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
        * control of trigger and popup positioning. Options carry the
        * count as "· 42" (matching the chip badges) and zero-count
        * options are disabled. */}
-      <div className={twMerge("mb-2 pl-1", !stripOverflows && "sm:hidden")}>
+      <div className={twMerge("mb-2 pl-1", fits.select)}>
         <Listbox value={selectedIndex} onChange={handleChange}>
           <div className="relative">
             <ListboxButton className="w-full font-mono italic text-sm font-medium bg-light-200 text-light-900 rounded-md pl-3 pr-9 py-2 border-[1.5px] border-light-200 shadow-[inset_0_1px_2px_rgba(255,249,242,0.5)] focus:outline-none focus:ring-1 focus:ring-accent-500 text-left">
@@ -251,17 +216,11 @@ const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
         </Listbox>
       </div>
 
-      <div ref={tabStripWrapRef} className="hidden sm:block relative">
-        <TabList
-          ref={tabStripRef}
-          className={twMerge(
-            // w-max so the strip reports its natural width instead of
-            // shrinking to the container, which is what makes overflow
-            // detectable at all.
-            "flex w-max items-end gap-1.5 pl-3",
-            stripOverflows && "invisible absolute pointer-events-none",
-          )}
-        >
+      <div
+        data-tab-strip
+        className={twMerge(fits.stripBlock, "relative")}
+      >
+        <TabList className="flex w-max items-end gap-1.5 pl-3">
           {tabs.map((tab) => (
             <Tab
               key={tab.id}

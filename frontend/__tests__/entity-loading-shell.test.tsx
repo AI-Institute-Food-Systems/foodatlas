@@ -81,13 +81,17 @@ describe("EntityLoadingShell", () => {
       // the measured threshold in TAB_STRIP_FITS. The two halves must be
       // complements of the same width or the shell shows a chip strip
       // where the live page shows a select.
-      const { select, strip } = TAB_STRIP_FITS[entity];
+      const { select, stripFlex, stripBlock } = TAB_STRIP_FITS[entity];
       const width = (s: string) => s.match(/min-\[(\d+)px\]/)?.[1];
 
       expect(width(select)).toBeDefined();
-      expect(width(select)).toBe(width(strip));
+      // The shell's strip is a flex row; the live strip wraps one. Same
+      // width or the two controls disagree at that boundary.
+      expect(width(stripFlex)).toBe(width(select));
+      expect(width(stripBlock)).toBe(width(select));
       expect(select).toContain(":hidden");
-      expect(strip).toMatch(/^hidden /);
+      expect(stripFlex).toMatch(/^hidden /);
+      expect(stripBlock).toMatch(/^hidden /);
     }
   );
 });

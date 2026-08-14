@@ -66,12 +66,19 @@ export type TabIdOf<E extends EntityType> =
   (typeof ENTITY_TABS)[E][number]["id"];
 
 // Width at which the chip strip stops overflowing and replaces the
-// Listbox, per entity.
+// Listbox, per entity. THE source of that decision — the live strip and
+// the loading shell both read it, so they cannot disagree.
 //
-// EntityTabs decides this by measuring at runtime, which a server-rendered
-// loading shell cannot do. The shell used to assume `sm` (640px) and so
-// drew a chip strip wherever the real page was still drawing a select — on
-// a chemical page that was every width from 640px to 1200px.
+// This replaced a ResizeObserver in EntityTabs. Measuring was more
+// adaptive but could only report after mount, and it initialised to
+// "fits": every first paint drew the chip strip and then snapped to the
+// select at widths where the strip did not fit. The loading shell could
+// not measure at all, so it drew a strip across the same range — on a
+// chemical page, every width from 640px to 1200px.
+//
+// A CSS breakpoint is less clever and always agrees with itself, which is
+// what this needs. The cost is adaptivity: at unusual zoom or font
+// scaling a strip may fit slightly sooner or later than the number says.
 //
 // The numbers are measured, not derived: the threshold depends on label
 // length as well as tab count, which is why disease and bioactivity differ
@@ -84,24 +91,34 @@ export type TabIdOf<E extends EntityType> =
 // Literal class strings: Tailwind only emits what it can see in source, so
 // these cannot be built by interpolation. Re-measure if a tab label
 // changes materially.
+// `stripFlex` is for a container that IS the chip row (the loading
+// shell); `stripBlock` is for one that wraps it (the live TabList).
+// Both encode the same width — the parity test below pins that.
 export const TAB_STRIP_FITS: Record<
   EntityType,
-  { select: string; strip: string }
+  { select: string; stripFlex: string; stripBlock: string }
 > = {
   // Three short labels; the strip fits from the first width at which it
   // is shown at all, so this is just the mobile breakpoint (sm, 640px).
-  food: { select: "min-[640px]:hidden", strip: "hidden min-[640px]:flex" },
+  food: {
+    select: "min-[640px]:hidden",
+    stripFlex: "hidden min-[640px]:flex",
+    stripBlock: "hidden min-[640px]:block",
+  },
   bioactivity: {
     select: "min-[950px]:hidden",
-    strip: "hidden min-[950px]:flex",
+    stripFlex: "hidden min-[950px]:flex",
+    stripBlock: "hidden min-[950px]:block",
   },
   disease: {
     select: "min-[1100px]:hidden",
-    strip: "hidden min-[1100px]:flex",
+    stripFlex: "hidden min-[1100px]:flex",
+    stripBlock: "hidden min-[1100px]:block",
   },
   chemical: {
     select: "min-[1200px]:hidden",
-    strip: "hidden min-[1200px]:flex",
+    stripFlex: "hidden min-[1200px]:flex",
+    stripBlock: "hidden min-[1200px]:block",
   },
 };
 
