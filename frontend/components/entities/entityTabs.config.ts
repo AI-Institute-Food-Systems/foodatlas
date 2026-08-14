@@ -64,3 +64,49 @@ export const DEFAULT_TAB_ID: Record<EntityType, string> = {
 // demand exactly the right set and a typo becomes a compile error.
 export type TabIdOf<E extends EntityType> =
   (typeof ENTITY_TABS)[E][number]["id"];
+
+// Width at which the chip strip stops overflowing and replaces the
+// Listbox, per entity.
+//
+// EntityTabs decides this by measuring at runtime, which a server-rendered
+// loading shell cannot do. The shell used to assume `sm` (640px) and so
+// drew a chip strip wherever the real page was still drawing a select — on
+// a chemical page that was every width from 640px to 1200px.
+//
+// The numbers are measured, not derived: the threshold depends on label
+// length as well as tab count, which is why disease and bioactivity differ
+// despite both having four tabs. Each is rounded UP to the first width at
+// which the strip was observed to fit, so the shell errs toward the select
+// — the form the real page shows more often, and the safer guess because
+// the select is a fixed-height block that any strip width can replace
+// without reflowing the page.
+//
+// Literal class strings: Tailwind only emits what it can see in source, so
+// these cannot be built by interpolation. Re-measure if a tab label
+// changes materially.
+export const TAB_STRIP_FITS: Record<
+  EntityType,
+  { select: string; strip: string }
+> = {
+  // Three short labels; the strip fits from the first width at which it
+  // is shown at all, so this is just the mobile breakpoint (sm, 640px).
+  food: { select: "min-[640px]:hidden", strip: "hidden min-[640px]:flex" },
+  bioactivity: {
+    select: "min-[950px]:hidden",
+    strip: "hidden min-[950px]:flex",
+  },
+  disease: {
+    select: "min-[1100px]:hidden",
+    strip: "hidden min-[1100px]:flex",
+  },
+  chemical: {
+    select: "min-[1200px]:hidden",
+    strip: "hidden min-[1200px]:flex",
+  },
+};
+
+// Geometry of a tab's count badge, shared with the live strip so the
+// loading shell reserves exactly the box the real badge will occupy.
+// A mismatch here resizes every chip at the handoff, which re-runs the
+// overflow measurement above and can flip the strip mid-load.
+export const TAB_BADGE_W = "w-[2.5rem] shrink-0";

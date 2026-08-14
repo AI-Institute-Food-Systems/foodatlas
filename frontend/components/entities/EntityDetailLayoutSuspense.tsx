@@ -5,6 +5,8 @@ import type { SkeletonColumn } from "@/components/basic/skeletonTokens";
 import {
   DEFAULT_TAB_ID,
   ENTITY_TABS,
+  TAB_BADGE_W,
+  TAB_STRIP_FITS,
   type EntityType,
 } from "@/components/entities/entityTabs.config";
 
@@ -48,17 +50,25 @@ interface Props {
 const EntityDetailLayoutSuspense = ({ entityType }: Props) => {
   const tabs = ENTITY_TABS[entityType];
   const defaultTabId = DEFAULT_TAB_ID[entityType];
+  const fits = TAB_STRIP_FITS[entityType];
 
   return (
     <div className="mt-6">
       <section className="min-w-0">
-        <div className="sm:hidden mb-2 pl-1">
+        {/* Select vs chip strip, switched at the width the real strip
+          * stops overflowing — see TAB_STRIP_FITS. Assuming `sm` here
+          * meant the shell drew a strip wherever the live page was still
+          * drawing a select, which on a chemical page was 640px–1200px. */}
+        <div className={`${fits.select} mb-2 pl-1`}>
           <div className="w-full font-mono italic text-sm font-medium bg-light-200 text-light-900 rounded-md pl-3 pr-9 py-2 border-[1.5px] border-light-200 shadow-[inset_0_1px_2px_rgba(255,249,242,0.5)] text-left">
             {tabs.find((t) => t.id === defaultTabId)?.label ?? tabs[0].label}
           </div>
         </div>
 
-        <div className="hidden sm:flex w-max items-end gap-1.5 pl-3">
+        <div
+          data-tab-strip
+          className={`${fits.strip} w-max items-end gap-1.5 pl-3`}
+        >
           {tabs.map((tab) => {
             const selected = tab.id === defaultTabId;
             return (
@@ -74,9 +84,14 @@ const EntityDetailLayoutSuspense = ({ entityType }: Props) => {
                 }
               >
                 <span className="flex items-center justify-center gap-1.5 min-h-5">
-                  <span className="leading-none">{tab.label}</span>
+                  <span className="leading-none whitespace-nowrap">
+                    {tab.label}
+                  </span>
                   {tab.hasCount && (
-                    <Skeleton shape="pill" className="h-[0.95rem] w-6" />
+                    <Skeleton
+                      shape="pill"
+                      className={`h-[0.95rem] ${TAB_BADGE_W}`}
+                    />
                   )}
                 </span>
               </div>

@@ -24,7 +24,10 @@ import { useTabCounts } from "@/context/tabCountsContext";
 // Owned by the (React-free, server-readable) config so `loading.tsx` can
 // import it without pulling this client component across the boundary.
 // Re-exported here because most callers reach for it alongside TabSpec.
-import type { EntityType } from "@/components/entities/entityTabs.config";
+import {
+  TAB_BADGE_W,
+  type EntityType,
+} from "@/components/entities/entityTabs.config";
 
 export type { EntityType };
 
@@ -68,7 +71,10 @@ const formatCount = (n: number): string => {
 // (1.5rem) against a real badge of 1.9–2.3rem, so the chip still grew
 // when the count landed — the exact reflow the placeholder exists to
 // prevent.
-const BADGE_W = "w-[2.5rem] shrink-0";
+//
+// Lives in the shared config because the loading shell reserves the same
+// box; when the two disagreed, every chip resized at the handoff.
+const BADGE_W = TAB_BADGE_W;
 
 // The inline "· 1.5k" form used by the mobile Listbox renders at text-sm.
 // It sits in a full-width button rather than a fixed chip, so it only

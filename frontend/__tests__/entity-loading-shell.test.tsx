@@ -5,14 +5,19 @@ import EntityLoadingShell from "@/components/entities/EntityLoadingShell";
 import {
   DEFAULT_TAB_ID,
   ENTITY_TABS,
+  TAB_BADGE_W,
+  TAB_STRIP_FITS,
   type EntityType,
 } from "@/components/entities/entityTabs.config";
 
 const ENTITY_TYPES = Object.keys(ENTITY_TABS) as EntityType[];
 
 // The desktop chip strip, which is the thing that used to visibly grow.
+// Selected by data attribute, not by class: the strip's breakpoint is
+// per-entity (TAB_STRIP_FITS) and matching on it hardcoded a width that
+// then went stale.
 const chips = (container: HTMLElement) =>
-  Array.from(container.querySelectorAll("div.hidden.sm\\:flex > div"));
+  Array.from(container.querySelectorAll("[data-tab-strip] > div"));
 
 describe("EntityLoadingShell", () => {
   it.each(ENTITY_TYPES)("renders every %s tab chip", (entity) => {
@@ -53,4 +58,36 @@ describe("EntityLoadingShell", () => {
 
     expect(reserved).toHaveLength(expected);
   });
+
+  it.each(ENTITY_TYPES)(
+    "reserves the same badge box the live %s strip will use",
+    (entity) => {
+      // The shell reserved w-6 while EntityTabs had moved to w-[2.5rem],
+      // so every chip resized at the handoff — which re-runs the strip's
+      // overflow measurement and can flip it to the select mid-load.
+      const { container } = render(<EntityLoadingShell entityType={entity} />);
+      const badge = container.querySelector("[data-tab-strip] .rounded-full");
+      if (!badge) return; // entity with no counted tabs
+      for (const cls of TAB_BADGE_W.split(" ")) {
+        expect(badge).toHaveClass(cls);
+      }
+    }
+  );
+
+  it.each(ENTITY_TYPES)(
+    "switches %s between select and strip at one shared breakpoint",
+    (entity) => {
+      // EntityTabs measures at runtime; a server shell cannot, so it uses
+      // the measured threshold in TAB_STRIP_FITS. The two halves must be
+      // complements of the same width or the shell shows a chip strip
+      // where the live page shows a select.
+      const { select, strip } = TAB_STRIP_FITS[entity];
+      const width = (s: string) => s.match(/min-\[(\d+)px\]/)?.[1];
+
+      expect(width(select)).toBeDefined();
+      expect(width(select)).toBe(width(strip));
+      expect(select).toContain(":hidden");
+      expect(strip).toMatch(/^hidden /);
+    }
+  );
 });
