@@ -46,6 +46,11 @@ export const healthImpactsCount = async (
   return (pos ?? 0) + (neg ?? 0);
 };
 
+// UNUSED while the assay-inferred tabs are hidden from chemical and
+// disease (see entityTabs.config). Kept because restoring those tabs
+// means restoring these exact pairings, and re-deriving which endpoint
+// matches which published count is the fiddly part.
+//
 // Matches AssayInferredAssociationsTable, which publishes rows.length.
 export const chemicalAssayInferredCount = (commonName: string) =>
   rowCount(() => getChemicalDiseaseAssociations(commonName));

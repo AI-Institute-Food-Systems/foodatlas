@@ -23,42 +23,39 @@ export type EntityTabDef = {
 // Order here is the rendered order, for the loading shell and the live
 // page alike. Adding or reordering a tab is a one-line change here.
 export const ENTITY_TABS = {
+  // Naming rule: a tab is named for what it LISTS, not for its topic or
+  // its method. So food and chemical read as mirror images, and the same
+  // word means the same kind of row everywhere.
+  //
+  // The assay-inferred tabs are deliberately absent from chemical and
+  // disease. They listed the same rows as the literature tabs from a
+  // weaker source, and rendered `therapeutic` and `marker/mechanism` —
+  // opposite directions — as identical grey chips, with marker/mechanism
+  // being 91% of rows. A tab that presents mostly not-a-benefit evidence
+  // as neutral is worse than no tab. The sections and their fetchers are
+  // still here; restore the entries once the direction, protein target
+  // and source-assay work from the bioactivity-disease branch lands.
   food: [
-    { id: "composition", label: "Composition", hasCount: true },
+    { id: "composition", label: "Chemicals", hasCount: true },
     { id: "bioactivities", label: "Bioactivities", hasCount: true },
-    { id: "overview", label: "IDs & Metadata", hasCount: false },
+    { id: "overview", label: "Metadata", hasCount: false },
   ],
-  // TEMP: shortened labels, being trialled. Ids are untouched, so `?tab=`
-  // deep links and every count pairing still resolve. Previous wording:
-  //   composition     "Foods Containing"
-  //   health          "Health Impacts"
-  //   assay-inferred  "Diseases (assay-inferred)"
-  //   overview        "IDs & Metadata"
-  // Note "Diseases" no longer distinguishes itself from Health Impacts,
-  // which is also diseases — the parenthetical was carrying that. Revert
-  // or re-word before this ships.
   chemical: [
     { id: "composition", label: "Foods", hasCount: true },
     { id: "bioactivities", label: "Bioactivities", hasCount: true },
-    { id: "health", label: "Health", hasCount: true },
-    { id: "assay-inferred", label: "Diseases", hasCount: true },
+    { id: "health", label: "Diseases", hasCount: true },
     { id: "overview", label: "Metadata", hasCount: false },
   ],
   disease: [
-    { id: "health", label: "Health Impacts", hasCount: true },
-    {
-      id: "assay-inferred",
-      label: "Chemicals (assay-inferred)",
-      hasCount: true,
-    },
+    { id: "health", label: "Chemicals", hasCount: true },
     { id: "bioactivities", label: "Bioactivities", hasCount: true },
-    { id: "overview", label: "IDs & Metadata", hasCount: false },
+    { id: "overview", label: "Metadata", hasCount: false },
   ],
   bioactivity: [
-    { id: "foods", label: "Foods Exhibiting", hasCount: true },
-    { id: "chemicals", label: "Chemicals Measured", hasCount: true },
+    { id: "foods", label: "Foods", hasCount: true },
+    { id: "chemicals", label: "Chemicals", hasCount: true },
     { id: "diseases", label: "Diseases", hasCount: true },
-    { id: "overview", label: "IDs & Metadata", hasCount: false },
+    { id: "overview", label: "Metadata", hasCount: false },
   ],
 } as const satisfies Record<EntityType, readonly EntityTabDef[]>;
 
@@ -121,32 +118,30 @@ export const TAB_STRIP_FITS: Record<
   EntityType,
   { select: string; stripFlex: string; stripBlock: string }
 > = {
-  // strip 430px; container at 640px is ~593px. Fits at every width it is
-  // shown at, so this is just the mobile breakpoint.
+  // Three short labels; fits at every width it is shown at.
   food: {
     select: "min-[640px]:hidden",
     stripFlex: "hidden min-[640px]:flex",
     stripBlock: "hidden min-[640px]:block",
   },
-  // strip 627px; needs 834px bare, 875px with headroom (~41px slack).
-  bioactivity: {
-    select: "min-[875px]:hidden",
-    stripFlex: "hidden min-[875px]:flex",
-    stripBlock: "hidden min-[875px]:block",
-  },
-  // strip 651px; needs 858px bare, 900px with headroom (~42px slack).
+  // Three short labels, same as food now that the assay tab is gone.
   disease: {
-    select: "min-[900px]:hidden",
-    stripFlex: "hidden min-[900px]:flex",
-    stripBlock: "hidden min-[900px]:block",
+    select: "min-[640px]:hidden",
+    stripFlex: "hidden min-[640px]:flex",
+    stripBlock: "hidden min-[640px]:block",
   },
-  // strip 692px; needs 899px bare, 950px with headroom (~51px slack).
-  // 900px was tried and sat exactly on the boundary — the last chip
-  // touched the card edge and clipped.
+  // Four labels, all single words.
+  bioactivity: {
+    select: "min-[825px]:hidden",
+    stripFlex: "hidden min-[825px]:flex",
+    stripBlock: "hidden min-[825px]:block",
+  },
+  // Four labels; the widest strip, but far narrower than the 1025px the
+  // qualified "Diseases (Literature)" wording needed.
   chemical: {
-    select: "min-[950px]:hidden",
-    stripFlex: "hidden min-[950px]:flex",
-    stripBlock: "hidden min-[950px]:block",
+    select: "min-[850px]:hidden",
+    stripFlex: "hidden min-[850px]:flex",
+    stripBlock: "hidden min-[850px]:block",
   },
 };
 
