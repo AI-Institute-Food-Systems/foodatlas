@@ -114,37 +114,33 @@ export const TAB_STRIP_FITS: Record<
   EntityType,
   { select: string; stripFlex: string; stripBlock: string }
 > = {
-  // strip 480px — fits inside the container at every width it is shown
-  // at, so this is just the mobile breakpoint.
+  // strip 430px — fits at every width it is shown at, even across the
+  // px-24 step, so this is just the mobile breakpoint.
   food: {
     select: "min-[640px]:hidden",
     stripFlex: "hidden min-[640px]:flex",
     stripBlock: "hidden min-[640px]:block",
   },
-  // strip 679px. Fits from 711px, then STOPS fitting at 768px where the
-  // padding jumps px-4 -> px-24 and the container loses 160px; fits again
-  // from 871px. One breakpoint cannot express that gap, so it takes the
-  // upper value and shows the select across it.
+  // strip 627px, fits from 819px at md+.
   bioactivity: {
-    select: "min-[900px]:hidden",
-    stripFlex: "hidden min-[900px]:flex",
-    stripBlock: "hidden min-[900px]:block",
+    select: "min-[850px]:hidden",
+    stripFlex: "hidden min-[850px]:flex",
+    stripBlock: "hidden min-[850px]:block",
   },
-  // strip 699px; same px-24 discontinuity, fits again from 891px.
+  // strip 651px, fits from 843px at md+.
   disease: {
+    select: "min-[850px]:hidden",
+    stripFlex: "hidden min-[850px]:flex",
+    stripBlock: "hidden min-[850px]:block",
+  },
+  // strip 692px, fits from 884px at md+. (TEMP short labels; the previous
+  // wording measured 864px and needed 1056px, at the old 9.5rem min-width.)
+  chemical: {
     select: "min-[900px]:hidden",
     stripFlex: "hidden min-[900px]:flex",
     stripBlock: "hidden min-[900px]:block",
   },
-  // strip 796px (TEMP short labels; 864px with the previous wording, which
-  // needed 1056px). Never fits below 768px, so no gap — fits from 988px.
-  chemical: {
-    select: "min-[1000px]:hidden",
-    stripFlex: "hidden min-[1000px]:flex",
-    stripBlock: "hidden min-[1000px]:block",
-  },
-};
-// Geometry of a tab's count badge, shared with the live strip so the
+};// Geometry of a tab's count badge, shared with the live strip so the
 // loading shell reserves exactly the box the real badge will occupy.
 // A mismatch here resizes every chip at the handoff, which re-runs the
 // overflow measurement above and can flip the strip mid-load.

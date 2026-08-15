@@ -79,7 +79,7 @@ const EntityDetailLayoutSuspense = ({ entityType }: Props) => {
                 key={tab.id}
                 className={
                   "relative z-10 flex items-center justify-center h-7 md:h-8 px-2 md:px-3 " +
-                  "font-mono italic text-[11px] md:text-xs min-w-[7rem] md:min-w-[9.5rem] font-medium " +
+                  "font-mono italic text-[11px] md:text-xs min-w-[6rem] md:min-w-[8rem] font-medium " +
                   "rounded-t-lg border-t-[1.5px] border-x-[1.5px] " +
                   (selected
                     ? "bg-light-200 text-light-900 border-light-200 shadow-[inset_0_1px_2px_rgba(255,249,242,0.5)]"
