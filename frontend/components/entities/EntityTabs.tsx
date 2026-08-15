@@ -226,7 +226,7 @@ const EntityTabs = ({ entityType, tabs: rawTabs, defaultTabId }: Props) => {
       <div className={twMerge(fits.stripBlock, "relative overflow-x-auto")}>
         <TabList
           data-tab-strip
-          className="flex w-max items-end gap-1.5 pl-3"
+          className="flex w-max items-end gap-1.5 px-3"
         >
           {tabs.map((tab) => (
             <Tab
@@ -239,7 +239,7 @@ const EntityTabs = ({ entityType, tabs: rawTabs, defaultTabId }: Props) => {
                   // they cover the card's top border in the tab's width
                   // and don't leave side-border "legs" hanging into the
                   // card content.
-                  "relative z-10 flex items-center justify-center h-7 md:h-8 px-3 md:px-4",
+                  "relative z-10 flex items-center justify-center h-7 md:h-8 px-2 md:px-3",
                   "font-mono italic text-[11px] md:text-xs min-w-[7rem] md:min-w-[9.5rem] font-medium",
                   "rounded-t-lg transition-colors outline-none border-t-[1.5px] border-x-[1.5px]",
                   selected
