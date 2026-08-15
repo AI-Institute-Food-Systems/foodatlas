@@ -28,12 +28,21 @@ export const ENTITY_TABS = {
     { id: "bioactivities", label: "Bioactivities", hasCount: true },
     { id: "overview", label: "IDs & Metadata", hasCount: false },
   ],
+  // TEMP: shortened labels, being trialled. Ids are untouched, so `?tab=`
+  // deep links and every count pairing still resolve. Previous wording:
+  //   composition     "Foods Containing"
+  //   health          "Health Impacts"
+  //   assay-inferred  "Diseases (assay-inferred)"
+  //   overview        "IDs & Metadata"
+  // Note "Diseases" no longer distinguishes itself from Health Impacts,
+  // which is also diseases — the parenthetical was carrying that. Revert
+  // or re-word before this ships.
   chemical: [
-    { id: "composition", label: "Foods Containing", hasCount: true },
+    { id: "composition", label: "Foods", hasCount: true },
     { id: "bioactivities", label: "Bioactivities", hasCount: true },
-    { id: "health", label: "Health Impacts", hasCount: true },
-    { id: "assay-inferred", label: "Diseases (assay-inferred)", hasCount: true },
-    { id: "overview", label: "IDs & Metadata", hasCount: false },
+    { id: "health", label: "Health", hasCount: true },
+    { id: "assay-inferred", label: "Diseases", hasCount: true },
+    { id: "overview", label: "Metadata", hasCount: false },
   ],
   disease: [
     { id: "health", label: "Health Impacts", hasCount: true },
@@ -73,8 +82,7 @@ export type TabIdOf<E extends EntityType> =
 // adaptive but could only report after mount, and it initialised to
 // "fits": every first paint drew the chip strip and then snapped to the
 // select at widths where the strip did not fit. The loading shell could
-// not measure at all, so it drew a strip across the same range — on a
-// chemical page, every width from 640px to 1200px.
+// not measure at all, so it drew a strip across the same range.
 //
 // A CSS breakpoint is less clever and always agrees with itself, which is
 // what this needs. Browser zoom is not a factor — it scales the viewport
@@ -85,48 +93,57 @@ export type TabIdOf<E extends EntityType> =
 // overflow-x-auto wrapper they share lets it scroll instead of pushing
 // the page wider.
 //
-// The numbers are measured, not derived: the threshold depends on label
-// length as well as tab count, which is why disease and bioactivity differ
-// despite both having four tabs. Each is rounded UP to the first width at
-// which the strip was observed to fit, so the shell errs toward the select
-// — the form the real page shows more often, and the safer guess because
-// the select is a fixed-height block that any strip width can replace
-// without reflowing the page.
+// Each number is the strip's measured natural width plus the container
+// inset, rounded up. Measured, not derived: it depends on label length as
+// well as tab count. The container is `px-4 md:px-24` inside `max-w-5xl`,
+// so it is viewport-32 below 768px and viewport-192 above, capped at
+// 1024 — which is why the strip can fit just under 768px, stop fitting at
+// 768px, and fit again later. Rounding up puts the select across that gap.
+//
+// To re-measure: render the chip row with the built CSS at a wide
+// viewport, read its natural width, add 192.
 //
 // Literal class strings: Tailwind only emits what it can see in source, so
 // these cannot be built by interpolation. Re-measure if a tab label
 // changes materially.
+//
 // `stripFlex` is for a container that IS the chip row (the loading
 // shell); `stripBlock` is for one that wraps it (the live TabList).
-// Both encode the same width — the parity test below pins that.
+// Both encode the same width — the parity test pins that.
 export const TAB_STRIP_FITS: Record<
   EntityType,
   { select: string; stripFlex: string; stripBlock: string }
 > = {
-  // Three short labels; the strip fits from the first width at which it
-  // is shown at all, so this is just the mobile breakpoint (sm, 640px).
+  // strip 480px — fits inside the container at every width it is shown
+  // at, so this is just the mobile breakpoint.
   food: {
     select: "min-[640px]:hidden",
     stripFlex: "hidden min-[640px]:flex",
     stripBlock: "hidden min-[640px]:block",
   },
+  // strip 679px. Fits from 711px, then STOPS fitting at 768px where the
+  // padding jumps px-4 -> px-24 and the container loses 160px; fits again
+  // from 871px. One breakpoint cannot express that gap, so it takes the
+  // upper value and shows the select across it.
   bioactivity: {
-    select: "min-[950px]:hidden",
-    stripFlex: "hidden min-[950px]:flex",
-    stripBlock: "hidden min-[950px]:block",
+    select: "min-[900px]:hidden",
+    stripFlex: "hidden min-[900px]:flex",
+    stripBlock: "hidden min-[900px]:block",
   },
+  // strip 699px; same px-24 discontinuity, fits again from 891px.
   disease: {
-    select: "min-[1100px]:hidden",
-    stripFlex: "hidden min-[1100px]:flex",
-    stripBlock: "hidden min-[1100px]:block",
+    select: "min-[900px]:hidden",
+    stripFlex: "hidden min-[900px]:flex",
+    stripBlock: "hidden min-[900px]:block",
   },
+  // strip 796px (TEMP short labels; 864px with the previous wording, which
+  // needed 1056px). Never fits below 768px, so no gap — fits from 988px.
   chemical: {
-    select: "min-[1200px]:hidden",
-    stripFlex: "hidden min-[1200px]:flex",
-    stripBlock: "hidden min-[1200px]:block",
+    select: "min-[1000px]:hidden",
+    stripFlex: "hidden min-[1000px]:flex",
+    stripBlock: "hidden min-[1000px]:block",
   },
 };
-
 // Geometry of a tab's count badge, shared with the live strip so the
 // loading shell reserves exactly the box the real badge will occupy.
 // A mismatch here resizes every chip at the handoff, which re-runs the
