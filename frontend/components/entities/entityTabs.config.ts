@@ -101,7 +101,14 @@ export type TabIdOf<E extends EntityType> =
 // 768px, and fit again later. Rounding up puts the select across that gap.
 //
 // To re-measure: render the chip row with the built CSS at a wide
-// viewport, read its natural width, add 192.
+// viewport and read its natural width, then add
+//   192  container inset (px-24 both sides)
+//    15  the vertical scrollbar, which entity pages always have and a
+//        short measuring harness does not
+//    ~40 headroom
+// A threshold set to the bare sum sits exactly on the boundary, where
+// rounding or a slightly wider glyph clips the last chip against the
+// card edge. That is how 900px shipped for chemical and still clipped.
 //
 // Literal class strings: Tailwind only emits what it can see in source, so
 // these cannot be built by interpolation. Re-measure if a tab label
@@ -114,33 +121,36 @@ export const TAB_STRIP_FITS: Record<
   EntityType,
   { select: string; stripFlex: string; stripBlock: string }
 > = {
-  // strip 430px — fits at every width it is shown at, even across the
-  // px-24 step, so this is just the mobile breakpoint.
+  // strip 430px; container at 640px is ~593px. Fits at every width it is
+  // shown at, so this is just the mobile breakpoint.
   food: {
     select: "min-[640px]:hidden",
     stripFlex: "hidden min-[640px]:flex",
     stripBlock: "hidden min-[640px]:block",
   },
-  // strip 627px, fits from 819px at md+.
+  // strip 627px; needs 834px bare, 875px with headroom (~41px slack).
   bioactivity: {
-    select: "min-[850px]:hidden",
-    stripFlex: "hidden min-[850px]:flex",
-    stripBlock: "hidden min-[850px]:block",
+    select: "min-[875px]:hidden",
+    stripFlex: "hidden min-[875px]:flex",
+    stripBlock: "hidden min-[875px]:block",
   },
-  // strip 651px, fits from 843px at md+.
+  // strip 651px; needs 858px bare, 900px with headroom (~42px slack).
   disease: {
-    select: "min-[850px]:hidden",
-    stripFlex: "hidden min-[850px]:flex",
-    stripBlock: "hidden min-[850px]:block",
-  },
-  // strip 692px, fits from 884px at md+. (TEMP short labels; the previous
-  // wording measured 864px and needed 1056px, at the old 9.5rem min-width.)
-  chemical: {
     select: "min-[900px]:hidden",
     stripFlex: "hidden min-[900px]:flex",
     stripBlock: "hidden min-[900px]:block",
   },
-};// Geometry of a tab's count badge, shared with the live strip so the
+  // strip 692px; needs 899px bare, 950px with headroom (~51px slack).
+  // 900px was tried and sat exactly on the boundary — the last chip
+  // touched the card edge and clipped.
+  chemical: {
+    select: "min-[950px]:hidden",
+    stripFlex: "hidden min-[950px]:flex",
+    stripBlock: "hidden min-[950px]:block",
+  },
+};
+
+// Geometry of a tab's count badge, shared with the live strip so the
 // loading shell reserves exactly the box the real badge will occupy.
 // A mismatch here resizes every chip at the handoff, which re-runs the
 // overflow measurement above and can flip the strip mid-load.
