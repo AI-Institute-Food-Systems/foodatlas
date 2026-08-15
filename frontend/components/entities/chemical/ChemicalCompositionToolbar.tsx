@@ -5,10 +5,21 @@ import { MdSearch } from "react-icons/md";
 import Chip from "@/components/basic/Chip";
 import SortListbox from "@/components/basic/SortListbox";
 import {
+  FilterGroup,
+  ToggleSwitch,
+} from "@/components/entities/shared/CompositionFilterControls";
+import {
   SortColumn,
   SortDirection,
   SourceKey,
 } from "@/utils/chemicalComposition";
+
+// The three pieces of table chrome, exported separately because they live
+// in different places at different widths — the filters move into a sticky
+// left sidebar at min-[1440px] and into a drawer below it, while search
+// stays inline throughout so typing never requires opening a panel. That
+// arrangement mirrors the food composition table exactly; see
+// FoodCompositionSection for the original.
 
 // Mobile has no clickable column headers, so the sort lives here instead.
 const SORT_OPTIONS = [
@@ -20,49 +31,59 @@ const SORT_OPTIONS = [
   { value: "evidence_count:asc", label: "Evidence (fewest first)" },
 ];
 
-interface ChemicalCompositionToolbarProps {
-  search: string;
-  onSearchChange: (value: string) => void;
-  sourceCounts: { key: SourceKey; label: string; count: number }[];
-  selectedSources: SourceKey[];
-  onToggleSource: (key: SourceKey) => void;
-  unmeasuredCount: number;
-  includeUnmeasured: boolean;
-  onToggleUnmeasured: () => void;
-  sort: { column: SortColumn; direction: SortDirection };
-  onSortChange: (sort: {
-    column: SortColumn;
-    direction: SortDirection;
-  }) => void;
-}
-
-const ChemicalCompositionToolbar = ({
+export const CompositionSearchInput = ({
   search,
   onSearchChange,
+}: {
+  search: string;
+  onSearchChange: (value: string) => void;
+}) => (
+  <div className="flex items-center gap-2 rounded-full bg-light-800 py-1.5 px-3">
+    <MdSearch className="text-light-400 flex-shrink-0" />
+    <input
+      type="search"
+      value={search}
+      onChange={(e) => onSearchChange(e.target.value)}
+      placeholder="Search foods"
+      aria-label="Search foods"
+      className="w-full bg-transparent text-sm text-light-100 placeholder:text-light-500 focus:outline-none"
+    />
+  </div>
+);
+
+export const CompositionFilterPanel = ({
   sourceCounts,
   selectedSources,
   onToggleSource,
   unmeasuredCount,
   includeUnmeasured,
   onToggleUnmeasured,
-  sort,
-  onSortChange,
-}: ChemicalCompositionToolbarProps) => (
-  <>
-    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-      <div className="flex items-center gap-2 rounded-full bg-light-800 py-1.5 px-3 md:w-64">
-        <MdSearch className="text-light-400 flex-shrink-0" />
-        <input
-          type="search"
-          value={search}
-          onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Search foods"
-          aria-label="Search foods"
-          className="w-full bg-transparent text-sm text-light-100 placeholder:text-light-500 focus:outline-none"
+}: {
+  sourceCounts: { key: SourceKey; label: string; count: number }[];
+  selectedSources: SourceKey[];
+  onToggleSource: (key: SourceKey) => void;
+  unmeasuredCount: number;
+  includeUnmeasured: boolean;
+  onToggleUnmeasured: () => void;
+}) => (
+  <div className="flex flex-col gap-4">
+    {/* FilterGroup/ToggleSwitch are the food table's own controls, shared
+      * rather than reimplemented, so both composition sidebars behave and
+      * read identically. The toggle also wraps, which a pill chip does not
+      * — "Include without concentration" overflowed the w-48 sidebar. */}
+    {unmeasuredCount > 0 && (
+      <FilterGroup label="Include">
+        <ToggleSwitch
+          label="Without concentration"
+          count={unmeasuredCount}
+          checked={includeUnmeasured}
+          onChange={onToggleUnmeasured}
         />
-      </div>
+      </FilterGroup>
+    )}
 
-      <div className="flex items-center gap-2 flex-wrap">
+    <FilterGroup label="Source">
+      <div className="flex flex-wrap gap-1.5">
         {/* A source with no rows stays visible but inert: hiding it would
           * make the facet list change shape between chemicals, and leaving
           * it clickable offers a filter whose only outcome is an empty
@@ -79,36 +100,33 @@ const ChemicalCompositionToolbar = ({
             aria-pressed={selectedSources.includes(key)}
           />
         ))}
-        {unmeasuredCount > 0 && (
-          <Chip
-            label="Include without concentration"
-            count={unmeasuredCount}
-            tone={includeUnmeasured ? "cream" : "outline"}
-            size="md"
-            aria-pressed={includeUnmeasured}
-            onClick={onToggleUnmeasured}
-          />
-        )}
       </div>
-    </div>
-
-    <div className="md:hidden">
-      <SortListbox
-        ariaLabel="Sort foods"
-        value={`${sort.column}:${sort.direction}`}
-        options={SORT_OPTIONS}
-        onChange={(value) => {
-          const [column, direction] = value.split(":");
-          onSortChange({
-            column: column as SortColumn,
-            direction: direction as SortDirection,
-          });
-        }}
-      />
-    </div>
-  </>
+    </FilterGroup>
+  </div>
 );
 
-ChemicalCompositionToolbar.displayName = "ChemicalCompositionToolbar";
-
-export default ChemicalCompositionToolbar;
+export const CompositionMobileSort = ({
+  sort,
+  onSortChange,
+}: {
+  sort: { column: SortColumn; direction: SortDirection };
+  onSortChange: (sort: {
+    column: SortColumn;
+    direction: SortDirection;
+  }) => void;
+}) => (
+  <div className="md:hidden">
+    <SortListbox
+      ariaLabel="Sort foods"
+      value={`${sort.column}:${sort.direction}`}
+      options={SORT_OPTIONS}
+      onChange={(value) => {
+        const [column, direction] = value.split(":");
+        onSortChange({
+          column: column as SortColumn,
+          direction: direction as SortDirection,
+        });
+      }}
+    />
+  </div>
+);

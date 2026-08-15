@@ -37,6 +37,20 @@ async def chemical_composition(
     return await chemical.get_composition(db, common_name)
 
 
+@router.get("/composition-evidence")
+async def chemical_composition_evidence(
+    common_name: str = Query(...),
+    food_name: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+):
+    """Evidence behind one row of /composition, for the row's modal.
+
+    Separate from /composition because the evidence for a whole chemical is
+    two orders of magnitude larger than the table that links to it.
+    """
+    return await chemical.get_composition_evidence(db, common_name, food_name)
+
+
 @router.get("/correlation")
 async def chemical_correlation(
     common_name: str = Query(...),

@@ -1,22 +1,22 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import {
-  MdInfo,
-  MdInfoOutline,
-  MdKeyboardArrowDown,
-  MdKeyboardArrowUp,
-  MdUnfoldMore,
-} from "react-icons/md";
-import { twMerge } from "tailwind-merge";
+import { MdInfo, MdInfoOutline } from "react-icons/md";
 
 import Pagination from "@/components/basic/Pagination";
-import { cellPadding } from "@/components/basic/skeletonTokens";
 import ChemicalCompositionCards from "@/components/entities/chemical/ChemicalCompositionCards";
+import FoodCompositionEvidenceModal from "@/components/entities/food/FoodCompositionEvidenceModal";
+import { getChemicalCompositionEvidence } from "@/utils/fetching";
+import type { FoodEvidence } from "@/types/Evidence";
 import ChemicalCompositionTableRow, {
   COLUMN_COUNT,
 } from "@/components/entities/chemical/ChemicalCompositionRow";
-import ChemicalCompositionToolbar from "@/components/entities/chemical/ChemicalCompositionToolbar";
+import {
+  CompositionFilterPanel,
+  CompositionMobileSort,
+} from "@/components/entities/chemical/ChemicalCompositionToolbar";
+import ChemicalCompositionFilters from "@/components/entities/chemical/ChemicalCompositionFilters";
+import ChemicalCompositionHead from "@/components/entities/chemical/ChemicalCompositionHead";
 import { usePaginations } from "@/context/paginationsContext";
 import { useReportRows } from "@/context/reportModeContext";
 import {
@@ -45,6 +45,9 @@ const TABLE_ID = "chemical-composition-table";
 interface ChemicalCompositionTableProps {
   withConcentrations: Row[] | null | undefined;
   withoutConcentrations: Row[] | null | undefined;
+  // The chemical this table is about — the evidence modal names the pair,
+  // and the lazy evidence fetch is keyed on it.
+  commonName: string;
   // The chemical's foodatlas_id — carried into the ?highlight= deep link
   // and the report context, exactly as the old bar chart did.
   chemicalId?: string;
@@ -53,6 +56,7 @@ interface ChemicalCompositionTableProps {
 const ChemicalCompositionTable = ({
   withConcentrations,
   withoutConcentrations,
+  commonName,
   chemicalId,
 }: ChemicalCompositionTableProps) => {
   const reporter = useReportRows();
@@ -65,6 +69,30 @@ const ChemicalCompositionTable = ({
   // the unmeasured foods hidden would silently drop rows the user can
   // currently see — and desync the table from the tab's badge count.
   const [includeUnmeasured, setIncludeUnmeasured] = useState(true);
+  // Evidence modal. The row only names the food; the records themselves are
+  // fetched when the modal opens — see getChemicalCompositionEvidence for
+  // why they are not part of the table payload.
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [evidenceFood, setEvidenceFood] = useState("");
+  const [evidences, setEvidences] = useState<FoodEvidence[] | undefined>(
+    undefined
+  );
+
+  useEffect(() => {
+    if (!evidenceFood) return;
+    let cancelled = false;
+    setEvidences(undefined);
+    (async () => {
+      const rows = await getChemicalCompositionEvidence(
+        commonName,
+        evidenceFood
+      );
+      if (!cancelled) setEvidences(rows);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [evidenceFood, commonName]);
   const [sort, setSort] = useState<{
     column: SortColumn;
     direction: SortDirection;
@@ -150,25 +178,39 @@ const ChemicalCompositionTable = ({
     setTablePaginations(TABLE_ID, 1, ROWS_PER_PAGE);
   };
 
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setTablePaginations(TABLE_ID, 1, ROWS_PER_PAGE);
+  };
+
+  // One instance, rendered into either the sidebar or the drawer.
+  const filterPanel = (
+    <CompositionFilterPanel
+      sourceCounts={sourceCounts}
+      selectedSources={sources}
+      onToggleSource={toggleSource}
+      unmeasuredCount={unmeasuredCount}
+      includeUnmeasured={includeUnmeasured}
+      onToggleUnmeasured={() => {
+        setIncludeUnmeasured((v) => !v);
+        setTablePaginations(TABLE_ID, 1, ROWS_PER_PAGE);
+      }}
+    />
+  );
+
   const isFiltered = search.trim() !== "" || sources.length > 0;
 
   return (
     <div className="flex flex-col gap-4">
-      <ChemicalCompositionToolbar
+      <ChemicalCompositionFilters
         search={search}
-        onSearchChange={(value) => {
-          setSearch(value);
-          setTablePaginations(TABLE_ID, 1, ROWS_PER_PAGE);
-        }}
-        sourceCounts={sourceCounts}
-        selectedSources={sources}
-        onToggleSource={toggleSource}
-        unmeasuredCount={unmeasuredCount}
-        includeUnmeasured={includeUnmeasured}
-        onToggleUnmeasured={() => {
-          setIncludeUnmeasured((v) => !v);
-          setTablePaginations(TABLE_ID, 1, ROWS_PER_PAGE);
-        }}
+        onSearchChange={handleSearchChange}
+        filterPanel={filterPanel}
+        mobileOpen={mobileFiltersOpen}
+        onMobileOpenChange={setMobileFiltersOpen}
+      />
+
+      <CompositionMobileSort
         sort={sort}
         onSortChange={(next) => {
           setSort(next);
@@ -184,48 +226,7 @@ const ChemicalCompositionTable = ({
               <col key={c.key} className={c.width} />
             ))}
           </colgroup>
-          <thead className="text-light-400 text-left">
-            <tr>
-              {COLUMNS.map((c, i) => (
-                <th
-                  key={c.key}
-                  className={twMerge(
-                    "h-9 border-b border-light-700 leading-none py-1.5",
-                    cellPadding(i, COLUMN_COUNT),
-                    c.align === "right" ? "text-right" : "text-left"
-                  )}
-                >
-                  <div
-                    className={twMerge(
-                      "group flex gap-1 items-center flex-nowrap w-full",
-                      c.sort ? "cursor-pointer" : "pointer-events-none",
-                      c.align === "right" ? "justify-end" : "justify-between"
-                    )}
-                    onClick={() => c.sort && handleSortClick(c.sort)}
-                  >
-                    <span
-                      className={twMerge(
-                        "select-none uppercase text-xs font-medium transition duration-300 ease-in-out group-hover:text-light-100",
-                        c.sort === sort.column && "text-light-100"
-                      )}
-                    >
-                      {c.label}
-                    </span>
-                    {c.sort &&
-                      (c.sort === sort.column ? (
-                        sort.direction === "asc" ? (
-                          <MdKeyboardArrowUp className="text-accent-600 flex-shrink-0" />
-                        ) : (
-                          <MdKeyboardArrowDown className="text-accent-600 flex-shrink-0" />
-                        )
-                      ) : (
-                        <MdUnfoldMore className="text-light-400 flex-shrink-0" />
-                      ))}
-                  </div>
-                </th>
-              ))}
-            </tr>
-          </thead>
+          <ChemicalCompositionHead sort={sort} onSortClick={handleSortClick} />
           <tbody className="text-sm font-light">
             {pageRows.length > 0 ? (
               pageRows.map((row) => (
@@ -234,6 +235,7 @@ const ChemicalCompositionTable = ({
                   row={row}
                   maxValue={maxValue}
                   href={hrefFor(row)}
+                  onEvidenceClick={setEvidenceFood}
                   rowProps={reporter.getRowProps(rowContextFor(row))}
                 />
               ))
@@ -260,6 +262,7 @@ const ChemicalCompositionTable = ({
             rows={pageRows}
             maxValue={maxValue}
             hrefFor={hrefFor}
+            onEvidenceClick={setEvidenceFood}
             rowPropsFor={(row) => reporter.getRowProps(rowContextFor(row))}
           />
         ) : (
@@ -285,6 +288,17 @@ const ChemicalCompositionTable = ({
         Bar length is relative to the highest concentration shown. All
         concentrations are measured in mg / 100g.
       </div>
+
+      {/* The food page's modal, reused unchanged: a composition data point
+        * is the same (food, chemical) pair whichever page you reached it
+        * from, so it should read identically on both. */}
+      <FoodCompositionEvidenceModal
+        foodName={evidenceFood}
+        chemicalName={commonName}
+        evidences={evidences}
+        isOpen={evidenceFood !== ""}
+        onClose={() => setEvidenceFood("")}
+      />
     </div>
   );
 };

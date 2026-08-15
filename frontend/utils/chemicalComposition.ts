@@ -32,12 +32,11 @@ export const COLUMNS: {
   align?: "left" | "right";
   sort?: SortColumn;
 }[] = [
-  { key: "name", label: "Food", width: "w-[30%]", sort: "name" },
-  { key: "sources", label: "Sources", width: "w-[14%]" },
+  { key: "name", label: "Food", width: "w-[36%]", sort: "name" },
   {
     key: "concentration",
     label: "Concentration (mg/100g)",
-    width: "w-[36%]",
+    width: "w-[44%]",
     sort: "median_concentration",
   },
   {
@@ -119,10 +118,12 @@ export const barPercent = (
 };
 
 // Below this the two-decimal readout renders "0.00%", which states the
-// opposite of the truth: the amount is small, not zero. The exact mg/100g
-// figure sits right next to it, so dropping the share is a strict
-// improvement over printing a misleading zero.
+// opposite of the truth: the amount is small, not zero. An earlier pass
+// dropped the share entirely at that point, but a blank cell is its own
+// wrong answer — it reads as "unknown" when the share is in fact known and
+// simply tiny. Render the bound instead.
 const MIN_MEANINGFUL_PERCENT = 0.005;
+export const TRACE_PERCENT_LABEL = "<0.01%";
 
 // Percentage of the food's mass. mg/100g -> /1000; decimals scale with
 // magnitude so trace values don't all collapse to "0%". Mirrors the food
@@ -136,7 +137,7 @@ export const formatPercentByMass = (
   if (v === null || !unit) return null;
   if (unit.replace(/\s+/g, "").toLowerCase() !== "mg/100g") return null;
   const pct = v / 1000;
-  if (pct < MIN_MEANINGFUL_PERCENT) return null;
+  if (pct < MIN_MEANINGFUL_PERCENT) return TRACE_PERCENT_LABEL;
   if (pct >= 10) return `${pct.toFixed(0)}%`;
   if (pct >= 1) return `${pct.toFixed(1)}%`;
   return `${pct.toFixed(2)}%`;

@@ -168,10 +168,12 @@ describe("formatPercentByMass", () => {
     expect(formatPercentByMass(row("a", 50))).toBe("0.05%");
   });
 
-  it("omits the share rather than printing a misleading 0.00%", () => {
-    // 0.47 mg/100g is 0.000047% — real, but it renders as "0.00%", which
-    // reads as "none". The exact mg/100g value is shown beside it.
-    expect(formatPercentByMass(row("a", 0.47))).toBeNull();
+  it("bounds a trace share rather than printing a misleading 0.00%", () => {
+    // 0.47 mg/100g is 0.000047% — real, but two decimals render it as
+    // "0.00%", which reads as "none". An earlier pass returned null here;
+    // a blank cell is its own wrong answer, reading as "unknown" when the
+    // share is known and simply tiny. State the bound instead.
+    expect(formatPercentByMass(row("a", 0.47))).toBe("<0.01%");
     expect(formatPercentByMass(row("a", 5))).toBe("0.01%");
   });
 

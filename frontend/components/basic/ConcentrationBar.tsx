@@ -30,8 +30,11 @@ const ConcentrationBar = ({ percent, className }: ConcentrationBarProps) => (
     data-percent={percent === null ? "" : String(percent)}
   >
     {percent !== null && (
+      // cyan-600 is the chemical entity colour (see HeaderSection's
+      // colorScheme), so the bar reads as "this chemical" rather than as a
+      // generic accent. It only ever appears on chemical surfaces.
       <span
-        className="absolute inset-y-0 left-0 rounded-full bg-accent-600/80"
+        className="absolute inset-y-0 left-0 rounded-full bg-cyan-600/80"
         style={{ width: `${percent}%` }}
       />
     )}

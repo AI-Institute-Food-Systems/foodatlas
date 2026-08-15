@@ -4,6 +4,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from src.repositories.chemical import get_composition as chem_composition
+from src.repositories.chemical import (
+    get_composition_evidence as chem_composition_evidence,
+)
 from src.repositories.chemical import get_correlation as chem_correlation
 from src.repositories.chemical import get_metadata as chem_metadata
 from src.repositories.disease import get_correlation as disease_correlation
@@ -290,3 +293,52 @@ class TestGetStatistics:
 
         result = await get_statistics(session)
         assert result["data"]["statistics"] == {}
+
+
+class TestChemicalCompositionEvidence:
+    """One (chemical, food) pair's evidence, fetched when its modal opens."""
+
+    @staticmethod
+    def _session(mapping: dict | None) -> AsyncMock:
+        session = AsyncMock()
+        result = MagicMock()
+        result.mappings.return_value.first.return_value = mapping
+        session.execute.return_value = result
+        return session
+
+    @pytest.mark.asyncio
+    async def test_flattens_the_three_source_lists(self) -> None:
+        # The modal takes one list and sorts it itself; each record already
+        # carries its own source.
+        session = self._session(
+            {
+                "fdc_evidences": [{"premise": "a"}],
+                "foodatlas_evidences": [{"premise": "b"}, {"premise": "c"}],
+                "ptfi_evidences": None,
+            }
+        )
+        out = await chem_composition_evidence(session, "quercetin", "onion")
+        assert out["metadata"] == {"row_count": 3}
+        assert [e["premise"] for e in out["data"]] == ["a", "b", "c"]
+
+    @pytest.mark.asyncio
+    async def test_unknown_pair_is_empty_not_an_error(self) -> None:
+        out = await chem_composition_evidence(self._session(None), "x", "y")
+        assert out == {"data": [], "metadata": {"row_count": 0}}
+
+    @pytest.mark.asyncio
+    async def test_both_names_are_bound_not_interpolated(self) -> None:
+        session = self._session(None)
+        await chem_composition_evidence(session, "quercetin", "yellow onion")
+        assert session.execute.call_args[0][1] == {
+            "chemical": "quercetin",
+            "food": "yellow onion",
+        }
+
+    @pytest.mark.asyncio
+    async def test_does_not_read_dmd(self) -> None:
+        # DMD left the public API in the 2026-07-06 removal; returning it
+        # here would show data points the row's count never promised.
+        session = self._session(None)
+        await chem_composition_evidence(session, "quercetin", "onion")
+        assert "dmd" not in str(session.execute.call_args[0][0]).lower()

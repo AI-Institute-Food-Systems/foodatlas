@@ -50,7 +50,8 @@ describe("chemical composition report wiring", () => {
       <ChemicalCompositionTable
         withConcentrations={rows}
         withoutConcentrations={[]}
-        chemicalId="c123"
+        commonName="quercetin"
+      chemicalId="c123"
       />
     );
 

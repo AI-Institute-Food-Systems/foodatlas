@@ -30,6 +30,7 @@ const ChemicalCompositionSection = async ({
     <ChemicalCompositionTable
       withConcentrations={withConc}
       withoutConcentrations={withoutConc}
+      commonName={commonName}
       chemicalId={metaData?.id}
     />
   );

@@ -17,6 +17,16 @@ import ChemicalCompositionTable from "@/components/entities/chemical/ChemicalCom
 import { PaginationsProvider } from "@/context/paginationsContext";
 import { ChemicalCompositionRow } from "@/utils/chemicalComposition";
 
+vi.mock("@/utils/fetching", () => ({
+  getChemicalCompositionEvidence: vi.fn(async () => [
+    {
+      premise: "Onions contain quercetin.",
+      reference: { pmid: "12345678", title: "A paper" },
+      extraction: [],
+    },
+  ]),
+}));
+
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
   usePathname: () => "/chemical/quercetin",
@@ -65,6 +75,7 @@ const renderTable = (props: Partial<
       <ChemicalCompositionTable
         withConcentrations={measured}
         withoutConcentrations={unmeasured}
+        commonName="quercetin"
         chemicalId="c123"
         {...props}
       />
@@ -119,10 +130,11 @@ describe("ChemicalCompositionTable", () => {
   });
 
   it("drops unmeasured foods when the toggle is switched off", () => {
+    // Rendered by the shared ToggleSwitch under an "Include" group, the
+    // same control the food composition sidebar uses — so the label is
+    // "Without concentration", not a self-contained chip sentence.
     renderTable();
-    fireEvent.click(
-      screen.getAllByText("Include without concentration")[0]!
-    );
+    fireEvent.click(screen.getAllByText("Without concentration")[0]!);
     expect(screen.queryAllByText("kale")).toHaveLength(0);
   });
 
@@ -166,5 +178,40 @@ describe("ChemicalCompositionTable", () => {
       withoutConcentrations: [],
     });
     expect(screen.getAllByText("0 data points").length).toBeGreaterThan(0);
+  });
+});
+
+describe("evidence modal", () => {
+  it("opens on the data-point chip rather than navigating away", async () => {
+    // The chip used to be a link to the food page. A composition data point
+    // is the same (food, chemical) pair from either side, so it should open
+    // the food page's modal instead of making the user leave.
+    renderTable();
+    const chips = screen.getAllByRole("button", { name: /12 data points/i });
+    expect(chips.length).toBeGreaterThan(0);
+    fireEvent.click(chips[0]);
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("names the pair the row came from", async () => {
+    renderTable();
+    fireEvent.click(screen.getAllByRole("button", { name: /12 data points/i })[0]);
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText(/onion/i)).toBeInTheDocument();
+  });
+});
+
+describe("columns", () => {
+  it("does not render a Sources column", () => {
+    // Source is a filter, not a per-row fact worth a column of its own —
+    // it was pushing the food and concentration columns narrow enough to
+    // wrap long food names.
+    renderTable();
+    expect(screen.queryByRole("columnheader", { name: /sources/i })).toBeNull();
+  });
+
+  it("still offers source as a filter", () => {
+    renderTable();
+    expect(screen.getAllByRole("button", { name: /FDC/i }).length).toBeGreaterThan(0);
   });
 });

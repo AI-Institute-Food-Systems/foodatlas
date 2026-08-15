@@ -193,3 +193,41 @@ async def get_correlation(
             "total_pages": total_pages,
         },
     }
+
+
+async def get_composition_evidence(
+    session: AsyncSession, common_name: str, food_name: str
+) -> dict[str, object]:
+    """Evidence records behind one (chemical, food) composition row.
+
+    Fetched on demand rather than inlined into ``get_composition``. Quercetin
+    alone carries 6.7 MB of evidence JSON across its 464 foods, against a
+    93 KB composition payload — and that payload is fetched server-side on
+    every chemical page load, for a modal most visitors never open. A single
+    pair averages ~15 KB.
+
+    DMD is excluded here for the same reason it is excluded from the counts:
+    it left the public API in the 2026-07-06 removal, so returning it would
+    show data points the counts never promised.
+    """
+    result = await session.execute(
+        text("""
+            SELECT fdc_evidences, foodatlas_evidences, ptfi_evidences
+            FROM mv_food_chemical_composition
+            WHERE chemical_name = :chemical AND food_name = :food
+            LIMIT 1
+        """),
+        {"chemical": common_name, "food": food_name},
+    )
+    row = result.mappings().first()
+    if row is None:
+        return {"data": [], "metadata": {"row_count": 0}}
+
+    # Flattened, because the modal takes one list and sorts it itself. The
+    # source of each record is already on the record.
+    evidences = [
+        ev
+        for key in ("fdc_evidences", "foodatlas_evidences", "ptfi_evidences")
+        for ev in (row[key] or [])
+    ]
+    return {"data": evidences, "metadata": {"row_count": len(evidences)}}

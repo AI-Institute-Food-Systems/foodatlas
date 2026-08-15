@@ -18,7 +18,7 @@ import {
 } from "@/utils/chemicalComposition";
 import { formatConcentrationValueAlt } from "@/utils/utils";
 
-export const COLUMN_COUNT = 4;
+export const COLUMN_COUNT = 3;
 
 interface ChemicalCompositionRowProps {
   row: Row;
@@ -26,6 +26,10 @@ interface ChemicalCompositionRowProps {
   // page — see computeMaxValue.
   maxValue: number;
   href: string;
+  // Opens the evidence modal for this row. The evidence itself is fetched
+  // on demand by the table — a chemical's full evidence set is ~70x the
+  // size of the table that links to it.
+  onEvidenceClick: (foodName: string) => void;
   rowProps: React.HTMLAttributes<HTMLTableRowElement>;
 }
 
@@ -43,12 +47,12 @@ const ChemicalCompositionTableRow = ({
   row,
   maxValue,
   href,
+  onEvidenceClick,
   rowProps,
 }: ChemicalCompositionRowProps) => {
   const value = concentrationValue(row);
   const percent = barPercent(value, maxValue);
   const pctByMass = formatPercentByMass(row);
-  const sources = rowSourceLabels(row);
   const evidence = evidenceCountOf(row);
 
   return (
@@ -63,21 +67,8 @@ const ChemicalCompositionTableRow = ({
         </div>
       </td>
 
-      {/* sources */}
-      <td className={twMerge("py-1.5", cellPadding(1, COLUMN_COUNT))}>
-        <div className="flex min-h-9 items-center gap-1 flex-wrap">
-          {sources.length > 0 ? (
-            sources.map((label) => (
-              <Chip key={label} label={label} tone="outline" size="sm" />
-            ))
-          ) : (
-            <span className="text-light-600">—</span>
-          )}
-        </div>
-      </td>
-
       {/* concentration: bar + value + share of the food's mass */}
-      <td className={twMerge("py-1.5", cellPadding(2, COLUMN_COUNT))}>
+      <td className={twMerge("py-1.5", cellPadding(1, COLUMN_COUNT))}>
         <div className="flex min-h-9 items-center gap-3">
           {value === null ? (
             <span className="text-light-600">—</span>
@@ -102,14 +93,14 @@ const ChemicalCompositionTableRow = ({
       </td>
 
       {/* evidence */}
-      <td className={twMerge("py-1.5", cellPadding(3, COLUMN_COUNT))}>
+      <td className={twMerge("py-1.5", cellPadding(2, COLUMN_COUNT))}>
         <div className="flex min-h-9 items-center justify-end">
           <Chip
             icon={<MdDescription className="size-3" />}
             label={`${evidence} data point${evidence === 1 ? "" : "s"}`}
             tone="outline"
             size="md"
-            href={href}
+            onClick={() => onEvidenceClick(row.name)}
             className="min-w-[9rem] justify-center"
           />
         </div>

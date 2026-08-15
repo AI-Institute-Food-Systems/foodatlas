@@ -808,3 +808,33 @@ export async function getTime() {
 
   return data.unixtime;
 }
+
+// Evidence behind one row of the chemical composition table, fetched when
+// its modal opens rather than with the table.
+//
+// Quercetin's foods carry 6.7 MB of evidence JSON against a 93 KB
+// composition payload, and that payload is fetched server-side on every
+// chemical page load — for a modal most visitors never open. One pair is
+// ~15 KB.
+//
+// Returns [] rather than throwing: an empty modal is a smaller failure
+// than taking the page down.
+export async function getChemicalCompositionEvidence(
+  commonName: string,
+  foodName: string
+) {
+  try {
+    const res = await fetch(
+      `${apiBase()}/chemical/composition-evidence` +
+        `?common_name=${encodeURIComponent(commonName)}` +
+        `&food_name=${encodeURIComponent(foodName)}`,
+      { next: { revalidate: 86400 } }
+    );
+    if (!res.ok) return [];
+    const { data } = await res.json();
+    return data ?? [];
+  } catch (err) {
+    console.warn(`Failed to fetch composition evidence for ${foodName}:`, err);
+    return [];
+  }
+}

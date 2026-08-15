@@ -21,6 +21,7 @@ interface ChemicalCompositionCardsProps {
   rows: Row[];
   maxValue: number;
   hrefFor: (row: Row) => string;
+  onEvidenceClick: (foodName: string) => void;
   rowPropsFor: (row: Row) => React.HTMLAttributes<HTMLDivElement>;
 }
 
@@ -31,6 +32,7 @@ const ChemicalCompositionCards = ({
   rows,
   maxValue,
   hrefFor,
+  onEvidenceClick,
   rowPropsFor,
 }: ChemicalCompositionCardsProps) => (
   <div className="w-full flex flex-col divide-y divide-light-800">
@@ -38,7 +40,6 @@ const ChemicalCompositionCards = ({
       const value = concentrationValue(row);
       const percent = barPercent(value, maxValue);
       const pctByMass = formatPercentByMass(row);
-      const sources = rowSourceLabels(row);
       const evidence = evidenceCountOf(row);
 
       return (
@@ -79,26 +80,13 @@ const ChemicalCompositionCards = ({
           )}
 
           <div className="flex items-center justify-between gap-2">
-            <span className="text-light-500 text-xs uppercase">Sources</span>
-            <span className="flex items-center gap-1 flex-wrap justify-end">
-              {sources.length > 0 ? (
-                sources.map((label) => (
-                  <Chip key={label} label={label} tone="outline" size="sm" />
-                ))
-              ) : (
-                <span className="text-light-600">—</span>
-              )}
-            </span>
-          </div>
-
-          <div className="flex items-center justify-between gap-2">
             <span className="text-light-500 text-xs uppercase">Evidence</span>
             <Chip
               icon={<MdDescription className="size-3" />}
               label={`${evidence} data point${evidence === 1 ? "" : "s"}`}
               tone="outline"
               size="md"
-              href={hrefFor(row)}
+              onClick={() => onEvidenceClick(row.name)}
             />
           </div>
         </div>
