@@ -1,6 +1,13 @@
 "use client";
 
-import React, { createContext, useContext, useState, ReactNode } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+  ReactNode,
+} from "react";
 
 type PaginationssSettings = {
   currentPage: number;
@@ -14,11 +21,6 @@ interface PaginationssContextProps {
     rowsPerPage?: number
   ) => void;
   getTablePaginations: (tableId: string) => PaginationssSettings;
-  // Drop every table's page state. Entries are keyed by tableId and are
-  // otherwise never removed, so a table that unmounts and remounts (e.g.
-  // switching entity tabs) would come back on whatever page it was left
-  // on — with its filters freshly reset, which reads as a bug.
-  resetAllPaginations: () => void;
 }
 
 const PaginationsContext = createContext<PaginationssContextProps | undefined>(
@@ -36,27 +38,34 @@ export const PaginationsProvider: React.FC<PaginationsProviderProps> = ({
     Record<string, PaginationssSettings>
   >({});
 
-  const setTablePaginations = (
-    tableId: string,
-    currentPage: number,
-    rowsPerPage: number = 10
-  ) => {
-    setPaginations((prevState) => ({
-      ...prevState,
-      [tableId]: { currentPage, rowsPerPage },
-    }));
-  };
+  // Referential stability matters here, not just for render count: several
+  // tables list `setTablePaginations` in the dep array of their data-fetching
+  // effect (e.g. FoodCompositionSection). Entity tabs keep their panels
+  // mounted, so an unstable identity would make paging one table refire the
+  // fetches of every other table on the page, including hidden ones.
+  const setTablePaginations = useCallback(
+    (tableId: string, currentPage: number, rowsPerPage: number = 10) => {
+      setPaginations((prevState) => ({
+        ...prevState,
+        [tableId]: { currentPage, rowsPerPage },
+      }));
+    },
+    []
+  );
 
-  const getTablePaginations = (tableId: string): PaginationssSettings => {
-    return paginations[tableId] || { currentPage: 1, rowsPerPage: 10 };
-  };
+  const getTablePaginations = useCallback(
+    (tableId: string): PaginationssSettings =>
+      paginations[tableId] || { currentPage: 1, rowsPerPage: 10 },
+    [paginations]
+  );
 
-  const resetAllPaginations = () => setPaginations({});
+  const value = useMemo(
+    () => ({ setTablePaginations, getTablePaginations }),
+    [setTablePaginations, getTablePaginations]
+  );
 
   return (
-    <PaginationsContext.Provider
-      value={{ setTablePaginations, getTablePaginations, resetAllPaginations }}
-    >
+    <PaginationsContext.Provider value={value}>
       {children}
     </PaginationsContext.Provider>
   );

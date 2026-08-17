@@ -1,5 +1,7 @@
 import { DownloadEntry, MacroAndMicroData, Metadata, TaxonomyData } from "@/types";
 
+import { apiFetch } from "@/utils/apiFetch";
+
 // API base URL. On the server we hit the upstream ALB directly (it may be
 // HTTP — that's fine server-side). On the client we route through a
 // same-origin rewrite (/_proxy-api → ALB; configured in next.config.mjs)
@@ -47,14 +49,9 @@ export async function getMetaData(
   // entity" UI instead of crashing the page with a 500. The staging stack
   // is flaky enough that throwing here turned every blip into a hard error.
   try {
-    const res = await fetch(
+    const res = await apiFetch(
       `${apiBase()}/${entityType}/metadata?common_name=${encodeURIComponent(commonName)}`,
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
-        },
-        next: { revalidate: 86400 },
-      }
+      { revalidate: 86400 }
     );
     if (!res.ok) return null;
     const data = await res.json();
@@ -74,14 +71,9 @@ export async function getTaxonomyData(
   commonName: string,
   entityType: string
 ): Promise<TaxonomyData> {
-  const res = await fetch(
+  const res = await apiFetch(
     `${apiBase()}/${entityType}/taxonomy?common_name=${encodeURIComponent(commonName)}`,
-    {
-      headers: {
-        Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
-      },
-      next: { revalidate: 86400 },
-    }
+    { revalidate: 86400 }
   );
 
   if (!res.ok) {
@@ -99,14 +91,9 @@ export async function getTaxonomyData(
 export async function getFoodMacroAndMicroData(
   commonName: string
 ): Promise<MacroAndMicroData> {
-  const response = await fetch(
+  const response = await apiFetch(
     `${apiBase()}/food/profile?common_name=${encodeURIComponent(commonName)}`,
-    {
-      headers: {
-        Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
-      },
-      next: { revalidate: 86400 },
-    }
+    { revalidate: 86400 }
   );
 
   if (!response.ok) {
@@ -147,7 +134,7 @@ export async function getFoodCompositionData(
   const findParam = findChemical
     ? `&find_chemical=${encodeURIComponent(findChemical)}`
     : "";
-  const response = await fetch(
+  const response = await apiFetch(
     `${apiBase()}/food/composition?common_name=${encodeURIComponent(
       commonName
     )}&page=${currentPage}&filter_source=${sourceFilters.join(
@@ -155,12 +142,7 @@ export async function getFoodCompositionData(
     )}&search=${encodeURIComponent(searchTerm)}&sort_by=${
       sort.column
     }&sort_dir=${sort.direction}&show_all_rows=${showAllConcentrations}${clsParam}&trust=${trust}${findParam}`,
-    {
-      headers: {
-        Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
-      },
-      next: { revalidate: 86400 },
-    }
+    { revalidate: 86400 }
   );
 
   if (!response.ok) {
@@ -207,14 +189,9 @@ export async function getFoodCompositionCounts(
   if (filters.searchTerm) {
     params.set("search", filters.searchTerm);
   }
-  const response = await fetch(
+  const response = await apiFetch(
     `${apiBase()}/food/composition/counts?${params.toString()}`,
-    {
-      headers: {
-        Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
-      },
-      next: { revalidate: 86400 },
-    }
+    { revalidate: 86400 }
   );
 
   if (!response.ok) {
@@ -240,14 +217,9 @@ export async function getFoodCompositionCounts(
 
 // fetch chemical composition data, i.e. the foods containing it
 export async function getChemicalCompositionData(commonName: string) {
-  const res = await fetch(
+  const res = await apiFetch(
     `${apiBase()}/chemical/composition?common_name=${encodeURIComponent(commonName)}`,
-    {
-      headers: {
-        Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
-      },
-      next: { revalidate: 86400 },
-    }
+    { revalidate: 86400 }
   );
 
   if (!res.ok) {
@@ -271,12 +243,10 @@ export async function getDiseaseData(
   const url = `${apiBase()}/${tableLocation}/correlation?common_name=${encodeURIComponent(
     commonName
   )}&page=${currentPage}&relation=${correlationType}`;
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
-    },
-    next: { revalidate: 86400 },
-  });
+  const response = await apiFetch(
+    url,
+    { revalidate: 86400 }
+  );
 
   if (!response.ok) {
     throw new Error(`Failed to fetch data for ${tableLocation} ${commonName}`);
@@ -289,12 +259,10 @@ export async function getDiseaseData(
 
 // fetch db bundle download entries
 export async function getDownloadEntries() {
-  const response = await fetch(`${apiBase()}/download`, {
-    headers: {
-      Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
-    },
-    next: { revalidate: 300 },
-  });
+  const response = await apiFetch(
+    `${apiBase()}/download`,
+    { revalidate: 300 }
+  );
 
   if (!response.ok) {
     throw new Error("Failed to fetch food composition downloads");
@@ -310,12 +278,10 @@ export async function getDownloadEntries() {
 // than propagating a 500 (staging manifest is occasionally missing).
 export async function getLatestBundle(): Promise<DownloadEntry | null> {
   try {
-    const response = await fetch(`${apiBase()}/download`, {
-      headers: {
-        Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
-      },
-      next: { revalidate: 300 },
-    });
+    const response = await apiFetch(
+      `${apiBase()}/download`,
+      { revalidate: 300 }
+    );
     if (!response.ok) return null;
     const { data } = await response.json();
     if (!Array.isArray(data) || data.length === 0) return null;
@@ -393,16 +359,11 @@ const bioactivityListFetch = async (
   // paginated on 2026-07-31; the fallback stays as a general safety
   // net for the other list endpoints.)
   try {
-    const res = await fetch(
+    const res = await apiFetch(
       `${apiBase()}${path}?common_name=${encodeURIComponent(
         commonName
       )}${buildBioactivityQuery(params)}`,
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
-        },
-        next: { revalidate: 86400 },
-      }
+      { revalidate: 86400 }
     );
     if (!res.ok) {
       console.warn(`Failed to fetch ${label} for ${commonName}: HTTP ${res.status}`);
@@ -497,17 +458,12 @@ export async function getBioactivityMeasurements(
   relationship: "r5" | "r6"
 ) {
   try {
-    const res = await fetch(
+    // measurements are point-in-time data — 24h cache like everything else
+    const res = await apiFetch(
       `${apiBase()}/bioactivity/measurements?head_id=${encodeURIComponent(
         headId
       )}&tail_id=${encodeURIComponent(tailId)}&relationship=${relationship}`,
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
-        },
-        // measurements are point-in-time data — 24h cache like everything else
-        next: { revalidate: 86400 },
-      }
+      { revalidate: 86400 }
     );
     if (!res.ok) return null;
     return await res.json();
@@ -545,14 +501,9 @@ export async function getBioactivityEndpointOptions(
       skipUnit: true,
       skipCategory: true,
     });
-    const res = await fetch(
+    const res = await apiFetch(
       `${apiBase()}/bioactivity/endpoints?${params.toString()}`,
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
-        },
-        next: { revalidate: 86400 },
-      }
+      { revalidate: 86400 }
     );
     if (!res.ok) return [];
     const payload = await res.json();
@@ -611,14 +562,9 @@ export async function getBioactivityCategoryOptions(
     const params = new URLSearchParams({ common_name: commonName });
     // Categories excludes its own dimension (category) — apply all others.
     buildBioactivitySidebarParams(params, filters, { skipCategory: true });
-    const res = await fetch(
+    const res = await apiFetch(
       `${apiBase()}/bioactivity/categories?${params.toString()}`,
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
-        },
-        next: { revalidate: 86400 },
-      }
+      { revalidate: 86400 }
     );
     if (!res.ok) return [];
     const payload = await res.json();
@@ -649,14 +595,9 @@ export async function getBioactivitySourceKindCounts(
     });
     // Source kinds excludes its own dimension — apply all others.
     buildBioactivitySidebarParams(params, filters, { skipSourceKind: true });
-    const res = await fetch(
+    const res = await apiFetch(
       `${apiBase()}/bioactivity/source_kinds?${params.toString()}`,
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
-        },
-        next: { revalidate: 86400 },
-      }
+      { revalidate: 86400 }
     );
     if (!res.ok) return null;
     const payload = await res.json();
@@ -693,14 +634,9 @@ export async function getBioactivityEvidenceTypeCounts(
       skipEvidenceType: true,
       skipCategory: true,
     });
-    const res = await fetch(
+    const res = await apiFetch(
       `${apiBase()}/bioactivity/evidence_types?${params.toString()}`,
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
-        },
-        next: { revalidate: 86400 },
-      }
+      { revalidate: 86400 }
     );
     if (!res.ok) return [];
     const payload = await res.json();
@@ -716,14 +652,9 @@ export async function getBioactivityEvidenceTypeCounts(
 // by n_assays desc.
 const assayInferredFetch = async (path: string, commonName: string) => {
   try {
-    const res = await fetch(
+    const res = await apiFetch(
       `${apiBase()}${path}?common_name=${encodeURIComponent(commonName)}`,
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
-        },
-        next: { revalidate: 86400 },
-      }
+      { revalidate: 86400 }
     );
     if (!res.ok) {
       console.warn(
@@ -768,14 +699,9 @@ export const getBioactivityDiseases = (commonName: string) =>
 // error. Returns { data: FoodEfficacyRow[], metadata: { row_count } }.
 export async function getFoodEfficacy(commonName: string) {
   try {
-    const res = await fetch(
+    const res = await apiFetch(
       `${apiBase()}/food/efficacy?common_name=${encodeURIComponent(commonName)}`,
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
-        },
-        next: { revalidate: 86400 },
-      }
+      { revalidate: 86400 }
     );
     if (!res.ok) {
       console.warn(
