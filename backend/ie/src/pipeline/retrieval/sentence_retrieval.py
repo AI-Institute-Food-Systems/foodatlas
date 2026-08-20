@@ -127,7 +127,13 @@ def _process_article(
         raise ValueError(msg)
 
     document = documents[0]
-    pmcid = document["id"]
+    # NCBI's BioC leaves document["id"] as "unknown" for author-manuscript
+    # deposits (the `pmc` article-id is null while `pmcaid` holds the real id).
+    # Trust BioC's id only when it's a real PMCID; otherwise keep the PMCID we
+    # fetched with — which came from the PMC-ids.csv mapping and is correct.
+    doc_id = document["id"]
+    if doc_id and doc_id != "unknown" and str(doc_id).replace("PMC", "").isdigit():
+        pmcid = doc_id
     translated = _build_translated_queries(queries, foods_trans_dict)
     result: dict[str, list[Any]] = {
         "pmcid": [],
