@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { MdClose, MdTune, MdWarningAmber } from "react-icons/md";
-import { twMerge } from "tailwind-merge";
+import { MdTune } from "react-icons/md";
 
 import Card from "@/components/basic/Card";
 import EvidenceTable from "@/components/entities/food/EvidenceTable";
@@ -90,8 +89,6 @@ interface FoodCompositionEvidenceModalProps {
   onClose: () => void;
   initialFilter?: EvidenceFilter;
 }
-
-const LOW_TRUST_CYCLE: EvidenceFilter[] = ["all", "low-trust"];
 
 const FoodCompositionEvidenceModal = ({
   foodName,
@@ -181,13 +178,6 @@ const FoodCompositionEvidenceModal = ({
     return counts;
   }, [countExtractions, sourceKeys, lowTrustOnly]);
 
-  const cycleLowTrustFilter = () =>
-    setFilter((f) => {
-      const idx = LOW_TRUST_CYCLE.indexOf(f);
-      if (idx === -1) return LOW_TRUST_CYCLE[1];
-      return LOW_TRUST_CYCLE[(idx + 1) % LOW_TRUST_CYCLE.length];
-    });
-
   // Filter is applied at the extraction level so the table's row set
   // exactly matches the active chip's count. Evidences with no rows
   // remaining after the extraction filter are dropped so their paper
@@ -216,11 +206,6 @@ const FoodCompositionEvidenceModal = ({
     [displayedEvidences],
   );
 
-  const lowTrustLabel =
-    filter === "low-trust"
-      ? `Only low-trust (${lowTrustCount})`
-      : `All (${totalCount})`;
-
   const searchInput = (
     <SearchInput
       value={searchTerm}
@@ -238,8 +223,7 @@ const FoodCompositionEvidenceModal = ({
       filter={filter}
       lowTrustCount={lowTrustCount}
       totalCount={totalCount}
-      onCycleLowTrust={cycleLowTrustFilter}
-      lowTrustLabel={lowTrustLabel}
+      onSetFilter={setFilter}
     />
   );
 
@@ -340,8 +324,7 @@ const FiltersPanel = ({
   filter,
   lowTrustCount,
   totalCount,
-  onCycleLowTrust,
-  lowTrustLabel,
+  onSetFilter,
 }: {
   sourceKind: string;
   sourceKeys: string[];
@@ -350,8 +333,7 @@ const FiltersPanel = ({
   filter: EvidenceFilter;
   lowTrustCount: number;
   totalCount: number;
-  onCycleLowTrust: () => void;
-  lowTrustLabel: string;
+  onSetFilter: (f: EvidenceFilter) => void;
 }) => (
   <div className="flex flex-col gap-5">
     <FilterGroup label="Source">
@@ -370,32 +352,34 @@ const FiltersPanel = ({
       </FilterOptionList>
     </FilterGroup>
 
-    <FilterGroup label="Quality">
-      <div className="flex flex-col gap-2">
-        <button
-          type="button"
-          onClick={onCycleLowTrust}
-          disabled={lowTrustCount === 0}
-          aria-disabled={lowTrustCount === 0 || undefined}
-          className={twMerge(
-            "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium w-fit transition-colors",
-            filter === "low-trust"
-              ? "text-rose-300 border-rose-400 bg-rose-500/20 hover:bg-rose-500/30"
-              : "text-light-300 border-light-500 bg-light-500/10 hover:bg-light-500/20",
-            lowTrustCount === 0 &&
-              "opacity-40 cursor-not-allowed hover:bg-transparent",
-          )}
-          aria-label="Cycle low-trust filter"
-        >
-          <MdWarningAmber className="size-3.5" />
-          {lowTrustLabel}
-        </button>
-      </div>
-      <span className="mt-1 text-[10px] text-light-500 font-mono">
-        {totalCount.toLocaleString()} data point
-        {totalCount === 1 ? "" : "s"} total
-      </span>
-    </FilterGroup>
+    {/* Two mutually exclusive options, so a radio facet like every other
+      * single-select group. It used to be one cycle button whose label WAS
+      * its state ("All (6)" / "Only low-trust (2)"), which read as a
+      * mystery chip when nothing was low-trust: disabled, warning-triangled,
+      * and saying "All (6)" next to a line repeating the same 6.
+      *
+      * Hidden entirely when there is nothing low-trust to filter, matching
+      * how Source, Unit and Evidence hide when they have no options. */}
+    {lowTrustCount > 0 && (
+      <FilterGroup label="Quality">
+        <FilterOptionList mode="radio" ariaLabel="Evidence quality">
+          <FilterOption
+            mode="radio"
+            label="All"
+            count={totalCount}
+            selected={filter === "all"}
+            onClick={() => onSetFilter("all")}
+          />
+          <FilterOption
+            mode="radio"
+            label="Low-trust only"
+            count={lowTrustCount}
+            selected={filter === "low-trust"}
+            onClick={() => onSetFilter("low-trust")}
+          />
+        </FilterOptionList>
+      </FilterGroup>
+    )}
   </div>
 );
 
