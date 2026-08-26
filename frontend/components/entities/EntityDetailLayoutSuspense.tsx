@@ -2,6 +2,7 @@ import Card from "@/components/basic/Card";
 import Skeleton from "@/components/basic/Skeleton";
 import { TableSkeleton } from "@/components/basic/TableSkeleton";
 import type { SkeletonColumn } from "@/components/basic/skeletonTokens";
+import { FILTER_SIDEBAR_CLASS } from "@/components/entities/shared/filters/FilterPanel";
 import {
   DEFAULT_TAB_ID,
   ENTITY_TABS,
@@ -108,7 +109,7 @@ const EntityDetailLayoutSuspense = ({ entityType }: Props) => {
             * up, mirrored so wide viewports reserve the same gutter.
             * Absolutely positioned off the Card, exactly as the real one
             * is, so it costs the body no layout. */}
-          <aside className="hidden min-[1440px]:block absolute right-full mr-10 -top-[17px] bottom-0 w-48">
+          <aside className={FILTER_SIDEBAR_CLASS}>
             <div className="sticky top-4">
               <Card className="gap-3">
                 <Skeleton shape="block" className="h-8 w-full rounded-md" />

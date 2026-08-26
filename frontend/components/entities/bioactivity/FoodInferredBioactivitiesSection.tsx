@@ -24,6 +24,8 @@ import {
 import { twMerge } from "tailwind-merge";
 
 import Card from "@/components/basic/Card";
+import { ClearFiltersLink } from "@/components/entities/shared/filters/FilterControls";
+import FilterPanel from "@/components/entities/shared/filters/FilterPanel";
 import Chip from "@/components/basic/Chip";
 import Link from "@/components/basic/Link";
 import {
@@ -340,13 +342,7 @@ const FoodInferredBioactivitiesSection = ({
         <MdInfoOutline />
         No inferred bioactivities match your filters
       </div>
-      <button
-        type="button"
-        onClick={resetForEmptyState}
-        className="text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
-      >
-        clear filters
-      </button>
+      <ClearFiltersLink onClick={resetForEmptyState} />
     </div>
   ) : (
     <div className="flex items-center gap-2 text-light-300 text-sm">
@@ -379,16 +375,19 @@ const FoodInferredBioactivitiesSection = ({
   );
 
   return (
-    <div className="relative flex flex-col gap-7">
-      {/* Desktop sidebar + sub-1440 search input — hidden when a
-       * parent (FoodBioactivitiesTab) hosts the shared chrome. */}
-      {!hideChrome && (
-        <aside className="hidden min-[1440px]:block absolute right-full mr-10 -top-[17px] bottom-0 w-48">
-          <div className="sticky top-4">
-            <Card>{searchInput}</Card>
-          </div>
-        </aside>
-      )}
+    // Search-only panel: this section has no facets of its own, so the
+    // sidebar carries just the input. Still FilterPanel rather than a
+    // bare aside, so its geometry cannot drift from the other five.
+    <FilterPanel
+      search={searchInput}
+      filters={null}
+      isDirty={effectiveSearchTerm !== ""}
+      onReset={resetForEmptyState}
+      open={false}
+      onOpenChange={() => undefined}
+      hideChrome={hideChrome}
+    >
+      <div className="flex flex-col gap-7">
 
       {/* Heading + provenance disclaimer — same chip vocabulary as the
        * card-catalog sections. The italic line frames the data as
@@ -682,7 +681,8 @@ const FoodInferredBioactivitiesSection = ({
         relationship="r6"
         headIsRow={false}
       />
-    </div>
+      </div>
+    </FilterPanel>
   );
 };
 

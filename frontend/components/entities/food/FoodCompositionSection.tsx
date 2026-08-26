@@ -35,10 +35,14 @@ import FoodCompositionEvidenceModal, {
   EvidenceFilter,
 } from "@/components/entities/food/FoodCompositionEvidenceModal";
 import {
+  ClearFiltersLink,
   FilterGroup,
+  FilterOption,
+  FilterOptionList,
   FilterRowLabel,
   ToggleSwitch,
-} from "@/components/entities/shared/CompositionFilterControls";
+} from "@/components/entities/shared/filters/FilterControls";
+import FilterPanel from "@/components/entities/shared/filters/FilterPanel";
 import { usePaginations } from "@/context/paginationsContext";
 import { usePublishTabCount } from "@/context/tabCountsContext";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
@@ -501,13 +505,7 @@ const FoodCompositionSection = ({
         <MdInfoOutline />
         No associations match your filters
       </div>
-      <button
-        type="button"
-        onClick={resetAllFilters}
-        className="text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
-      >
-        clear filters
-      </button>
+      <ClearFiltersLink onClick={resetAllFilters} />
     </div>
   ) : (
     <div className="flex items-center gap-2 text-light-300 text-sm">
@@ -702,11 +700,11 @@ const FoodCompositionSection = ({
 
       {/* source — checkbox list, one row per source */}
       <FilterGroup label="Source">
-        <FilterList>
+        <FilterOptionList>
           {SOURCE_OPTIONS.map((opt) => {
             const c = sourceCounts[opt.value];
             return (
-              <FilterListItem
+              <FilterOption
                 key={opt.value}
                 label={opt.label}
                 count={c}
@@ -717,7 +715,7 @@ const FoodCompositionSection = ({
               />
             );
           })}
-        </FilterList>
+        </FilterOptionList>
       </FilterGroup>
 
       {/* nutrient classification — same checklist chrome; 15+ options
@@ -725,28 +723,22 @@ const FoodCompositionSection = ({
        * past the viewport. */}
       <FilterGroup
         label="Class"
-        action={
-          classificationFilter.length > 0 ? (
-            <button
-              type="button"
-              onClick={() => {
+        onClear={
+          classificationFilter.length > 0
+            ? () => {
                 setTablePaginations("food-composition-table", 1, 20);
                 setClassificationFilter([]);
-              }}
-              className="text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
-            >
-              clear
-            </button>
-          ) : null
+              }
+            : undefined
         }
       >
-        <FilterList maxHeightClass="max-h-72">
+        <FilterOptionList maxHeightClass="max-h-72">
           {visibleClassOptions.map((cls) => {
             // Deliberately not `?? 0`: before the counts land every row
             // would read as a real zero and disable itself.
             const c = countsLoaded ? (classificationCounts[cls] ?? 0) : undefined;
             return (
-              <FilterListItem
+              <FilterOption
                 key={cls}
                 label={cls === "n/a" ? "unclassified" : cls}
                 count={c}
@@ -757,66 +749,22 @@ const FoodCompositionSection = ({
               />
             );
           })}
-        </FilterList>
+        </FilterOptionList>
       </FilterGroup>
-
-      {/* Panel-level action, last so it reads as "undo everything above".
-       * Clears search + every filter and snaps pagination to page 1. */}
-      <ResetFiltersButton
-        isDirty={isFiltersDirty}
-        onReset={resetAllFilters}
-      />
-    </div>
-  );
-
-  // Full sidebar (search on top + filters underneath). Used both in the
-  // desktop absolute-positioned aside and as the mobile-view content
-  // that pairs a visible search input with a drawer of the remaining
-  // controls.
-  const filterPanel = (
-    <div className="flex flex-col gap-5">
-      {searchInput}
-      {filtersOnlyPanel}
     </div>
   );
 
   return (
     <>
-      <div id="composition" className="relative scroll-mt-8">
-          {/* Desktop sidebar sits OUTSIDE the table's flow — absolutely
-           * positioned to the left of the composition wrapper via
-           * `right-full`, so the table keeps its full centered max-width.
-           * top-0 bottom-0 stretches the aside to the section's height so
-           * the inner `sticky top-4` div can trail the scroll until the
-           * section ends. Only shown at min-[1440px]+ where the outer
-           * max-w-5xl gutter has enough room for the w-48 aside plus
-           * mr-4 gap; the drawer covers narrower widths. */}
-          <aside className="hidden min-[1440px]:block absolute right-full mr-10 -top-[17px] bottom-0 w-48">
-            {/* -top-[17px] sits halfway between -top-4 (16) and -top-5
-             * (20) so the aside lines up with the Card border-top;
-             * mr-10 (40px) gives a clear gap from the Card frame.
-             * Wrapping the inner box in <Card> matches the tab card's
-             * exact border/shadow/rounded so the sidebar and the
-             * table frame read as siblings. */}
-            <div className="sticky top-4">
-              <Card>{filterPanel}</Card>
-            </div>
-          </aside>
-
-          {/* Sub-1440 row: search visible on the left, Filters trigger
-           * on the right. Search stays outside the drawer so the user
-           * doesn't have to open a modal to type. */}
-          <div className="min-[1440px]:hidden mb-1 flex items-center gap-3">
-            <div className="flex-1 min-w-0 max-w-xs">{searchInput}</div>
-            <button
-              type="button"
-              onClick={() => setMobileFiltersOpen(true)}
-              className="inline-flex items-center gap-2 rounded-md border border-light-700/60 bg-light-900/60 px-3 py-1.5 text-xs font-mono italic text-light-300 hover:text-light-100 hover:border-light-500 transition-colors"
-            >
-              <MdTune className="w-4 h-4" />
-              Filters
-            </button>
-          </div>
+      <FilterPanel
+        id="composition"
+        search={searchInput}
+        filters={filtersOnlyPanel}
+        isDirty={isFiltersDirty}
+        onReset={resetAllFilters}
+        open={mobileFiltersOpen}
+        onOpenChange={setMobileFiltersOpen}
+      >
 
           <div className="flex flex-col gap-7">
           <div>
@@ -1247,41 +1195,7 @@ const FoodCompositionSection = ({
           )}
           </div>
 
-          {/* Drawer — slides in from the right, dark backdrop behind.
-           * Same filterPanel as the sidebar. Esc/backdrop close. Shown
-           * on every viewport that doesn't have the desktop sidebar. */}
-          {mobileFiltersOpen && (
-            <div
-              className="fixed inset-0 z-50 min-[1440px]:hidden"
-              role="dialog"
-              aria-modal="true"
-              aria-label="Filters"
-            >
-              <button
-                type="button"
-                aria-label="Close filters"
-                onClick={() => setMobileFiltersOpen(false)}
-                className="absolute inset-0 bg-black/60 cursor-default"
-              />
-              <aside className="absolute right-0 top-0 h-full w-[85vw] max-w-sm bg-light-950 border-l border-light-700/50 overflow-y-auto flex flex-col gap-4 p-4">
-                <div className="flex items-center justify-between">
-                  <span className="font-mono italic text-sm text-light-300">
-                    Filters
-                  </span>
-                  <button
-                    type="button"
-                    aria-label="Close filters"
-                    onClick={() => setMobileFiltersOpen(false)}
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-light-400 hover:text-light-100 hover:bg-light-800 transition-colors"
-                  >
-                    <MdClose className="w-4 h-4" />
-                  </button>
-                </div>
-                {filtersOnlyPanel}
-              </aside>
-            </div>
-          )}
-      </div>
+      </FilterPanel>
       {/* evidence modal */}
       <Portal>
         <FoodCompositionEvidenceModal
@@ -1308,100 +1222,5 @@ const FoodCompositionSection = ({
 };
 
 FoodCompositionSection.displayName = "FoodCompositionSection";
-
-// -- Filter block chrome -----------------------------------------------------
-// Small, purely-presentational helpers so the JSX above reads as a filter
-// spec ("Options | Source | Class") rather than a wall of class strings.
-
-// A vertical list of checkbox rows. Optionally caps its height + scrolls
-// so Class (15+ items) doesn't push the sticky sidebar past the viewport.
-const FilterList = ({
-  maxHeightClass,
-  children,
-}: {
-  maxHeightClass?: string;
-  children: React.ReactNode;
-}) => (
-  <div
-    className={twMerge(
-      "flex flex-col -mx-1",
-      maxHeightClass ? `${maxHeightClass} overflow-y-auto` : undefined
-    )}
-  >
-    {children}
-  </div>
-);
-
-// One row in the filter list. Full-width click target, checkbox affordance
-// on the left, label in the middle, count right-aligned. Full-row hover
-// state makes the whole thing feel tappable.
-//
-// When count is 0 the row renders `disabled` — visible but greyed and
-// non-interactive — instead of being hidden, so the filter space keeps
-// the same shape whatever the pivot entity has evidence for.
-const FilterListItem = ({
-  label,
-  count,
-  selected,
-  onClick,
-  disabled,
-  countsLoaded = true,
-}: {
-  label: string;
-  count?: number;
-  selected: boolean;
-  onClick: () => void;
-  disabled?: boolean;
-  // False while the facet counts are still in flight. Distinguishes "not
-  // fetched yet" from "genuinely zero" — without it a row shows no count,
-  // stays enabled, and then greys out under the user's cursor when the
-  // counts land.
-  countsLoaded?: boolean;
-}) => (
-  <button
-    type="button"
-    onClick={onClick}
-    disabled={disabled}
-    aria-pressed={selected}
-    aria-disabled={disabled || undefined}
-    className={twMerge(
-      "group w-full flex items-center gap-2 pl-1 pr-2 py-1 rounded transition-colors text-left",
-      selected
-        ? "text-light-100 hover:bg-light-900/70"
-        : "text-light-400 hover:text-light-100 hover:bg-light-900/50",
-      disabled && "opacity-40 cursor-not-allowed hover:bg-transparent hover:text-light-400"
-    )}
-  >
-    <span
-      aria-hidden
-      className={twMerge(
-        "w-3.5 h-3.5 rounded-[3px] border flex-shrink-0 flex items-center justify-center transition-colors",
-        selected
-          ? "border-accent-600 bg-accent-600/20 text-accent-600"
-          : "border-light-700 group-hover:border-light-500",
-        disabled && "group-hover:border-light-700"
-      )}
-    >
-      {selected && <MdCheck className="w-3 h-3" />}
-    </span>
-    <span className="capitalize font-mono italic text-xs flex-1 min-w-0 truncate">
-      {label}
-    </span>
-    {typeof count === "number" ? (
-      <span
-        className={twMerge(
-          "not-italic tabular-nums text-[10px] flex-shrink-0",
-          selected ? "text-light-400" : "text-light-500"
-        )}
-      >
-        {count}
-      </span>
-    ) : (
-      // Reserve the slot so the label doesn't reflow when the number
-      // arrives.
-      !countsLoaded && <Skeleton className="h-3 w-5 flex-shrink-0" />
-    )}
-  </button>
-);
 
 export default FoodCompositionSection;

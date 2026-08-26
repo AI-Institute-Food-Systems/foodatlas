@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { MdInfo, MdInfoOutline } from "react-icons/md";
 
 import Pagination from "@/components/basic/Pagination";
-import ResetFiltersButton from "@/components/basic/ResetFiltersButton";
 import ChemicalCompositionCards from "@/components/entities/chemical/ChemicalCompositionCards";
 import FoodCompositionEvidenceModal from "@/components/entities/food/FoodCompositionEvidenceModal";
 import { getChemicalCompositionEvidence } from "@/utils/fetching";
@@ -15,8 +14,9 @@ import ChemicalCompositionTableRow, {
 import {
   CompositionFilterPanel,
   CompositionMobileSort,
+  CompositionSearchInput,
 } from "@/components/entities/chemical/ChemicalCompositionToolbar";
-import ChemicalCompositionFilters from "@/components/entities/chemical/ChemicalCompositionFilters";
+import FilterPanel from "@/components/entities/shared/filters/FilterPanel";
 import ChemicalCompositionHead from "@/components/entities/chemical/ChemicalCompositionHead";
 import { usePaginations } from "@/context/paginationsContext";
 import { useReportRows } from "@/context/reportModeContext";
@@ -199,35 +199,33 @@ const ChemicalCompositionTable = ({
   const isFiltered = search.trim() !== "" || sources.length > 0;
   const isFiltersDirty = isFiltered || !includeUnmeasured;
 
-  // One instance, rendered into either the sidebar or the drawer, so the
-  // reset control belongs here rather than at either call site.
-  const filterPanel = (
-    <>
-      <CompositionFilterPanel
-        sourceCounts={sourceCounts}
-        selectedSources={sources}
-        onToggleSource={toggleSource}
-        unmeasuredCount={unmeasuredCount}
-        includeUnmeasured={includeUnmeasured}
-        onToggleUnmeasured={() => {
-          setIncludeUnmeasured((v) => !v);
-          setTablePaginations(TABLE_ID, 1, ROWS_PER_PAGE);
-        }}
-      />
-      <ResetFiltersButton isDirty={isFiltersDirty} onReset={resetAllFilters} />
-    </>
-  );
-
   return (
+    <FilterPanel
+      search={
+        <CompositionSearchInput
+          search={search}
+          onSearchChange={handleSearchChange}
+        />
+      }
+      filters={
+        <CompositionFilterPanel
+          sourceCounts={sourceCounts}
+          selectedSources={sources}
+          onToggleSource={toggleSource}
+          unmeasuredCount={unmeasuredCount}
+          includeUnmeasured={includeUnmeasured}
+          onToggleUnmeasured={() => {
+            setIncludeUnmeasured((v) => !v);
+            setTablePaginations(TABLE_ID, 1, ROWS_PER_PAGE);
+          }}
+        />
+      }
+      isDirty={isFiltersDirty}
+      onReset={resetAllFilters}
+      open={mobileFiltersOpen}
+      onOpenChange={setMobileFiltersOpen}
+    >
     <div className="flex flex-col gap-4">
-      <ChemicalCompositionFilters
-        search={search}
-        onSearchChange={handleSearchChange}
-        filterPanel={filterPanel}
-        mobileOpen={mobileFiltersOpen}
-        onMobileOpenChange={setMobileFiltersOpen}
-      />
-
       <CompositionMobileSort
         sort={sort}
         onSortChange={(next) => {
@@ -318,6 +316,7 @@ const ChemicalCompositionTable = ({
         onClose={() => setEvidenceFood("")}
       />
     </div>
+    </FilterPanel>
   );
 };
 

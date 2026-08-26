@@ -7,6 +7,12 @@ import { twMerge } from "tailwind-merge";
 import Card from "@/components/basic/Card";
 import EvidenceTable from "@/components/entities/food/EvidenceTable";
 import Modal from "@/components/basic/Modal";
+import {
+  FilterGroup,
+  FilterOption,
+  FilterOptionList,
+} from "@/components/entities/shared/filters/FilterControls";
+import { FilterDrawer } from "@/components/entities/shared/filters/FilterPanel";
 import { FoodEvidence, FoodEvidenceExtraction } from "@/types/Evidence";
 
 const isLowTrust = (ex: FoodEvidenceExtraction): boolean => Boolean(ex.trust_low);
@@ -291,37 +297,12 @@ const FoodCompositionEvidenceModal = ({
       {/* Sub-1440px filter drawer. Mirrors the bioactivity modal's
        * drawer so the same filter chrome is reachable on narrow
        * viewports where the sidebar is hidden. */}
-      {mobileFiltersOpen && (
-        <div
-          className="fixed inset-0 z-[60] min-[1440px]:hidden"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Filters"
-        >
-          <button
-            type="button"
-            aria-label="Close filters"
-            onClick={() => setMobileFiltersOpen(false)}
-            className="absolute inset-0 bg-black/60 cursor-default"
-          />
-          <aside className="absolute right-0 top-0 h-full w-[85vw] max-w-sm bg-light-950 border-l border-light-700/50 overflow-y-auto flex flex-col gap-4 p-4">
-            <div className="flex items-center justify-between">
-              <span className="font-mono italic text-sm text-light-300">
-                Filters
-              </span>
-              <button
-                type="button"
-                onClick={() => setMobileFiltersOpen(false)}
-                aria-label="Close filters"
-                className="w-8 h-8 rounded-full flex items-center justify-center text-light-400 hover:text-light-100 hover:bg-light-800/60 transition-colors"
-              >
-                <MdClose className="w-4 h-4" />
-              </button>
-            </div>
-            {filtersPanel}
-          </aside>
-        </div>
-      )}
+      <FilterDrawer
+        open={mobileFiltersOpen}
+        onClose={() => setMobileFiltersOpen(false)}
+      >
+        {filtersPanel}
+      </FilterDrawer>
     </Modal>
   );
 };
@@ -386,18 +367,12 @@ const FiltersPanel = ({
   lowTrustLabel: string;
 }) => (
   <div className="flex flex-col gap-5">
-    <div className="flex flex-col gap-1.5">
-      <span className="font-mono italic text-[11px] uppercase tracking-wider text-light-400">
-        Source
-      </span>
-      <div
-        className="flex flex-col -mx-1"
-        role="radiogroup"
-        aria-label="Evidence source"
-      >
+    <FilterGroup label="Source">
+      <FilterOptionList mode="radio" ariaLabel="Evidence source">
         {buildSourceKinds(sourceKeys).map(({ key, label }) => (
-          <RadioRow
+          <FilterOption
             key={label}
+            mode="radio"
             label={label}
             count={sourceCounts[key] ?? 0}
             selected={sourceKind === key}
@@ -405,13 +380,10 @@ const FiltersPanel = ({
             onClick={() => onSourceKindChange(key)}
           />
         ))}
-      </div>
-    </div>
+      </FilterOptionList>
+    </FilterGroup>
 
-    <div className="flex flex-col gap-1.5">
-      <span className="font-mono italic text-[11px] uppercase tracking-wider text-light-400">
-        Quality
-      </span>
+    <FilterGroup label="Quality">
       <div className="flex flex-col gap-2">
         <button
           type="button"
@@ -436,50 +408,7 @@ const FiltersPanel = ({
         {totalCount.toLocaleString()} data point
         {totalCount === 1 ? "" : "s"} total
       </span>
-    </div>
+    </FilterGroup>
   </div>
 );
 
-const RadioRow = ({
-  label,
-  count,
-  selected,
-  disabled,
-  onClick,
-}: {
-  label: string;
-  count: number;
-  selected: boolean;
-  disabled?: boolean;
-  onClick: () => void;
-}) => (
-  <button
-    type="button"
-    role="radio"
-    aria-checked={selected}
-    disabled={disabled}
-    aria-disabled={disabled || undefined}
-    onClick={onClick}
-    className={twMerge(
-      "group w-full flex items-center gap-2 pl-1 pr-2 py-1 rounded transition-colors text-left disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent",
-      selected
-        ? "text-light-100 hover:bg-light-900/70"
-        : "text-light-400 hover:text-light-100 hover:bg-light-900/50",
-    )}
-  >
-    {/* Source names come from the data, so a future lowercase one would
-     * otherwise render lowercase here while its sibling modal capitalizes.
-     * Harmless on the current values — CSS capitalize leaves FDC/PTFI alone. */}
-    <span className="font-mono text-xs flex-1 min-w-0 truncate capitalize">
-      {label}
-    </span>
-    <span
-      className={twMerge(
-        "tabular-nums text-[10px] flex-shrink-0",
-        selected ? "text-light-400" : "text-light-500",
-      )}
-    >
-      {count.toLocaleString()}
-    </span>
-  </button>
-);

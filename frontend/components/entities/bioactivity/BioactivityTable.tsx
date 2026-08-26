@@ -31,8 +31,14 @@ import {
   TableSkeletonRows,
 } from "@/components/basic/TableSkeleton";
 import Pagination from "@/components/basic/Pagination";
-import ResetFiltersButton from "@/components/basic/ResetFiltersButton";
 import SortListbox from "@/components/basic/SortListbox";
+import {
+  ClearFiltersLink,
+  FilterGroup,
+  FilterOption,
+  FilterOptionList,
+} from "@/components/entities/shared/filters/FilterControls";
+import FilterPanel from "@/components/entities/shared/filters/FilterPanel";
 import { useReportRows } from "@/context/reportModeContext";
 import BioactivityMeasurementsModal from "@/components/entities/bioactivity/BioactivityMeasurementsModal";
 import { formatTopMeasurement, topMeasurementOf } from "@/components/entities/bioactivity/format";
@@ -611,13 +617,7 @@ const BioactivityTable = ({
         <MdInfoOutline />
         {emptyMessageFiltered ?? "No results match the current filters."}
       </div>
-      <button
-        type="button"
-        onClick={resetForEmptyState}
-        className="text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
-      >
-        clear filters
-      </button>
+      <ClearFiltersLink onClick={resetForEmptyState} />
     </div>
   ) : (
     <div className="flex items-center gap-2 text-light-300 text-sm">
@@ -630,29 +630,19 @@ const BioactivityTable = ({
   const filtersOnlyPanel = (
     <div className="flex flex-col gap-5">
       {unitOptions.length > 0 && (
-        <div className="flex flex-col gap-1.5">
-          <div className="flex items-baseline justify-between gap-2">
-            <span className="font-mono italic text-[11px] uppercase tracking-wider text-light-400 min-w-[3.5rem]">
-              Unit
-            </span>
-            {selectedUnits.length > 0 && (
-              <button
-                type="button"
-                onClick={clearUnits}
-                className="text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
-              >
-                clear
-              </button>
-            )}
-          </div>
-          <div className="flex flex-col -mx-1">
+        <FilterGroup
+          label="Unit"
+          onClear={selectedUnits.length > 0 ? clearUnits : undefined}
+        >
+          <FilterOptionList>
             {visibleUnits.map(({ unit, count }) => (
-              <UnitRow
+              <FilterOption
                 key={unit}
-                unit={unit}
+                label={unit}
                 count={count}
                 selected={selectedUnits.includes(unit)}
                 onClick={() => toggleUnit(unit)}
+                capitalize={false}
               />
             ))}
             {!showAllUnits && hiddenUnitsCount > 0 && (
@@ -673,83 +663,54 @@ const BioactivityTable = ({
                 collapse
               </button>
             )}
-          </div>
-        </div>
+          </FilterOptionList>
+        </FilterGroup>
       )}
 
       {categoryOptions.length > 0 && (
-        <div className="flex flex-col gap-1.5">
-          <div className="flex items-baseline justify-between gap-2">
-            <span className="font-mono italic text-[11px] uppercase tracking-wider text-light-400 min-w-[3.5rem]">
-              Category
-            </span>
-            {selectedCategories.length > 0 && (
-              <button
-                type="button"
-                onClick={clearCategories}
-                className="text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
-              >
-                clear
-              </button>
-            )}
-          </div>
-          <div className="flex flex-col -mx-1">
+        <FilterGroup
+          label="Category"
+          onClear={selectedCategories.length > 0 ? clearCategories : undefined}
+        >
+          <FilterOptionList>
             {categoryOptions.map(({ category, count }) => (
-              <UnitRow
+              <FilterOption
                 key={category}
-                unit={category}
+                label={category}
                 count={count}
                 selected={selectedCategories.includes(category)}
                 onClick={() => toggleCategory(category)}
-                capitalizeLabel
               />
             ))}
-          </div>
-        </div>
+          </FilterOptionList>
+        </FilterGroup>
       )}
 
       {evidenceTypeOptions.length > 0 && (
-        <div className="flex flex-col gap-1.5">
-          <div className="flex items-baseline justify-between gap-2">
-            <span className="font-mono italic text-[11px] uppercase tracking-wider text-light-400 min-w-[3.5rem]">
-              Evidence
-            </span>
-            {selectedEvidenceTypes.length > 0 && (
-              <button
-                type="button"
-                onClick={clearEvidenceTypes}
-                className="text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
-              >
-                clear
-              </button>
-            )}
-          </div>
-          <div className="flex flex-col -mx-1">
+        <FilterGroup
+          label="Evidence"
+          onClear={
+            selectedEvidenceTypes.length > 0 ? clearEvidenceTypes : undefined
+          }
+        >
+          <FilterOptionList>
             {evidenceTypeOptions.map(({ evidence_type, count }) => (
-              <UnitRow
+              <FilterOption
                 key={evidence_type}
-                unit={evidence_type}
+                label={evidence_type}
                 count={count}
                 selected={selectedEvidenceTypes.includes(evidence_type)}
                 onClick={() => toggleEvidenceType(evidence_type)}
-                capitalizeLabel
               />
             ))}
-          </div>
-        </div>
+          </FilterOptionList>
+        </FilterGroup>
       )}
 
-      <div className="flex flex-col gap-1.5">
-        <div className="flex items-baseline justify-between gap-2">
-          <span className="font-mono italic text-[11px] uppercase tracking-wider text-light-400 min-w-[3.5rem]">
-            Assay Source
-          </span>
-        </div>
-        <div
-          className="flex flex-col -mx-1"
-          role="radiogroup"
-          aria-label="Assay Source"
-        >
+      <FilterGroup label="Assay Source">
+        {/* Single-select, so radio affordance — the only thing `mode`
+          * changes. Behaviour is identical to the check rows above. */}
+        <FilterOptionList mode="radio" ariaLabel="Assay Source">
           {SOURCE_KINDS.map(({ key, label }) => {
             const c =
               sourceKindCounts === null
@@ -760,60 +721,33 @@ const BioactivityTable = ({
                 ? sourceKindCounts.experimental
                 : sourceKindCounts.predicted;
             return (
-              <SourceKindRow
+              <FilterOption
                 key={label}
+                mode="radio"
                 label={label}
                 count={c}
+                countsLoaded={sourceKindCounts !== null}
                 selected={selectedSourceKind === key}
                 disabled={typeof c === "number" && key !== "" && c === 0}
                 onClick={() => chooseSourceKind(key)}
               />
             );
           })}
-        </div>
-      </div>
-
-      {/* Panel-level action, last so it reads as "undo everything above". */}
-      <ResetFiltersButton isDirty={isFiltersDirty} onReset={resetAllFilters} />
-    </div>
-  );
-
-  // Full sidebar panel — search on top of non-search filters.
-  const filterPanel = (
-    <div className="flex flex-col gap-5">
-      {searchInput}
-      {filtersOnlyPanel}
+        </FilterOptionList>
+      </FilterGroup>
     </div>
   );
 
   return (
-    <div className="relative">
-      {/* Desktop sidebar — same geometry as FoodCompositionSection so
-       * the two pages have matching chrome. Suppressed when a parent
-       * hosts the shared search+filter chrome (hideChrome). */}
-      {!hideChrome && (
-        <aside className="hidden min-[1440px]:block absolute right-full mr-10 -top-[17px] bottom-0 w-48">
-          <div className="sticky top-4">
-            <Card>{filterPanel}</Card>
-          </div>
-        </aside>
-      )}
-
-      {/* Sub-1440 row: search visible on the left; Filters button on
-       * the right. */}
-      {!hideChrome && (
-        <div className="min-[1440px]:hidden mb-4 flex items-center gap-3">
-          <div className="flex-1 min-w-0 max-w-xs">{searchInput}</div>
-          <button
-            type="button"
-            onClick={() => setMobileFiltersOpen(true)}
-            className="inline-flex items-center gap-2 rounded-md border border-light-700/60 bg-light-900/60 px-3 py-1.5 text-xs font-mono italic text-light-300 hover:text-light-100 hover:border-light-500 transition-colors"
-          >
-            <MdTune className="w-4 h-4" />
-            Filters
-          </button>
-        </div>
-      )}
+    <FilterPanel
+      search={searchInput}
+      filters={filtersOnlyPanel}
+      isDirty={isFiltersDirty}
+      onReset={resetAllFilters}
+      open={mobileFiltersOpen}
+      onOpenChange={setMobileFiltersOpen}
+      hideChrome={hideChrome}
+    >
 
       <div className="flex flex-col gap-7">
       <div>
@@ -1029,38 +963,6 @@ const BioactivityTable = ({
       )}
       </div>
 
-      {!hideChrome && mobileFiltersOpen && (
-        <div
-          className="fixed inset-0 z-50 min-[1440px]:hidden"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Filters"
-        >
-          <button
-            type="button"
-            aria-label="Close filters"
-            onClick={() => setMobileFiltersOpen(false)}
-            className="absolute inset-0 bg-black/60 cursor-default"
-          />
-          <aside className="absolute right-0 top-0 h-full w-[85vw] max-w-sm bg-light-950 border-l border-light-700/50 overflow-y-auto flex flex-col gap-4 p-4">
-            <div className="flex items-center justify-between">
-              <span className="font-mono italic text-sm text-light-300">
-                Filters
-              </span>
-              <button
-                type="button"
-                aria-label="Close filters"
-                onClick={() => setMobileFiltersOpen(false)}
-                className="w-8 h-8 rounded-full flex items-center justify-center text-light-400 hover:text-light-100 hover:bg-light-800 transition-colors"
-              >
-                <MdClose className="w-4 h-4" />
-              </button>
-            </div>
-            {filtersOnlyPanel}
-          </aside>
-        </div>
-      )}
-
       <BioactivityMeasurementsModal
         isOpen={selected !== null}
         onClose={() => setSelected(null)}
@@ -1077,7 +979,7 @@ const BioactivityTable = ({
         relationship={modalConfig.relationship}
         headIsRow={modalConfig.headIsRow}
       />
-    </div>
+    </FilterPanel>
   );
 };
 
@@ -1242,135 +1144,5 @@ export const CategoryCell = ({
 };
 
 BioactivityTable.displayName = "BioactivityTable";
-
-// One row in the sidebar's Unit checklist — mirrors FilterListItem in
-// FoodCompositionSection so both pages share the same row chrome. Kept
-// local so it can drop the count when duplicated in the mobile drawer
-// without importing an extra file.
-const UnitRow = ({
-  unit,
-  count,
-  selected,
-  onClick,
-  disabled,
-  capitalizeLabel,
-}: {
-  unit: string;
-  count: number;
-  selected: boolean;
-  onClick: () => void;
-  disabled?: boolean;
-  // Opt-in, because this row is shared between the Unit and Evidence
-  // filters. Evidence types are prose ("in vitro") and read as typos in
-  // lowercase, but units are case-significant — `capitalize` would turn
-  // uM into UM and ug/mL into Ug/mL. So only Evidence passes this.
-  capitalizeLabel?: boolean;
-}) => (
-  <button
-    type="button"
-    onClick={onClick}
-    disabled={disabled}
-    aria-pressed={selected}
-    aria-disabled={disabled || undefined}
-    className={twMerge(
-      "group w-full flex items-center gap-2 pl-1 pr-2 py-1 rounded transition-colors text-left",
-      selected
-        ? "text-light-100 hover:bg-light-900/70"
-        : "text-light-400 hover:text-light-100 hover:bg-light-900/50",
-      disabled && "opacity-40 cursor-not-allowed hover:bg-transparent hover:text-light-400"
-    )}
-  >
-    <span
-      aria-hidden
-      className={twMerge(
-        "w-3.5 h-3.5 rounded-[3px] border flex-shrink-0 flex items-center justify-center transition-colors",
-        selected
-          ? "border-accent-600 bg-accent-600/20 text-accent-600"
-          : "border-light-700 group-hover:border-light-500",
-        disabled && "group-hover:border-light-700"
-      )}
-    >
-      {selected && <MdCheck className="w-3 h-3" />}
-    </span>
-    <span
-      className={twMerge(
-        "font-mono text-xs flex-1 min-w-0 truncate",
-        capitalizeLabel && "capitalize"
-      )}
-    >
-      {unit}
-    </span>
-    <span
-      className={twMerge(
-        "tabular-nums text-[10px] flex-shrink-0",
-        selected ? "text-light-400" : "text-light-500"
-      )}
-    >
-      {count.toLocaleString()}
-    </span>
-  </button>
-);
-
-// One row in the Source-kind picker — same chrome as UnitRow with an
-// optional numeric count. Kinds are an exhaustive set (both / exp /
-// pred), so the row still renders when count=0 but goes `disabled`
-// (per the "every filter has a count, disabled at 0" convention).
-// TODO(round-2): the API doesn't yet return per-source-kind aggregates;
-// wire the count through once the backend adds it.
-const SourceKindRow = ({
-  label,
-  count,
-  selected,
-  onClick,
-  disabled,
-}: {
-  label: string;
-  count?: number;
-  selected: boolean;
-  onClick: () => void;
-  disabled?: boolean;
-}) => (
-  <button
-    type="button"
-    role="radio"
-    aria-checked={selected}
-    onClick={onClick}
-    disabled={disabled}
-    aria-disabled={disabled || undefined}
-    className={twMerge(
-      "group w-full flex items-center gap-2 pl-1 pr-2 py-1 rounded transition-colors text-left",
-      selected
-        ? "text-light-100 hover:bg-light-900/70"
-        : "text-light-400 hover:text-light-100 hover:bg-light-900/50",
-      disabled && "opacity-40 cursor-not-allowed hover:bg-transparent hover:text-light-400"
-    )}
-  >
-    <span
-      aria-hidden
-      className={twMerge(
-        "w-3.5 h-3.5 rounded-full border flex-shrink-0 flex items-center justify-center transition-colors",
-        selected
-          ? "border-accent-600 bg-accent-600/20"
-          : "border-light-700 group-hover:border-light-500",
-        disabled && "group-hover:border-light-700"
-      )}
-    >
-      {selected && (
-        <span className="w-1.5 h-1.5 rounded-full bg-accent-600" aria-hidden />
-      )}
-    </span>
-    <span className="font-mono italic text-xs capitalize flex-1">{label}</span>
-    {typeof count === "number" && (
-      <span
-        className={twMerge(
-          "tabular-nums text-[10px] flex-shrink-0",
-          selected ? "text-light-400" : "text-light-500"
-        )}
-      >
-        {count.toLocaleString()}
-      </span>
-    )}
-  </button>
-);
 
 export default BioactivityTable;
