@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { MdInfo, MdInfoOutline } from "react-icons/md";
 
 import Pagination from "@/components/basic/Pagination";
+import ResetFiltersButton from "@/components/basic/ResetFiltersButton";
 import ChemicalCompositionCards from "@/components/entities/chemical/ChemicalCompositionCards";
 import FoodCompositionEvidenceModal from "@/components/entities/food/FoodCompositionEvidenceModal";
 import { getChemicalCompositionEvidence } from "@/utils/fetching";
@@ -183,22 +184,47 @@ const ChemicalCompositionTable = ({
     setTablePaginations(TABLE_ID, 1, ROWS_PER_PAGE);
   };
 
-  // One instance, rendered into either the sidebar or the drawer.
-  const filterPanel = (
-    <CompositionFilterPanel
-      sourceCounts={sourceCounts}
-      selectedSources={sources}
-      onToggleSource={toggleSource}
-      unmeasuredCount={unmeasuredCount}
-      includeUnmeasured={includeUnmeasured}
-      onToggleUnmeasured={() => {
-        setIncludeUnmeasured((v) => !v);
-        setTablePaginations(TABLE_ID, 1, ROWS_PER_PAGE);
-      }}
-    />
-  );
+  // Every dimension the sidebar can narrow by, back to first-render
+  // defaults. `includeUnmeasured` starts ON, so clearing turns it back on
+  // rather than off.
+  const resetAllFilters = () => {
+    setSearch("");
+    setSources([]);
+    setIncludeUnmeasured(true);
+    setTablePaginations(TABLE_ID, 1, ROWS_PER_PAGE);
+  };
 
+  // Sort is deliberately excluded: it reorders rows but hides none, and
+  // the empty-state copy below keys off "are rows being hidden".
   const isFiltered = search.trim() !== "" || sources.length > 0;
+  const isFiltersDirty = isFiltered || !includeUnmeasured;
+  const activeFilterCount =
+    (search.trim() !== "" ? 1 : 0) +
+    (sources.length > 0 ? 1 : 0) +
+    (includeUnmeasured ? 0 : 1);
+
+  // One instance, rendered into either the sidebar or the drawer, so the
+  // reset control belongs here rather than at either call site.
+  const filterPanel = (
+    <>
+      <CompositionFilterPanel
+        sourceCounts={sourceCounts}
+        selectedSources={sources}
+        onToggleSource={toggleSource}
+        unmeasuredCount={unmeasuredCount}
+        includeUnmeasured={includeUnmeasured}
+        onToggleUnmeasured={() => {
+          setIncludeUnmeasured((v) => !v);
+          setTablePaginations(TABLE_ID, 1, ROWS_PER_PAGE);
+        }}
+      />
+      <ResetFiltersButton
+        isDirty={isFiltersDirty}
+        onReset={resetAllFilters}
+        activeCount={activeFilterCount}
+      />
+    </>
+  );
 
   return (
     <div className="flex flex-col gap-4">

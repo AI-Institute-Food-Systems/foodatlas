@@ -17,7 +17,7 @@
 
 "use client";
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import {
   MdCheck,
   MdChevronRight,
@@ -40,6 +40,7 @@ import Skeleton from "@/components/basic/Skeleton";
 import { TableSkeletonRows } from "@/components/basic/TableSkeleton";
 import type { SkeletonColumn } from "@/components/basic/skeletonTokens";
 import Modal from "@/components/basic/Modal";
+import ResetFiltersButton from "@/components/basic/ResetFiltersButton";
 import { useReportRows } from "@/context/reportModeContext";
 import HillCurveSparkline from "@/components/entities/bioactivity/HillCurveSparkline";
 import { getBioactivityMeasurements } from "@/utils/fetching";
@@ -182,17 +183,39 @@ const BioactivityMeasurementsModal = ({
   // stable row key so re-renders + page changes don't desync it.
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
 
-  // Reset filters/page/expand when the modal closes or the underlying
-  // selection changes (different chemical/food clicked).
-  useEffect(() => {
+  // Every filter dimension back to its open-the-modal default. Shared by
+  // the "Clear filters" control and the close/reselect effect below, so
+  // the two cannot drift apart as dimensions are added.
+  const resetAllFilters = useCallback(() => {
     setSearchTerm("");
     setOutcomeFilter("all");
     setSourceFilter("");
     setEvidenceTypeFilter([]);
-    setMobileFiltersOpen(false);
     setCurrentPage(1);
+  }, []);
+
+  const isFiltersDirty =
+    searchTerm !== "" ||
+    outcomeFilter !== "all" ||
+    sourceFilter !== "" ||
+    evidenceTypeFilter.length > 0;
+
+  // Count of dimensions currently narrowing the view, surfaced on the
+  // chip. Evidence type is multi-select but counts once — it is one
+  // filter, however many values it holds.
+  const activeFilterCount =
+    (searchTerm !== "" ? 1 : 0) +
+    (outcomeFilter !== "all" ? 1 : 0) +
+    (sourceFilter !== "" ? 1 : 0) +
+    (evidenceTypeFilter.length > 0 ? 1 : 0);
+
+  // Reset filters/page/expand when the modal closes or the underlying
+  // selection changes (different chemical/food clicked).
+  useEffect(() => {
+    resetAllFilters();
+    setMobileFiltersOpen(false);
     setExpandedKey(null);
-  }, [isOpen, selectedId]);
+  }, [isOpen, selectedId, resetAllFilters]);
 
   // Faceted counts — each dimension applies every OTHER active filter
   // (excluding its own) so the numbers stay in sync with what the modal
@@ -358,26 +381,36 @@ const BioactivityMeasurementsModal = ({
     setEvidenceTypeFilter([]);
     setCurrentPage(1);
   };
+  // Rendered in both the outside sidebar and the sub-1440px drawer, so
+  // the reset control lives here rather than at either call site — one
+  // definition, and neither surface can be the one that lacks it.
   const filtersOnlyPanel = (
-    <FiltersOnlyPanel
-      outcomeFilter={outcomeFilter}
-      outcomeCounts={outcomeCounts}
-      sourceKindCounts={sourceKindCounts}
-      onOutcomeChange={(o) => {
-        setOutcomeFilter(o);
-        setCurrentPage(1);
-      }}
-      sourceFilter={sourceFilter}
-      onSourceChange={(s) => {
-        setSourceFilter(s);
-        setCurrentPage(1);
-      }}
-      evidenceTypeOptions={evidenceTypeOptions}
-      selectedEvidenceTypes={evidenceTypeFilter}
-      onToggleEvidenceType={toggleEvidenceType}
-      onClearEvidenceTypes={clearEvidenceTypes}
-      showSkeleton={showSkeleton}
-    />
+    <>
+      <FiltersOnlyPanel
+        outcomeFilter={outcomeFilter}
+        outcomeCounts={outcomeCounts}
+        sourceKindCounts={sourceKindCounts}
+        onOutcomeChange={(o) => {
+          setOutcomeFilter(o);
+          setCurrentPage(1);
+        }}
+        sourceFilter={sourceFilter}
+        onSourceChange={(s) => {
+          setSourceFilter(s);
+          setCurrentPage(1);
+        }}
+        evidenceTypeOptions={evidenceTypeOptions}
+        selectedEvidenceTypes={evidenceTypeFilter}
+        onToggleEvidenceType={toggleEvidenceType}
+        onClearEvidenceTypes={clearEvidenceTypes}
+        showSkeleton={showSkeleton}
+      />
+      <ResetFiltersButton
+        isDirty={isFiltersDirty}
+        onReset={resetAllFilters}
+        activeCount={activeFilterCount}
+      />
+    </>
   );
 
   return (
