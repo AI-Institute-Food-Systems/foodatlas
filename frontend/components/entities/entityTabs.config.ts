@@ -27,14 +27,19 @@ export const ENTITY_TABS = {
   // its method. So food and chemical read as mirror images, and the same
   // word means the same kind of row everywhere.
   //
-  // The assay-inferred tabs are deliberately absent from chemical and
-  // disease. They listed the same rows as the literature tabs from a
-  // weaker source, and rendered `therapeutic` and `marker/mechanism` —
-  // opposite directions — as identical grey chips, with marker/mechanism
-  // being 91% of rows. A tab that presents mostly not-a-benefit evidence
-  // as neutral is worse than no tab. The sections and their fetchers are
-  // still here; restore the entries once the direction, protein target
-  // and source-assay work from the bioactivity-disease branch lands.
+  // The assay-inferred tabs list the same rows as the literature tabs from a
+  // weaker source, so the two are named differently on purpose. "Diseases" /
+  // "Chemicals" is a curated claim with a direction and a citation; "Lab
+  // Activity" is a chemical having been Active in assays annotated to the
+  // other side — a signal, not a verdict. Naming them as a matched pair
+  // ("Diseases (Literature)" / "Diseases (Assays)") overstated the second and
+  // produced the longest labels in the app.
+  //
+  // They were hidden for a while because their Signal column rendered
+  // `therapeutic` and `marker/mechanism` — opposite directions — as identical
+  // grey chips, with marker/mechanism at 91% of rows. That is fixed: the
+  // direction is now toned and explained, and the row carries its protein
+  // target, its source assays and whether CTD literature agrees.
   food: [
     { id: "composition", label: "Chemicals", hasCount: true },
     { id: "bioactivities", label: "Bioactivities", hasCount: true },
@@ -44,10 +49,12 @@ export const ENTITY_TABS = {
     { id: "composition", label: "Foods", hasCount: true },
     { id: "bioactivities", label: "Bioactivities", hasCount: true },
     { id: "health", label: "Diseases", hasCount: true },
+    { id: "assay-inferred", label: "Lab Activity", hasCount: true },
     { id: "overview", label: "Metadata", hasCount: false },
   ],
   disease: [
     { id: "health", label: "Chemicals", hasCount: true },
+    { id: "assay-inferred", label: "Lab Activity", hasCount: true },
     { id: "bioactivities", label: "Bioactivities", hasCount: true },
     { id: "overview", label: "Metadata", hasCount: false },
   ],
@@ -124,24 +131,25 @@ export const TAB_STRIP_FITS: Record<
     stripFlex: "hidden min-[640px]:flex",
     stripBlock: "hidden min-[640px]:block",
   },
-  // Three short labels, same as food now that the assay tab is gone.
+  // Four labels; 561px measured, so 768 bare and 808 with headroom.
+  // Rounded to bioactivity's number rather than carrying a third one.
   disease: {
-    select: "min-[640px]:hidden",
-    stripFlex: "hidden min-[640px]:flex",
-    stripBlock: "hidden min-[640px]:block",
+    select: "min-[825px]:hidden",
+    stripFlex: "hidden min-[825px]:flex",
+    stripBlock: "hidden min-[825px]:block",
   },
-  // Four labels, all single words.
+  // Four labels, all single words. 554px measured.
   bioactivity: {
     select: "min-[825px]:hidden",
     stripFlex: "hidden min-[825px]:flex",
     stripBlock: "hidden min-[825px]:block",
   },
-  // Four labels; the widest strip, but far narrower than the 1025px the
-  // qualified "Diseases (Literature)" wording needed.
+  // Five labels and the widest strip at 695px — still far narrower than
+  // the 1025px the qualified "Diseases (Literature)" wording needed.
   chemical: {
-    select: "min-[850px]:hidden",
-    stripFlex: "hidden min-[850px]:flex",
-    stripBlock: "hidden min-[850px]:block",
+    select: "min-[950px]:hidden",
+    stripFlex: "hidden min-[950px]:flex",
+    stripBlock: "hidden min-[950px]:block",
   },
 };
 

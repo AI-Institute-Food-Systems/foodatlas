@@ -3,12 +3,14 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
 import DiseaseBioactivitiesSection from "@/components/entities/disease/DiseaseBioactivitiesSection";
+import DiseaseAssayInferredSection from "@/components/entities/disease/DiseaseAssayInferredSection";
 import DiseaseCorrelationsSection from "@/components/entities/disease/DiseaseCorrelationsSection";
 import HeaderSection from "@/components/entities/HeaderSection";
 import EntityDetailLayout from "@/components/entities/EntityDetailLayout";
 import EntityOverviewPanel from "@/components/entities/EntityOverviewPanel";
 import { buildTabs } from "@/components/entities/buildTabs";
 import {
+  diseaseAssayInferredCount,
   diseaseBioactivitiesCount,
   healthImpactsCount,
 } from "@/utils/tabCounts";
@@ -48,8 +50,9 @@ const DiseasePage = async ({ params }: DiseasePageProps) => {
   // opened, so an unfetched count leaves its badge placeholder pulsing for
   // the life of the page — this page previously fetched none, so all three
   // badges did. Counts only; the tabs still load lazily.
-  const [healthCount, bioactivitiesCount] = await Promise.all([
+  const [healthCount, inferredCount, bioactivitiesCount] = await Promise.all([
     healthImpactsCount(commonName, "disease"),
+    diseaseAssayInferredCount(commonName),
     diseaseBioactivitiesCount(commonName),
   ]);
 
@@ -65,6 +68,10 @@ const DiseasePage = async ({ params }: DiseasePageProps) => {
           health: {
             count: healthCount,
             content: <DiseaseCorrelationsSection commonName={commonName} />,
+          },
+          "assay-inferred": {
+            count: inferredCount,
+            content: <DiseaseAssayInferredSection commonName={commonName} />,
           },
           bioactivities: {
             count: bioactivitiesCount,
