@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { MdClose, MdSearch, MdTune, MdWarningAmber } from "react-icons/md";
+import { MdClose, MdTune, MdWarningAmber } from "react-icons/md";
 import { twMerge } from "tailwind-merge";
 
 import Card from "@/components/basic/Card";
@@ -11,6 +11,7 @@ import {
   FilterGroup,
   FilterOption,
   FilterOptionList,
+  FilterSearchInput,
 } from "@/components/entities/shared/filters/FilterControls";
 import { FilterDrawer } from "@/components/entities/shared/filters/FilterPanel";
 import { FoodEvidence, FoodEvidenceExtraction } from "@/types/Evidence";
@@ -322,27 +323,13 @@ const SearchInput = ({
   onChange: (v: string) => void;
   onClear: () => void;
 }) => (
-  <div className="relative flex items-center">
-    <MdSearch className="absolute left-2 w-4 h-4 text-light-400" />
-    <input
-      className="pl-8 pr-8 w-full h-8 text-xs rounded-md border border-light-700/60 bg-light-900/60 focus:bg-light-900 focus:border-light-500 hover:border-light-500 text-light-100 placeholder-light-500 transition-colors duration-100 ease-in-out outline-none"
-      type="text"
-      placeholder="Search chemical, food, or paper"
-      aria-label="Search chemical, food, or paper"
+  <FilterSearchInput
       value={value}
-      onChange={(e) => onChange(e.target.value)}
+      onChange={(v) => onChange(v)}
+      onClear={onClear}
+      placeholder="Search chemical, food, or paper"
+      ariaLabel="Search chemical, food, or paper"
     />
-    {value && (
-      <button
-        type="button"
-        aria-label="Clear search"
-        onClick={onClear}
-        className="absolute right-2 flex items-center justify-center w-4 h-4 rounded-full text-light-400 hover:text-light-100 hover:bg-light-700 transition-colors"
-      >
-        <MdClose className="w-3 h-3" />
-      </button>
-    )}
-  </div>
 );
 
 const FiltersPanel = ({

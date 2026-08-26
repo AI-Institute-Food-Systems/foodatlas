@@ -8,13 +8,14 @@
 // `externalSourceKind` / `hideChrome` props.
 
 import { useEffect, useState } from "react";
-import { MdCheck, MdClose, MdSearch, MdTune } from "react-icons/md";
+import { MdCheck, MdClose, MdTune } from "react-icons/md";
 import { twMerge } from "tailwind-merge";
 
 import {
   FilterGroup,
   FilterOption,
   FilterOptionList,
+  FilterSearchInput,
 } from "@/components/entities/shared/filters/FilterControls";
 import FilterPanel from "@/components/entities/shared/filters/FilterPanel";
 import FoodBioactivitiesSection from "@/components/entities/bioactivity/FoodBioactivitiesSection";
@@ -228,27 +229,13 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
   const hiddenUnitsCount = Math.max(0, unitOptions.length - TOP_UNITS);
 
   const searchInput = (
-    <div className="relative flex items-center">
-      <MdSearch className="absolute left-2 w-4 h-4 text-light-400" />
-      <input
-        className="pl-8 pr-8 w-full h-8 text-xs rounded-md border border-light-700/60 bg-light-900/60 focus:bg-light-900 focus:border-light-500 hover:border-light-500 text-light-100 placeholder-light-500 transition-colors duration-100 ease-in-out outline-none"
-        type="text"
-        placeholder="Search…"
-        aria-label="Search bioactivity or chemical"
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value.toLowerCase())}
-      />
-      {searchTerm && (
-        <button
-          type="button"
-          aria-label="Clear search"
-          onClick={() => setSearchTerm("")}
-          className="absolute right-2 flex items-center justify-center w-4 h-4 rounded-full text-light-400 hover:text-light-100 hover:bg-light-700 transition-colors"
-        >
-          <MdClose className="w-3 h-3" />
-        </button>
-      )}
-    </div>
+    <FilterSearchInput
+      value={searchTerm}
+      onChange={(v) => setSearchTerm(v.toLowerCase())}
+      onClear={() => setSearchTerm("")}
+      placeholder="Search…"
+      ariaLabel="Search bioactivity or chemical"
+    />
   );
 
   const sourceFilter = (

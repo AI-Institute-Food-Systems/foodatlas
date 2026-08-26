@@ -94,6 +94,26 @@ describe("filter panel conventions", () => {
     expect(offenders.map(rel)).toEqual([]);
   });
 
+  it("only the shared module builds a filter search box", () => {
+    // Seven copies of this existed. Six agreed; the chemical composition one
+    // was a rounded-full pill with no clear button, so the same page's Foods
+    // and Bioactivities tabs showed visibly different search controls.
+    //
+    // Scoped to entity filter panels — the navbar and landing search are
+    // different components with their own design.
+    const offenders = SOURCES.filter((f) => {
+      if (isShared(f) || !f.includes(join("components", "entities"))) {
+        return false;
+      }
+      const src = code(f);
+      return (
+        src.includes("<MdSearch") &&
+        !src.includes("FilterSearchInput")
+      );
+    });
+    expect(offenders.map(rel)).toEqual([]);
+  });
+
   it("clears filters through the shared control, never a bare link", () => {
     // A literal >clear< / >Clear filters< text node outside the shared
     // module means someone rebuilt the affordance by hand.

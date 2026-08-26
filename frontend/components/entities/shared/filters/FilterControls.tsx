@@ -15,7 +15,7 @@
 
 import { ReactNode } from "react";
 import { Switch } from "@headlessui/react";
-import { MdCheck } from "react-icons/md";
+import { MdCheck, MdClose, MdSearch } from "react-icons/md";
 import { twMerge } from "tailwind-merge";
 
 import Skeleton from "@/components/basic/Skeleton";
@@ -223,6 +223,50 @@ const FilterOption = ({
   </button>
 );
 
+// THE search box for every filter panel. Seven copies of this existed; six
+// agreed and the chemical composition one was a `rounded-full bg-light-800`
+// pill with no clear button, so the same page's Foods and Bioactivities tabs
+// showed visibly different controls.
+const FilterSearchInput = ({
+  value,
+  onChange,
+  onClear,
+  placeholder = "Search…",
+  ariaLabel,
+  disabled,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  onClear: () => void;
+  placeholder?: string;
+  // Defaults to the placeholder, which is what every copy did by hand.
+  ariaLabel?: string;
+  disabled?: boolean;
+}) => (
+  <div className="relative flex items-center">
+    <MdSearch className="absolute left-2 w-4 h-4 text-light-400" />
+    <input
+      className="pl-8 pr-8 w-full h-8 text-xs rounded-md border border-light-700/60 bg-light-900/60 focus:bg-light-900 focus:border-light-500 hover:border-light-500 text-light-100 placeholder-light-500 transition-colors duration-100 ease-in-out outline-none disabled:opacity-60"
+      type="text"
+      placeholder={placeholder}
+      aria-label={ariaLabel ?? placeholder}
+      value={value}
+      disabled={disabled}
+      onChange={(e) => onChange(e.target.value)}
+    />
+    {value && (
+      <button
+        type="button"
+        aria-label="Clear search"
+        onClick={onClear}
+        className="absolute right-2 flex items-center justify-center w-4 h-4 rounded-full text-light-400 hover:text-light-100 hover:bg-light-700 transition-colors"
+      >
+        <MdClose className="w-3 h-3" />
+      </button>
+    )}
+  </div>
+);
+
 // The empty-state escape hatch: shown INSIDE a table whose filters matched
 // nothing, not in the panel. Distinct from ResetFiltersButton — that is a
 // panel control you go looking for, this is offered at the moment you hit a
@@ -239,6 +283,7 @@ const ClearFiltersLink = ({ onClick }: { onClick: () => void }) => (
 
 FilterRowLabel.displayName = "FilterRowLabel";
 ClearFiltersLink.displayName = "ClearFiltersLink";
+FilterSearchInput.displayName = "FilterSearchInput";
 FilterGroup.displayName = "FilterGroup";
 ToggleSwitch.displayName = "ToggleSwitch";
 FilterOptionList.displayName = "FilterOptionList";
@@ -250,5 +295,6 @@ export {
   ToggleSwitch,
   FilterOptionList,
   FilterOption,
+  FilterSearchInput,
   ClearFiltersLink,
 };

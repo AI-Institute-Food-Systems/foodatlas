@@ -11,7 +11,6 @@ import {
   MdInfoOutline,
   MdKeyboardArrowDown,
   MdKeyboardArrowUp,
-  MdSearch,
   MdTune,
   MdUnfoldMore,
 } from "react-icons/md";
@@ -41,6 +40,7 @@ import {
   FilterOptionList,
   FilterRowLabel,
   ToggleSwitch,
+  FilterSearchInput,
 } from "@/components/entities/shared/filters/FilterControls";
 import FilterPanel from "@/components/entities/shared/filters/FilterPanel";
 import { usePaginations } from "@/context/paginationsContext";
@@ -577,10 +577,10 @@ const FoodCompositionSection = ({
   };
 
   // handle search
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSearch = (value: string) => {
     setSearchTerm(() => {
       setTablePaginations("food-composition-table", 1, 20);
-      return e.target.value.toLowerCase();
+      return value.toLowerCase();
     });
   };
 
@@ -646,26 +646,12 @@ const FoodCompositionSection = ({
   // as a standalone left-of-Filters affordance below 1440. Extract it
   // so all three stay in sync.
   const searchInput = (
-    <div className="relative flex items-center">
-      <MdSearch className="absolute left-2 w-4 h-4 text-light-400" />
-      <input
-        className="pl-8 pr-8 w-full h-8 text-xs rounded-md border border-light-700/60 bg-light-900/60 focus:bg-light-900 focus:border-light-500 hover:border-light-500 text-light-100 placeholder-light-500 transition-colors duration-100 ease-in-out outline-none"
-        type="text"
-        placeholder="Search…"
-        value={searchTerm}
-        onChange={handleSearch}
-      />
-      {searchTerm && (
-        <button
-          type="button"
-          aria-label="Clear search"
-          onClick={handleSearchClear}
-          className="absolute right-2 flex items-center justify-center w-4 h-4 rounded-full text-light-400 hover:text-light-100 hover:bg-light-700 transition-colors"
-        >
-          <MdClose className="w-3 h-3" />
-        </button>
-      )}
-    </div>
+    <FilterSearchInput
+      value={searchTerm}
+      onChange={handleSearch}
+      onClear={handleSearchClear}
+      placeholder="Search…"
+    />
   );
 
   // Non-search filter controls — options + source + class. Drawer on

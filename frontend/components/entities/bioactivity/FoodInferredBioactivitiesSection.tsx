@@ -17,14 +17,16 @@ import {
   MdInfoOutline,
   MdKeyboardArrowDown,
   MdKeyboardArrowUp,
-  MdSearch,
   MdUnfoldMore,
   MdWarningAmber,
 } from "react-icons/md";
 import { twMerge } from "tailwind-merge";
 
 import Card from "@/components/basic/Card";
-import { ClearFiltersLink } from "@/components/entities/shared/filters/FilterControls";
+import {
+  ClearFiltersLink,
+  FilterSearchInput,
+} from "@/components/entities/shared/filters/FilterControls";
 import FilterPanel from "@/components/entities/shared/filters/FilterPanel";
 import Chip from "@/components/basic/Chip";
 import Link from "@/components/basic/Link";
@@ -302,8 +304,8 @@ const FoodInferredBioactivitiesSection = ({
     }
   }, [isLoading, currentPage, totalPages, tableId, setTablePaginations]);
 
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchTerm(e.target.value.toLowerCase());
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value.toLowerCase());
     setTablePaginations(tableId, 1, 20);
   };
   const handleSearchClear = () => {
@@ -351,27 +353,13 @@ const FoodInferredBioactivitiesSection = ({
   );
 
   const searchInput = (
-    <div className="relative flex items-center">
-      <MdSearch className="absolute left-2 w-4 h-4 text-light-400" />
-      <input
-        className="pl-8 pr-8 w-full h-8 text-xs rounded-md border border-light-700/60 bg-light-900/60 focus:bg-light-900 focus:border-light-500 hover:border-light-500 text-light-100 placeholder-light-500 transition-colors duration-100 ease-in-out outline-none"
-        type="text"
-        placeholder="Search…"
-        aria-label="Search bioactivity or chemical"
-        value={searchTerm}
-        onChange={handleSearchChange}
-      />
-      {searchTerm && (
-        <button
-          type="button"
-          aria-label="Clear search"
-          onClick={handleSearchClear}
-          className="absolute right-2 flex items-center justify-center w-4 h-4 rounded-full text-light-400 hover:text-light-100 hover:bg-light-700 transition-colors"
-        >
-          <MdClose className="w-3 h-3" />
-        </button>
-      )}
-    </div>
+    <FilterSearchInput
+      value={searchTerm}
+      onChange={handleSearchChange}
+      onClear={handleSearchClear}
+      placeholder="Search…"
+      ariaLabel="Search bioactivity or chemical"
+    />
   );
 
   return (

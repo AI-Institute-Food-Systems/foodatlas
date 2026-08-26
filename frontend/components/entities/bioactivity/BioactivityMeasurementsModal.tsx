@@ -27,7 +27,6 @@ import {
   MdKeyboardArrowRight,
   MdKeyboardDoubleArrowLeft,
   MdKeyboardDoubleArrowRight,
-  MdSearch,
   MdTune,
 } from "react-icons/md";
 import { twMerge } from "tailwind-merge";
@@ -44,6 +43,7 @@ import {
   FilterGroup,
   FilterOption,
   FilterOptionList,
+  FilterSearchInput,
 } from "@/components/entities/shared/filters/FilterControls";
 import {
   FilterDrawer,
@@ -567,28 +567,14 @@ const SearchInput = ({
   onChange: (v: string) => void;
   onClear: () => void;
 }) => (
-  <div className="relative flex items-center">
-    <MdSearch className="absolute left-2 w-4 h-4 text-light-400" />
-    <input
-      className="pl-8 pr-8 w-full h-8 text-xs rounded-md border border-light-700/60 bg-light-900/60 focus:bg-light-900 focus:border-light-500 hover:border-light-500 text-light-100 placeholder-light-500 transition-colors duration-100 ease-in-out outline-none disabled:opacity-60"
-      type="text"
-      placeholder="Search assay or endpoint"
-      aria-label="Search assay or endpoint"
+  <FilterSearchInput
       value={value}
+      onChange={(v) => onChange(v)}
+      onClear={onClear}
+      placeholder="Search assay or endpoint"
+      ariaLabel="Search assay or endpoint"
       disabled={disabled}
-      onChange={(e) => onChange(e.target.value)}
     />
-    {value && (
-      <button
-        type="button"
-        aria-label="Clear search"
-        onClick={onClear}
-        className="absolute right-2 flex items-center justify-center w-4 h-4 rounded-full text-light-400 hover:text-light-100 hover:bg-light-700 transition-colors"
-      >
-        <MdClose className="w-3 h-3" />
-      </button>
-    )}
-  </div>
 );
 
 // Non-search filters — Outcome + Evidence + Assay Source. Renders

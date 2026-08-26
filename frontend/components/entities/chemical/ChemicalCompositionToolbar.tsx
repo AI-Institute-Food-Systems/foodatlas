@@ -1,10 +1,10 @@
 "use client";
 
-import { MdSearch } from "react-icons/md";
 
 import SortListbox from "@/components/basic/SortListbox";
 import {
   FilterGroup,
+  FilterSearchInput,
   FilterOption,
   FilterOptionList,
   ToggleSwitch,
@@ -39,17 +39,12 @@ export const CompositionSearchInput = ({
   search: string;
   onSearchChange: (value: string) => void;
 }) => (
-  <div className="flex items-center gap-2 rounded-full bg-light-800 py-1.5 px-3">
-    <MdSearch className="text-light-400 flex-shrink-0" />
-    <input
-      type="search"
-      value={search}
-      onChange={(e) => onSearchChange(e.target.value)}
-      placeholder="Search foods"
-      aria-label="Search foods"
-      className="w-full bg-transparent text-sm text-light-100 placeholder:text-light-500 focus:outline-none"
-    />
-  </div>
+  <FilterSearchInput
+    value={search}
+    onChange={onSearchChange}
+    onClear={() => onSearchChange("")}
+    placeholder="Search foods"
+  />
 );
 
 export const CompositionFilterPanel = ({
