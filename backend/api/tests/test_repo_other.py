@@ -4,6 +4,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from src.repositories.chemical import get_composition as chem_composition
+from src.repositories.chemical import (
+    get_composition_evidence as chem_composition_evidence,
+)
 from src.repositories.chemical import get_correlation as chem_correlation
 from src.repositories.chemical import get_metadata as chem_metadata
 from src.repositories.disease import get_correlation as disease_correlation
@@ -48,8 +51,23 @@ class TestChemicalGetMetadata:
 class TestChemicalGetComposition:
     @pytest.mark.asyncio
     async def test_splits_by_concentration(self) -> None:
-        with_row = _make_row(id="FA:F001", name="apple", median_concentration=5.0)
-        without_row = _make_row(id="FA:F002", name="banana", evidence_count=3)
+        with_row = _make_row(
+            id="FA:F001",
+            name="apple",
+            median_concentration=5.0,
+            fdc_count=2,
+            foodatlas_count=1,
+            ptfi_count=0,
+            evidence_count=3,
+        )
+        without_row = _make_row(
+            id="FA:F002",
+            name="banana",
+            fdc_count=0,
+            foodatlas_count=3,
+            ptfi_count=0,
+            evidence_count=3,
+        )
         session = AsyncMock()
         r_with = MagicMock()
         r_with.__iter__ = lambda self: iter([with_row])
@@ -61,6 +79,58 @@ class TestChemicalGetComposition:
         assert len(result["data"]["with_concentrations"]) == 1
         assert len(result["data"]["without_concentrations"]) == 1
         assert result["metadata"]["row_count"] == 2
+
+    @pytest.mark.asyncio
+    async def test_both_buckets_carry_evidence_and_source_counts(self) -> None:
+        """The table's Evidence column and source facet read these fields.
+
+        They used to exist only on the unmeasured bucket, so a food with a
+        measured concentration had no way to say how many data points backed
+        it.
+        """
+        counts = {
+            "fdc_count": 2,
+            "foodatlas_count": 1,
+            "ptfi_count": 4,
+            "evidence_count": 7,
+        }
+        with_row = _make_row(
+            id="FA:F001", name="apple", median_concentration=5.0, **counts
+        )
+        without_row = _make_row(id="FA:F002", name="banana", **counts)
+        session = AsyncMock()
+        r_with = MagicMock()
+        r_with.__iter__ = lambda self: iter([with_row])
+        r_without = MagicMock()
+        r_without.__iter__ = lambda self: iter([without_row])
+        session.execute.side_effect = [r_with, r_without]
+
+        result = await chem_composition(session, "glucose")
+        data = result["data"]
+        for bucket in ("with_concentrations", "without_concentrations"):
+            row = data[bucket][0]
+            assert row["evidence_count"] == 7
+            assert row["fdc_count"] == 2
+            assert row["foodatlas_count"] == 1
+            assert row["ptfi_count"] == 4
+
+    @pytest.mark.asyncio
+    async def test_measured_bucket_is_ordered_by_concentration(self) -> None:
+        """The bar chart sorted client-side because the SQL had no ORDER BY.
+
+        The table still sorts client-side, but an unordered query made the
+        default view non-deterministic between requests.
+        """
+        session = AsyncMock()
+        empty = MagicMock()
+        empty.__iter__ = lambda self: iter([])
+        session.execute.side_effect = [empty, empty]
+
+        await chem_composition(session, "glucose")
+        measured_sql = str(session.execute.call_args_list[0].args[0])
+        assert "ORDER BY" in measured_sql
+        assert "median_concentration->>'value'" in measured_sql
+        assert "NULLS LAST" in measured_sql
 
 
 class TestChemicalGetCorrelation:
@@ -223,3 +293,52 @@ class TestGetStatistics:
 
         result = await get_statistics(session)
         assert result["data"]["statistics"] == {}
+
+
+class TestChemicalCompositionEvidence:
+    """One (chemical, food) pair's evidence, fetched when its modal opens."""
+
+    @staticmethod
+    def _session(mapping: dict | None) -> AsyncMock:
+        session = AsyncMock()
+        result = MagicMock()
+        result.mappings.return_value.first.return_value = mapping
+        session.execute.return_value = result
+        return session
+
+    @pytest.mark.asyncio
+    async def test_flattens_the_three_source_lists(self) -> None:
+        # The modal takes one list and sorts it itself; each record already
+        # carries its own source.
+        session = self._session(
+            {
+                "fdc_evidences": [{"premise": "a"}],
+                "foodatlas_evidences": [{"premise": "b"}, {"premise": "c"}],
+                "ptfi_evidences": None,
+            }
+        )
+        out = await chem_composition_evidence(session, "quercetin", "onion")
+        assert out["metadata"] == {"row_count": 3}
+        assert [e["premise"] for e in out["data"]] == ["a", "b", "c"]
+
+    @pytest.mark.asyncio
+    async def test_unknown_pair_is_empty_not_an_error(self) -> None:
+        out = await chem_composition_evidence(self._session(None), "x", "y")
+        assert out == {"data": [], "metadata": {"row_count": 0}}
+
+    @pytest.mark.asyncio
+    async def test_both_names_are_bound_not_interpolated(self) -> None:
+        session = self._session(None)
+        await chem_composition_evidence(session, "quercetin", "yellow onion")
+        assert session.execute.call_args[0][1] == {
+            "chemical": "quercetin",
+            "food": "yellow onion",
+        }
+
+    @pytest.mark.asyncio
+    async def test_does_not_read_dmd(self) -> None:
+        # DMD left the public API in the 2026-07-06 removal; returning it
+        # here would show data points the row's count never promised.
+        session = self._session(None)
+        await chem_composition_evidence(session, "quercetin", "onion")
+        assert "dmd" not in str(session.execute.call_args[0][0]).lower()

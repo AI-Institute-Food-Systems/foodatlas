@@ -1,4 +1,12 @@
 import { DownloadEntry, MacroAndMicroData, Metadata, TaxonomyData } from "@/types";
+import { ChemicalCompositionRow } from "@/utils/chemicalComposition";
+
+// /chemical/composition splits foods by whether a median concentration
+// could be computed. Both buckets carry the same row shape.
+export type ChemicalCompositionData = {
+  with_concentrations: ChemicalCompositionRow[];
+  without_concentrations: ChemicalCompositionRow[];
+};
 
 import { apiFetch } from "@/utils/apiFetch";
 
@@ -215,22 +223,24 @@ export async function getFoodCompositionCounts(
   };
 }
 
-// fetch chemical composition data, i.e. the foods containing it
-export async function getChemicalCompositionData(commonName: string) {
+// fetch chemical composition data, i.e. the foods containing it.
+//
+// Returns null rather than throwing: this runs in a Server Component, so a
+// throw here becomes a user-facing 500 for the whole chemical page. The
+// section renders its own empty state from a null result instead.
+export async function getChemicalCompositionData(
+  commonName: string
+): Promise<ChemicalCompositionData | null> {
   const res = await apiFetch(
     `${apiBase()}/chemical/composition?common_name=${encodeURIComponent(commonName)}`,
     { revalidate: 86400 }
   );
 
-  if (!res.ok) {
-    throw new Error(
-      `Failed to fetch composition data for chemical ${commonName}`
-    );
-  }
+  if (!res.ok) return null;
 
   const { data } = await res.json();
 
-  return data;
+  return data ?? null;
 }
 
 // fetch disease correlation data for a certain chemical, either negative or positive
@@ -723,4 +733,37 @@ export async function getTime() {
   const data = await response.json();
 
   return data.unixtime;
+}
+
+// Evidence behind one row of the chemical composition table, fetched when
+// its modal opens rather than with the table.
+//
+// Quercetin's foods carry 6.7 MB of evidence JSON against a 93 KB
+// composition payload, and that payload is fetched server-side on every
+// chemical page load — for a modal most visitors never open. One pair is
+// ~15 KB.
+//
+// Returns [] rather than throwing: an empty modal is a smaller failure
+// than taking the page down.
+export async function getChemicalCompositionEvidence(
+  commonName: string,
+  foodName: string
+) {
+  try {
+    // apiFetch, not fetch: reopening the same row's modal is a common
+    // move, and the in-flight dedupe plus TTL cache make the second open
+    // instant. The composition branch had no apiFetch to reach for.
+    const res = await apiFetch(
+      `${apiBase()}/chemical/composition-evidence` +
+        `?common_name=${encodeURIComponent(commonName)}` +
+        `&food_name=${encodeURIComponent(foodName)}`,
+      { revalidate: 86400 }
+    );
+    if (!res.ok) return [];
+    const { data } = await res.json();
+    return data ?? [];
+  } catch (err) {
+    console.warn(`Failed to fetch composition evidence for ${foodName}:`, err);
+    return [];
+  }
 }

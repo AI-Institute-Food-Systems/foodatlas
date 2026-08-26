@@ -34,6 +34,11 @@ import { TrustBadge } from "@/components/basic/TrustBadge";
 import FoodCompositionEvidenceModal, {
   EvidenceFilter,
 } from "@/components/entities/food/FoodCompositionEvidenceModal";
+import {
+  FilterGroup,
+  FilterRowLabel,
+  ToggleSwitch,
+} from "@/components/entities/shared/CompositionFilterControls";
 import { usePaginations } from "@/context/paginationsContext";
 import { usePublishTabCount } from "@/context/tabCountsContext";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
@@ -1307,75 +1312,6 @@ FoodCompositionSection.displayName = "FoodCompositionSection";
 // -- Filter block chrome -----------------------------------------------------
 // Small, purely-presentational helpers so the JSX above reads as a filter
 // spec ("Options | Source | Class") rather than a wall of class strings.
-
-const FilterRowLabel = ({ children }: { children: React.ReactNode }) => (
-  <span className="font-mono italic text-[11px] uppercase tracking-wider text-light-400 min-w-[3.5rem]">
-    {children}
-  </span>
-);
-
-const ToggleSwitch = ({
-  label,
-  count,
-  checked,
-  onChange,
-}: {
-  label: string;
-  // Count of rows the toggle governs (e.g. rows without concentration).
-  // Rendered as a right-aligned mono badge; omitted when undefined.
-  count?: number;
-  checked: boolean;
-  onChange: () => void;
-}) => (
-  <label className="flex items-center gap-2 cursor-pointer select-none">
-    <Switch
-      checked={checked}
-      onChange={onChange}
-      className="group inline-flex h-4 w-8 items-center rounded-full bg-light-700 data-[checked]:bg-accent-600 flex-shrink-0 transition-colors"
-    >
-      <span className="size-3 translate-x-0.5 rounded-full bg-white transition group-data-[checked]:translate-x-[1.125rem]" />
-    </Switch>
-    <span
-      className={twMerge(
-        "text-xs transition-colors flex-1 min-w-0 leading-tight",
-        checked ? "text-light-100" : "text-light-400"
-      )}
-    >
-      {label}
-    </span>
-    {typeof count === "number" && (
-      <span
-        className={twMerge(
-          "tabular-nums text-[10px] flex-shrink-0",
-          checked ? "text-light-400" : "text-light-500"
-        )}
-      >
-        {count.toLocaleString()}
-      </span>
-    )}
-  </label>
-);
-
-// A labelled section in the filter sidebar. The optional `action` sits in
-// the label row (right-aligned) — used by Class for the "all / clear"
-// button so it doesn't need its own row.
-const FilterGroup = ({
-  label,
-  action,
-  children,
-}: {
-  label: string;
-  action?: React.ReactNode;
-  children: React.ReactNode;
-}) => (
-  <div className="flex flex-col gap-1.5">
-    <div className="flex items-baseline justify-between gap-2">
-      <FilterRowLabel>{label}</FilterRowLabel>
-      {action}
-    </div>
-    {children}
-  </div>
-);
 
 // A vertical list of checkbox rows. Optionally caps its height + scrolls
 // so Class (15+ items) doesn't push the sticky sidebar past the viewport.
