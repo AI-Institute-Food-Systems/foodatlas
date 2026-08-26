@@ -37,6 +37,10 @@ const chemRow = (over: Record<string, unknown> = {}) => ({
   n_assays: 5,
   n_active_measurements: 12,
   relationships: ["therapeutic"],
+  target_genes: ["NCBIGene: 7157"],
+  targets: [{ id: "NCBIGene: 7157", label: "Cellular tumor antigen p53" }],
+  assays: ["AID: 1"],
+  literature_directions: [],
   ...over,
 });
 
@@ -46,6 +50,9 @@ const summaryRow = (over: Record<string, unknown> = {}) => ({
   n_chemicals: 2,
   n_assays: 5,
   n_active_measurements: 12,
+  n_therapeutic: 1,
+  n_marker: 1,
+  n_literature: 0,
   ...over,
 });
 

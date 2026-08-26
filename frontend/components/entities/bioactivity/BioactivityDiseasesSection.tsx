@@ -20,6 +20,13 @@ import {
   TableSkeletonRows,
 } from "@/components/basic/TableSkeleton";
 import type { SkeletonColumn } from "@/components/basic/skeletonTokens";
+import DirectionSplit from "@/components/entities/shared/DirectionSplit";
+import {
+  CardRow,
+  CountCell,
+  Th,
+} from "@/components/entities/shared/EvidenceTable";
+import TargetGeneChips from "@/components/entities/shared/TargetGeneChips";
 import { useReportRows } from "@/context/reportModeContext";
 import { usePublishTabCount } from "@/context/tabCountsContext";
 import { getBioactivityDiseases } from "@/utils/fetching";
@@ -35,10 +42,12 @@ const PAGE_SIZE = 50;
 // Mirrors the <colgroup> and cell alignment of the real table below, so
 // the loading grid lines up with the loaded one.
 const SKELETON_COLUMNS: SkeletonColumn[] = [
-  { key: "disease", width: "w-[54%]" },
-  { key: "chemicals", width: "w-[15%]", align: "right" },
-  { key: "assays", width: "w-[15%]", align: "right" },
-  { key: "active", width: "w-[16%]", align: "right" },
+  { key: "disease", width: "w-[27%]" },
+  { key: "chemicals", width: "w-[9%]", align: "right" },
+  { key: "assays", width: "w-[9%]", align: "right" },
+  { key: "active", width: "w-[9%]", align: "right" },
+  { key: "signal", width: "w-[26%]" },
+  { key: "targets", width: "w-[20%]" },
 ];
 
 const BioactivityDiseasesSection = ({ commonName }: Props) => {
@@ -108,34 +117,37 @@ const BioactivityDiseasesSection = ({ commonName }: Props) => {
       <div className="hidden md:block overflow-x-auto">
         <table className="w-full table-fixed">
           <colgroup>
-            <col className="w-[54%]" />
-            <col className="w-[15%]" />
-            <col className="w-[15%]" />
-            <col className="w-[16%]" />
+            <col className="w-[27%]" />
+            <col className="w-[9%]" />
+            <col className="w-[9%]" />
+            <col className="w-[9%]" />
+            <col className="w-[26%]" />
+            <col className="w-[20%]" />
           </colgroup>
           <thead className="text-light-400 text-left">
             <tr>
-              <th className="h-9 border-b border-light-700 py-1.5 pr-4 uppercase text-xs font-medium">
-                Disease
-              </th>
-              <th
-                className="h-9 border-b border-light-700 py-1.5 px-4 text-right uppercase text-xs font-medium"
+              <Th>Disease</Th>
+              <Th
+                align="right"
                 title="Distinct chemicals linking this disease to the bioactivity"
               >
                 Chemicals
-              </th>
-              <th
-                className="h-9 border-b border-light-700 py-1.5 px-4 text-right uppercase text-xs font-medium"
-                title="Bridging assays behind those links"
-              >
+              </Th>
+              <Th align="right" title="Bridging assays behind those links">
                 Assays
-              </th>
-              <th
-                className="h-9 border-b border-light-700 py-1.5 px-4 text-right uppercase text-xs font-medium"
+              </Th>
+              <Th
+                align="right"
                 title="Active measurements across those assays"
               >
                 Active
-              </th>
+              </Th>
+              <Th title="How many of those chemicals CTD classifies as therapeutic (treats) versus marker/mechanism (marks or drives), and how many the literature also records. A chemical can be both, so these need not sum to the chemical count.">
+                Signal
+              </Th>
+              <Th title="The protein targets the most chemicals converge on for this disease">
+                Targets
+              </Th>
             </tr>
           </thead>
           <tbody className="text-sm">
@@ -155,14 +167,28 @@ const BioactivityDiseasesSection = ({ commonName }: Props) => {
                       </Link>
                     </div>
                   </td>
-                  <td className="py-1.5 px-4 text-right tabular-nums text-light-200">
-                    {row.n_chemicals.toLocaleString()}
+                  <td className="py-1.5 px-4 text-right">
+                    <CountCell value={row.n_chemicals} />
                   </td>
-                  <td className="py-1.5 px-4 text-right tabular-nums text-light-200">
-                    {row.n_assays.toLocaleString()}
+                  <td className="py-1.5 px-4 text-right">
+                    <CountCell value={row.n_assays} />
                   </td>
-                  <td className="py-1.5 px-4 text-right tabular-nums text-emerald-300">
-                    {row.n_active_measurements.toLocaleString()}
+                  <td className="py-1.5 px-4 text-right">
+                    <CountCell
+                      value={row.n_active_measurements}
+                      tone="text-emerald-300"
+                    />
+                  </td>
+                  <td className="py-1.5 px-4">
+                    <DirectionSplit
+                      nTherapeutic={row.n_therapeutic}
+                      nMarker={row.n_marker}
+                      nLiterature={row.n_literature}
+                      nChemicals={row.n_chemicals}
+                    />
+                  </td>
+                  <td className="py-1.5 px-4">
+                    <TargetGeneChips targets={row.targets} visible={2} />
                   </td>
                 </tr>
               );
@@ -190,13 +216,31 @@ const BioactivityDiseasesSection = ({ commonName }: Props) => {
                 </Link>
                 <MdArrowForward className="w-3.5 h-3.5 text-light-500 shrink-0" />
               </div>
-              <CardRow label="Chemicals" value={row.n_chemicals} />
-              <CardRow label="Assays" value={row.n_assays} />
-              <CardRow
-                label="Active"
-                value={row.n_active_measurements}
-                tone="text-emerald-300"
-              />
+              <CardRow label="Chemicals">
+                <CountCell value={row.n_chemicals} />
+              </CardRow>
+              <CardRow label="Assays">
+                <CountCell value={row.n_assays} />
+              </CardRow>
+              <CardRow label="Active">
+                <CountCell
+                  value={row.n_active_measurements}
+                  tone="text-emerald-300"
+                />
+              </CardRow>
+              <div>
+                <DirectionSplit
+                  nTherapeutic={row.n_therapeutic}
+                  nMarker={row.n_marker}
+                  nLiterature={row.n_literature}
+                  nChemicals={row.n_chemicals}
+                />
+              </div>
+              {!!row.targets?.length && (
+                <CardRow label="Targets">
+                  <TargetGeneChips targets={row.targets} visible={2} />
+                </CardRow>
+              )}
             </div>
           );
         })}
@@ -216,21 +260,6 @@ const BioactivityDiseasesSection = ({ commonName }: Props) => {
     </div>
   );
 };
-
-const CardRow = ({
-  label,
-  value,
-  tone = "text-light-200",
-}: {
-  label: string;
-  value: number;
-  tone?: string;
-}) => (
-  <div className="flex items-baseline justify-between text-[11px] font-mono">
-    <span className="text-light-500">{label}</span>
-    <span className={`tabular-nums ${tone}`}>{value.toLocaleString()}</span>
-  </div>
-);
 
 BioactivityDiseasesSection.displayName = "BioactivityDiseasesSection";
 export default BioactivityDiseasesSection;

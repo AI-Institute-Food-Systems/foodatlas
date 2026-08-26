@@ -5,7 +5,6 @@
 // re-sorts — it only renders and paginates the tail.
 
 import { MdArrowForward, MdKeyboardArrowDown } from "react-icons/md";
-import { twMerge } from "tailwind-merge";
 
 import Link from "@/components/basic/Link";
 import {
@@ -13,6 +12,15 @@ import {
   TableSkeletonRows,
 } from "@/components/basic/TableSkeleton";
 import type { SkeletonColumn } from "@/components/basic/skeletonTokens";
+import AssayEvidenceLinks from "@/components/entities/shared/AssayEvidenceLinks";
+import {
+  CardRow,
+  CountCell,
+  Th,
+} from "@/components/entities/shared/EvidenceTable";
+import LiteratureBadge from "@/components/entities/shared/LiteratureBadge";
+import SignalChips from "@/components/entities/shared/SignalChips";
+import TargetGeneChips from "@/components/entities/shared/TargetGeneChips";
 import { useReportRows } from "@/context/reportModeContext";
 import { encodeSpace } from "@/utils/utils";
 import type { DiseaseBioactivityChemical } from "@/types";
@@ -31,26 +39,26 @@ interface Props {
 
 // Mirrors the <colgroup> and cell alignment of the real table below.
 const SKELETON_COLUMNS: SkeletonColumn[] = [
-  { key: "bioactivity", width: "w-[20%]" },
-  { key: "chemical", width: "w-[34%]" },
-  { key: "assays", width: "w-[10%]", align: "right" },
-  { key: "active", width: "w-[10%]", align: "right" },
-  { key: "signal", width: "w-[26%]" },
+  { key: "bioactivity", width: "w-[15%]" },
+  { key: "chemical", width: "w-[22%]" },
+  { key: "assays", width: "w-[8%]", align: "right" },
+  { key: "active", width: "w-[8%]", align: "right" },
+  { key: "signal", width: "w-[21%]" },
+  { key: "target", width: "w-[16%]" },
+  { key: "evidence", width: "w-[10%]" },
 ];
 
 const entityHref = (kind: string, name: string) =>
   `/${kind}/${encodeURIComponent(encodeSpace(name))}`;
 
-const RelationshipChips = ({ relationships }: { relationships: string[] }) => (
-  <span className="inline-flex flex-wrap gap-1">
-    {relationships.map((r) => (
-      <span
-        key={r}
-        className="text-[9px] font-mono italic uppercase tracking-[0.1em] text-light-300 border border-light-700 rounded-full px-1.5 py-[1px]"
-      >
-        {r}
-      </span>
-    ))}
+// Direction plus, where the literature covers the pair, whether it agrees.
+const SignalCell = ({ row }: { row: DiseaseBioactivityChemical }) => (
+  <span className="inline-flex flex-wrap items-baseline gap-1">
+    <SignalChips relationships={row.relationships} />
+    <LiteratureBadge
+      relationships={row.relationships}
+      literatureDirections={row.literature_directions}
+    />
   </span>
 );
 
@@ -83,11 +91,13 @@ const DiseaseBioactivityTable = ({
       <div className="hidden md:block overflow-x-auto">
         <table className="w-full table-fixed">
           <colgroup>
-            <col className="w-[20%]" />
-            <col className="w-[34%]" />
+            <col className="w-[15%]" />
+            <col className="w-[22%]" />
+            <col className="w-[8%]" />
+            <col className="w-[8%]" />
+            <col className="w-[21%]" />
+            <col className="w-[16%]" />
             <col className="w-[10%]" />
-            <col className="w-[10%]" />
-            <col className="w-[26%]" />
           </colgroup>
           <thead className="text-light-400 text-left">
             <tr>
@@ -102,9 +112,13 @@ const DiseaseBioactivityTable = ({
               <Th align="right" title="Active measurements across those assays">
                 Active
               </Th>
-              <Th title="How the bioactivity-disease bridge classifies the link">
+              <Th title="How CTD classifies the link: therapeutic (treats) or marker/mechanism (marks or drives). Opposite directions.">
                 Signal
               </Th>
+              <Th title="The protein target the bridging assays measure">
+                Target
+              </Th>
+              <Th title="The source assays behind this row">Evidence</Th>
             </tr>
           </thead>
           <tbody className="text-sm">
@@ -132,14 +146,27 @@ const DiseaseBioactivityTable = ({
                     </Link>
                   </div>
                 </td>
-                <td className="py-1.5 px-4 text-right tabular-nums text-light-200">
-                  {row.n_assays.toLocaleString()}
+                <td className="py-1.5 px-4 text-right">
+                  <CountCell value={row.n_assays} />
                 </td>
-                <td className="py-1.5 px-4 text-right tabular-nums text-emerald-300">
-                  {row.n_active_measurements.toLocaleString()}
+                <td className="py-1.5 px-4 text-right">
+                  <CountCell
+                    value={row.n_active_measurements}
+                    tone="text-emerald-300"
+                  />
                 </td>
                 <td className="py-1.5 px-4">
-                  <RelationshipChips relationships={row.relationships} />
+                  <SignalCell row={row} />
+                </td>
+                <td className="py-1.5 px-4">
+                  <TargetGeneChips targets={row.targets} visible={2} />
+                </td>
+                <td className="py-1.5 px-4">
+                  <AssayEvidenceLinks
+                    assays={row.assays}
+                    totalCount={row.n_assays}
+                    visible={1}
+                  />
                 </td>
               </tr>
             ))}
@@ -176,19 +203,30 @@ const DiseaseBioactivityTable = ({
               </Link>
             </div>
             <CardRow label="Assays">
-              <span className="tabular-nums text-light-200">
-                {row.n_assays.toLocaleString()}
-              </span>
+              <CountCell value={row.n_assays} />
             </CardRow>
             <CardRow label="Active">
-              <span className="tabular-nums text-emerald-300">
-                {row.n_active_measurements.toLocaleString()}
-              </span>
+              <CountCell
+                value={row.n_active_measurements}
+                tone="text-emerald-300"
+              />
             </CardRow>
-            {row.relationships.length > 0 && (
-              <div>
-                <RelationshipChips relationships={row.relationships} />
-              </div>
+            <div>
+              <SignalCell row={row} />
+            </div>
+            {!!row.targets?.length && (
+              <CardRow label="Target">
+                <TargetGeneChips targets={row.targets} visible={2} />
+              </CardRow>
+            )}
+            {!!row.assays?.length && (
+              <CardRow label="Evidence">
+                <AssayEvidenceLinks
+                  assays={row.assays}
+                  totalCount={row.n_assays}
+                  visible={1}
+                />
+              </CardRow>
             )}
           </div>
         ))}
@@ -208,39 +246,6 @@ const DiseaseBioactivityTable = ({
     </div>
   );
 };
-
-const Th = ({
-  children,
-  align,
-  title,
-}: {
-  children: React.ReactNode;
-  align?: "right";
-  title?: string;
-}) => (
-  <th
-    title={title}
-    className={twMerge(
-      "h-9 border-b border-light-700 py-1.5 px-4 uppercase text-xs font-medium",
-      align === "right" ? "text-right" : "text-left",
-    )}
-  >
-    {children}
-  </th>
-);
-
-const CardRow = ({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) => (
-  <div className="flex items-baseline justify-between gap-3 text-[11px] font-mono">
-    <span className="text-light-500 shrink-0">{label}</span>
-    <span className="text-right">{children}</span>
-  </div>
-);
 
 DiseaseBioactivityTable.displayName = "DiseaseBioactivityTable";
 export default DiseaseBioactivityTable;

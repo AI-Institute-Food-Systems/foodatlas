@@ -21,6 +21,18 @@ from sqlalchemy.engine import Connection
 
 logger = logging.getLogger(__name__)
 
+# Row-level caps on the evidence arrays. Both views quote the same numbers in
+# their API docs, so they live here rather than in either materializer.
+ASSAY_CAP = 25
+GENE_CAP = 50
+
+# CTD literature relationship ids, mapped onto the same two-value vocabulary the
+# assay bridge uses. Sharing the vocabulary is what lets the UI say whether the
+# literature agrees with the assay evidence instead of just noting it exists.
+# See backend/kgc/src/models/relationship.py and
+# backend/kgc/src/pipeline/triplets/chemical_disease/ctd.py.
+_LITERATURE_DIRECTION = {"r3": "marker/mechanism", "r4": "therapeutic"}
+
 
 def build_bridge_evidence(conn: Connection) -> tuple[pd.DataFrame, dict[str, str]]:
     """One row per (chemical, bridging assay, active measurement, disease).
@@ -119,6 +131,85 @@ def assay_bioactivity_map(conn: Connection) -> pd.DataFrame:
         logger.info("%d assay-bioactivity links had no entity (dropped).", unmapped)
     assays = assays.dropna(subset=["bioactivity_id"])
     return assays[["source_assay_id", "bioactivity_id"]].drop_duplicates()
+
+
+def target_gene_map(conn: Connection) -> dict[str, list[str]]:
+    """``bdm…`` metadata id → the target gene ids it records."""
+    df = pd.read_sql(
+        text(
+            "SELECT bioactivity_disease_metadata_id AS bdm, target_ids"
+            " FROM base_bioactivity_disease_targets"
+        ),
+        conn,
+    )
+    return dict(zip(df["bdm"], df["target_ids"], strict=False))
+
+
+def target_genes_per_pair(
+    evidence: pd.DataFrame, target_map: dict, keys: list[str]
+) -> pd.Series:
+    """Distinct target genes per grouping key, via bdm → target_ids.
+
+    The gene is effectively the bridging assay's own protein target, so this is
+    what answers "through *what* does this link run?" on both views.
+    """
+    tmp = evidence[[*keys, "bioactivity_disease_metadata_id"]].explode(
+        "bioactivity_disease_metadata_id"
+    )
+    tmp = tmp.dropna(subset=["bioactivity_disease_metadata_id"])
+    tmp["genes"] = tmp["bioactivity_disease_metadata_id"].map(target_map)
+    tmp = tmp.explode("genes").dropna(subset=["genes"])
+    return (
+        tmp.groupby(keys)["genes"]
+        .apply(lambda s: sorted(set(s))[:GENE_CAP])
+        .rename("target_genes")
+    )
+
+
+def literature_directions(conn: Connection) -> pd.DataFrame:
+    """(chemical_id, disease_id) → CTD literature direction(s) for that pair.
+
+    Empty for the vast majority of pairs: the assay bridge reaches far more
+    (chemical, disease) combinations than the literature has direct evidence
+    for. That scarcity is the point — a pair the literature independently backs
+    is worth flagging precisely because most aren't.
+    """
+    df = pd.read_sql(
+        text(
+            "SELECT DISTINCT chemical_foodatlas_id AS chemical_id,"
+            " disease_foodatlas_id AS disease_id, relationship_id"
+            " FROM mv_chemical_disease_correlation"
+        ),
+        conn,
+    )
+    if df.empty:
+        return pd.DataFrame(
+            columns=["chemical_id", "disease_id", "literature_directions"]
+        )
+
+    df["direction"] = df["relationship_id"].map(_LITERATURE_DIRECTION)
+    df = df.dropna(subset=["direction"])
+    return (
+        df.groupby(["chemical_id", "disease_id"])["direction"]
+        .apply(lambda s: sorted(set(s)))
+        .rename("literature_directions")
+        .reset_index()
+    )
+
+
+def attach_literature(out: pd.DataFrame, lit: pd.DataFrame) -> pd.DataFrame:
+    """Left-join literature directions onto an aggregated view, defaulting []."""
+    if lit.empty:
+        out["literature_directions"] = [[] for _ in range(len(out))]
+        return out
+    out = out.merge(lit, on=["chemical_id", "disease_id"], how="left")
+    out["literature_directions"] = out["literature_directions"].apply(as_list)
+    return out
+
+
+def as_list(value: object) -> list:
+    """Normalize a possibly-missing aggregate result to a list."""
+    return value if isinstance(value, list) else []
 
 
 def bioactivity_concept_map(entities: pd.DataFrame) -> dict[str, str]:
