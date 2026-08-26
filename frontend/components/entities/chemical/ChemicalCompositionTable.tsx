@@ -198,10 +198,6 @@ const ChemicalCompositionTable = ({
   // the empty-state copy below keys off "are rows being hidden".
   const isFiltered = search.trim() !== "" || sources.length > 0;
   const isFiltersDirty = isFiltered || !includeUnmeasured;
-  const activeFilterCount =
-    (search.trim() !== "" ? 1 : 0) +
-    (sources.length > 0 ? 1 : 0) +
-    (includeUnmeasured ? 0 : 1);
 
   // One instance, rendered into either the sidebar or the drawer, so the
   // reset control belongs here rather than at either call site.
@@ -218,11 +214,7 @@ const ChemicalCompositionTable = ({
           setTablePaginations(TABLE_ID, 1, ROWS_PER_PAGE);
         }}
       />
-      <ResetFiltersButton
-        isDirty={isFiltersDirty}
-        onReset={resetAllFilters}
-        activeCount={activeFilterCount}
-      />
+      <ResetFiltersButton isDirty={isFiltersDirty} onReset={resetAllFilters} />
     </>
   );
 

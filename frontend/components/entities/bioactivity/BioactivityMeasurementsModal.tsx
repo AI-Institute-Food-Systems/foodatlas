@@ -200,15 +200,6 @@ const BioactivityMeasurementsModal = ({
     sourceFilter !== "" ||
     evidenceTypeFilter.length > 0;
 
-  // Count of dimensions currently narrowing the view, surfaced on the
-  // chip. Evidence type is multi-select but counts once — it is one
-  // filter, however many values it holds.
-  const activeFilterCount =
-    (searchTerm !== "" ? 1 : 0) +
-    (outcomeFilter !== "all" ? 1 : 0) +
-    (sourceFilter !== "" ? 1 : 0) +
-    (evidenceTypeFilter.length > 0 ? 1 : 0);
-
   // Reset filters/page/expand when the modal closes or the underlying
   // selection changes (different chemical/food clicked).
   useEffect(() => {
@@ -405,11 +396,7 @@ const BioactivityMeasurementsModal = ({
         onClearEvidenceTypes={clearEvidenceTypes}
         showSkeleton={showSkeleton}
       />
-      <ResetFiltersButton
-        isDirty={isFiltersDirty}
-        onReset={resetAllFilters}
-        activeCount={activeFilterCount}
-      />
+      <ResetFiltersButton isDirty={isFiltersDirty} onReset={resetAllFilters} />
     </>
   );
 

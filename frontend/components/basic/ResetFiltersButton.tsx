@@ -19,12 +19,9 @@ interface Props {
   // Render nothing when the view already matches a fresh page load.
   isDirty: boolean;
   onReset: () => void;
-  // Count of active filters, surfaced on the chip so the control says how
-  // much it will undo.
-  activeCount?: number;
 }
 
-const ResetFiltersButton = ({ isDirty, onReset, activeCount }: Props) => {
+const ResetFiltersButton = ({ isDirty, onReset }: Props) => {
   if (!isDirty) return null;
   return (
     <div className="flex flex-col gap-2 pt-1">
@@ -34,7 +31,6 @@ const ResetFiltersButton = ({ isDirty, onReset, activeCount }: Props) => {
       <Chip
         icon={<MdFilterAltOff className="size-3" />}
         label="Clear filters"
-        count={activeCount}
         tone="outline"
         size="md"
         onClick={onReset}
