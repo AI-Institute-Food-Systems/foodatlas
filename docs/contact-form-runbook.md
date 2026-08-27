@@ -89,6 +89,13 @@ uv run python -m scripts.keys revoke aaaa1111 --profile foodatlas-prod-admin
 Revoking flips the record to `revoked` rather than deleting it, so the ledger keeps the history
 of who once had access. The key stops working within one refresh interval.
 
+> **Until the API image carrying this change is deployed, `revoke` records but does not enforce.**
+> The status check lives in `verify()`; an older running image reads only `email`/`created`/`notes`
+> and happily authenticates a record marked `revoked`. Verified on staging 2026-08-27: a revoked
+> key still returned 200 fifteen minutes and three refresh intervals later. Until prod runs this
+> code, actually killing a key means deleting its hash entry from the secret. Issuing is
+> unaffected — an older image ignores the extra fields, so keys minted today work immediately.
+
 Only the sha256 hash and an 8-character prefix are stored, never the key itself — a lost key
 means issuing a new one. Requesters get `Authorization: Bearer <key>` on `/v1/*`, 60 req/min
 sustained with a burst of 10.
