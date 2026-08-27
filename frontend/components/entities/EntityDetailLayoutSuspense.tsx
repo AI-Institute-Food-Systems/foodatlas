@@ -108,39 +108,48 @@ const EntityDetailLayoutSuspense = ({ entityType }: Props) => {
         </div>
 
         <Card>
-          {/* The sticky filter sidebar the real tables show from 1440px
-            * up, mirrored so wide viewports reserve the same gutter.
-            * Absolutely positioned off the Card, exactly as the real one
-            * is, so it costs the body no layout. */}
-          <aside className={FILTER_SIDEBAR_CLASS}>
-            <div className={FILTER_STICKY_CLASS}>
-              <Card className="gap-3">
-                <Skeleton shape="block" className="h-8 w-full rounded-md" />
-                {FILTER_SKELETON_WIDTHS.map((w, i) => (
-                  <Skeleton key={i} className={`h-3 ${w}`} />
-                ))}
-              </Card>
-            </div>
-          </aside>
+          {/* Mirrors FilterPanel's structure, not just its classes. The
+            * aside must hang off a plain wrapper filling the Card's CONTENT
+            * box — the way the live panel's does — because an absolutely
+            * positioned element resolves against its ancestor's PADDING box.
+            * Card is itself `relative`, so an aside placed directly under it
+            * anchored to the frame instead, and FILTER_SIDEBAR_CLASS's
+            * -17px insets (which correct for exactly that padding)
+            * overshot by a padding at each end. */}
+          <div className="relative">
+            {/* The sticky filter sidebar the real tables show from 1440px
+              * up, mirrored so wide viewports reserve the same gutter.
+              * Absolutely positioned, so it costs the body no layout. */}
+            <aside className={FILTER_SIDEBAR_CLASS}>
+              <div className={FILTER_STICKY_CLASS}>
+                <Card className="gap-3">
+                  <Skeleton shape="block" className="h-8 w-full rounded-md" />
+                  {FILTER_SKELETON_WIDTHS.map((w, i) => (
+                    <Skeleton key={i} className={`h-3 ${w}`} />
+                  ))}
+                </Card>
+              </div>
+            </aside>
 
           {/* Filter chrome: search field + filters button. Hidden at
             * min-[1440px], because that's where the real tables move this
             * chrome out of the card and into a sticky aside — rendering it
             * inline at every width meant wide viewports saw a search bar
             * the loaded page never has. */}
-          <div className="mb-4 flex items-center gap-3 min-[1440px]:hidden">
-            <div className="flex-1 min-w-0 max-w-xs">
-              <Skeleton shape="block" className="h-8 w-full rounded-md" />
+            <div className="mb-4 flex items-center gap-3 min-[1440px]:hidden">
+              <div className="flex-1 min-w-0 max-w-xs">
+                <Skeleton shape="block" className="h-8 w-full rounded-md" />
+              </div>
+              <Skeleton shape="block" className="h-8 w-20 rounded-md" />
             </div>
-            <Skeleton shape="block" className="h-8 w-20 rounded-md" />
-          </div>
 
-          {/* The shell can't know which tab will render, so this is a
-           * deliberately neutral name + two-metric grid — the shape every
-           * default tab's table shares. It shows only for the moment
-           * before the SSR shell arrives, after which each table's own
-           * skeleton takes over with its real column spec. */}
-          <TableSkeleton columns={SHELL_COLUMNS} />
+            {/* The shell can't know which tab will render, so this is a
+             * deliberately neutral name + two-metric grid — the shape every
+             * default tab's table shares. It shows only for the moment
+             * before the SSR shell arrives, after which each table's own
+             * skeleton takes over with its real column spec. */}
+            <TableSkeleton columns={SHELL_COLUMNS} />
+          </div>
         </Card>
       </section>
     </div>
