@@ -60,18 +60,22 @@ async def get_correlation(
                 WHERE disease_name = :name{where}
             )
             SELECT c.chemical_foodatlas_id AS id, c.chemical_name AS name,
-                   c.relationship_id,
-                   c.sources, c.evidences, c.evidence_count,
+                   {_correlation.PAIR_AGGREGATES},
+                   -- Scalar subquery rather than a join + aggregate: this
+                   -- depends only on chemical_foodatlas_id, which is a
+                   -- grouping column, and jsonb has no MIN to collapse it
+                   -- with once the rows are grouped.
                    COALESCE((
                        SELECT jsonb_agg(s ORDER BY s->>'common_name')
-                       FROM jsonb_array_elements(ce.ambiguity_siblings) s
-                       WHERE s->>'foodatlas_id' IN (SELECT id FROM disease_chems)
+                       FROM mv_chemical_entities ce,
+                            jsonb_array_elements(ce.ambiguity_siblings) s
+                       WHERE ce.foodatlas_id = c.chemical_foodatlas_id
+                         AND s->>'foodatlas_id' IN (SELECT id FROM disease_chems)
                    ), '[]'::jsonb) AS ambiguity_siblings
             FROM {_correlation.VIEW} c
-            LEFT JOIN mv_chemical_entities ce
-                ON ce.foodatlas_id = c.chemical_foodatlas_id
             WHERE c.disease_name = :name{where_c}
-            ORDER BY c.evidence_count DESC, c.chemical_name
+            GROUP BY {_correlation.GROUP_BY_PAIR}
+            ORDER BY SUM(c.evidence_count) DESC, c.chemical_name
             OFFSET :offset ROWS FETCH FIRST :limit ROWS ONLY
         """),
         {
@@ -81,12 +85,15 @@ async def get_correlation(
             **filter_params,
         },
     )
-    data = [dict(r._mapping) for r in result]
+    data = _correlation.shape_pair_rows([dict(r._mapping) for r in result])
 
     count_result = await session.execute(
         text(f"""
-            SELECT COUNT(*) FROM {_correlation.VIEW}
-            WHERE disease_name = :name{where}
+            SELECT COUNT(*) FROM (
+                SELECT 1 FROM {_correlation.VIEW}
+                WHERE disease_name = :name{where}
+                GROUP BY {_correlation.GROUP_BY_PAIR}
+            ) pairs
         """),
         {"name": common_name, **filter_params},
     )

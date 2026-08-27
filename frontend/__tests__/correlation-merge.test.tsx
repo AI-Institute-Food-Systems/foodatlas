@@ -15,7 +15,13 @@
 //    `relationship_id` (r4 improves, r3 worsens). A row that renders the
 //    wrong direction inverts the claim, so it is pinned here.
 
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 beforeAll(() => {
@@ -51,11 +57,12 @@ import { getDiseaseData } from "@/utils/fetching";
 const row = (over: Record<string, unknown> = {}) => ({
   id: "d1",
   name: "inflammation",
-  relationship_id: "r4",
+  relationship_ids: ["r4"],
   source_chemical_name: "caffeine",
   source_chemical_foodatlas_id: "e1",
   sources: [],
-  evidences: [{ pmid: { id: "123", url: "https://example.org/123" } }],
+  improves_evidences: [{ pmid: { id: "123", url: "https://example.org/123" } }],
+  worsens_evidences: null,
   ambiguity_siblings: [],
   ...over,
 });
@@ -117,7 +124,10 @@ describe("source-chemical column", () => {
 describe("direction", () => {
   it("renders both directions in one table, from relationship_id", async () => {
     await mount(
-      [row({ relationship_id: "r4" }), row({ id: "d2", name: "diabetes", relationship_id: "r3" })],
+      [
+        row({ relationship_ids: ["r4"] }),
+        row({ id: "d2", name: "diabetes", relationship_ids: ["r3"] }),
+      ],
       "caffeine"
     );
     expect(screen.getAllByText("Improves").length).toBeGreaterThan(0);
@@ -125,8 +135,14 @@ describe("direction", () => {
   });
 
   it("maps r3 to worsens and r4 to improves", () => {
-    expect(rowDirection({ relationship_id: "r3" })).toBe("negative");
-    expect(rowDirection({ relationship_id: "r4" })).toBe("positive");
+    expect(rowDirection({ relationship_ids: ["r3"] })).toBe("negative");
+    expect(rowDirection({ relationship_ids: ["r4"] })).toBe("positive");
+  });
+
+  it("calls a pair reported both ways mixed, not one of the two", () => {
+    // Picking a side here would assert something the literature does not.
+    expect(rowDirection({ relationship_ids: ["r3", "r4"] })).toBe("mixed");
+    expect(rowDirection({ relationship_ids: ["r4", "r3"] })).toBe("mixed");
   });
 });
 
@@ -158,7 +174,7 @@ describe("publications", () => {
     const evidences = Array.from({ length: 200 }, (_, i) => ({
       pmid: { id: String(i), url: `https://example.org/${i}` },
     }));
-    await mount([row({ evidences })], "caffeine");
+    await mount([row({ improves_evidences: evidences })], "caffeine");
     expect(screen.getAllByText("See 200 publications").length).toBeGreaterThan(0);
     expect(screen.queryByText(/more\.\.\./)).not.toBeInTheDocument();
   });
@@ -172,7 +188,7 @@ describe("publications", () => {
     const evidences = Array.from({ length: 5 }, (_, i) => ({
       pmid: { id: `pmid-${i}`, url: `https://example.org/${i}` },
     }));
-    await mount([row({ evidences })], "caffeine");
+    await mount([row({ improves_evidences: evidences })], "caffeine");
 
     fireEvent.click(screen.getAllByText("See 5 publications")[0]);
 
@@ -186,10 +202,96 @@ describe("publications", () => {
   });
 
   it("disables the button when a row somehow has no evidence", async () => {
-    await mount([row({ evidences: [] })], "caffeine");
+    await mount([row({ improves_evidences: [] })], "caffeine");
     const buttons = screen.getAllByRole("button", {
       name: /See 0 publications/,
     });
     expect(buttons[0]).toBeDisabled();
+  });
+});
+
+describe("mixed rows", () => {
+  // The API groups the view's two per-direction rows into one. Grouping
+  // has to be server-side: the halves are ordered by evidence_count and
+  // routinely land on different pages, so a per-page frontend merge would
+  // show the same pair twice under two glyphs.
+  const mixedRow = () =>
+    row({
+      relationship_ids: ["r3", "r4"],
+      improves_evidences: [
+        { pmid: { id: "imp-1", url: "https://example.org/i1" } },
+      ],
+      worsens_evidences: [
+        { pmid: { id: "wor-1", url: "https://example.org/w1" } },
+        { pmid: { id: "wor-2", url: "https://example.org/w2" } },
+      ],
+      evidences: [
+        { pmid: { id: "imp-1", url: "https://example.org/i1" } },
+        { pmid: { id: "wor-1", url: "https://example.org/w1" } },
+        { pmid: { id: "wor-2", url: "https://example.org/w2" } },
+      ],
+    });
+
+  it("shows one Mixed row rather than an Improves and a Worsens row", async () => {
+    await mount([mixedRow()], "caffeine");
+    expect(screen.getAllByText("Mixed").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Improves")).not.toBeInTheDocument();
+    expect(screen.queryByText("Worsens")).not.toBeInTheDocument();
+  });
+
+  it("counts publications across both directions", async () => {
+    await mount([mixedRow()], "caffeine");
+    expect(screen.getAllByText("See 3 publications").length).toBeGreaterThan(0);
+  });
+
+  it("separates the publications by direction in the modal", async () => {
+    await mount([mixedRow()], "caffeine");
+    fireEvent.click(screen.getAllByText("See 3 publications")[0]);
+
+    await waitFor(() =>
+      expect(screen.getByText("Publications (PMIDs)")).toBeInTheDocument()
+    );
+    // Both group headings appear inside the dialog, and every id is
+    // reachable under the right one.
+    const dialog = within(screen.getByRole("dialog"));
+    expect(dialog.getByText("Improves")).toBeInTheDocument();
+    expect(dialog.getByText("Worsens")).toBeInTheDocument();
+    expect(dialog.getByText("imp-1")).toBeInTheDocument();
+    expect(dialog.getByText("wor-1")).toBeInTheDocument();
+    expect(dialog.getByText("wor-2")).toBeInTheDocument();
+  });
+
+  it("does not group a single-direction row in the modal", async () => {
+    // The 96% case: one section, no heading — the description already
+    // states the claim, so a lone "Improves" header just repeats it.
+    await mount([row()], "caffeine");
+    fireEvent.click(screen.getAllByText("See 1 publication")[0]);
+
+    await waitFor(() =>
+      expect(screen.getByText("Publications (PMIDs)")).toBeInTheDocument()
+    );
+    // Scoped to the dialog: the row behind it still shows its own
+    // "Improves" direction cell.
+    const dialog = within(screen.getByRole("dialog"));
+    expect(dialog.queryByText("Improves")).not.toBeInTheDocument();
+    expect(dialog.getByText("123")).toBeInTheDocument();
+  });
+});
+
+describe("rowEvidences", () => {
+  it("falls back to the split arrays when the union is absent", async () => {
+    // A row without `evidences` used to crash the whole tab on
+    // `.length`. Falling back keeps it rendering.
+    await mount(
+      [
+        row({
+          evidences: undefined,
+          improves_evidences: [{ pmid: { id: "a", url: "u" } }],
+          worsens_evidences: [{ pmid: { id: "b", url: "u" } }],
+        }),
+      ],
+      "caffeine"
+    );
+    expect(screen.getAllByText("See 2 publications").length).toBeGreaterThan(0);
   });
 });

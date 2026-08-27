@@ -130,7 +130,7 @@ class TestChemicalCorrelation:
         # under OFFSET/FETCH drops and repeats rows across pages.
         session = _session([], 0)
         await chem_correlation(session, "caffeine")
-        assert "ORDER BY evidence_count DESC, disease_name" in _sql(session)
+        assert "ORDER BY SUM(evidence_count) DESC, disease_name" in _sql(session)
 
 
 class TestDiseaseCorrelation:
@@ -153,19 +153,112 @@ class TestDiseaseCorrelation:
         assert "chemical_name ILIKE :pattern" in _sql(session, 1)
 
 
-class TestDirectionCounts:
+class TestPairGrouping:
+    """One row per (anchor, source_chemical, peer), not per direction.
+
+    ~4% of pairs are reported both ways. The view stores those as two
+    rows; the UI shows one "Mixed" row. Grouping must happen in SQL —
+    the two halves are ordered by evidence_count and routinely land on
+    different pages, so a per-page frontend merge would show the pair
+    twice under two different glyphs.
+    """
+
+    @pytest.mark.asyncio
+    async def test_page_query_groups_by_pair(self) -> None:
+        session = _session([], 0)
+        await chem_correlation(session, "caffeine")
+        sql = _sql(session, 0)
+        assert f"GROUP BY {_correlation.GROUP_BY_PAIR}" in sql
+        assert "relationship_ids" in sql
+
+    @pytest.mark.asyncio
+    async def test_count_query_counts_pairs_not_rows(self) -> None:
+        # Counting the ungrouped rows would overstate total_pages and
+        # leave trailing pages empty for any anchor with mixed pairs.
+        session = _session([], 0)
+        await chem_correlation(session, "caffeine")
+        count_sql = _sql(session, 1)
+        assert f"GROUP BY {_correlation.GROUP_BY_PAIR}" in count_sql
+
+    @pytest.mark.asyncio
+    async def test_orders_by_the_summed_evidence_count(self) -> None:
+        session = _session([], 0)
+        await chem_correlation(session, "caffeine")
+        assert "ORDER BY SUM(evidence_count) DESC" in _sql(session, 0)
+
+    @pytest.mark.asyncio
+    async def test_disease_side_groups_too(self) -> None:
+        session = _session([], 0)
+        await disease_correlation(session, "diabetes")
+        assert f"GROUP BY {_correlation.GROUP_BY_PAIR}" in _sql(session, 0)
+        # jsonb has no MIN, so ambiguity_siblings must come from a scalar
+        # subquery on the grouped column rather than a join + aggregate.
+        assert "MIN(" not in _sql(session, 0)
+
+
+class TestMergeEvidences:
+    def test_unions_both_directions(self) -> None:
+        merged = _correlation.merge_evidences(
+            [{"pmid": {"id": "1"}}], [{"pmid": {"id": "2"}}]
+        )
+        assert [e["pmid"]["id"] for e in merged] == ["1", "2"]
+
+    def test_dedupes_a_paper_cited_for_both_directions(self) -> None:
+        # One study reporting a benefit in one context and a harm in
+        # another is cited under both. Counting it twice would make the
+        # row's "See N publications" button overstate exactly the mixed
+        # pairs this grouping exists to surface.
+        merged = _correlation.merge_evidences(
+            [{"pmid": {"id": "7"}}, {"pmid": {"id": "8"}}],
+            [{"pmid": {"id": "7"}}],
+        )
+        assert [e["pmid"]["id"] for e in merged] == ["7", "8"]
+
+    def test_falls_back_to_pmcid_as_the_identity(self) -> None:
+        merged = _correlation.merge_evidences(
+            [{"pmcid": {"id": "PMC1"}}], [{"pmcid": {"id": "PMC1"}}]
+        )
+        assert len(merged) == 1
+
+    def test_keeps_unidentifiable_rows_rather_than_collapsing_them(self) -> None:
+        # Two evidence records with neither id are not known duplicates;
+        # dropping one would silently lose a citation.
+        merged = _correlation.merge_evidences([{}, {}], None)
+        assert len(merged) == 2
+
+    @pytest.mark.parametrize(
+        ("improves", "worsens"),
+        [(None, None), ([], None), (None, [])],
+    )
+    def test_handles_the_missing_direction(
+        self, improves: list | None, worsens: list | None
+    ) -> None:
+        # A single-direction pair has NULL for the other side, straight
+        # from the FILTER-ed aggregate.
+        assert _correlation.merge_evidences(improves, worsens) == []
+
+    def test_shape_pair_rows_attaches_the_union(self) -> None:
+        rows = [
+            {
+                "improves_evidences": [{"pmid": {"id": "1"}}],
+                "worsens_evidences": [{"pmid": {"id": "2"}}],
+            }
+        ]
+        assert len(_correlation.shape_pair_rows(rows)[0]["evidences"]) == 2
+
+
+class TestDirectionCountsAfterGrouping:
     @pytest.mark.asyncio
     async def test_counts_are_not_filtered_by_direction(self) -> None:
         # A facet that only counted the selected direction would read zero
         # for the option the user is trying to switch to.
         session = AsyncMock()
         result = MagicMock()
-        result.__iter__ = lambda self: iter([])
+        result.one.return_value = MagicMock(improves=0, worsens=0, both=0)
         session.execute.return_value = result
 
         await chem_direction_counts(session, "caffeine")
         assert "relationship_id = :rel" not in _sql(session)
-        assert "GROUP BY relationship_id" in _sql(session)
 
     @pytest.mark.asyncio
     async def test_missing_direction_counts_zero_not_absent(self) -> None:
@@ -173,23 +266,22 @@ class TestDirectionCounts:
         # improves=0, or the facet renders a blank instead of a zero.
         session = AsyncMock()
         result = MagicMock()
-        result.__iter__ = lambda self: iter([MagicMock(relationship_id="r3", n=152)])
+        result.one.return_value = MagicMock(improves=0, worsens=152, both=152)
         session.execute.return_value = result
 
         counts = await chem_direction_counts(session, "caffeine")
         assert counts == {"improves": 0, "worsens": 152, "both": 152}
 
     @pytest.mark.asyncio
-    async def test_both_is_the_sum(self) -> None:
+    async def test_counts_pairs_so_all_is_not_the_sum(self) -> None:
+        # improves + worsens double-counts mixed pairs; "both" is the
+        # number of rows the table will actually render.
         session = AsyncMock()
         result = MagicMock()
-        result.__iter__ = lambda self: iter(
-            [
-                MagicMock(relationship_id="r4", n=52),
-                MagicMock(relationship_id="r3", n=152),
-            ]
-        )
+        result.one.return_value = MagicMock(improves=52, worsens=152, both=187)
         session.execute.return_value = result
 
         counts = await chem_direction_counts(session, "caffeine")
-        assert counts == {"improves": 52, "worsens": 152, "both": 204}
+        assert counts == {"improves": 52, "worsens": 152, "both": 187}
+        assert counts["both"] < counts["improves"] + counts["worsens"]
+        assert "bool_or" in _sql(session)

@@ -163,12 +163,12 @@ async def get_correlation(
     result = await session.execute(
         text(f"""
             SELECT disease_foodatlas_id AS id, disease_name AS name,
-                   relationship_id,
                    source_chemical_name, source_chemical_foodatlas_id,
-                   sources, evidences, evidence_count
+                   {_correlation.PAIR_AGGREGATES}
             FROM {_correlation.VIEW}
             WHERE chemical_name = :name{where}
-            ORDER BY evidence_count DESC, disease_name
+            GROUP BY {_correlation.GROUP_BY_PAIR}
+            ORDER BY SUM(evidence_count) DESC, disease_name
             OFFSET :offset ROWS FETCH FIRST :limit ROWS ONLY
         """),
         {
@@ -178,12 +178,15 @@ async def get_correlation(
             **filter_params,
         },
     )
-    data = [dict(r._mapping) for r in result]
+    data = _correlation.shape_pair_rows([dict(r._mapping) for r in result])
 
     count_result = await session.execute(
         text(f"""
-            SELECT COUNT(*) FROM {_correlation.VIEW}
-            WHERE chemical_name = :name{where}
+            SELECT COUNT(*) FROM (
+                SELECT 1 FROM {_correlation.VIEW}
+                WHERE chemical_name = :name{where}
+                GROUP BY {_correlation.GROUP_BY_PAIR}
+            ) pairs
         """),
         {"name": common_name, **filter_params},
     )

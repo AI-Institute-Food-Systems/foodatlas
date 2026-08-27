@@ -24,10 +24,32 @@ export type CorrelationDirection = "all" | "positive" | "negative";
 
 // r4 helps reduce the disease, r3 worsens it. Mirrors RELATION_IDS in
 // backend/api/src/repositories/_correlation.py.
+//
+// "mixed" is a real answer, not a fallback: ~4% of pairs have been
+// reported both ways, and collapsing that to one direction would pick a
+// side the literature doesn't. It reads as a caveat on the row rather
+// than a claim.
+export type RowDirection = "positive" | "negative" | "mixed";
+
 export const rowDirection = (
-  row: Pick<ChemicalCorrelation, "relationship_id">
-): "positive" | "negative" =>
-  row.relationship_id === "r3" ? "negative" : "positive";
+  row: Pick<ChemicalCorrelation, "relationship_ids">
+): RowDirection => {
+  const ids = row.relationship_ids ?? [];
+  const improves = ids.includes("r4");
+  const worsens = ids.includes("r3");
+  if (improves && worsens) return "mixed";
+  return worsens ? "negative" : "positive";
+};
+
+// The row's publications. Prefers the server-computed union — it dedupes
+// papers cited for both directions — and falls back to concatenating the
+// two split arrays so a row that arrives without it still renders instead
+// of taking the whole tab down.
+export const rowEvidences = (row: ChemicalCorrelation) =>
+  row.evidences ?? [
+    ...(row.improves_evidences ?? []),
+    ...(row.worsens_evidences ?? []),
+  ];
 
 const entityHref = (kind: "chemical" | "disease", name: string) =>
   `/${kind}/${encodeURIComponent(encodeSpace(name))}`;
@@ -45,12 +67,21 @@ export const hasDistinctSource = (
       row.source_chemical_name.toLowerCase() !== commonName.toLowerCase()
   );
 
-export const SignBadge = ({
-  direction,
-}: {
-  direction: "positive" | "negative";
-}) =>
-  direction === "negative" ? (
+const BADGE_SHAPE =
+  "w-[1.2rem] h-[1.2rem] shrink-0 flex justify-center items-center rounded-full border-[1.5px] shadow-[inset_0_2px_8px_rgba(0,0,0,0.4)] md:shadow-inset_0_2px_8px_rgba(0,0,0,0.6) font-bold";
+
+export const SignBadge = ({ direction }: { direction: RowDirection }) =>
+  direction === "mixed" ? (
+    // Amber and "±" rather than a third colour with its own meaning —
+    // this is the two existing signs held together, and reads that way
+    // next to a lime + and a red −.
+    <div
+      className={`${BADGE_SHAPE} border-amber-500 text-amber-400 bg-amber-500/10 shadow-amber-700/50 text-[0.7rem] leading-none`}
+      aria-hidden
+    >
+      ±
+    </div>
+  ) : direction === "negative" ? (
     <div className="w-[1.2rem] h-[1.2rem] shrink-0 flex justify-center items-center rounded-full border-[1.5px] border-red-600 text-red-600 bg-red-600/10 shadow-red-800/50 shadow-[inset_0_2px_8px_rgba(0,0,0,0.4)] md:shadow-inset_0_2px_8px_rgba(0,0,0,0.6) font-bold">
       <MdRemove />
     </div>
@@ -60,18 +91,22 @@ export const SignBadge = ({
     </div>
   );
 
+export const DIRECTION_LABEL: Record<RowDirection, string> = {
+  positive: "Improves",
+  negative: "Worsens",
+  mixed: "Mixed",
+};
+
 // The word next to the badge. Spelled out because a bare +/- circle was
 // read as "add"/"remove" rather than as a claim direction.
 export const DirectionCell = ({
   direction,
 }: {
-  direction: "positive" | "negative";
+  direction: RowDirection;
 }) => (
   <div className="flex gap-2.5 min-h-9 items-center">
     <SignBadge direction={direction} />
-    <span className="text-light-400">
-      {direction === "negative" ? "Worsens" : "Improves"}
-    </span>
+    <span className="text-light-400">{DIRECTION_LABEL[direction]}</span>
   </div>
 );
 
@@ -87,7 +122,7 @@ export const EvidenceButton = ({
   row: ChemicalCorrelation;
   onOpen: () => void;
 }) => {
-  const n = row.evidences.length;
+  const n = rowEvidences(row).length;
   return (
     <Chip
       icon={<MdDescription className="size-3" />}

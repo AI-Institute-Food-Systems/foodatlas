@@ -27,7 +27,7 @@ import {
   CorrelationCard,
   CorrelationDesktopRow,
   hasDistinctSource,
-  rowDirection,
+  rowEvidences,
   type CorrelationDirection,
 } from "@/components/entities/shared/CorrelationRow";
 import { useReportRows } from "@/context/reportModeContext";
@@ -135,7 +135,7 @@ const CorrelationTable = ({
       entityType: tableLocation as "chemical" | "disease",
       entitySlug: commonName,
       counterpartName: row.name,
-      pmidCount: row.evidences.length,
+      pmidCount: rowEvidences(row).length,
     });
 
   const emptyState = (
@@ -259,7 +259,6 @@ const CorrelationTable = ({
 
       <CorrelationEvidenceModal
         entityType={tableLocation as "chemical" | "disease"}
-        correlationType={selected ? rowDirection(selected) : "positive"}
         chemicalName={
           tableLocation === "chemical"
             ? (selected?.source_chemical_name ?? commonName)
@@ -268,7 +267,8 @@ const CorrelationTable = ({
         diseaseName={
           tableLocation === "chemical" ? (selected?.name ?? "") : commonName
         }
-        evidences={selected?.evidences}
+        improvesEvidences={selected?.improves_evidences}
+        worsensEvidences={selected?.worsens_evidences}
         isOpen={selectedRowIdx >= 0}
         onClose={() => setSelectedRowIdx(-1)}
       />
