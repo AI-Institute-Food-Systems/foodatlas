@@ -96,8 +96,21 @@ export const FilterDrawer = ({
 // The sidebar's geometry, exported so the loading shell reserves exactly
 // the box the real sidebar will occupy. The shell used to hand-copy this
 // string; a change here would have silently moved one and not the other.
+// The aside is inset by one Card padding at BOTH ends so it spans the tab
+// card's full frame rather than its content box.
+//
+// Card is `md:py-4` (16px) plus `border-[1.5px]`, so its content starts and
+// ends 17.5px inside the outer edge. This element is positioned against the
+// wrapper, which fills that content box — so `top-0 bottom-0` would leave the
+// aside a padding short at each end. -17px at the top has always corrected
+// that; the bottom was left at `bottom-0`, which is why the sidebar unstuck
+// just before the table card ended. The two edges are the same measurement
+// and now say so.
+//
+// Only rendered at min-[1440px], so `md:py-4` is always the padding in play;
+// the 12px `py-3` below that breakpoint never applies here.
 export const FILTER_SIDEBAR_CLASS =
-  "hidden min-[1440px]:block absolute right-full mr-10 -top-[17px] bottom-0 w-48";
+  "hidden min-[1440px]:block absolute right-full mr-10 -top-[17px] -bottom-[17px] w-48";
 
 // Where the sidebar comes to rest while scrolling. Shared with the loading
 // shell for the same reason as the class above.
@@ -181,12 +194,12 @@ const FilterPanel = ({
     <div id={id} className="relative scroll-mt-8">
       {/* Sidebar sits OUTSIDE the table's flow, absolutely positioned to its
        * left via `right-full`, so the table keeps its full centred max-width.
-       * -top-[17px] lines the aside up with the Card border-top; mr-10 clears
-       * the Card frame. Only at min-[1440px]+, where the max-w-5xl gutter has
-       * room for a w-48 aside; the drawer covers everything narrower. */}
+       * mr-10 clears the Card frame; the vertical inset is explained on
+       * FILTER_SIDEBAR_CLASS. Only at min-[1440px]+, where the max-w-5xl
+       * gutter has room for a w-48 aside; the drawer covers narrower. */}
       <aside className={FILTER_SIDEBAR_CLASS}>
-        {/* bottom-0 stretches the aside to the section height so this inner
-         * sticky box can trail the scroll until the section ends. */}
+        {/* The aside spans the card's full height, which is what lets this
+         * inner box stay stuck until the table card actually ends. */}
         <div className={FILTER_STICKY_CLASS}>
           <Card>{body}</Card>
         </div>
