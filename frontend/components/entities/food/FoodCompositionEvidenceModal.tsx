@@ -176,6 +176,27 @@ const FoodCompositionEvidenceModal = ({
     [countExtractions, sourceKind],
   );
 
+  // Has trust been evaluated for this evidence at all? The API omits
+  // `trust_low` entirely when it hasn't, and sets it on EVERY extraction when
+  // it has — so field presence, not truthiness, is the signal.
+  //
+  // Distinguishes two cases a count alone conflates:
+  //   - evaluated, none low here  → show Quality, disable the empty option
+  //   - never evaluated           → no Quality group; there is nothing to say
+  //
+  // The second is the common one today. Only /food/composition applies the
+  // trust filter (food.py), and only when its "Low-trust data points" toggle
+  // is on; the chemical page reuses this modal via /chemical/composition-
+  // evidence, which has no trust handling, so its extractions never carry the
+  // field. Without this the group would sit there permanently greyed at 0.
+  const trustEvaluated = useMemo(
+    () =>
+      (evidences ?? []).some((ev) =>
+        (ev.extraction ?? []).some((ex) => "trust_low" in ex),
+      ),
+    [evidences],
+  );
+
   // Source counts hold quality + search fixed, varying only source. The key
   // list stays derived from the full set so options never disappear.
   const sourceKeys = useMemo(() => {
@@ -246,6 +267,7 @@ const FoodCompositionEvidenceModal = ({
         lowTrustCount={lowTrustCount}
         totalCount={totalCount}
         onSetFilter={setFilter}
+        trustEvaluated={trustEvaluated}
       />
     </FilterPanelBody>
   );
@@ -348,6 +370,7 @@ const FiltersPanel = ({
   lowTrustCount,
   totalCount,
   onSetFilter,
+  trustEvaluated,
 }: {
   sourceKind: string;
   sourceKeys: string[];
@@ -357,6 +380,8 @@ const FiltersPanel = ({
   lowTrustCount: number;
   totalCount: number;
   onSetFilter: (f: EvidenceFilter) => void;
+  // False when this evidence carries no trust judgement at all.
+  trustEvaluated: boolean;
 }) => (
   <div className="flex flex-col gap-5">
     <FilterGroup label="Source">
@@ -381,11 +406,13 @@ const FiltersPanel = ({
       * chip when nothing was low-trust: disabled, warning-triangled, and
       * saying "All (6)" next to a line repeating the same 6.
       *
-      * Always rendered, with the empty option disabled — the rule Source
-      * above already follows and FilterOption documents. Hiding the group at
-      * zero also trapped the user: these counts are faceted, so searching can
-      * drive lowTrustCount to 0 while "Low-trust only" is still the active
-      * filter, and the control to switch back would disappear with it. */}
+      * Rendered whenever trust WAS evaluated, with the empty option disabled
+      * — the rule Source above already follows and FilterOption documents.
+      * Hiding at a zero COUNT would trap the user: these counts are faceted,
+      * so searching can drive lowTrustCount to 0 while "Low-trust only" is
+      * still the active filter, and the control to switch back would vanish
+      * with it. Absent trust data is the separate case handled above. */}
+    {trustEvaluated && (
     <FilterGroup label="Quality">
       <FilterOptionList mode="radio" ariaLabel="Evidence quality">
         <FilterOption
@@ -405,6 +432,7 @@ const FiltersPanel = ({
         />
       </FilterOptionList>
     </FilterGroup>
+    )}
   </div>
 );
 
