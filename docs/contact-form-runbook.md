@@ -55,16 +55,83 @@ problem — don't ship a code fix for it.
 
 ## For Lukas
 
-Working the API-key queue on return:
+Working the API-key queue on return. All three commands run from `backend/api` and take
+`--profile foodatlas-prod-admin`; they read and write `foodatlas/public-api-keys`
+(account `030635937737`, us-west-1), which is the **only** record of who holds a key.
+
+See who has one:
 
 ```
-cd backend/api
-uv run python scripts/issue_public_key.py
+uv run python -m scripts.keys list --profile foodatlas-prod-admin
 ```
 
-Prompts for the requester's email + notes, then prints the plaintext key and an
-`aws secretsmanager` one-liner — run it with `--profile foodatlas-prod-admin`. It merges into
-`foodatlas/public-api-keys` (account `030635937737`, us-west-1). Live within ~5 min, no
-redeploy. Only the sha256 hash is stored, so a lost key means issuing a new one; revoking is
-deleting that hash's entry. Requesters get `Authorization: Bearer <key>` on `/v1/*`, 60 req/min
+Issue one:
+
+```
+uv run python -m scripts.keys issue --profile foodatlas-prod-admin --api-url https://api.foodatlas.ai
+```
+
+It prompts for the requester's email and notes, writes the record compare-and-swap, reads it
+back to confirm it landed, then polls `/v1/stats` until twelve consecutive 200s — and only
+then prints the plaintext key. **Wait for it.** Prod runs two Fargate tasks, each with its own
+in-process key cache on an independent 300s timer, and the ALB round-robins between them; for
+up to one refresh interval after the merge a new key fails *intermittently*, not cleanly.
+Emailing it during that window makes the recipient's first calls 401 at random, which reads as
+a broken key. Worst case the command waits ~5 minutes. If it gives up, it still prints the key
+with a warning — re-check later with `scripts.keys probe <key> --api-url https://api.foodatlas.ai`.
+
+Revoke one (by key prefix, email, or full hash — take the value from `list`):
+
+```
+uv run python -m scripts.keys revoke aaaa1111 --profile foodatlas-prod-admin
+```
+
+Revoking flips the record to `revoked` rather than deleting it, so the ledger keeps the history
+of who once had access. The key stops working within one refresh interval.
+
+> **Until the API image carrying this change is deployed, `revoke` records but does not enforce.**
+> The status check lives in `verify()`; an older running image reads only `email`/`created`/`notes`
+> and happily authenticates a record marked `revoked`. Verified on staging 2026-08-27: a revoked
+> key still returned 200 fifteen minutes and three refresh intervals later. Until prod runs this
+> code, actually killing a key means deleting its hash entry from the secret. Issuing is
+> unaffected — an older image ignores the extra fields, so keys minted today work immediately.
+
+Only the sha256 hash and an 8-character prefix are stored, never the key itself — a lost key
+means issuing a new one. Requesters get `Authorization: Bearer <key>` on `/v1/*`, 60 req/min
 sustained with a burst of 10.
+
+## Who is actually using the API
+
+Every `/v1/*` request writes one JSON line to the API's CloudWatch log group (six-month
+retention), tagged `"log": "v1_access"` and attributed to the key's email. Logs Insights →
+log group `/aws/ecs/...ApiLogGroup...`.
+
+Requests per person per day:
+
+```
+fields @timestamp, email
+| filter log = "v1_access"
+| stats count(*) as requests by email, bin(1d)
+| sort requests desc
+```
+
+What one key is hitting. Filter by `email`, not `key_prefix`: keys issued before the ledger
+existed have no prefix (it derives from the plaintext, which was never stored), so they log
+`key_prefix` as empty while still being attributed by email.
+
+```
+fields @timestamp, route, status
+| filter log = "v1_access" and email = "alice@u.edu"
+| stats count(*) as calls by route, status
+| sort calls desc
+```
+
+Rejected traffic — repeated 401s from one source usually means a key was emailed before it went
+live, or someone is guessing:
+
+```
+fields @timestamp, client_ip, key_prefix
+| filter log = "v1_access" and status = 401
+| stats count(*) as attempts by client_ip, key_prefix
+| sort attempts desc
+```

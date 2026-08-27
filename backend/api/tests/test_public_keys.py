@@ -200,3 +200,56 @@ class TestInitStore:
             assert get_store() is store
         finally:
             set_store_for_tests(prev)
+
+
+class TestLedgerFields:
+    def test_legacy_three_field_record_still_parses(self) -> None:
+        # Records written before the ledger existed have no status/prefix.
+        # They must keep working, and must count as active.
+        payload = json.dumps(
+            {_hash("k"): {"email": "a@x", "created": "2026-01-01", "notes": ""}}
+        )
+        record = _parse_secret_payload(payload)[_hash("k")]
+        assert record.status == "active"
+        assert record.is_active
+        assert record.prefix == ""
+
+    def test_ledger_fields_round_trip(self) -> None:
+        payload = json.dumps(
+            {
+                _hash("k"): {
+                    "email": "a@x",
+                    "created": "2026-08-27",
+                    "notes": "n",
+                    "prefix": "Ky3mAa7Q",
+                    "org": "UC Davis",
+                    "status": "revoked",
+                    "revoked_at": "2026-08-28",
+                    "issued_by": "lukas@x",
+                }
+            }
+        )
+        record = _parse_secret_payload(payload)[_hash("k")]
+        assert record.prefix == "Ky3mAa7Q"
+        assert record.org == "UC Davis"
+        assert record.revoked_at == "2026-08-28"
+        assert record.issued_by == "lukas@x"
+        assert not record.is_active
+
+    def test_blank_status_is_treated_as_active(self) -> None:
+        payload = json.dumps({_hash("k"): {"email": "a@x", "status": ""}})
+        assert _parse_secret_payload(payload)[_hash("k")].is_active
+
+
+class TestVerifyRejectsRevoked:
+    def test_revoked_record_does_not_authenticate(self) -> None:
+        store = PublicKeyStore(secret_name="s", region="us-west-1")
+        store._keys = {_hash("k"): KeyRecord(email="a@x", status="revoked")}
+        assert store.verify("k") is None
+
+    def test_active_record_still_authenticates(self) -> None:
+        store = PublicKeyStore(secret_name="s", region="us-west-1")
+        store._keys = {_hash("k"): KeyRecord(email="a@x", prefix="abc12345")}
+        record = store.verify("k")
+        assert record is not None
+        assert record.prefix == "abc12345"
