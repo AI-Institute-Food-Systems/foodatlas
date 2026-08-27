@@ -2,7 +2,10 @@ import Card from "@/components/basic/Card";
 import Skeleton from "@/components/basic/Skeleton";
 import { TableSkeleton } from "@/components/basic/TableSkeleton";
 import type { SkeletonColumn } from "@/components/basic/skeletonTokens";
-import { FILTER_SIDEBAR_CLASS } from "@/components/entities/shared/filters/FilterPanel";
+import {
+  FILTER_SIDEBAR_CLASS,
+  FILTER_STICKY_CLASS,
+} from "@/components/entities/shared/filters/FilterPanel";
 import {
   DEFAULT_TAB_ID,
   ENTITY_TABS,
@@ -110,7 +113,7 @@ const EntityDetailLayoutSuspense = ({ entityType }: Props) => {
             * Absolutely positioned off the Card, exactly as the real one
             * is, so it costs the body no layout. */}
           <aside className={FILTER_SIDEBAR_CLASS}>
-            <div className="sticky top-4">
+            <div className={FILTER_STICKY_CLASS}>
               <Card className="gap-3">
                 <Skeleton shape="block" className="h-8 w-full rounded-md" />
                 {FILTER_SKELETON_WIDTHS.map((w, i) => (

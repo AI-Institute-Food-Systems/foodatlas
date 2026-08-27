@@ -99,6 +99,16 @@ export const FilterDrawer = ({
 export const FILTER_SIDEBAR_CLASS =
   "hidden min-[1440px]:block absolute right-full mr-10 -top-[17px] bottom-0 w-48";
 
+// Where the sidebar comes to rest while scrolling. Shared with the loading
+// shell for the same reason as the class above.
+//
+// 4.5rem = 72px = the navbar's 56px (`h-14`, and it is `fixed top-0` with a
+// backdrop blur, so the page scrolls under it) plus the 16px of breathing
+// room `top-4` originally implied. At top-4 the card pinned 16px from the
+// viewport, i.e. 40px BEHIND the navbar, so its heading sat under the blur
+// for the whole scroll. Re-derive from `h-14` in Navbar.tsx if that changes.
+export const FILTER_STICKY_CLASS = "sticky top-[4.5rem]";
+
 // Search stays OUT of the drawer — typing should never require opening a
 // panel first.
 export const FilterTriggerRow = ({
@@ -177,7 +187,7 @@ const FilterPanel = ({
       <aside className={FILTER_SIDEBAR_CLASS}>
         {/* bottom-0 stretches the aside to the section height so this inner
          * sticky box can trail the scroll until the section ends. */}
-        <div className="sticky top-4">
+        <div className={FILTER_STICKY_CLASS}>
           <Card>{body}</Card>
         </div>
       </aside>

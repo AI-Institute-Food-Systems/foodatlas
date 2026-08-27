@@ -64,6 +64,20 @@ describe("filter panel conventions", () => {
     expect(offenders.map(rel)).toEqual([]);
   });
 
+  it("only the shared module sets the sidebar's sticky offset", () => {
+    // The offset has to clear the fixed navbar, so it is derived from that
+    // height rather than eyeballed — see FILTER_STICKY_CLASS. Two files need
+    // it (the live panel and the loading shell) and they must not drift, so
+    // both import the constant instead of writing the class.
+    //
+    // Deliberately narrow: `sticky top-0` on a table head is a different
+    // thing and stays allowed.
+    const offenders = SOURCES.filter(
+      (f) => !isShared(f) && /sticky top-\[/.test(code(f))
+    );
+    expect(offenders.map(rel)).toEqual([]);
+  });
+
   it("only the shared module builds the filter drawer", () => {
     const offenders = SOURCES.filter(
       (f) =>
