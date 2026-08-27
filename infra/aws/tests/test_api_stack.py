@@ -133,11 +133,14 @@ def test_target_group_health_check_path_is_health() -> None:
     )
 
 
-def test_log_group_retention_one_month() -> None:
+def test_log_group_retention_six_months() -> None:
+    # The group also carries the structured /v1 access log, which is the only
+    # record of how an issued API key gets used — a 30-day window would make
+    # "has this key been used since March?" unanswerable.
     template = _synth()
     template.has_resource_properties(
         "AWS::Logs::LogGroup",
-        Match.object_like({"RetentionInDays": 30}),
+        Match.object_like({"RetentionInDays": 180}),
     )
 
 

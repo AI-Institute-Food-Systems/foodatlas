@@ -47,6 +47,9 @@ dev = [
 # PYTEST
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Put the project root on sys.path so tests can import the admin CLI under
+# scripts/ (only `src` is packaged into the wheel).
+pythonpath = ["."]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
