@@ -13,12 +13,15 @@ import { twMerge } from "tailwind-merge";
 import Chip from "@/components/basic/Chip";
 import EntitySiblingIcon from "@/components/basic/EntitySiblingIcon";
 import Link from "@/components/basic/Link";
-import LoadingCard from "@/components/basic/LoadingCard";
+import {
+  TableSkeletonCards,
+  TableSkeletonRows,
+} from "@/components/basic/TableSkeleton";
+import type { SkeletonColumn } from "@/components/basic/skeletonTokens";
 import Pagination from "@/components/basic/Pagination";
 import CorrelationEvidenceModal from "@/components/entities/CorrelationEvidenceModal";
 import { useReportRows } from "@/context/reportModeContext";
 import { usePaginations } from "@/context/paginationsContext";
-import { useLoadingGate } from "@/context/pageReadyContext";
 import { getDiseaseData } from "@/utils/fetching";
 import { encodeSpace } from "@/utils/utils";
 import { ChemicalCorrelation } from "@/types";
@@ -41,9 +44,16 @@ const CorrelationTable = ({
   onTotalRowsChange,
 }: DiseaseTableProps) => {
   const tableId = tableLocation + "-" + correlationType + "-table";
+  // Skeleton grid derived from the same `headers` the <th>s render, so
+  // the placeholder cells line up with the real ones and can't drift.
+  // Alignment follows the header rule below: the last column is right
+  // aligned, everything else left.
+  const skeletonColumns: SkeletonColumn[] = headers.map((h, i) => ({
+    key: h.label || String(i),
+    align: i === headers.length - 1 ? "right" : "left",
+  }));
   const [data, setData] = useState<ChemicalCorrelation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  useLoadingGate(isLoading);
   const [isError, setIsError] = useState(false);
   const [numberOfPages, setNumberOfPages] = useState(1);
   const [totalRows, setTotalRows] = useState<number | null>(null);
@@ -133,16 +143,7 @@ const CorrelationTable = ({
             {/* table body */}
             <tbody className="text-sm font-light">
               {isLoading ? (
-                // loading skeleton
-                Array.from({ length: 10 }, (_, index) => (
-                  <tr key={index}>
-                    <td className="w-full py-1.5" colSpan={headers.length}>
-                      <div className="h-9 flex items-center">
-                        <LoadingCard className="h-5" />
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                <TableSkeletonRows columns={skeletonColumns} />
               ) : isError ? (
                 // error message
                 <tr>
@@ -273,14 +274,11 @@ const CorrelationTable = ({
          * source chemical + a disease/other entity), the source
          * chemical link sits on the primary line and the impacted
          * entity + evidence sit below it. */}
+        {isLoading ? (
+          <TableSkeletonCards columns={skeletonColumns} />
+        ) : (
         <div className="md:hidden w-full flex flex-col divide-y divide-light-800">
-          {isLoading ? (
-            Array.from({ length: 10 }, (_, index) => (
-              <div key={index} className="w-full py-3">
-                <LoadingCard className="h-5" />
-              </div>
-            ))
-          ) : isError ? (
+          {isError ? (
             <div className="w-full py-6 flex items-center justify-center text-red-400 gap-2">
               <MdErrorOutline /> An error occurred fetching data, please
               refresh the page
@@ -362,6 +360,7 @@ const CorrelationTable = ({
             </div>
           )}
         </div>
+        )}
 
         {/* pagination */}
         {(numberOfPages > 1 || isLoading) && (

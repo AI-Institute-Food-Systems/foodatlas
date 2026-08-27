@@ -26,9 +26,6 @@ vi.mock("@/context/paginationsContext", () => ({
     setTablePaginations: vi.fn(),
   }),
 }));
-vi.mock("@/context/pageReadyContext", () => ({
-  useLoadingGate: () => undefined,
-}));
 
 // next/navigation isn't mounted in the vitest jsdom env; Button uses
 // useRouter for its built-in <Link> shortcut, so stub it.

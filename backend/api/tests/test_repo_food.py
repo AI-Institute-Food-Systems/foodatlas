@@ -19,6 +19,14 @@ def _make_row(**kwargs: object) -> MagicMock:
     return row
 
 
+def _make_score(attestation_id: str, score: float) -> MagicMock:
+    """A row as _fetch_trust_scores reads it — by attribute, not _mapping."""
+    row = MagicMock()
+    row.attestation_id = attestation_id
+    row.score = score
+    return row
+
+
 def _mock_session_single(rows: list[MagicMock]) -> AsyncMock:
     """Session that returns rows for one execute call."""
     session = AsyncMock()
@@ -242,6 +250,64 @@ class TestFoodGetCompositionCounts:
         assert data["source_counts"] == {"fdc": 1, "foodatlas": 1, "ptfi": 0}
         assert data["no_concentration_count"] == 1
         assert data["low_trust_count"] == 0
+
+    @pytest.mark.asyncio
+    async def test_low_trust_count_includes_partially_low_rows(self) -> None:
+        """A row that merely LOSES an extraction counts, not just one that
+        disappears.
+
+        The count drives the "Include low-trust data points" badge, and the
+        filter works per extraction: a row with one bad point among good ones
+        stays in the table and silently drops that point. Counting only
+        fully-low rows reported such a row as nothing hidden — on staging,
+        onion had a hidden point and the badge read 0.
+        """
+        rows = [
+            # Partially low: keeps a2, loses a1. Old logic missed this row.
+            _make_row(
+                id=1,
+                chemical_name="glucose",
+                chemical_classification=["carbohydrate"],
+                median_concentration={"value": 5.0},
+                fdc_evidences=[
+                    {
+                        "extraction": [
+                            {"attestation_id": "a1"},
+                            {"attestation_id": "a2"},
+                        ]
+                    }
+                ],
+                foodatlas_evidences=None,
+            ),
+            # Fully low: the row disappears entirely. Counted either way.
+            _make_row(
+                id=2,
+                chemical_name="quercetin",
+                chemical_classification=["flavonoid"],
+                median_concentration={"value": 1.0},
+                fdc_evidences=None,
+                foodatlas_evidences=[{"extraction": [{"attestation_id": "a3"}]}],
+            ),
+            # No low-trust extraction at all.
+            _make_row(
+                id=3,
+                chemical_name="fructose",
+                chemical_classification=["carbohydrate"],
+                median_concentration={"value": 2.0},
+                fdc_evidences=[{"extraction": [{"attestation_id": "a4"}]}],
+                foodatlas_evidences=None,
+            ),
+        ]
+        # Default threshold is 0.4; a4 is deliberately absent, since an
+        # unscored attestation counts as trusted rather than as low.
+        scores = [
+            _make_score("a1", 0.2),
+            _make_score("a2", 0.9),
+            _make_score("a3", 0.1),
+        ]
+        session = _mock_session_sequence(rows, scores)
+        data = (await get_composition_counts(session, "apple"))["data"]
+        assert data["low_trust_count"] == 2
 
     @pytest.mark.asyncio
     async def test_filters_narrow_counts(self) -> None:

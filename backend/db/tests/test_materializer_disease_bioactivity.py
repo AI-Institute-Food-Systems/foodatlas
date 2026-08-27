@@ -18,8 +18,32 @@ _NAMES = {
 }
 
 
+_NO_LITERATURE = pd.DataFrame(
+    columns=["chemical_id", "disease_id", "literature_directions"]
+)
+
+
 def _evidence(rows: list[dict]) -> pd.DataFrame:
-    return pd.DataFrame(rows)
+    df = pd.DataFrame(rows)
+    # Every real bridge row carries bdm ids; default them so each test only has
+    # to spell out the columns it actually exercises.
+    if "bioactivity_disease_metadata_id" not in df.columns and not df.empty:
+        df["bioactivity_disease_metadata_id"] = [[] for _ in range(len(df))]
+    return df
+
+
+def _agg(
+    evidence: pd.DataFrame,
+    target_map: dict | None = None,
+    lit: pd.DataFrame | None = None,
+) -> pd.DataFrame:
+    """_aggregate with the lookup arguments defaulted to "nothing found"."""
+    return _aggregate(
+        evidence,
+        _NAMES,
+        target_map or {},
+        _NO_LITERATURE if lit is None else lit,
+    )
 
 
 class TestBioactivityConceptMap:
@@ -105,7 +129,7 @@ class TestAggregate:
                 },
             ]
         )
-        out = _aggregate(evidence, _NAMES)
+        out = _agg(evidence)
         assert len(out) == 1
         assert out.iloc[0]["n_assays"] == 2
         assert out.iloc[0]["n_active_measurements"] == 3
@@ -132,7 +156,7 @@ class TestAggregate:
                 for bio in ("b1", "b2")
             ]
         )
-        out = _aggregate(evidence, _NAMES)
+        out = _agg(evidence)
         assert set(out["bioactivity_name"]) == {"anticancer", "antiviral"}
 
     def test_drops_rows_with_unresolvable_names(self):
@@ -148,7 +172,7 @@ class TestAggregate:
                 }
             ]
         )
-        assert _aggregate(evidence, _NAMES).empty
+        assert _agg(evidence).empty
 
     def test_missing_relationship_becomes_empty_list(self):
         evidence = _evidence(
@@ -163,7 +187,7 @@ class TestAggregate:
                 }
             ]
         )
-        out = _aggregate(evidence, _NAMES)
+        out = _agg(evidence)
         assert out.iloc[0]["relationships"] == []
 
 
@@ -204,9 +228,13 @@ class TestMaterializeSkips:
             materialize_disease_bioactivity(MagicMock())
         mock_copy.assert_not_called()
 
+    @patch("src.etl.materializer_disease_bioactivity.literature_directions")
+    @patch("src.etl.materializer_disease_bioactivity.target_gene_map")
     @patch("src.etl.materializer_disease_bioactivity.assay_bioactivity_map")
     @patch("src.etl.materializer_disease_bioactivity.build_bridge_evidence")
-    def test_writes_rows_when_inputs_line_up(self, mock_evidence, mock_map):
+    def test_writes_rows_when_inputs_line_up(
+        self, mock_evidence, mock_map, mock_genes, mock_lit
+    ):
         mock_evidence.return_value = (
             _evidence(
                 [
@@ -216,6 +244,7 @@ class TestMaterializeSkips:
                         "chemical_id": "c1",
                         "bm": "bm1",
                         "relationship": ["therapeutic"],
+                        "bioactivity_disease_metadata_id": ["bdm1"],
                     }
                 ]
             ),
@@ -224,8 +253,22 @@ class TestMaterializeSkips:
         mock_map.return_value = pd.DataFrame(
             [{"source_assay_id": "AID: 1", "bioactivity_id": "b1"}]
         )
+        mock_genes.return_value = {"bdm1": ["NCBIGene: 4780"]}
+        mock_lit.return_value = pd.DataFrame(
+            [
+                {
+                    "chemical_id": "c1",
+                    "disease_id": "d1",
+                    "literature_directions": ["therapeutic"],
+                }
+            ]
+        )
         with patch("src.etl.materializer_disease_bioactivity.bulk_copy") as mock_copy:
             materialize_disease_bioactivity(MagicMock())
         assert mock_copy.call_count == 1
         written = mock_copy.call_args[0][2]
         assert written.iloc[0]["bioactivity_name"] == "anticancer"
+        # The evidence arrays the disease side previously had to do without.
+        assert written.iloc[0]["target_genes"] == ["NCBIGene: 4780"]
+        assert written.iloc[0]["assays"] == ["AID: 1"]
+        assert written.iloc[0]["literature_directions"] == ["therapeutic"]

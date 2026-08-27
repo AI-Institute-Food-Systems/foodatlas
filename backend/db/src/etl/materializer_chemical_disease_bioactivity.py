@@ -20,16 +20,21 @@ instead of collapsing it away.
 import logging
 
 import pandas as pd
-from sqlalchemy import text
 from sqlalchemy.engine import Connection
 
 from .bulk_insert import bulk_copy
-from .materializer_bioactivity_bridge import build_bridge_evidence
+from .materializer_bioactivity_bridge import (
+    ASSAY_CAP,
+    as_list,
+    attach_literature,
+    build_bridge_evidence,
+    literature_directions,
+    target_gene_map,
+    target_genes_per_pair,
+)
 
 logger = logging.getLogger(__name__)
 
-_ASSAY_CAP = 25
-_GENE_CAP = 50
 _MV_COLUMNS = [
     "chemical_name",
     "chemical_foodatlas_id",
@@ -40,6 +45,7 @@ _MV_COLUMNS = [
     "relationships",
     "target_genes",
     "assays",
+    "literature_directions",
 ]
 
 
@@ -50,35 +56,22 @@ def materialize_chemical_disease_bioactivity(conn: Connection) -> None:
         logger.info("No chemical-disease associations inferred (skipping).")
         return
 
-    result = _aggregate(evidence, name_map, _target_gene_map(conn))
+    result = _aggregate(
+        evidence, name_map, target_gene_map(conn), literature_directions(conn)
+    )
     bulk_copy(conn, "mv_chemical_disease_bioactivity", result, _MV_COLUMNS)
     logger.info("Chemical-disease (bioactivity): %d associations.", len(result))
 
 
-def _target_gene_map(conn: Connection) -> dict[str, list[str]]:
-    df = pd.read_sql(
-        text(
-            "SELECT bioactivity_disease_metadata_id AS bdm, target_ids"
-            " FROM base_bioactivity_disease_targets"
-        ),
-        conn,
-    )
-    return dict(zip(df["bdm"], df["target_ids"], strict=False))
-
-
-def _as_list(value: object) -> list:
-    return value if isinstance(value, list) else []
-
-
 def _aggregate(
-    evidence: pd.DataFrame, name_map: dict, target_map: dict
+    evidence: pd.DataFrame, name_map: dict, target_map: dict, lit: pd.DataFrame
 ) -> pd.DataFrame:
     """Collapse evidence rows to one association per (chemical, disease)."""
     keys = ["chemical_id", "disease_id"]
     base = evidence.groupby(keys).agg(
         n_assays=("source_assay_id", "nunique"),
         n_active_measurements=("bm", "nunique"),
-        assays=("source_assay_id", lambda s: sorted(set(s))[:_ASSAY_CAP]),
+        assays=("source_assay_id", lambda s: sorted(set(s))[:ASSAY_CAP]),
     )
     rels = (
         evidence[[*keys, "relationship"]]
@@ -88,11 +81,12 @@ def _aggregate(
         .apply(lambda s: sorted(set(s)))
         .rename("relationships")
     )
-    genes = _target_genes_per_pair(evidence, target_map, keys)
+    genes = target_genes_per_pair(evidence, target_map, keys)
 
     out = base.join(rels).join(genes).reset_index()
-    out["relationships"] = out["relationships"].apply(_as_list)
-    out["target_genes"] = out["target_genes"].apply(_as_list)
+    out["relationships"] = out["relationships"].apply(as_list)
+    out["target_genes"] = out["target_genes"].apply(as_list)
+    out = attach_literature(out, lit)
     out["chemical_name"] = out["chemical_id"].map(name_map)
     out["disease_name"] = out["disease_id"].map(name_map)
     out = out.rename(
@@ -102,20 +96,3 @@ def _aggregate(
         }
     )
     return out[out["chemical_name"].notna() & out["disease_name"].notna()]
-
-
-def _target_genes_per_pair(
-    evidence: pd.DataFrame, target_map: dict, keys: list[str]
-) -> pd.Series:
-    """Distinct target genes per (chemical, disease), via bdm → target_ids."""
-    tmp = evidence[[*keys, "bioactivity_disease_metadata_id"]].explode(
-        "bioactivity_disease_metadata_id"
-    )
-    tmp = tmp.dropna(subset=["bioactivity_disease_metadata_id"])
-    tmp["genes"] = tmp["bioactivity_disease_metadata_id"].map(target_map)
-    tmp = tmp.explode("genes").dropna(subset=["genes"])
-    return (
-        tmp.groupby(keys)["genes"]
-        .apply(lambda s: sorted(set(s))[:_GENE_CAP])
-        .rename("target_genes")
-    )

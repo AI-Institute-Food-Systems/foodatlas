@@ -1,7 +1,7 @@
 "use client";
 
 import { ReactNode, useEffect, useRef, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   Listbox,
   ListboxButton,
@@ -17,15 +17,28 @@ import { MdCheck, MdKeyboardArrowDown } from "react-icons/md";
 import { twMerge } from "tailwind-merge";
 
 import Card from "@/components/basic/Card";
-import { usePaginations } from "@/context/paginationsContext";
+import Skeleton from "@/components/basic/Skeleton";
 import { useTabCounts } from "@/context/tabCountsContext";
 
-export type EntityType = "food" | "chemical" | "disease" | "bioactivity";
+// Owned by the (React-free, server-readable) config so `loading.tsx` can
+// import it without pulling this client component across the boundary.
+// Re-exported here because most callers reach for it alongside TabSpec.
+import {
+  TAB_BADGE_W,
+  TAB_STRIP_FITS,
+  type EntityType,
+} from "@/components/entities/entityTabs.config";
+
+export type { EntityType };
 
 export type TabSpec = {
   id: string;
   label: string;
-  // optional badge count rendered after the label; omit when not yet known.
+  // Whether this tab ever carries a count badge. Supplied by the shared
+  // config via buildTabs, and distinct from `count == null` — that means
+  // the count is still pending, which is what the placeholder covers.
+  hasCount?: boolean;
+  // The badge count itself; null while the tab's fetch is in flight.
   count?: number | null;
   content: ReactNode;
 };
@@ -40,18 +53,44 @@ const formatCount = (n: number): string => {
   return n.toLocaleString();
 };
 
+// Badge geometry, declared once and shared with the loading placeholder
+// below. The widest string formatCount emits in practice is four
+// characters ("1.5k"), which at text-[0.65rem] mono plus px-1.5 needs
+// ~2.3rem; a three-digit count needs ~1.9rem. A FIXED width — not a
+// min-width — because the chip is a flex row: a badge that can grow
+// makes the label the thing that gives, and a long label like
+// "Diseases (assay-inferred)" then wraps onto a second line and
+// changes the chip's height.
+//
+// `shrink-0` for the same reason, and the label carries
+// `whitespace-nowrap` so the chip grows past its min-width instead of
+// breaking the text. The strip's overflow observer already handles a
+// strip that outgrows its container by switching to the mobile Listbox.
+//
+// The placeholder MUST use the same value. It previously reserved w-6
+// (1.5rem) against a real badge of 1.9–2.3rem, so the chip still grew
+// when the count landed — the exact reflow the placeholder exists to
+// prevent.
+//
+// Lives in the shared config because the loading shell reserves the same
+// box; when the two disagreed, every chip resized at the handoff.
+const BADGE_W = TAB_BADGE_W;
+
+// The inline "· 1.5k" form used by the mobile Listbox renders at text-sm.
+// It sits in a full-width button rather than a fixed chip, so it only
+// needs to not wrap.
+const INLINE_COUNT_W = "shrink-0 whitespace-nowrap";
+
 interface Props {
   entityType: EntityType;
   tabs: TabSpec[];
   defaultTabId: string;
 }
 
-const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
-  const router = useRouter();
+const EntityTabs = ({ entityType, tabs: rawTabs, defaultTabId }: Props) => {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { counts: dynamicCounts } = useTabCounts();
-  const { resetAllPaginations } = usePaginations();
 
   // Merge dynamic counts published by tab contents (via
   // usePublishTabCount) over the static server-prefetched counts, so
@@ -62,38 +101,10 @@ const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
     return { ...t, count: dyn };
   });
 
-  // The chip row is the nicer control but only while it fits. Entity
-  // pages carry labels like "Chemicals (assay-inferred)", and at four or
-  // five tabs the strip runs past the card on narrower desktop windows.
-  // When that happens we fall back to the same Listbox mobile uses.
-  //
-  // Measuring this needs care: hiding the strip with `display: none`
-  // would zero its width, which reads as "fits", which shows it again —
-  // a flip-flop. So when it overflows the strip stays laid out and is
-  // taken out of flow with `absolute invisible`, keeping scrollWidth
-  // meaningful and the comparison stable.
-  const tabStripRef = useRef<HTMLDivElement>(null);
-  const tabStripWrapRef = useRef<HTMLDivElement>(null);
-  const [stripOverflows, setStripOverflows] = useState(false);
-
-  useEffect(() => {
-    const measure = () => {
-      const strip = tabStripRef.current;
-      const wrap = tabStripWrapRef.current;
-      if (!strip || !wrap) return;
-      // Only meaningful once the wrapper is actually displayed; on mobile
-      // it is `hidden`, clientWidth is 0, and the Listbox already shows.
-      if (wrap.clientWidth === 0) return;
-      // 1px of slack — sub-pixel layout rounding otherwise reports a
-      // permanent 0.5px overflow on some zoom levels.
-      setStripOverflows(strip.scrollWidth > wrap.clientWidth + 1);
-    };
-    measure();
-    const ro = new ResizeObserver(measure);
-    if (tabStripWrapRef.current) ro.observe(tabStripWrapRef.current);
-    return () => ro.disconnect();
-    // Counts change label widths, so re-measure when they land.
-  }, [tabs]);
+  // Strip vs Listbox is a CSS breakpoint, not a measurement — see
+  // TAB_STRIP_FITS. It has to be, so that this component's first paint and
+  // the server-rendered loading shell agree at every width.
+  const fits = TAB_STRIP_FITS[entityType];
 
   // Derive initial index from URL, then hold local state so the tab
   // switches immediately on click. Previously this was derived from
@@ -104,6 +115,22 @@ const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
   const urlId = searchParams.get("tab") ?? defaultTabId;
   const urlIdx = tabs.findIndex((t) => t.id === urlId);
   const [selectedIndex, setSelectedIndex] = useState(urlIdx >= 0 ? urlIdx : 0);
+
+  // Panels are mounted lazily and then kept alive (see TabPanel below), so
+  // track which tabs the user has actually opened. Seeded with the landing
+  // tab so the first paint has content rather than an empty card.
+  const [visited, setVisited] = useState<Set<string>>(() => {
+    const first = rawTabs[urlIdx >= 0 ? urlIdx : 0]?.id;
+    return new Set(first ? [first] : []);
+  });
+
+  const selectedId = tabs[selectedIndex]?.id;
+  useEffect(() => {
+    if (!selectedId) return;
+    setVisited((prev) =>
+      prev.has(selectedId) ? prev : new Set(prev).add(selectedId),
+    );
+  }, [selectedId]);
 
   // Keep local state in sync when the URL changes from OUTSIDE this
   // component (e.g. browser back/forward, deep link).
@@ -120,15 +147,15 @@ const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
     const id = tabs[next]?.id;
     if (!id) return;
     setSelectedIndex(next);
-    // Each tab is its own view, so it should open in its default state
-    // rather than inheriting whatever was left behind. Panels unmount on
-    // switch (below), which clears their filter state; page state lives
-    // in a context that survives unmount, so clear it explicitly —
-    // otherwise a table returns with reset filters but on page 7.
-    resetAllPaginations();
-    const params = new URLSearchParams(searchParams.toString());
+    // The `tab` param is bookkeeping for deep links and sharing — no page
+    // reads it during render, so going through the router would only buy a
+    // wasted RSC round-trip (and re-run the server-side badge-count
+    // prefetch). Next supports the native history methods for exactly this.
+    // Read from window.location rather than the useSearchParams snapshot so
+    // params written natively elsewhere on the page aren't clobbered.
+    const params = new URLSearchParams(window.location.search);
     params.set("tab", id);
-    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    window.history.replaceState(null, "", `${pathname}?${params.toString()}`);
   };
 
   return (
@@ -144,17 +171,25 @@ const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
        * control of trigger and popup positioning. Options carry the
        * count as "· 42" (matching the chip badges) and zero-count
        * options are disabled. */}
-      <div className={twMerge("mb-2 pl-1", !stripOverflows && "sm:hidden")}>
+      <div className={twMerge("mb-2 pl-1", fits.select)}>
         <Listbox value={selectedIndex} onChange={handleChange}>
           <div className="relative">
             <ListboxButton className="w-full font-mono italic text-sm font-medium bg-light-200 text-light-900 rounded-md pl-3 pr-9 py-2 border-[1.5px] border-light-200 shadow-[inset_0_1px_2px_rgba(255,249,242,0.5)] focus:outline-none focus:ring-1 focus:ring-accent-500 text-left">
               <span className="flex items-center gap-1.5">
                 <span>{tabs[selectedIndex]?.label ?? ""}</span>
-                {typeof tabs[selectedIndex]?.count === "number" && (
-                  <span className="text-light-700 not-italic">
-                    · {formatCount(tabs[selectedIndex]!.count!)}
-                  </span>
-                )}
+                {tabs[selectedIndex]?.hasCount &&
+                  (typeof tabs[selectedIndex]?.count === "number" ? (
+                    <span
+                      className={`text-light-700 not-italic ${INLINE_COUNT_W}`}
+                    >
+                      · {formatCount(tabs[selectedIndex]!.count!)}
+                    </span>
+                  ) : (
+                    <Skeleton
+                      shape="pill"
+                      className={`h-3 ${INLINE_COUNT_W}`}
+                    />
+                  ))}
               </span>
               <MdKeyboardArrowDown
                 aria-hidden
@@ -169,16 +204,24 @@ const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
                 <ListboxOption
                   key={tab.id}
                   value={i}
-                  disabled={tab.count === 0}
+                  disabled={tab.hasCount === true && tab.count === 0}
                   className="group flex items-center gap-2 px-3 py-2 font-mono italic text-sm text-light-200 data-[focus]:bg-light-900/60 data-[selected]:text-light-100 data-[disabled]:opacity-40 data-[disabled]:cursor-not-allowed cursor-pointer"
                 >
                   <MdCheck className="w-4 h-4 opacity-0 group-data-[selected]:opacity-100 text-accent-500" />
                   <span>{tab.label}</span>
-                  {typeof tab.count === "number" && (
-                    <span className="text-light-500 not-italic">
-                      · {formatCount(tab.count)}
-                    </span>
-                  )}
+                  {tab.hasCount &&
+                    (typeof tab.count === "number" ? (
+                      <span
+                        className={`text-light-500 not-italic ${INLINE_COUNT_W}`}
+                      >
+                        · {formatCount(tab.count)}
+                      </span>
+                    ) : (
+                      <Skeleton
+                        shape="pill"
+                        className={`h-3 ${INLINE_COUNT_W}`}
+                      />
+                    ))}
                 </ListboxOption>
               ))}
             </ListboxOptions>
@@ -186,16 +229,17 @@ const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
         </Listbox>
       </div>
 
-      <div ref={tabStripWrapRef} className="hidden sm:block relative">
+      {/* The breakpoint is measured at a 16px root font. A reader with a
+        * larger default font scales the chips (rem widths) without
+        * changing the viewport in CSS px, so the strip can need more room
+        * than the number assumes. Scrolling it beats pushing the page
+        * wider. No effect at the default font, where it never overflows.
+        * Safe as a scroll container: the chips carry no negative margin
+        * and their shadows are inset, so nothing bleeds out to be clipped. */}
+      <div className={twMerge(fits.stripBlock, "relative overflow-x-auto")}>
         <TabList
-          ref={tabStripRef}
-          className={twMerge(
-            // w-max so the strip reports its natural width instead of
-            // shrinking to the container, which is what makes overflow
-            // detectable at all.
-            "flex w-max items-end gap-1.5 pl-3",
-            stripOverflows && "invisible absolute pointer-events-none",
-          )}
+          data-tab-strip
+          className="flex w-max items-end gap-1.5 px-3"
         >
           {tabs.map((tab) => (
             <Tab
@@ -208,8 +252,8 @@ const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
                   // they cover the card's top border in the tab's width
                   // and don't leave side-border "legs" hanging into the
                   // card content.
-                  "relative z-10 flex items-center justify-center h-7 md:h-8 px-3 md:px-4",
-                  "font-mono italic text-[11px] md:text-xs min-w-[7rem] md:min-w-[9.5rem] font-medium",
+                  "relative z-10 flex items-center justify-center h-7 md:h-8 px-2 md:px-3",
+                  "font-mono italic text-[11px] md:text-xs min-w-[6rem] md:min-w-[8rem] font-medium",
                   "rounded-t-lg transition-colors outline-none border-t-[1.5px] border-x-[1.5px]",
                   selected
                     ? "bg-light-200 text-light-900 border-light-200 shadow-[inset_0_1px_2px_rgba(255,249,242,0.5)]"
@@ -226,19 +270,33 @@ const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
                 // count badge would otherwise bump the row height by a px or
                 // two.
                 <span className="flex items-center justify-center gap-1.5 min-h-5">
-                  <span className="leading-none">{tab.label}</span>
-                  {typeof tab.count === "number" && (
-                    <span
-                      className={
-                        "not-italic font-mono text-[0.65rem] tracking-wide px-1.5 py-[1px] rounded-full " +
-                        (selected
-                          ? "bg-light-900/15 text-light-700"
-                          : "bg-light-800/80 text-light-400")
-                      }
-                    >
-                      {formatCount(tab.count)}
-                    </span>
-                  )}
+                  <span className="leading-none whitespace-nowrap">
+                    {tab.label}
+                  </span>
+                  {tab.hasCount &&
+                    (typeof tab.count === "number" ? (
+                      <span
+                        className={
+                          "not-italic font-mono text-[0.65rem] tracking-wide py-[1px] rounded-full " +
+                          `inline-flex items-center justify-center ${BADGE_W} ` +
+                          (selected
+                            ? "bg-light-900/15 text-light-700"
+                            : "bg-light-800/80 text-light-400")
+                        }
+                      >
+                        {formatCount(tab.count)}
+                      </span>
+                    ) : (
+                      // Same box as the real badge, so the chip's width is
+                      // final from first paint. Without this the badge
+                      // popping in widens the chip, which re-runs the
+                      // overflow observer above and can flip the whole
+                      // strip into the mobile Listbox mid-load.
+                      <Skeleton
+                        shape="pill"
+                        className={`h-[0.95rem] ${BADGE_W}`}
+                      />
+                    ))}
                 </span>
               )}
             </Tab>
@@ -251,14 +309,18 @@ const EntityTabs = ({ tabs: rawTabs, defaultTabId }: Props) => {
           {tabs.map((tab) => (
             <TabPanel
               key={tab.id}
-              // Unmount inactive panels so each tab starts fresh: filter
-              // state lives in the sections' useState and resets with
-              // them. Also means only the visible tab runs its fetches on
-              // page load, instead of every tab fetching at once.
-              unmount
+              // Keep panels mounted once opened, so coming back to a tab is
+              // instant and finds it exactly as it was left — same filters,
+              // sort and page, no refetch. Headless UI hides an inactive
+              // panel with `hidden` rather than tearing it down.
+              //
+              // Content is still gated on `visited`, so an unopened tab
+              // renders nothing: page load only pays for the tab you land
+              // on, instead of every tab fetching at once.
+              unmount={false}
               className="outline-none focus-visible:outline-light-200 data-[selected]:animate-[fadeSlide_180ms_ease-out]"
             >
-              {tab.content}
+              {visited.has(tab.id) ? tab.content : null}
             </TabPanel>
           ))}
         </TabPanels>

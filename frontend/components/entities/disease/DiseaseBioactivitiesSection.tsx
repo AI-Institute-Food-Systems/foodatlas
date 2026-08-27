@@ -17,9 +17,8 @@
 import { useEffect, useMemo, useState } from "react";
 
 import Chip from "@/components/basic/Chip";
-import LoadingCard from "@/components/basic/LoadingCard";
+import Skeleton from "@/components/basic/Skeleton";
 import DiseaseBioactivityTable from "@/components/entities/disease/DiseaseBioactivityTable";
-import { useLoadingGate } from "@/context/pageReadyContext";
 import { usePublishTabCount } from "@/context/tabCountsContext";
 import {
   getDiseaseBioactivities,
@@ -35,13 +34,24 @@ interface Props {
 }
 
 const PAGE_SIZE = 50;
+
+// Literal class strings, not interpolated widths — Tailwind only emits
+// classes it can see in the source. Varied to read like the real chip row,
+// whose labels are bioactivity names of differing length.
+const CHIP_SKELETON_WIDTHS = [
+  "w-16",
+  "w-24",
+  "w-20",
+  "w-28",
+  "w-16",
+  "w-24",
+] as const;
 const ALL = "__all__";
 
 const DiseaseBioactivitiesSection = ({ commonName }: Props) => {
   const [summary, setSummary] = useState<DiseaseBioactivitySummary[]>([]);
   const [rows, setRows] = useState<DiseaseBioactivityChemical[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  useLoadingGate(isLoading);
 
   const [bioactivity, setBioactivity] = useState<string>(ALL);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
@@ -89,17 +99,7 @@ const DiseaseBioactivitiesSection = ({ commonName }: Props) => {
 
   useEffect(() => setVisibleCount(PAGE_SIZE), [bioactivity]);
 
-  if (isLoading) {
-    return (
-      <div className="flex flex-col gap-2">
-        {Array.from({ length: 8 }).map((_, i) => (
-          <LoadingCard key={i} className="h-8" />
-        ))}
-      </div>
-    );
-  }
-
-  if (rows.length === 0) {
+  if (!isLoading && rows.length === 0) {
     return (
       <p className="text-sm text-light-500 italic">
         No assay-attributed bioactivities for{" "}
@@ -121,15 +121,26 @@ const DiseaseBioactivitiesSection = ({ commonName }: Props) => {
       </p>
 
       <div className="flex flex-wrap gap-1.5">
-        <Chip
-          label="All"
-          count={counts.get(ALL) ?? 0}
-          tone={bioactivity === ALL ? "cream" : "outline"}
-          size="md"
-          onClick={() => setBioactivity(ALL)}
-          aria-pressed={bioactivity === ALL}
-        />
-        {summary.map((s) => (
+        {/* The chips are driven by `summary`, which arrives with the rows —
+         * so while loading there is nothing to render them from. Stand-ins
+         * keep the row's height and rhythm instead of letting the table
+         * jump up and then back down when the real chips appear. */}
+        {isLoading &&
+          CHIP_SKELETON_WIDTHS.map((w, i) => (
+            <Skeleton key={i} shape="pill" className={`h-6 ${w}`} />
+          ))}
+        {!isLoading && (
+          <Chip
+            label="All"
+            count={counts.get(ALL) ?? 0}
+            tone={bioactivity === ALL ? "cream" : "outline"}
+            size="md"
+            onClick={() => setBioactivity(ALL)}
+            aria-pressed={bioactivity === ALL}
+          />
+        )}
+        {!isLoading &&
+          summary.map((s) => (
           <Chip
             key={s.bioactivity_foodatlas_id}
             label={s.bioactivity_name}
@@ -151,6 +162,7 @@ const DiseaseBioactivitiesSection = ({ commonName }: Props) => {
         visibleCount={visibleCount}
         onShowAll={() => setVisibleCount(filtered.length)}
         commonName={commonName}
+        isLoading={isLoading}
       />
     </div>
   );

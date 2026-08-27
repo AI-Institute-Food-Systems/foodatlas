@@ -11,7 +11,6 @@ import {
   MdInfoOutline,
   MdKeyboardArrowDown,
   MdKeyboardArrowUp,
-  MdSearch,
   MdTune,
   MdUnfoldMore,
 } from "react-icons/md";
@@ -22,7 +21,11 @@ import ResetFiltersButton from "@/components/basic/ResetFiltersButton";
 import Chip from "@/components/basic/Chip";
 import Link from "@/components/basic/Link";
 import Pagination from "@/components/basic/Pagination";
-import LoadingCard from "@/components/basic/LoadingCard";
+import Skeleton from "@/components/basic/Skeleton";
+import {
+  TableSkeletonCards,
+  TableSkeletonRows,
+} from "@/components/basic/TableSkeleton";
 import SortListbox from "@/components/basic/SortListbox";
 import { useReportRows } from "@/context/reportModeContext";
 import { AmbiguityBadge } from "@/components/basic/Ambiguity";
@@ -30,9 +33,19 @@ import { TrustBadge } from "@/components/basic/TrustBadge";
 import FoodCompositionEvidenceModal, {
   EvidenceFilter,
 } from "@/components/entities/food/FoodCompositionEvidenceModal";
+import {
+  ClearFiltersLink,
+  FilterGroup,
+  FilterOption,
+  FilterOptionList,
+  FilterRowLabel,
+  ToggleSwitch,
+  FilterSearchInput,
+} from "@/components/entities/shared/filters/FilterControls";
+import FilterPanel from "@/components/entities/shared/filters/FilterPanel";
 import { usePaginations } from "@/context/paginationsContext";
-import { useLoadingGate } from "@/context/pageReadyContext";
 import { usePublishTabCount } from "@/context/tabCountsContext";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { encodeSpace, formatConcentrationValueAlt } from "@/utils/utils";
 import {
   getFoodCompositionCounts,
@@ -41,15 +54,36 @@ import {
 import { FoodCompositionData } from "@/types";
 
 // headers for table
+// One spec drives the <colgroup>, the <th>s and the loading skeleton, so
+// the placeholder grid can't drift from the real one.
 const TABLE_HEADERS = [
-  { label: "Chemical", sortName: "common_name", align: "left" as const },
-  { label: "Classification", align: "left" as const },
   {
+    key: "chemical",
+    label: "Chemical",
+    sortName: "common_name",
+    align: "left" as const,
+    width: "w-[30%]",
+  },
+  {
+    key: "classification",
+    label: "Classification",
+    align: "left" as const,
+    width: "w-[20%]",
+  },
+  {
+    key: "concentration",
     label: "Concentration (mg/100g)",
     sortName: "median_concentration",
     align: "right" as const,
+    width: "w-[25%]",
   },
-  { label: "Evidence", sortName: "evidence_count", align: "right" as const },
+  {
+    key: "evidence",
+    label: "Evidence",
+    sortName: "evidence_count",
+    align: "right" as const,
+    width: "w-[25%]",
+  },
 ];
 
 const CLASSIFICATION_OPTIONS = [
@@ -94,8 +128,13 @@ const FoodCompositionSection = ({
   const searchParams = useSearchParams();
   const [data, setData] = useState<FoodCompositionData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  useLoadingGate(isLoading);
   const [isError, setIsError] = useState(false);
+  // A fetch with rows already on screen is a REFETCH (page, sort, filter,
+  // search), and blanking the table for it was the single most visible
+  // flash in this tab. Only show the skeleton when there is nothing to
+  // keep; otherwise dim what's there and let it be replaced in place.
+  const showSkeleton = isLoading && data.length === 0;
+  const isRefetching = isLoading && data.length > 0;
   const { getTablePaginations, setTablePaginations } = usePaginations();
   const { currentPage } = getTablePaginations("food-composition-table");
   // Highlight a single row when the user arrived from a chemical page link
@@ -121,6 +160,9 @@ const FoodCompositionSection = ({
   const [searchTerm, setSearchTerm] = useState(
     searchParams.get("search") ?? ""
   );
+  // The input stays instant; only the fetch waits. Without this every
+  // keystroke was its own request.
+  const debouncedSearch = useDebouncedValue(searchTerm);
   const [sourceFilters, setSourceFilters] = useState<string[]>(ALL_SOURCE_VALUES);
   const [sort, setSort] = useState({
     column: "median_concentration",
@@ -133,6 +175,10 @@ const FoodCompositionSection = ({
   const [evidenceFilter, setEvidenceFilter] =
     useState<EvidenceFilter>("all");
   const [sourceCounts, setSourceCounts] = useState<Record<string, number>>({});
+  // Tracks whether the facet-count fetch has settled at all. `{}` alone
+  // can't tell "still loading" from "all zero", and treating the former
+  // as the latter disabled filter rows retroactively.
+  const [countsLoaded, setCountsLoaded] = useState(false);
   // Empty selection means "no class filter" (show all rows). Users
   // pre-2026-07 saw every checkbox pre-checked which inverted the mental
   // model — clicking "flavonoid" REMOVED it, so rows returned were the
@@ -221,12 +267,16 @@ const FoodCompositionSection = ({
         setClassificationCounts(counts.classification_counts);
         setNoConcentrationCount(counts.no_concentration_count);
         setLowTrustCount(counts.low_trust_count);
+        setCountsLoaded(true);
       } catch {
         if (cancelled) return;
         setSourceCounts({});
         setClassificationCounts({});
         setNoConcentrationCount(undefined);
         setLowTrustCount(undefined);
+        // Settled either way — a failed count fetch shouldn't leave the
+        // filter rows showing placeholders forever.
+        setCountsLoaded(true);
       }
     };
     fetchCounts();
@@ -264,7 +314,7 @@ const FoodCompositionSection = ({
           commonName,
           currentPage,
           sourceFilters,
-          searchTerm,
+          debouncedSearch,
           sort,
           showAllConcentrations,
           activeClsFilter,
@@ -313,7 +363,7 @@ const FoodCompositionSection = ({
     currentPage,
     commonName,
     sourceFilters,
-    searchTerm,
+    debouncedSearch,
     sort,
     showAllConcentrations,
     showLowTrust,
@@ -455,13 +505,7 @@ const FoodCompositionSection = ({
         <MdInfoOutline />
         No associations match your filters
       </div>
-      <button
-        type="button"
-        onClick={resetAllFilters}
-        className="text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
-      >
-        clear filters
-      </button>
+      <ClearFiltersLink onClick={resetAllFilters} />
     </div>
   ) : (
     <div className="flex items-center gap-2 text-light-300 text-sm">
@@ -533,10 +577,10 @@ const FoodCompositionSection = ({
   };
 
   // handle search
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSearch = (value: string) => {
     setSearchTerm(() => {
       setTablePaginations("food-composition-table", 1, 20);
-      return e.target.value.toLowerCase();
+      return value.toLowerCase();
     });
   };
 
@@ -602,26 +646,12 @@ const FoodCompositionSection = ({
   // as a standalone left-of-Filters affordance below 1440. Extract it
   // so all three stay in sync.
   const searchInput = (
-    <div className="relative flex items-center">
-      <MdSearch className="absolute left-2 w-4 h-4 text-light-400" />
-      <input
-        className="pl-8 pr-8 w-full h-8 text-xs rounded-md border border-light-700/60 bg-light-900/60 focus:bg-light-900 focus:border-light-500 hover:border-light-500 text-light-100 placeholder-light-500 transition-colors duration-100 ease-in-out outline-none"
-        type="text"
-        placeholder="Search…"
-        value={searchTerm}
-        onChange={handleSearch}
-      />
-      {searchTerm && (
-        <button
-          type="button"
-          aria-label="Clear search"
-          onClick={handleSearchClear}
-          className="absolute right-2 flex items-center justify-center w-4 h-4 rounded-full text-light-400 hover:text-light-100 hover:bg-light-700 transition-colors"
-        >
-          <MdClose className="w-3 h-3" />
-        </button>
-      )}
-    </div>
+    <FilterSearchInput
+      value={searchTerm}
+      onChange={handleSearch}
+      onClear={handleSearchClear}
+      placeholder="Search…"
+    />
   );
 
   // Non-search filter controls — options + source + class. Drawer on
@@ -656,21 +686,22 @@ const FoodCompositionSection = ({
 
       {/* source — checkbox list, one row per source */}
       <FilterGroup label="Source">
-        <FilterList>
+        <FilterOptionList>
           {SOURCE_OPTIONS.map((opt) => {
             const c = sourceCounts[opt.value];
             return (
-              <FilterListItem
+              <FilterOption
                 key={opt.value}
                 label={opt.label}
                 count={c}
+                countsLoaded={countsLoaded}
                 selected={sourceFilters.includes(opt.value)}
                 onClick={() => toggleSource(opt.value)}
-                disabled={c === 0}
+                disabled={countsLoaded && c === 0}
               />
             );
           })}
-        </FilterList>
+        </FilterOptionList>
       </FilterGroup>
 
       {/* nutrient classification — same checklist chrome; 15+ options
@@ -678,95 +709,48 @@ const FoodCompositionSection = ({
        * past the viewport. */}
       <FilterGroup
         label="Class"
-        action={
-          classificationFilter.length > 0 ? (
-            <button
-              type="button"
-              onClick={() => {
+        onClear={
+          classificationFilter.length > 0
+            ? () => {
                 setTablePaginations("food-composition-table", 1, 20);
                 setClassificationFilter([]);
-              }}
-              className="text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
-            >
-              clear
-            </button>
-          ) : null
+              }
+            : undefined
         }
       >
-        <FilterList maxHeightClass="max-h-72">
+        <FilterOptionList maxHeightClass="max-h-72">
           {visibleClassOptions.map((cls) => {
-            const c = classificationCounts[cls] ?? 0;
+            // Deliberately not `?? 0`: before the counts land every row
+            // would read as a real zero and disable itself.
+            const c = countsLoaded ? (classificationCounts[cls] ?? 0) : undefined;
             return (
-              <FilterListItem
+              <FilterOption
                 key={cls}
                 label={cls === "n/a" ? "unclassified" : cls}
                 count={c}
+                countsLoaded={countsLoaded}
                 selected={classificationFilter.includes(cls)}
                 onClick={() => toggleClassification(cls)}
-                disabled={c === 0}
+                disabled={countsLoaded && c === 0}
               />
             );
           })}
-        </FilterList>
+        </FilterOptionList>
       </FilterGroup>
-
-      {/* Panel-level action, last so it reads as "undo everything above".
-       * Clears search + every filter and snaps pagination to page 1. */}
-      <ResetFiltersButton
-        isDirty={isFiltersDirty}
-        onReset={resetAllFilters}
-      />
-    </div>
-  );
-
-  // Full sidebar (search on top + filters underneath). Used both in the
-  // desktop absolute-positioned aside and as the mobile-view content
-  // that pairs a visible search input with a drawer of the remaining
-  // controls.
-  const filterPanel = (
-    <div className="flex flex-col gap-5">
-      {searchInput}
-      {filtersOnlyPanel}
     </div>
   );
 
   return (
     <>
-      <div id="composition" className="relative scroll-mt-8">
-          {/* Desktop sidebar sits OUTSIDE the table's flow — absolutely
-           * positioned to the left of the composition wrapper via
-           * `right-full`, so the table keeps its full centered max-width.
-           * top-0 bottom-0 stretches the aside to the section's height so
-           * the inner `sticky top-4` div can trail the scroll until the
-           * section ends. Only shown at min-[1440px]+ where the outer
-           * max-w-5xl gutter has enough room for the w-48 aside plus
-           * mr-4 gap; the drawer covers narrower widths. */}
-          <aside className="hidden min-[1440px]:block absolute right-full mr-10 -top-[17px] bottom-0 w-48">
-            {/* -top-[17px] sits halfway between -top-4 (16) and -top-5
-             * (20) so the aside lines up with the Card border-top;
-             * mr-10 (40px) gives a clear gap from the Card frame.
-             * Wrapping the inner box in <Card> matches the tab card's
-             * exact border/shadow/rounded so the sidebar and the
-             * table frame read as siblings. */}
-            <div className="sticky top-4">
-              <Card>{filterPanel}</Card>
-            </div>
-          </aside>
-
-          {/* Sub-1440 row: search visible on the left, Filters trigger
-           * on the right. Search stays outside the drawer so the user
-           * doesn't have to open a modal to type. */}
-          <div className="min-[1440px]:hidden mb-1 flex items-center gap-3">
-            <div className="flex-1 min-w-0 max-w-xs">{searchInput}</div>
-            <button
-              type="button"
-              onClick={() => setMobileFiltersOpen(true)}
-              className="inline-flex items-center gap-2 rounded-md border border-light-700/60 bg-light-900/60 px-3 py-1.5 text-xs font-mono italic text-light-300 hover:text-light-100 hover:border-light-500 transition-colors"
-            >
-              <MdTune className="w-4 h-4" />
-              Filters
-            </button>
-          </div>
+      <FilterPanel
+        id="composition"
+        search={searchInput}
+        filters={filtersOnlyPanel}
+        isDirty={isFiltersDirty}
+        onReset={resetAllFilters}
+        open={mobileFiltersOpen}
+        onOpenChange={setMobileFiltersOpen}
+      >
 
           <div className="flex flex-col gap-7">
           <div>
@@ -795,7 +779,13 @@ const FoodCompositionSection = ({
           {/* table — desktop only. Card list below covers mobile. */}
           <div
             ref={tableWrapperRef}
-            className="hidden md:block overflow-x-auto relative"
+            aria-busy={isRefetching}
+            className={twMerge(
+              "hidden md:block overflow-x-auto relative",
+              // Keep the current rows readable but visibly stale, and
+              // inert so a click doesn't act on data about to be replaced.
+              isRefetching && "opacity-60 pointer-events-none transition-opacity"
+            )}
           >
             {highlightName && overlayRect && (
               <div
@@ -813,10 +803,9 @@ const FoodCompositionSection = ({
             )}
             <table className="w-full table-fixed">
               <colgroup>
-                <col className="w-[30%]" />
-                <col className="w-[20%]" />
-                <col className="w-[25%]" />
-                <col className="w-[25%]" />
+                {TABLE_HEADERS.map((h) => (
+                  <col key={h.key} className={h.width} />
+                ))}
               </colgroup>
               <thead className="text-light-400 text-left">
                 <tr>
@@ -867,20 +856,8 @@ const FoodCompositionSection = ({
                 </tr>
               </thead>
               <tbody className="text-sm font-light">
-                {isLoading ? (
-                  // loading skeleton
-                  Array.from({ length: 20 }, (_, index) => (
-                    <tr key={index}>
-                      <td
-                        className="w-full py-1.5"
-                        colSpan={TABLE_HEADERS.length}
-                      >
-                        <div className="h-9 flex items-center">
-                          <LoadingCard className="h-5" />
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                {showSkeleton ? (
+                  <TableSkeletonRows columns={TABLE_HEADERS} />
                 ) : isError ? (
                   // error message
                   <tr>
@@ -1041,15 +1018,22 @@ const FoodCompositionSection = ({
           {/* Mobile card list — replaces the table below md:. Sort
            * control lives in the row-count header above (no column
            * headers to click in card view). */}
-          <div className="md:hidden">
-            <div className="w-full flex flex-col divide-y divide-light-800">
-              {isLoading ? (
-                Array.from({ length: 8 }, (_, index) => (
-                  <div key={index} className="w-full py-3">
-                    <LoadingCard className="h-5" />
-                  </div>
-                ))
-              ) : isError ? (
+          <div
+            className={twMerge(
+              "md:hidden",
+              isRefetching && "opacity-60 pointer-events-none transition-opacity"
+            )}
+            aria-busy={isRefetching}
+          >
+            {showSkeleton && <TableSkeletonCards columns={TABLE_HEADERS} />}
+            <div
+              className={
+                showSkeleton
+                  ? "hidden"
+                  : "w-full flex flex-col divide-y divide-light-800"
+              }
+            >
+              {isError ? (
                 <div className="w-full py-6 flex items-center justify-center text-red-400 gap-2">
                   <MdErrorOutline /> An error occurred fetching data, please
                   refresh the page
@@ -1190,47 +1174,14 @@ const FoodCompositionSection = ({
               <Pagination
                 tableId={"food-composition-table"}
                 numberOfPages={numberOfPages}
-                isLoading={isLoading}
+                isLoading={showSkeleton}
+                isBusy={isRefetching}
               />
             </div>
           )}
           </div>
 
-          {/* Drawer — slides in from the right, dark backdrop behind.
-           * Same filterPanel as the sidebar. Esc/backdrop close. Shown
-           * on every viewport that doesn't have the desktop sidebar. */}
-          {mobileFiltersOpen && (
-            <div
-              className="fixed inset-0 z-50 min-[1440px]:hidden"
-              role="dialog"
-              aria-modal="true"
-              aria-label="Filters"
-            >
-              <button
-                type="button"
-                aria-label="Close filters"
-                onClick={() => setMobileFiltersOpen(false)}
-                className="absolute inset-0 bg-black/60 cursor-default"
-              />
-              <aside className="absolute right-0 top-0 h-full w-[85vw] max-w-sm bg-light-950 border-l border-light-700/50 overflow-y-auto flex flex-col gap-4 p-4">
-                <div className="flex items-center justify-between">
-                  <span className="font-mono italic text-sm text-light-300">
-                    Filters
-                  </span>
-                  <button
-                    type="button"
-                    aria-label="Close filters"
-                    onClick={() => setMobileFiltersOpen(false)}
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-light-400 hover:text-light-100 hover:bg-light-800 transition-colors"
-                  >
-                    <MdClose className="w-4 h-4" />
-                  </button>
-                </div>
-                {filtersOnlyPanel}
-              </aside>
-            </div>
-          )}
-      </div>
+      </FilterPanel>
       {/* evidence modal */}
       <Portal>
         <FoodCompositionEvidenceModal
@@ -1257,159 +1208,5 @@ const FoodCompositionSection = ({
 };
 
 FoodCompositionSection.displayName = "FoodCompositionSection";
-
-// -- Filter block chrome -----------------------------------------------------
-// Small, purely-presentational helpers so the JSX above reads as a filter
-// spec ("Options | Source | Class") rather than a wall of class strings.
-
-const FilterRowLabel = ({ children }: { children: React.ReactNode }) => (
-  <span className="font-mono italic text-[11px] uppercase tracking-wider text-light-400 min-w-[3.5rem]">
-    {children}
-  </span>
-);
-
-const ToggleSwitch = ({
-  label,
-  count,
-  checked,
-  onChange,
-}: {
-  label: string;
-  // Count of rows the toggle governs (e.g. rows without concentration).
-  // Rendered as a right-aligned mono badge; omitted when undefined.
-  count?: number;
-  checked: boolean;
-  onChange: () => void;
-}) => (
-  <label className="flex items-center gap-2 cursor-pointer select-none">
-    <Switch
-      checked={checked}
-      onChange={onChange}
-      className="group inline-flex h-4 w-8 items-center rounded-full bg-light-700 data-[checked]:bg-accent-600 flex-shrink-0 transition-colors"
-    >
-      <span className="size-3 translate-x-0.5 rounded-full bg-white transition group-data-[checked]:translate-x-[1.125rem]" />
-    </Switch>
-    <span
-      className={twMerge(
-        "text-xs transition-colors flex-1 min-w-0 leading-tight",
-        checked ? "text-light-100" : "text-light-400"
-      )}
-    >
-      {label}
-    </span>
-    {typeof count === "number" && (
-      <span
-        className={twMerge(
-          "tabular-nums text-[10px] flex-shrink-0",
-          checked ? "text-light-400" : "text-light-500"
-        )}
-      >
-        {count.toLocaleString()}
-      </span>
-    )}
-  </label>
-);
-
-// A labelled section in the filter sidebar. The optional `action` sits in
-// the label row (right-aligned) — used by Class for the "all / clear"
-// button so it doesn't need its own row.
-const FilterGroup = ({
-  label,
-  action,
-  children,
-}: {
-  label: string;
-  action?: React.ReactNode;
-  children: React.ReactNode;
-}) => (
-  <div className="flex flex-col gap-1.5">
-    <div className="flex items-baseline justify-between gap-2">
-      <FilterRowLabel>{label}</FilterRowLabel>
-      {action}
-    </div>
-    {children}
-  </div>
-);
-
-// A vertical list of checkbox rows. Optionally caps its height + scrolls
-// so Class (15+ items) doesn't push the sticky sidebar past the viewport.
-const FilterList = ({
-  maxHeightClass,
-  children,
-}: {
-  maxHeightClass?: string;
-  children: React.ReactNode;
-}) => (
-  <div
-    className={twMerge(
-      "flex flex-col -mx-1",
-      maxHeightClass ? `${maxHeightClass} overflow-y-auto` : undefined
-    )}
-  >
-    {children}
-  </div>
-);
-
-// One row in the filter list. Full-width click target, checkbox affordance
-// on the left, label in the middle, count right-aligned. Full-row hover
-// state makes the whole thing feel tappable.
-//
-// When count is 0 the row renders `disabled` — visible but greyed and
-// non-interactive — instead of being hidden, so the filter space keeps
-// the same shape whatever the pivot entity has evidence for.
-const FilterListItem = ({
-  label,
-  count,
-  selected,
-  onClick,
-  disabled,
-}: {
-  label: string;
-  count?: number;
-  selected: boolean;
-  onClick: () => void;
-  disabled?: boolean;
-}) => (
-  <button
-    type="button"
-    onClick={onClick}
-    disabled={disabled}
-    aria-pressed={selected}
-    aria-disabled={disabled || undefined}
-    className={twMerge(
-      "group w-full flex items-center gap-2 pl-1 pr-2 py-1 rounded transition-colors text-left",
-      selected
-        ? "text-light-100 hover:bg-light-900/70"
-        : "text-light-400 hover:text-light-100 hover:bg-light-900/50",
-      disabled && "opacity-40 cursor-not-allowed hover:bg-transparent hover:text-light-400"
-    )}
-  >
-    <span
-      aria-hidden
-      className={twMerge(
-        "w-3.5 h-3.5 rounded-[3px] border flex-shrink-0 flex items-center justify-center transition-colors",
-        selected
-          ? "border-accent-600 bg-accent-600/20 text-accent-600"
-          : "border-light-700 group-hover:border-light-500",
-        disabled && "group-hover:border-light-700"
-      )}
-    >
-      {selected && <MdCheck className="w-3 h-3" />}
-    </span>
-    <span className="capitalize font-mono italic text-xs flex-1 min-w-0 truncate">
-      {label}
-    </span>
-    {typeof count === "number" && (
-      <span
-        className={twMerge(
-          "not-italic tabular-nums text-[10px] flex-shrink-0",
-          selected ? "text-light-400" : "text-light-500"
-        )}
-      >
-        {count}
-      </span>
-    )}
-  </button>
-);
 
 export default FoodCompositionSection;

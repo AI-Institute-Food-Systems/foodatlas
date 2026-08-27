@@ -1,12 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { MdClose, MdSearch, MdTune, MdWarningAmber } from "react-icons/md";
-import { twMerge } from "tailwind-merge";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { MdTune } from "react-icons/md";
 
 import Card from "@/components/basic/Card";
 import EvidenceTable from "@/components/entities/food/EvidenceTable";
 import Modal from "@/components/basic/Modal";
+import {
+  FilterGroup,
+  FilterOption,
+  FilterOptionList,
+  FilterSearchInput,
+} from "@/components/entities/shared/filters/FilterControls";
+import {
+  FilterDrawer,
+  FilterPanelBody,
+} from "@/components/entities/shared/filters/FilterPanel";
 import { FoodEvidence, FoodEvidenceExtraction } from "@/types/Evidence";
 
 const isLowTrust = (ex: FoodEvidenceExtraction): boolean => Boolean(ex.trust_low);
@@ -84,8 +93,6 @@ interface FoodCompositionEvidenceModalProps {
   initialFilter?: EvidenceFilter;
 }
 
-const LOW_TRUST_CYCLE: EvidenceFilter[] = ["all", "low-trust"];
-
 const FoodCompositionEvidenceModal = ({
   foodName,
   chemicalName,
@@ -99,14 +106,30 @@ const FoodCompositionEvidenceModal = ({
   const [sourceKind, setSourceKind] = useState("");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
+  // Every dimension back to the state the modal opened in. Shared by the
+  // "Clear filters" control and the open effect below so the two cannot
+  // drift as dimensions are added — same arrangement as
+  // BioactivityMeasurementsModal.
+  //
+  // Restores `initialFilter`, not "all": arriving via a TrustBadge opens the
+  // modal already filtered to low-trust, and that IS this modal's fresh
+  // state, so clearing should return to it rather than override the intent
+  // the user clicked with.
+  const resetAllFilters = useCallback(() => {
+    setFilter(initialFilter);
+    setSearchTerm("");
+    setSourceKind("");
+  }, [initialFilter]);
+
+  const isFiltersDirty =
+    filter !== initialFilter || searchTerm !== "" || sourceKind !== "";
+
   useEffect(() => {
     if (isOpen) {
-      setFilter(initialFilter);
-      setSearchTerm("");
-      setSourceKind("");
+      resetAllFilters();
       setMobileFiltersOpen(false);
     }
-  }, [isOpen, initialFilter]);
+  }, [isOpen, resetAllFilters]);
 
   const query = searchTerm.trim().toLowerCase();
 
@@ -153,6 +176,27 @@ const FoodCompositionEvidenceModal = ({
     [countExtractions, sourceKind],
   );
 
+  // Has trust been evaluated for this evidence at all? The API omits
+  // `trust_low` entirely when it hasn't, and sets it on EVERY extraction when
+  // it has — so field presence, not truthiness, is the signal.
+  //
+  // Distinguishes two cases a count alone conflates:
+  //   - evaluated, none low here  → show Quality, disable the empty option
+  //   - never evaluated           → no Quality group; there is nothing to say
+  //
+  // The second is the common one today. Only /food/composition applies the
+  // trust filter (food.py), and only when its "Low-trust data points" toggle
+  // is on; the chemical page reuses this modal via /chemical/composition-
+  // evidence, which has no trust handling, so its extractions never carry the
+  // field. Without this the group would sit there permanently greyed at 0.
+  const trustEvaluated = useMemo(
+    () =>
+      (evidences ?? []).some((ev) =>
+        (ev.extraction ?? []).some((ex) => "trust_low" in ex),
+      ),
+    [evidences],
+  );
+
   // Source counts hold quality + search fixed, varying only source. The key
   // list stays derived from the full set so options never disappear.
   const sourceKeys = useMemo(() => {
@@ -173,13 +217,6 @@ const FoodCompositionEvidenceModal = ({
     });
     return counts;
   }, [countExtractions, sourceKeys, lowTrustOnly]);
-
-  const cycleLowTrustFilter = () =>
-    setFilter((f) => {
-      const idx = LOW_TRUST_CYCLE.indexOf(f);
-      if (idx === -1) return LOW_TRUST_CYCLE[1];
-      return LOW_TRUST_CYCLE[(idx + 1) % LOW_TRUST_CYCLE.length];
-    });
 
   // Filter is applied at the extraction level so the table's row set
   // exactly matches the active chip's count. Evidences with no rows
@@ -209,11 +246,6 @@ const FoodCompositionEvidenceModal = ({
     [displayedEvidences],
   );
 
-  const lowTrustLabel =
-    filter === "low-trust"
-      ? `Only low-trust (${lowTrustCount})`
-      : `All (${totalCount})`;
-
   const searchInput = (
     <SearchInput
       value={searchTerm}
@@ -222,18 +254,22 @@ const FoodCompositionEvidenceModal = ({
     />
   );
 
+  // One node, rendered into both the sidebar and the drawer, so the reset
+  // belongs here rather than at either call site.
   const filtersPanel = (
-    <FiltersPanel
-      sourceKind={sourceKind}
-      sourceKeys={sourceKeys}
-      sourceCounts={sourceCounts}
-      onSourceKindChange={setSourceKind}
-      filter={filter}
-      lowTrustCount={lowTrustCount}
-      totalCount={totalCount}
-      onCycleLowTrust={cycleLowTrustFilter}
-      lowTrustLabel={lowTrustLabel}
-    />
+    <FilterPanelBody isDirty={isFiltersDirty} onReset={resetAllFilters}>
+      <FiltersPanel
+        sourceKind={sourceKind}
+        sourceKeys={sourceKeys}
+        sourceCounts={sourceCounts}
+        onSourceKindChange={setSourceKind}
+        filter={filter}
+        lowTrustCount={lowTrustCount}
+        totalCount={totalCount}
+        onSetFilter={setFilter}
+        trustEvaluated={trustEvaluated}
+      />
+    </FilterPanelBody>
   );
 
   return (
@@ -291,37 +327,12 @@ const FoodCompositionEvidenceModal = ({
       {/* Sub-1440px filter drawer. Mirrors the bioactivity modal's
        * drawer so the same filter chrome is reachable on narrow
        * viewports where the sidebar is hidden. */}
-      {mobileFiltersOpen && (
-        <div
-          className="fixed inset-0 z-[60] min-[1440px]:hidden"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Filters"
-        >
-          <button
-            type="button"
-            aria-label="Close filters"
-            onClick={() => setMobileFiltersOpen(false)}
-            className="absolute inset-0 bg-black/60 cursor-default"
-          />
-          <aside className="absolute right-0 top-0 h-full w-[85vw] max-w-sm bg-light-950 border-l border-light-700/50 overflow-y-auto flex flex-col gap-4 p-4">
-            <div className="flex items-center justify-between">
-              <span className="font-mono italic text-sm text-light-300">
-                Filters
-              </span>
-              <button
-                type="button"
-                onClick={() => setMobileFiltersOpen(false)}
-                aria-label="Close filters"
-                className="w-8 h-8 rounded-full flex items-center justify-center text-light-400 hover:text-light-100 hover:bg-light-800/60 transition-colors"
-              >
-                <MdClose className="w-4 h-4" />
-              </button>
-            </div>
-            {filtersPanel}
-          </aside>
-        </div>
-      )}
+      <FilterDrawer
+        open={mobileFiltersOpen}
+        onClose={() => setMobileFiltersOpen(false)}
+      >
+        {filtersPanel}
+      </FilterDrawer>
     </Modal>
   );
 };
@@ -341,27 +352,13 @@ const SearchInput = ({
   onChange: (v: string) => void;
   onClear: () => void;
 }) => (
-  <div className="relative flex items-center">
-    <MdSearch className="absolute left-2 w-4 h-4 text-light-400" />
-    <input
-      className="pl-8 pr-8 w-full h-8 text-xs rounded-md border border-light-700/60 bg-light-900/60 focus:bg-light-900 focus:border-light-500 hover:border-light-500 text-light-100 placeholder-light-500 transition-colors duration-100 ease-in-out outline-none"
-      type="text"
-      placeholder="Search chemical, food, or paper"
-      aria-label="Search chemical, food, or paper"
+  <FilterSearchInput
       value={value}
-      onChange={(e) => onChange(e.target.value)}
+      onChange={(v) => onChange(v)}
+      onClear={onClear}
+      placeholder="Search chemical, food, or paper"
+      ariaLabel="Search chemical, food, or paper"
     />
-    {value && (
-      <button
-        type="button"
-        aria-label="Clear search"
-        onClick={onClear}
-        className="absolute right-2 flex items-center justify-center w-4 h-4 rounded-full text-light-400 hover:text-light-100 hover:bg-light-700 transition-colors"
-      >
-        <MdClose className="w-3 h-3" />
-      </button>
-    )}
-  </div>
 );
 
 const FiltersPanel = ({
@@ -372,8 +369,8 @@ const FiltersPanel = ({
   filter,
   lowTrustCount,
   totalCount,
-  onCycleLowTrust,
-  lowTrustLabel,
+  onSetFilter,
+  trustEvaluated,
 }: {
   sourceKind: string;
   sourceKeys: string[];
@@ -382,22 +379,17 @@ const FiltersPanel = ({
   filter: EvidenceFilter;
   lowTrustCount: number;
   totalCount: number;
-  onCycleLowTrust: () => void;
-  lowTrustLabel: string;
+  onSetFilter: (f: EvidenceFilter) => void;
+  // False when this evidence carries no trust judgement at all.
+  trustEvaluated: boolean;
 }) => (
   <div className="flex flex-col gap-5">
-    <div className="flex flex-col gap-1.5">
-      <span className="font-mono italic text-[11px] uppercase tracking-wider text-light-400">
-        Source
-      </span>
-      <div
-        className="flex flex-col -mx-1"
-        role="radiogroup"
-        aria-label="Evidence source"
-      >
+    <FilterGroup label="Source">
+      <FilterOptionList mode="radio" ariaLabel="Evidence source">
         {buildSourceKinds(sourceKeys).map(({ key, label }) => (
-          <RadioRow
+          <FilterOption
             key={label}
+            mode="radio"
             label={label}
             count={sourceCounts[key] ?? 0}
             selected={sourceKind === key}
@@ -405,81 +397,42 @@ const FiltersPanel = ({
             onClick={() => onSourceKindChange(key)}
           />
         ))}
-      </div>
-    </div>
+      </FilterOptionList>
+    </FilterGroup>
 
-    <div className="flex flex-col gap-1.5">
-      <span className="font-mono italic text-[11px] uppercase tracking-wider text-light-400">
-        Quality
-      </span>
-      <div className="flex flex-col gap-2">
-        <button
-          type="button"
-          onClick={onCycleLowTrust}
-          disabled={lowTrustCount === 0}
-          aria-disabled={lowTrustCount === 0 || undefined}
-          className={twMerge(
-            "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium w-fit transition-colors",
-            filter === "low-trust"
-              ? "text-rose-300 border-rose-400 bg-rose-500/20 hover:bg-rose-500/30"
-              : "text-light-300 border-light-500 bg-light-500/10 hover:bg-light-500/20",
-            lowTrustCount === 0 &&
-              "opacity-40 cursor-not-allowed hover:bg-transparent",
-          )}
-          aria-label="Cycle low-trust filter"
-        >
-          <MdWarningAmber className="size-3.5" />
-          {lowTrustLabel}
-        </button>
-      </div>
-      <span className="mt-1 text-[10px] text-light-500 font-mono">
-        {totalCount.toLocaleString()} data point
-        {totalCount === 1 ? "" : "s"} total
-      </span>
-    </div>
+    {/* Two mutually exclusive options, so a radio facet like every other
+      * single-select group. It used to be one cycle button whose label WAS
+      * its state ("All (6)" / "Only low-trust (2)"), which read as a mystery
+      * chip when nothing was low-trust: disabled, warning-triangled, and
+      * saying "All (6)" next to a line repeating the same 6.
+      *
+      * Rendered whenever trust WAS evaluated, with the empty option disabled
+      * — the rule Source above already follows and FilterOption documents.
+      * Hiding at a zero COUNT would trap the user: these counts are faceted,
+      * so searching can drive lowTrustCount to 0 while "Low-trust only" is
+      * still the active filter, and the control to switch back would vanish
+      * with it. Absent trust data is the separate case handled above. */}
+    {trustEvaluated && (
+    <FilterGroup label="Quality">
+      <FilterOptionList mode="radio" ariaLabel="Evidence quality">
+        <FilterOption
+          mode="radio"
+          label="All"
+          count={totalCount}
+          selected={filter === "all"}
+          onClick={() => onSetFilter("all")}
+        />
+        <FilterOption
+          mode="radio"
+          label="Low-trust only"
+          count={lowTrustCount}
+          selected={filter === "low-trust"}
+          disabled={lowTrustCount === 0 && filter !== "low-trust"}
+          onClick={() => onSetFilter("low-trust")}
+        />
+      </FilterOptionList>
+    </FilterGroup>
+    )}
   </div>
 );
 
-const RadioRow = ({
-  label,
-  count,
-  selected,
-  disabled,
-  onClick,
-}: {
-  label: string;
-  count: number;
-  selected: boolean;
-  disabled?: boolean;
-  onClick: () => void;
-}) => (
-  <button
-    type="button"
-    role="radio"
-    aria-checked={selected}
-    disabled={disabled}
-    aria-disabled={disabled || undefined}
-    onClick={onClick}
-    className={twMerge(
-      "group w-full flex items-center gap-2 pl-1 pr-2 py-1 rounded transition-colors text-left disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent",
-      selected
-        ? "text-light-100 hover:bg-light-900/70"
-        : "text-light-400 hover:text-light-100 hover:bg-light-900/50",
-    )}
-  >
-    {/* Source names come from the data, so a future lowercase one would
-     * otherwise render lowercase here while its sibling modal capitalizes.
-     * Harmless on the current values — CSS capitalize leaves FDC/PTFI alone. */}
-    <span className="font-mono text-xs flex-1 min-w-0 truncate capitalize">
-      {label}
-    </span>
-    <span
-      className={twMerge(
-        "tabular-nums text-[10px] flex-shrink-0",
-        selected ? "text-light-400" : "text-light-500",
-      )}
-    >
-      {count.toLocaleString()}
-    </span>
-  </button>
-);

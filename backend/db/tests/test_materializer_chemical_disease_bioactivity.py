@@ -1,22 +1,22 @@
 """Tests for src.etl.materializer_chemical_disease_bioactivity."""
 
 import pandas as pd
-from src.etl.materializer_bioactivity_bridge import disease_mesh_map
-from src.etl.materializer_chemical_disease_bioactivity import (
-    _as_list,
-    _target_genes_per_pair,
+from src.etl.materializer_bioactivity_bridge import (
+    as_list,
+    disease_mesh_map,
+    target_genes_per_pair,
 )
 
 
 class TestAsList:
     def test_list_passthrough(self):
-        assert _as_list(["a", "b"]) == ["a", "b"]
+        assert as_list(["a", "b"]) == ["a", "b"]
 
     def test_none_returns_empty(self):
-        assert _as_list(None) == []
+        assert as_list(None) == []
 
     def test_nan_returns_empty(self):
-        assert _as_list(float("nan")) == []
+        assert as_list(float("nan")) == []
 
 
 class TestDiseaseMeshMap:
@@ -71,7 +71,7 @@ class TestTargetGenesPerPair:
             "bdm2": ["GENE_B"],
             "bdm3": ["GENE_C"],
         }
-        s = _target_genes_per_pair(
+        s = target_genes_per_pair(
             evidence,
             target_map,
             ["chemical_foodatlas_id", "disease_foodatlas_id"],

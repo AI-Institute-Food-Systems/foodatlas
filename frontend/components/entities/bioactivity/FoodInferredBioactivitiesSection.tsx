@@ -17,16 +17,24 @@ import {
   MdInfoOutline,
   MdKeyboardArrowDown,
   MdKeyboardArrowUp,
-  MdSearch,
   MdUnfoldMore,
   MdWarningAmber,
 } from "react-icons/md";
 import { twMerge } from "tailwind-merge";
 
 import Card from "@/components/basic/Card";
+import {
+  ClearFiltersLink,
+  FilterSearchInput,
+} from "@/components/entities/shared/filters/FilterControls";
+import FilterPanel from "@/components/entities/shared/filters/FilterPanel";
 import Chip from "@/components/basic/Chip";
 import Link from "@/components/basic/Link";
-import LoadingCard from "@/components/basic/LoadingCard";
+import {
+  TableSkeletonCards,
+  TableSkeletonRows,
+} from "@/components/basic/TableSkeleton";
+import type { SkeletonColumn } from "@/components/basic/skeletonTokens";
 import Pagination from "@/components/basic/Pagination";
 import SortListbox from "@/components/basic/SortListbox";
 import { Tooltip } from "@/components/basic/Tooltip";
@@ -34,13 +42,23 @@ import BioactivityMeasurementsModal from "@/components/entities/bioactivity/Bioa
 import { formatEfficacyFraction } from "@/components/entities/bioactivity/efficacy";
 import { useReportRows } from "@/context/reportModeContext";
 import { usePaginations } from "@/context/paginationsContext";
-import { useLoadingGate } from "@/context/pageReadyContext";
 import {
   getChemicalBioactivities,
   getFoodInferredBioactivities,
 } from "@/utils/fetching";
 import { encodeSpace, formatConcentrationValueAlt } from "@/utils/utils";
 import type { BioactivityMeasurement } from "@/types";
+
+// Drives both the <colgroup> and the loading skeleton, so the placeholder
+// grid matches the real one. Order and alignment mirror the SortableTh
+// row below.
+const SKELETON_COLUMNS: SkeletonColumn[] = [
+  { key: "bioactivity", width: "w-[24%]" },
+  { key: "chemical", width: "w-[20%]" },
+  { key: "concentration", width: "w-[18%]", align: "right" },
+  { key: "efficacy", width: "w-[22%]", align: "right" },
+  { key: "assays", width: "w-[16%]", align: "right" },
+];
 
 // One row per (chemical in this food × bioactivity that chemical was
 // measured against), served by /food/inferred-bioactivities. That endpoint
@@ -172,7 +190,6 @@ const FoodInferredBioactivitiesSection = ({
   const [totalRows, setTotalRows] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
-  useLoadingGate(isLoading);
   // Modal state. The efficacy endpoint doesn't carry raw measurements,
   // so when a user clicks "View N curves" we lazy-fetch the chemical's
   // full bioactivity list (which does carry the per-bioactivity
@@ -287,8 +304,8 @@ const FoodInferredBioactivitiesSection = ({
     }
   }, [isLoading, currentPage, totalPages, tableId, setTablePaginations]);
 
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchTerm(e.target.value.toLowerCase());
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value.toLowerCase());
     setTablePaginations(tableId, 1, 20);
   };
   const handleSearchClear = () => {
@@ -327,13 +344,7 @@ const FoodInferredBioactivitiesSection = ({
         <MdInfoOutline />
         No inferred bioactivities match your filters
       </div>
-      <button
-        type="button"
-        onClick={resetForEmptyState}
-        className="text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
-      >
-        clear filters
-      </button>
+      <ClearFiltersLink onClick={resetForEmptyState} />
     </div>
   ) : (
     <div className="flex items-center gap-2 text-light-300 text-sm">
@@ -342,40 +353,29 @@ const FoodInferredBioactivitiesSection = ({
   );
 
   const searchInput = (
-    <div className="relative flex items-center">
-      <MdSearch className="absolute left-2 w-4 h-4 text-light-400" />
-      <input
-        className="pl-8 pr-8 w-full h-8 text-xs rounded-md border border-light-700/60 bg-light-900/60 focus:bg-light-900 focus:border-light-500 hover:border-light-500 text-light-100 placeholder-light-500 transition-colors duration-100 ease-in-out outline-none"
-        type="text"
-        placeholder="Search…"
-        aria-label="Search bioactivity or chemical"
-        value={searchTerm}
-        onChange={handleSearchChange}
-      />
-      {searchTerm && (
-        <button
-          type="button"
-          aria-label="Clear search"
-          onClick={handleSearchClear}
-          className="absolute right-2 flex items-center justify-center w-4 h-4 rounded-full text-light-400 hover:text-light-100 hover:bg-light-700 transition-colors"
-        >
-          <MdClose className="w-3 h-3" />
-        </button>
-      )}
-    </div>
+    <FilterSearchInput
+      value={searchTerm}
+      onChange={handleSearchChange}
+      onClear={handleSearchClear}
+      placeholder="Search…"
+      ariaLabel="Search bioactivity or chemical"
+    />
   );
 
   return (
-    <div className="relative flex flex-col gap-7">
-      {/* Desktop sidebar + sub-1440 search input — hidden when a
-       * parent (FoodBioactivitiesTab) hosts the shared chrome. */}
-      {!hideChrome && (
-        <aside className="hidden min-[1440px]:block absolute right-full mr-10 -top-[17px] bottom-0 w-48">
-          <div className="sticky top-4">
-            <Card>{searchInput}</Card>
-          </div>
-        </aside>
-      )}
+    // Search-only panel: this section has no facets of its own, so the
+    // sidebar carries just the input. Still FilterPanel rather than a
+    // bare aside, so its geometry cannot drift from the other five.
+    <FilterPanel
+      search={searchInput}
+      filters={null}
+      isDirty={effectiveSearchTerm !== ""}
+      onReset={resetForEmptyState}
+      open={false}
+      onOpenChange={() => undefined}
+      hideChrome={hideChrome}
+    >
+      <div className="flex flex-col gap-7">
 
       {/* Heading + provenance disclaimer — same chip vocabulary as the
        * card-catalog sections. The italic line frames the data as
@@ -431,11 +431,9 @@ const FoodInferredBioactivitiesSection = ({
       <div className="hidden md:block overflow-x-auto">
         <table className="w-full table-fixed">
           <colgroup>
-            <col className="w-[24%]" />
-            <col className="w-[20%]" />
-            <col className="w-[18%]" />
-            <col className="w-[22%]" />
-            <col className="w-[16%]" />
+            {SKELETON_COLUMNS.map((c) => (
+              <col key={c.key} className={c.width} />
+            ))}
           </colgroup>
           <thead className="text-light-400 text-left">
             <tr>
@@ -508,15 +506,7 @@ const FoodInferredBioactivitiesSection = ({
           </thead>
           <tbody className="text-sm font-light">
             {isLoading ? (
-              Array.from({ length: 20 }).map((_, i) => (
-                <tr key={`l-${i}`}>
-                  <td className="w-full py-1.5" colSpan={5}>
-                    <div className="h-9 flex items-center">
-                      <LoadingCard className="h-5" />
-                    </div>
-                  </td>
-                </tr>
-              ))
+              <TableSkeletonRows columns={SKELETON_COLUMNS} />
             ) : showEmpty ? (
               <tr>
                 <td colSpan={5}>
@@ -547,14 +537,11 @@ const FoodInferredBioactivitiesSection = ({
       {/* Card list — mobile. Primary line pairs Bioactivity → Chemical
        * (the inference chain). Concentration + Assays + Top + View
        * button sit below as label:value rows. */}
+      {isLoading ? (
+        <TableSkeletonCards columns={SKELETON_COLUMNS} />
+      ) : (
       <div className="md:hidden w-full flex flex-col divide-y divide-light-800">
-        {isLoading ? (
-          Array.from({ length: 8 }).map((_, i) => (
-            <div key={`l-${i}`} className="w-full py-3">
-              <LoadingCard className="h-5" />
-            </div>
-          ))
-        ) : showEmpty ? (
+        {showEmpty ? (
           <div className="w-full py-6 flex items-center justify-center">
             {emptyStateBody}
           </div>
@@ -650,6 +637,7 @@ const FoodInferredBioactivitiesSection = ({
           })
         )}
       </div>
+      )}
 
       {showingPaginator && (
         <div className="mt-2 max-w-xl w-full mx-auto">
@@ -681,7 +669,8 @@ const FoodInferredBioactivitiesSection = ({
         relationship="r6"
         headIsRow={false}
       />
-    </div>
+      </div>
+    </FilterPanel>
   );
 };
 

@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.exc import SQLAlchemyError
 from src.repositories.disease_bioactivity import (
     get_bioactivity_diseases,
     get_disease_bioactivities,
@@ -20,16 +21,28 @@ def _chemical_row(**overrides) -> dict:
         "n_assays": 5,
         "n_active_measurements": 12,
         "relationships": ["therapeutic"],
+        "target_genes": ["NCBIGene: 7157"],
+        "assays": ["AID: 1"],
+        "literature_directions": [],
     }
     row.update(overrides)
     return row
 
 
-def _mock_session(rows: list[dict]) -> AsyncMock:
+def _mock_session(rows: list[dict], labels: list[dict] | None = None) -> AsyncMock:
+    """A session whose first execute returns rows and whose second returns labels.
+
+    The repositories label target genes with a follow-up query, so anything
+    calling attach_targets consumes two results.
+    """
     session = AsyncMock()
-    result = MagicMock()
-    result.__iter__.return_value = [MagicMock(_mapping=row) for row in rows]
-    session.execute.return_value = result
+    main = MagicMock()
+    main.__iter__.return_value = [MagicMock(_mapping=row) for row in rows]
+    label_result = MagicMock()
+    label_result.__iter__.return_value = [
+        MagicMock(_mapping=label) for label in labels or []
+    ]
+    session.execute.side_effect = [main, label_result]
     return session
 
 
@@ -147,7 +160,7 @@ class TestGetBioactivityDiseases:
         await get_bioactivity_diseases(session, "anticancer")
         sql = str(session.execute.call_args[0][0])
         assert "WHERE bioactivity_name = :name" in sql
-        assert "GROUP BY disease_name" in sql
+        assert "GROUP BY s.disease_name" in sql
         assert session.execute.call_args[0][1] == {"name": "anticancer"}
 
     @pytest.mark.asyncio
@@ -163,6 +176,75 @@ class TestGetBioactivityDiseases:
     async def test_empty_result(self):
         out = await get_bioactivity_diseases(_mock_session([]), "nope")
         assert out == {"data": [], "metadata": {"row_count": 0}}
+
+    @pytest.mark.asyncio
+    async def test_reports_the_direction_split(self):
+        """The tab's whole point: how much of the evidence is therapeutic.
+
+        A disease can be reached by a thousand chemicals and still have almost
+        no therapeutic evidence behind it, which a bare total hides.
+        """
+        session = _mock_session([])
+        await get_bioactivity_diseases(session, "anticancer")
+        sql = str(session.execute.call_args[0][0])
+        assert "FILTER (WHERE 'therapeutic' = ANY(relationships))" in sql
+        assert "FILTER (WHERE 'marker/mechanism' = ANY(relationships))" in sql
+        assert "cardinality(literature_directions) > 0" in sql
+
+    @pytest.mark.asyncio
+    async def test_ranks_shared_targets_by_chemical_count(self):
+        """Top targets, not the union — a union over 2,000 chemicals is noise."""
+        session = _mock_session([])
+        sql_before = await get_bioactivity_diseases(session, "anticancer")
+        assert sql_before["metadata"]["row_count"] == 0
+        sql = str(session.execute.call_args[0][0])
+        assert "ORDER BY n_chemicals DESC" in sql
+        assert "[1:12]" in sql
+
+
+class TestTargetLabelling:
+    """Gene ids are paired with readable names, best-effort."""
+
+    @pytest.mark.asyncio
+    async def test_labels_are_zipped_onto_ids(self):
+        session = _mock_session(
+            [_chemical_row(target_genes=["NCBIGene: 7157", "NCBIGene: 999"])],
+            labels=[
+                {"gene_id": "NCBIGene: 7157", "label": "Cellular tumor antigen p53"}
+            ],
+        )
+        out = await get_disease_bioactivity_chemicals(session, "melanoma")
+        assert out["data"][0]["targets"] == [
+            {"id": "NCBIGene: 7157", "label": "Cellular tumor antigen p53"},
+            # Unlabelled genes still appear; the UI falls back to the id.
+            {"id": "NCBIGene: 999", "label": None},
+        ]
+
+    @pytest.mark.asyncio
+    async def test_entrez_and_uniprot_forms_collapse_to_one_target(self):
+        """p53 arrives under both ids; showing it twice wastes a slot."""
+        session = _mock_session(
+            [_chemical_row(target_genes=["NCBIGene: 7157", "UniProt: P04637"])],
+            labels=[
+                {"gene_id": "NCBIGene: 7157", "label": "Cellular tumor antigen p53"},
+                {"gene_id": "UniProt: P04637", "label": "Cellular tumor antigen p53"},
+            ],
+        )
+        out = await get_disease_bioactivity_chemicals(session, "melanoma")
+        assert out["data"][0]["targets"] == [
+            {"id": "NCBIGene: 7157", "label": "Cellular tumor antigen p53"}
+        ]
+
+    @pytest.mark.asyncio
+    async def test_missing_label_table_does_not_lose_rows(self):
+        """A later-added lookup must not take the associations down with it."""
+        session = AsyncMock()
+        main = MagicMock()
+        main.__iter__.return_value = [MagicMock(_mapping=_chemical_row())]
+        session.execute.side_effect = [main, SQLAlchemyError("no such table")]
+        out = await get_disease_bioactivity_chemicals(session, "melanoma")
+        assert out["metadata"] == {"row_count": 1}
+        assert out["data"][0]["targets"] == [{"id": "NCBIGene: 7157", "label": None}]
 
 
 # -- routes -----------------------------------------------------------------

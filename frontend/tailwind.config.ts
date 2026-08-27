@@ -66,6 +66,31 @@ const config: Config = {
         DEFAULT: "0 0 1rem rgba(255,255,255,0.5)",
         lg: "0 0 1.5rem rgba(255,255,255,0.55)",
       },
+      keyframes: {
+        // This keyframe is the ONLY source of a default skeleton's
+        // background-color. `important: true` below means any static bg-*
+        // utility would carry !important and beat the animation outright,
+        // so skeletonTokens deliberately sets none — see the long note
+        // there before adding one back.
+        //
+        // 0%/100% is the resting fill, light-800, at 1.13:1 against a Card
+        // (bg-light-950); 50% peaks at light-700, 1.53:1. These are the
+        // values this keyframe originally shipped with: the colour choice
+        // was right all along, and the reports of an invisible pulse were
+        // the !important override described above, not the palette. With
+        // the pulse actually rendering, the motion carries the signal and
+        // the fill can stay this restrained.
+        //
+        // Tailwind's opacity-based `animate-pulse` is wrong here — it
+        // would fade the fill out entirely for half of every period.
+        "skeleton-pulse": {
+          "0%, 100%": { backgroundColor: colors.light["800"] },
+          "50%": { backgroundColor: colors.light["700"] },
+        },
+      },
+      animation: {
+        "skeleton-pulse": "skeleton-pulse 2s ease-in-out infinite",
+      },
     },
   },
   plugins: [

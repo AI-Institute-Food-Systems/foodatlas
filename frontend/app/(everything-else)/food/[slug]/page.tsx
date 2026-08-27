@@ -7,9 +7,10 @@ import FoodBioactivitiesTab from "@/components/entities/bioactivity/FoodBioactiv
 import HeaderSection from "@/components/entities/HeaderSection";
 import HeaderSectionSuspense from "@/components/entities/HeaderSectionSuspense";
 import EntityDetailLayout from "@/components/entities/EntityDetailLayout";
+import { buildTabs } from "@/components/entities/buildTabs";
+import { DEFAULT_TAB_ID } from "@/components/entities/entityTabs.config";
 import EntityOverviewPanel from "@/components/entities/EntityOverviewPanel";
 import EntityOverviewPanelSuspense from "@/components/entities/EntityOverviewPanelSuspense";
-import EntityPageGate from "@/components/entities/EntityPageGate";
 import {
   getFoodBioactivities,
   getFoodCompositionData,
@@ -83,23 +84,19 @@ const FoodPage = async ({ params }: FoodPageProps) => {
       : (directBio ?? 0) + (inferredBio ?? 0);
 
   return (
-    <EntityPageGate entityType={entityType} tabCount={3}>
+    <>
       <Suspense fallback={<HeaderSectionSuspense entityType={entityType} />}>
         <HeaderSection commonName={commonName} entityType={entityType} />
       </Suspense>
       <EntityDetailLayout
         entityType={entityType}
-        defaultTabId="composition"
-        tabs={[
-          {
-            id: "composition",
-            label: "Composition",
+        defaultTabId={DEFAULT_TAB_ID[entityType]}
+        tabs={buildTabs(entityType, {
+          composition: {
             count: compositionCount,
             content: <FoodCompositionSection commonName={commonName} />,
           },
-          {
-            id: "bioactivities",
-            label: "Bioactivities",
+          bioactivities: {
             count: bioactivitiesCount,
             content: (
               <FoodBioactivitiesTab
@@ -108,9 +105,7 @@ const FoodPage = async ({ params }: FoodPageProps) => {
               />
             ),
           },
-          {
-            id: "overview",
-            label: "IDs & Metadata",
+          overview: {
             content: (
               <Suspense
                 fallback={
@@ -124,9 +119,9 @@ const FoodPage = async ({ params }: FoodPageProps) => {
               </Suspense>
             ),
           },
-        ]}
+        })}
       />
-    </EntityPageGate>
+    </>
   );
 };
 

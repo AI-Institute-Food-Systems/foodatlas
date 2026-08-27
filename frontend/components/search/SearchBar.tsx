@@ -390,7 +390,9 @@ const SearchBar = () => {
                   {/* loading icon */}
                   {isLoading ? (
                     <ThreeDot
-                      color="#a3a3a3"
+                      // light-500. Was #a3a3a3 (Tailwind neutral-400),
+                      // which isn't in this app's palette at all.
+                      color="#837e7a"
                       style={{
                         maxWidth: "full",
                         maxHeight: "full",

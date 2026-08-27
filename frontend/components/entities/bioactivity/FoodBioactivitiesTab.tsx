@@ -8,11 +8,16 @@
 // `externalSourceKind` / `hideChrome` props.
 
 import { useEffect, useState } from "react";
-import { MdCheck, MdClose, MdSearch, MdTune } from "react-icons/md";
+import { MdCheck, MdClose, MdTune } from "react-icons/md";
 import { twMerge } from "tailwind-merge";
 
-import Card from "@/components/basic/Card";
-import ResetFiltersButton from "@/components/basic/ResetFiltersButton";
+import {
+  FilterGroup,
+  FilterOption,
+  FilterOptionList,
+  FilterSearchInput,
+} from "@/components/entities/shared/filters/FilterControls";
+import FilterPanel from "@/components/entities/shared/filters/FilterPanel";
 import FoodBioactivitiesSection from "@/components/entities/bioactivity/FoodBioactivitiesSection";
 import FoodInferredBioactivitiesSection from "@/components/entities/bioactivity/FoodInferredBioactivitiesSection";
 import {
@@ -53,14 +58,17 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
 
   // Aggregated filtered totals from direct + inferred tables → the
   // "Bioactivities" tab badge. Each sub-table reports null while its
-  // fetch is in flight; we publish the SUM once at least one has
-  // reported, so the badge starts refreshing as soon as data lands.
+  // fetch is in flight, and the two resolve independently — so the sum
+  // is only meaningful once BOTH have reported. Publishing as soon as
+  // either landed made the badge show a partial count and then visibly
+  // jump (e.g. 12 -> 348) when the second table finished. Staying null
+  // until both are in keeps the placeholder up for that whole window.
   const [directTotal, setDirectTotal] = useState<number | null>(null);
   const [inferredTotal, setInferredTotal] = useState<number | null>(null);
   const combinedTotal =
-    directTotal === null && inferredTotal === null
+    directTotal === null || inferredTotal === null
       ? null
-      : (directTotal ?? 0) + (inferredTotal ?? 0);
+      : directTotal + inferredTotal;
   usePublishTabCount("bioactivities", combinedTotal);
 
   // Source-kind counts for the sidebar Assay Source picker. Aggregated
@@ -221,43 +229,20 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
   const hiddenUnitsCount = Math.max(0, unitOptions.length - TOP_UNITS);
 
   const searchInput = (
-    <div className="relative flex items-center">
-      <MdSearch className="absolute left-2 w-4 h-4 text-light-400" />
-      <input
-        className="pl-8 pr-8 w-full h-8 text-xs rounded-md border border-light-700/60 bg-light-900/60 focus:bg-light-900 focus:border-light-500 hover:border-light-500 text-light-100 placeholder-light-500 transition-colors duration-100 ease-in-out outline-none"
-        type="text"
-        placeholder="Search…"
-        aria-label="Search bioactivity or chemical"
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value.toLowerCase())}
-      />
-      {searchTerm && (
-        <button
-          type="button"
-          aria-label="Clear search"
-          onClick={() => setSearchTerm("")}
-          className="absolute right-2 flex items-center justify-center w-4 h-4 rounded-full text-light-400 hover:text-light-100 hover:bg-light-700 transition-colors"
-        >
-          <MdClose className="w-3 h-3" />
-        </button>
-      )}
-    </div>
+    <FilterSearchInput
+      value={searchTerm}
+      onChange={(v) => setSearchTerm(v.toLowerCase())}
+      onClear={() => setSearchTerm("")}
+      placeholder="Search…"
+      ariaLabel="Search bioactivity or chemical"
+    />
   );
 
   const sourceFilter = (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="font-mono italic text-[11px] uppercase tracking-wider text-light-400 min-w-[3.5rem]">
-          Assay Source
-        </span>
-      </div>
-      <div
-        className="flex flex-col -mx-1"
-        role="radiogroup"
-        aria-label="Assay Source"
-      >
+    <FilterGroup label="Assay Source">
+      {/* Single-select, hence the radio affordance. */}
+      <FilterOptionList mode="radio" ariaLabel="Assay Source">
         {SOURCE_KINDS.map(({ key, label }) => {
-          const selected = selectedSourceKind === key;
           const c =
             sourceKindCounts === null
               ? undefined
@@ -266,119 +251,40 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
               : key === "experimental"
               ? sourceKindCounts.experimental
               : sourceKindCounts.predicted;
-          const disabled = typeof c === "number" && key !== "" && c === 0;
           return (
-            <button
+            <FilterOption
               key={label}
-              type="button"
-              role="radio"
-              aria-checked={selected}
-              disabled={disabled}
-              aria-disabled={disabled || undefined}
+              mode="radio"
+              label={label}
+              count={c}
+              countsLoaded={sourceKindCounts !== null}
+              selected={selectedSourceKind === key}
+              disabled={typeof c === "number" && key !== "" && c === 0}
               onClick={() => chooseSourceKind(key)}
-              className={twMerge(
-                "group w-full flex items-center gap-2 pl-1 pr-2 py-1 rounded transition-colors text-left",
-                selected
-                  ? "text-light-100 hover:bg-light-900/70"
-                  : "text-light-400 hover:text-light-100 hover:bg-light-900/50",
-                disabled &&
-                  "opacity-40 cursor-not-allowed hover:bg-transparent hover:text-light-400"
-              )}
-            >
-              <span
-                aria-hidden
-                className={twMerge(
-                  "w-3.5 h-3.5 rounded-full border flex-shrink-0 flex items-center justify-center transition-colors",
-                  selected
-                    ? "border-accent-600 bg-accent-600/20"
-                    : "border-light-700 group-hover:border-light-500",
-                  disabled && "group-hover:border-light-700"
-                )}
-              >
-                {selected && (
-                  <span
-                    className="w-1.5 h-1.5 rounded-full bg-accent-600"
-                    aria-hidden
-                  />
-                )}
-              </span>
-              <span className="font-mono italic text-xs capitalize flex-1">
-                {label}
-              </span>
-              {typeof c === "number" && (
-                <span
-                  className={twMerge(
-                    "tabular-nums text-[10px] flex-shrink-0",
-                    selected ? "text-light-400" : "text-light-500"
-                  )}
-                >
-                  {c.toLocaleString()}
-                </span>
-              )}
-            </button>
+            />
           );
         })}
-      </div>
-    </div>
+      </FilterOptionList>
+    </FilterGroup>
   );
 
+
   const unitFilter = unitOptions.length > 0 && (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="font-mono italic text-[11px] uppercase tracking-wider text-light-400 min-w-[3.5rem]">
-          Unit
-        </span>
-        {selectedUnits.length > 0 && (
-          <button
-            type="button"
-            onClick={clearUnits}
-            className="text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
-          >
-            clear
-          </button>
-        )}
-      </div>
-      <div className="flex flex-col -mx-1">
-        {visibleUnits.map(({ unit, count }) => {
-          const selected = selectedUnits.includes(unit);
-          return (
-            <button
-              key={unit}
-              type="button"
-              onClick={() => toggleUnit(unit)}
-              aria-pressed={selected}
-              className={twMerge(
-                "group w-full flex items-center gap-2 pl-1 pr-2 py-1 rounded transition-colors text-left",
-                selected
-                  ? "text-light-100 hover:bg-light-900/70"
-                  : "text-light-400 hover:text-light-100 hover:bg-light-900/50"
-              )}
-            >
-              <span
-                aria-hidden
-                className={twMerge(
-                  "w-3.5 h-3.5 rounded-[3px] border flex-shrink-0 flex items-center justify-center transition-colors",
-                  selected
-                    ? "border-accent-600 bg-accent-600/20 text-accent-600"
-                    : "border-light-700 group-hover:border-light-500"
-                )}
-              >
-                {selected && <MdCheck className="w-3 h-3" />}
-              </span>
-              <span className="font-mono text-xs flex-1 min-w-0 truncate">
-                {unit}
-              </span>
-              <span
-                className={twMerge(
-                  "tabular-nums text-[10px] flex-shrink-0",
-                  selected ? "text-light-400" : "text-light-500"
-                )}
-              >
-                {count.toLocaleString()}
-              </span>
-            </button>
-          );
-        })}
+    <FilterGroup
+      label="Unit"
+      onClear={selectedUnits.length > 0 ? clearUnits : undefined}
+    >
+      <FilterOptionList>
+        {visibleUnits.map(({ unit, count }) => (
+          <FilterOption
+            key={unit}
+            label={unit}
+            count={count}
+            selected={selectedUnits.includes(unit)}
+            onClick={() => toggleUnit(unit)}
+            capitalize={false}
+          />
+        ))}
         {!showAllUnits && hiddenUnitsCount > 0 && (
           <button
             type="button"
@@ -397,8 +303,8 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
             collapse
           </button>
         )}
-      </div>
-    </div>
+      </FilterOptionList>
+    </FilterGroup>
   );
 
   const isFiltersDirty =
@@ -414,99 +320,44 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
   };
 
   const evidenceFilter = evidenceTypeOptions.length > 0 && (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="font-mono italic text-[11px] uppercase tracking-wider text-light-400 min-w-[3.5rem]">
-          Evidence
-        </span>
-        {selectedEvidenceTypes.length > 0 && (
-          <button
-            type="button"
-            onClick={clearEvidenceTypes}
-            className="text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
-          >
-            clear
-          </button>
-        )}
-      </div>
-      <div className="flex flex-col -mx-1">
-        {evidenceTypeOptions.map(({ evidence_type, count }) => {
-          const selected = selectedEvidenceTypes.includes(evidence_type);
-          return (
-            <button
-              key={evidence_type}
-              type="button"
-              onClick={() => toggleEvidenceType(evidence_type)}
-              aria-pressed={selected}
-              className={twMerge(
-                "group w-full flex items-center gap-2 pl-1 pr-2 py-1 rounded transition-colors text-left",
-                selected
-                  ? "text-light-100 hover:bg-light-900/70"
-                  : "text-light-400 hover:text-light-100 hover:bg-light-900/50"
-              )}
-            >
-              <span
-                aria-hidden
-                className={twMerge(
-                  "w-3.5 h-3.5 rounded-[3px] border flex-shrink-0 flex items-center justify-center transition-colors",
-                  selected
-                    ? "border-accent-600 bg-accent-600/20 text-accent-600"
-                    : "border-light-700 group-hover:border-light-500"
-                )}
-              >
-                {selected && <MdCheck className="w-3 h-3" />}
-              </span>
-              <span className="font-mono text-xs flex-1 min-w-0 truncate capitalize">
-                {evidence_type}
-              </span>
-              <span
-                className={twMerge(
-                  "tabular-nums text-[10px] flex-shrink-0",
-                  selected ? "text-light-400" : "text-light-500"
-                )}
-              >
-                {count.toLocaleString()}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-    </div>
+    <FilterGroup
+      label="Evidence"
+      onClear={
+        selectedEvidenceTypes.length > 0 ? clearEvidenceTypes : undefined
+      }
+    >
+      <FilterOptionList>
+        {evidenceTypeOptions.map(({ evidence_type, count }) => (
+          <FilterOption
+            key={evidence_type}
+            label={evidence_type}
+            count={count}
+            selected={selectedEvidenceTypes.includes(evidence_type)}
+            onClick={() => toggleEvidenceType(evidence_type)}
+          />
+        ))}
+      </FilterOptionList>
+    </FilterGroup>
   );
 
-  const filterPanel = (
-    <div className="flex flex-col gap-5">
-      {searchInput}
+  const filters = (
+    <>
       {unitFilter}
       {evidenceFilter}
       {sourceFilter}
-      <ResetFiltersButton isDirty={isFiltersDirty} onReset={resetAllFilters} />
-    </div>
+    </>
   );
 
   return (
-    <div className="relative flex flex-col gap-12">
-      {/* Desktop shared sidebar for BOTH tables — same geometry as
-       * FoodCompositionSection / BioactivityTable. */}
-      <aside className="hidden min-[1440px]:block absolute right-full mr-10 -top-[17px] bottom-0 w-48">
-        <div className="sticky top-4">
-          <Card>{filterPanel}</Card>
-        </div>
-      </aside>
-
-      {/* Sub-1440 row: search visible on the left, Filters button on
-       * the right. Drawer holds the source filter. */}
-      <div className="min-[1440px]:hidden flex items-center gap-3">
-        <div className="flex-1 min-w-0 max-w-xs">{searchInput}</div>
-        <button
-          type="button"
-          onClick={() => setMobileFiltersOpen(true)}
-          className="inline-flex items-center gap-2 rounded-md border border-light-700/60 bg-light-900/60 px-3 py-1.5 text-xs font-mono italic text-light-300 hover:text-light-100 hover:border-light-500 transition-colors"
-        >
-          <MdTune className="w-4 h-4" />
-          Filters
-        </button>
-      </div>
+    <FilterPanel
+      search={searchInput}
+      filters={filters}
+      isDirty={isFiltersDirty}
+      onReset={resetAllFilters}
+      open={mobileFiltersOpen}
+      onOpenChange={setMobileFiltersOpen}
+    >
+      <div className="flex flex-col gap-12">
 
       <FoodBioactivitiesSection
         commonName={commonName}
@@ -530,41 +381,8 @@ const FoodBioactivitiesTab = ({ commonName, anchorId }: Props) => {
         onTotalRowsChange={setInferredTotal}
         onResetFilters={resetAllFilters}
       />
-
-      {mobileFiltersOpen && (
-        <div
-          className="fixed inset-0 z-50 min-[1440px]:hidden"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Filters"
-        >
-          <button
-            type="button"
-            aria-label="Close filters"
-            onClick={() => setMobileFiltersOpen(false)}
-            className="absolute inset-0 bg-black/60 cursor-default"
-          />
-          <aside className="absolute right-0 top-0 h-full w-[85vw] max-w-sm bg-light-950 border-l border-light-700/50 overflow-y-auto flex flex-col gap-4 p-4">
-            <div className="flex items-center justify-between">
-              <span className="font-mono italic text-sm text-light-300">
-                Filters
-              </span>
-              <button
-                type="button"
-                aria-label="Close filters"
-                onClick={() => setMobileFiltersOpen(false)}
-                className="w-8 h-8 rounded-full flex items-center justify-center text-light-400 hover:text-light-100 hover:bg-light-800 transition-colors"
-              >
-                <MdClose className="w-4 h-4" />
-              </button>
-            </div>
-            {unitFilter}
-            {evidenceFilter}
-            {sourceFilter}
-          </aside>
-        </div>
-      )}
-    </div>
+      </div>
+    </FilterPanel>
   );
 };
 

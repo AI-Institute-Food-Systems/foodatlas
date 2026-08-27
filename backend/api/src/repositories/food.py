@@ -129,9 +129,18 @@ def _annotate_composition_rows(
         r["_has_fa"] = r["foodatlas_evidences"] is not None
         r["_has_ptfi"] = r.get("ptfi_evidences") is not None
         r["_has_conc"] = r["median_concentration"] is not None
-        r["_fully_low"] = bool(atts) and all(
-            aid in scores and scores[aid] <= threshold for aid in atts
-        )
+        low = [aid for aid in atts if aid in scores and scores[aid] <= threshold]
+        # Two distinct questions, deliberately kept apart.
+        #
+        # _fully_low: would this row DISAPPEAR under trust=default? Only when
+        # every extraction is low-trust, since the filter drops extractions
+        # and removes the row only once nothing survives. Drives m_trust, so
+        # every other facet count depends on it being exactly this.
+        r["_fully_low"] = bool(atts) and len(low) == len(atts)
+        # _has_low: is ANYTHING hidden on this row? True for a row that keeps
+        # some extractions and loses others — which is the common case, and
+        # the one the badge previously reported as nothing at all.
+        r["_has_low"] = bool(low)
         r["_name_lower"] = (r["chemical_name"] or "").lower()
 
 
@@ -159,11 +168,21 @@ async def get_composition_counts(
       count rows whose median_concentration is NULL. This is the number
       of rows the "Include without concentration" toggle governs.
     - ``low_trust_count`` — apply source + class + concentration +
-      search; count rows the low-trust filter would drop. This is the
-      number of rows the "Include low-trust data points" toggle governs.
+      search; count rows with AT LEAST ONE low-trust extraction. This is
+      the number of rows the "Include low-trust data points" toggle
+      changes in some way.
+
+      It counted only rows the filter drops entirely — rows where *every*
+      extraction is low-trust. That undercounts badly, because the filter
+      works per extraction: a row with four good points and one bad one
+      keeps its place in the table and silently loses a data point, and
+      was reported as nothing hidden. Real case on staging: onion has one
+      hidden low-trust point and the badge read 0, so nothing on the page
+      suggested the toggle would do anything.
+
       trust_filter._is_low treats unscored attestations (FDC, un-judged
-      lit2kg) as high-trust, so a row is only dropped when *every*
-      extraction is both scored AND at or below the threshold.
+      lit2kg) as high-trust, so only scored-and-at-or-below-threshold
+      extractions count here.
     """
     result = await session.execute(
         text("""
@@ -263,7 +282,7 @@ async def get_composition_counts(
     low_trust_count = sum(
         1
         for r in rows
-        if m_source(r) and m_class(r) and m_conc(r) and m_search(r) and r["_fully_low"]
+        if m_source(r) and m_class(r) and m_conc(r) and m_search(r) and r["_has_low"]
     )
 
     return {

@@ -25,6 +25,7 @@ from .views import (
     MVSearchAutoComplete,
 )
 from .views_bioactivity import (
+    MVAssayTargetLabel,
     MVChemicalDiseaseBioactivity,
     MVDiseaseBioactivity,
     MVFoodChemicalEfficacy,
@@ -42,6 +43,7 @@ __all__ = [
     "BaseFoodChemicalEfficacy",
     "BaseTriplet",
     "BaseTrustSignal",
+    "MVAssayTargetLabel",
     "MVBioactivityEntity",
     "MVChemicalBioactivity",
     "MVChemicalDiseaseBioactivity",

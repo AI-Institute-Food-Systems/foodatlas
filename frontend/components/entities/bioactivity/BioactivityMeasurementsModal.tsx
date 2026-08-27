@@ -17,7 +17,7 @@
 
 "use client";
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import {
   MdCheck,
   MdChevronRight,
@@ -27,7 +27,6 @@ import {
   MdKeyboardArrowRight,
   MdKeyboardDoubleArrowLeft,
   MdKeyboardDoubleArrowRight,
-  MdSearch,
   MdTune,
 } from "react-icons/md";
 import { twMerge } from "tailwind-merge";
@@ -36,8 +35,20 @@ import Button from "@/components/basic/Button";
 import Card from "@/components/basic/Card";
 import Chip from "@/components/basic/Chip";
 import Link from "@/components/basic/Link";
-import LoadingCard from "@/components/basic/LoadingCard";
+import Skeleton from "@/components/basic/Skeleton";
+import { TableSkeletonRows } from "@/components/basic/TableSkeleton";
+import type { SkeletonColumn } from "@/components/basic/skeletonTokens";
 import Modal from "@/components/basic/Modal";
+import {
+  FilterGroup,
+  FilterOption,
+  FilterOptionList,
+  FilterSearchInput,
+} from "@/components/entities/shared/filters/FilterControls";
+import {
+  FilterDrawer,
+  FilterPanelBody,
+} from "@/components/entities/shared/filters/FilterPanel";
 import { useReportRows } from "@/context/reportModeContext";
 import HillCurveSparkline from "@/components/entities/bioactivity/HillCurveSparkline";
 import { getBioactivityMeasurements } from "@/utils/fetching";
@@ -65,6 +76,16 @@ const rowKey = (m: ModalRow, i: number): string =>
   m.bioactivity_metadata_id ?? `row-${i}`;
 
 const PAGE_SIZE = 20;
+
+// Mirrors the <colgroup> and the "Value" column's right alignment below.
+const MODAL_COLUMNS: SkeletonColumn[] = [
+  { key: "assay", width: "w-[24%]" },
+  { key: "endpoint", width: "w-[14%]" },
+  { key: "outcome", width: "w-[10%]" },
+  { key: "source", width: "w-[12%]" },
+  { key: "evidence", width: "w-[14%]" },
+  { key: "value", width: "w-[26%]", align: "right" },
+];
 const OUTCOME_OPTIONS = ["all", "active", "inactive", "unspecified", "inconclusive"] as const;
 type OutcomeFilter = (typeof OUTCOME_OPTIONS)[number];
 
@@ -170,17 +191,30 @@ const BioactivityMeasurementsModal = ({
   // stable row key so re-renders + page changes don't desync it.
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
 
-  // Reset filters/page/expand when the modal closes or the underlying
-  // selection changes (different chemical/food clicked).
-  useEffect(() => {
+  // Every filter dimension back to its open-the-modal default. Shared by
+  // the "Clear filters" control and the close/reselect effect below, so
+  // the two cannot drift apart as dimensions are added.
+  const resetAllFilters = useCallback(() => {
     setSearchTerm("");
     setOutcomeFilter("all");
     setSourceFilter("");
     setEvidenceTypeFilter([]);
-    setMobileFiltersOpen(false);
     setCurrentPage(1);
+  }, []);
+
+  const isFiltersDirty =
+    searchTerm !== "" ||
+    outcomeFilter !== "all" ||
+    sourceFilter !== "" ||
+    evidenceTypeFilter.length > 0;
+
+  // Reset filters/page/expand when the modal closes or the underlying
+  // selection changes (different chemical/food clicked).
+  useEffect(() => {
+    resetAllFilters();
+    setMobileFiltersOpen(false);
     setExpandedKey(null);
-  }, [isOpen, selectedId]);
+  }, [isOpen, selectedId, resetAllFilters]);
 
   // Faceted counts — each dimension applies every OTHER active filter
   // (excluding its own) so the numbers stay in sync with what the modal
@@ -346,26 +380,31 @@ const BioactivityMeasurementsModal = ({
     setEvidenceTypeFilter([]);
     setCurrentPage(1);
   };
+  // Rendered in both the outside sidebar and the sub-1440px drawer, so
+  // the reset control lives here rather than at either call site — one
+  // definition, and neither surface can be the one that lacks it.
   const filtersOnlyPanel = (
-    <FiltersOnlyPanel
-      outcomeFilter={outcomeFilter}
-      outcomeCounts={outcomeCounts}
-      sourceKindCounts={sourceKindCounts}
-      onOutcomeChange={(o) => {
-        setOutcomeFilter(o);
-        setCurrentPage(1);
-      }}
-      sourceFilter={sourceFilter}
-      onSourceChange={(s) => {
-        setSourceFilter(s);
-        setCurrentPage(1);
-      }}
-      evidenceTypeOptions={evidenceTypeOptions}
-      selectedEvidenceTypes={evidenceTypeFilter}
-      onToggleEvidenceType={toggleEvidenceType}
-      onClearEvidenceTypes={clearEvidenceTypes}
-      showSkeleton={showSkeleton}
-    />
+    <FilterPanelBody isDirty={isFiltersDirty} onReset={resetAllFilters}>
+      <FiltersOnlyPanel
+        outcomeFilter={outcomeFilter}
+        outcomeCounts={outcomeCounts}
+        sourceKindCounts={sourceKindCounts}
+        onOutcomeChange={(o) => {
+          setOutcomeFilter(o);
+          setCurrentPage(1);
+        }}
+        sourceFilter={sourceFilter}
+        onSourceChange={(s) => {
+          setSourceFilter(s);
+          setCurrentPage(1);
+        }}
+        evidenceTypeOptions={evidenceTypeOptions}
+        selectedEvidenceTypes={evidenceTypeFilter}
+        onToggleEvidenceType={toggleEvidenceType}
+        onClearEvidenceTypes={clearEvidenceTypes}
+        showSkeleton={showSkeleton}
+      />
+    </FilterPanelBody>
   );
 
   return (
@@ -502,38 +541,15 @@ const BioactivityMeasurementsModal = ({
         )}
       </div>
 
-      {/* Sub-1440px filter drawer. */}
-      {mobileFiltersOpen && (
-        <div
-          className="fixed inset-0 z-[60] min-[1440px]:hidden"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Filters"
-        >
-          <button
-            type="button"
-            aria-label="Close filters"
-            onClick={() => setMobileFiltersOpen(false)}
-            className="absolute inset-0 bg-black/60 cursor-default"
-          />
-          <aside className="absolute right-0 top-0 h-full w-[85vw] max-w-sm bg-light-950 border-l border-light-700/50 overflow-y-auto flex flex-col gap-4 p-4">
-            <div className="flex items-center justify-between">
-              <span className="font-mono italic text-sm text-light-300">
-                Filters
-              </span>
-              <button
-                type="button"
-                aria-label="Close filters"
-                onClick={() => setMobileFiltersOpen(false)}
-                className="w-8 h-8 rounded-full flex items-center justify-center text-light-400 hover:text-light-100 hover:bg-light-800 transition-colors"
-              >
-                <MdClose className="w-4 h-4" />
-              </button>
-            </div>
-            {filtersOnlyPanel}
-          </aside>
-        </div>
-      )}
+      {/* Sub-1440px filter drawer — same component the in-page tables use.
+       * Modal can't use FilterPanel's sidebar (Modal owns its own slot
+       * outside the DialogPanel), but the drawer is identical. */}
+      <FilterDrawer
+        open={mobileFiltersOpen}
+        onClose={() => setMobileFiltersOpen(false)}
+      >
+        {filtersOnlyPanel}
+      </FilterDrawer>
     </Modal>
   );
 };
@@ -551,28 +567,14 @@ const SearchInput = ({
   onChange: (v: string) => void;
   onClear: () => void;
 }) => (
-  <div className="relative flex items-center">
-    <MdSearch className="absolute left-2 w-4 h-4 text-light-400" />
-    <input
-      className="pl-8 pr-8 w-full h-8 text-xs rounded-md border border-light-700/60 bg-light-900/60 focus:bg-light-900 focus:border-light-500 hover:border-light-500 text-light-100 placeholder-light-500 transition-colors duration-100 ease-in-out outline-none disabled:opacity-60"
-      type="text"
-      placeholder="Search assay or endpoint"
-      aria-label="Search assay or endpoint"
+  <FilterSearchInput
       value={value}
+      onChange={(v) => onChange(v)}
+      onClear={onClear}
+      placeholder="Search assay or endpoint"
+      ariaLabel="Search assay or endpoint"
       disabled={disabled}
-      onChange={(e) => onChange(e.target.value)}
     />
-    {value && (
-      <button
-        type="button"
-        aria-label="Clear search"
-        onClick={onClear}
-        className="absolute right-2 flex items-center justify-center w-4 h-4 rounded-full text-light-400 hover:text-light-100 hover:bg-light-700 transition-colors"
-      >
-        <MdClose className="w-3 h-3" />
-      </button>
-    )}
-  </div>
 );
 
 // Non-search filters — Outcome + Evidence + Assay Source. Renders
@@ -605,20 +607,14 @@ const FiltersOnlyPanel = ({
   showSkeleton: boolean;
 }) => (
   <div className="flex flex-col gap-5">
-    <div className="flex flex-col gap-1.5">
-      <span className="font-mono italic text-[11px] uppercase tracking-wider text-light-400">
-        Outcome
-      </span>
-      <div
-        className="flex flex-col -mx-1"
-        role="radiogroup"
-        aria-label="Outcome"
-      >
+    <FilterGroup label="Outcome">
+      <FilterOptionList mode="radio" ariaLabel="Outcome">
         {OUTCOME_OPTIONS.map((opt) => {
           const c = outcomeCounts[opt];
           return (
-            <RadioRow
+            <FilterOption
               key={opt}
+              mode="radio"
               label={opt}
               count={c}
               selected={outcomeFilter === opt}
@@ -627,27 +623,18 @@ const FiltersOnlyPanel = ({
             />
           );
         })}
-      </div>
-    </div>
+      </FilterOptionList>
+    </FilterGroup>
     {evidenceTypeOptions.length > 0 && (
-      <div className="flex flex-col gap-1.5">
-        <div className="flex items-baseline justify-between gap-2">
-          <span className="font-mono italic text-[11px] uppercase tracking-wider text-light-400">
-            Evidence
-          </span>
-          {selectedEvidenceTypes.length > 0 && (
-            <button
-              type="button"
-              onClick={onClearEvidenceTypes}
-              className="text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
-            >
-              clear
-            </button>
-          )}
-        </div>
-        <div className="flex flex-col -mx-1">
+      <FilterGroup
+        label="Evidence"
+        onClear={
+          selectedEvidenceTypes.length > 0 ? onClearEvidenceTypes : undefined
+        }
+      >
+        <FilterOptionList>
           {evidenceTypeOptions.map(({ evidence_type, count }) => (
-            <CheckRow
+            <FilterOption
               key={evidence_type}
               label={evidence_type}
               count={count}
@@ -656,26 +643,19 @@ const FiltersOnlyPanel = ({
               onClick={() => onToggleEvidenceType(evidence_type)}
             />
           ))}
-        </div>
-      </div>
+        </FilterOptionList>
+      </FilterGroup>
     )}
-    <div className="flex flex-col gap-1.5">
-      <span className="font-mono italic text-[11px] uppercase tracking-wider text-light-400">
-        Assay Source
-      </span>
-      <div
-        className="flex flex-col -mx-1"
-        role="radiogroup"
-        aria-label="Assay Source"
-      >
+    <FilterGroup label="Assay Source">
+      <FilterOptionList mode="radio" ariaLabel="Assay Source">
         {/* Counts derived client-side from the modal's row set via
-         * `matchesSourceKind` so the chip counts match the filter
-         * behavior exactly. */}
+         * `matchesSourceKind` so they match the filter behaviour exactly. */}
         {SOURCE_KINDS.map(({ key, label }) => {
           const c = sourceKindCounts[key] ?? 0;
           return (
-            <RadioRow
+            <FilterOption
               key={label}
+              mode="radio"
               label={label}
               count={c}
               selected={sourceFilter === key}
@@ -684,120 +664,9 @@ const FiltersOnlyPanel = ({
             />
           );
         })}
-      </div>
-    </div>
+      </FilterOptionList>
+    </FilterGroup>
   </div>
-);
-
-const RadioRow = ({
-  label,
-  count,
-  selected,
-  disabled,
-  onClick,
-}: {
-  label: string;
-  count?: number;
-  selected: boolean;
-  disabled?: boolean;
-  onClick: () => void;
-}) => (
-  <button
-    type="button"
-    role="radio"
-    aria-checked={selected}
-    disabled={disabled}
-    aria-disabled={disabled || undefined}
-    onClick={onClick}
-    className={twMerge(
-      "group w-full flex items-center gap-2 pl-1 pr-2 py-1 rounded transition-colors text-left disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent",
-      selected
-        ? "text-light-100 hover:bg-light-900/70"
-        : "text-light-400 hover:text-light-100 hover:bg-light-900/50",
-    )}
-  >
-    <span
-      aria-hidden
-      className={twMerge(
-        "w-3.5 h-3.5 rounded-full border flex-shrink-0 flex items-center justify-center transition-colors",
-        selected
-          ? "border-accent-600 bg-accent-600/20"
-          : "border-light-700 group-hover:border-light-500",
-      )}
-    >
-      {selected && (
-        <span className="w-1.5 h-1.5 rounded-full bg-accent-600" aria-hidden />
-      )}
-    </span>
-    <span className="font-mono italic text-xs capitalize flex-1">
-      {label}
-    </span>
-    {typeof count === "number" && (
-      <span
-        className={twMerge(
-          "tabular-nums text-[10px] flex-shrink-0",
-          selected ? "text-light-400" : "text-light-500"
-        )}
-      >
-        {count.toLocaleString()}
-      </span>
-    )}
-  </button>
-);
-
-const CheckRow = ({
-  label,
-  count,
-  selected,
-  disabled,
-  onClick,
-}: {
-  label: string;
-  count?: number;
-  selected: boolean;
-  disabled?: boolean;
-  onClick: () => void;
-}) => (
-  <button
-    type="button"
-    onClick={onClick}
-    disabled={disabled}
-    aria-pressed={selected}
-    aria-disabled={disabled || undefined}
-    className={twMerge(
-      "group w-full flex items-center gap-2 pl-1 pr-2 py-1 rounded transition-colors text-left disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent",
-      selected
-        ? "text-light-100 hover:bg-light-900/70"
-        : "text-light-400 hover:text-light-100 hover:bg-light-900/50",
-    )}
-  >
-    <span
-      aria-hidden
-      className={twMerge(
-        "w-3.5 h-3.5 rounded-[3px] border flex-shrink-0 flex items-center justify-center transition-colors",
-        selected
-          ? "border-accent-600 bg-accent-600/20 text-accent-600"
-          : "border-light-700 group-hover:border-light-500",
-      )}
-    >
-      {selected && <MdCheck className="w-3 h-3" />}
-    </span>
-    {/* CheckRow is evidence-types only, so capitalizing here is safe —
-     * unlike the shared UnitRow, which must not touch unit casing. */}
-    <span className="font-mono text-xs flex-1 min-w-0 truncate capitalize">
-      {label}
-    </span>
-    {typeof count === "number" && (
-      <span
-        className={twMerge(
-          "tabular-nums text-[10px] flex-shrink-0",
-          selected ? "text-light-400" : "text-light-500",
-        )}
-      >
-        {count.toLocaleString()}
-      </span>
-    )}
-  </button>
 );
 
 const MeasurementsTable = ({
@@ -965,17 +834,23 @@ const MeasurementsTable = ({
             </Fragment>
           );
         })}
-        {Array.from({ length: padCount }).map((_, i) => (
-          <tr key={`pad-${i}`}>
-            <td className="py-1.5 pr-2" colSpan={6}>
-              {skeleton ? (
-                <LoadingCard className="h-5" />
-              ) : (
+        {skeleton ? (
+          <TableSkeletonRows
+            columns={MODAL_COLUMNS}
+            rows={padCount}
+            cellClassName="px-2 first:pl-0 last:pr-0"
+          />
+        ) : (
+          // Not a skeleton — blank rows that hold the table's height
+          // steady on a short last page.
+          Array.from({ length: padCount }).map((_, i) => (
+            <tr key={`pad-${i}`}>
+              <td className="py-1.5 pr-2" colSpan={6}>
                 <div className="h-5" />
-              )}
-            </td>
-          </tr>
-        ))}
+              </td>
+            </tr>
+          ))
+        )}
       </tbody>
     </table>
 
@@ -986,7 +861,7 @@ const MeasurementsTable = ({
       {skeleton
         ? Array.from({ length: PAGE_SIZE }).map((_, i) => (
             <div key={`sk-${i}`} className="w-full py-3">
-              <LoadingCard className="h-5" />
+              <Skeleton className="h-5" />
             </div>
           ))
         : dataRows.map((m, i) => {

@@ -6,6 +6,7 @@
 // hero. Falls back to zeros on fetch failure (per the graceful API
 // rule in memory).
 
+import Skeleton from "@/components/basic/Skeleton";
 import { useLandingStats } from "@/components/landing/useLandingStats";
 
 const fmt = (n: number): string => n.toLocaleString();
@@ -67,10 +68,7 @@ const HeroStatsLine = () => {
                   // h-[1em] = font-size (16px base, 18px md) matching
                   // the text's exact rendered height, so the column
                   // doesn't jitter when values land.
-                  <span
-                    aria-hidden
-                    className="inline-block h-[1em] w-10 md:w-12 rounded bg-light-800/60 animate-pulse align-middle"
-                  />
+                  <Skeleton className="inline-block h-[1em] w-10 md:w-12 align-middle" />
                 ) : (
                   <>
                     {item.compact ? fmtCompact(value ?? 0) : fmt(value ?? 0)}

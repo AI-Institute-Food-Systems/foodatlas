@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { clearApiCache } from "@/utils/apiFetch";
 import { getMetaData } from "@/utils/fetching";
 
 const ok = (body: unknown) =>
@@ -12,6 +13,9 @@ describe("getMetaData", () => {
   beforeEach(() => {
     vi.stubEnv("NEXT_PUBLIC_API_URL", "http://api.test");
     vi.stubEnv("NEXT_PUBLIC_API_KEY", "k");
+    // These cases all query the same url, and apiFetch caches responses per
+    // session — without a reset the success case would feed the next test.
+    clearApiCache();
   });
 
   afterEach(() => {

@@ -1,4 +1,4 @@
-import LoadingCard from "@/components/basic/LoadingCard";
+import Skeleton from "@/components/basic/Skeleton";
 
 import type { EntityType } from "./EntityTabs";
 
@@ -26,17 +26,20 @@ const EntityOverviewPanelSuspense = ({ entityType }: { entityType: EntityType })
 // OverviewCardCatalog. `-ml-3` mirrors the negative offset that puts
 // the chip on the container's left margin.
 const SectionChipSkeleton = ({ width = "w-20" }: { width?: string }) => (
-  <div
-    className={`self-start -ml-3 h-[18px] rounded-r-md bg-light-200/60 animate-pulse ${width}`}
-    aria-hidden
+  // The cream tone rather than the default: this stands in for an
+  // actually-cream element, so a dark placeholder would read as a
+  // different component rather than as that chip, pending.
+  <Skeleton
+    tone="cream"
+    className={`self-start -ml-3 h-[18px] rounded-r-md ${width}`}
   />
 );
 
 // Term/value row — mono uppercase term (w-20 shrink-0) + longer value.
 const FieldRowSkeleton = ({ valueClass = "w-1/2" }: { valueClass?: string }) => (
   <div className="flex gap-3 items-center">
-    <LoadingCard className="h-3 w-16 shrink-0" />
-    <LoadingCard className={`h-4 ${valueClass}`} />
+    <Skeleton className="h-3 w-16 shrink-0" />
+    <Skeleton className={`h-4 ${valueClass}`} />
   </div>
 );
 
@@ -52,15 +55,15 @@ const IdentifiersSkeleton = () => (
     </section>
     <section className="flex flex-col gap-3 pt-5 border-t-2 border-double border-light-700/60">
       <SectionChipSkeleton width="w-28" />
-      <LoadingCard className="h-4 w-2/3" />
+      <Skeleton className="h-4 w-2/3" />
     </section>
     <section className="flex flex-col gap-3 pt-5 border-t-2 border-double border-light-700/60">
       <SectionChipSkeleton width="w-20" />
       <div className="flex flex-wrap gap-1">
-        <LoadingCard className="h-5 w-16 rounded-full" />
-        <LoadingCard className="h-5 w-20 rounded-full" />
-        <LoadingCard className="h-5 w-14 rounded-full" />
-        <LoadingCard className="h-5 w-24 rounded-full" />
+        <Skeleton className="h-5 w-16 rounded-full" />
+        <Skeleton className="h-5 w-20 rounded-full" />
+        <Skeleton className="h-5 w-14 rounded-full" />
+        <Skeleton className="h-5 w-24 rounded-full" />
       </div>
     </section>
   </div>
@@ -73,14 +76,14 @@ const TaxonomySkeleton = () => (
   <div className="flex flex-col gap-3">
     <SectionChipSkeleton width="w-24" />
     <div className="flex flex-col gap-1.5 mt-2">
-      <LoadingCard className="h-4 w-24" />
-      <LoadingCard className="h-4 w-32 ml-3" />
-      <LoadingCard className="h-4 w-28 ml-6" />
-      <LoadingCard className="h-4 w-40 ml-9" />
+      <Skeleton className="h-4 w-24" />
+      <Skeleton className="h-4 w-32 ml-3" />
+      <Skeleton className="h-4 w-28 ml-6" />
+      <Skeleton className="h-4 w-40 ml-9" />
     </div>
     <div className="mt-2 flex items-center gap-2 flex-wrap">
-      <LoadingCard className="h-3 w-24" />
-      <LoadingCard className="h-6 w-28 rounded-full" />
+      <Skeleton className="h-3 w-24" />
+      <Skeleton className="h-6 w-28 rounded-full" />
     </div>
   </div>
 );
