@@ -4,6 +4,7 @@
 // ordered by the API (most bridging assays first), so this component never
 // re-sorts — it only renders and paginates the tail.
 
+import { useState } from "react";
 import { MdArrowForward, MdKeyboardArrowDown } from "react-icons/md";
 
 import Link from "@/components/basic/Link";
@@ -12,12 +13,15 @@ import {
   TableSkeletonRows,
 } from "@/components/basic/TableSkeleton";
 import type { SkeletonColumn } from "@/components/basic/skeletonTokens";
-import AssayEvidenceLinks from "@/components/entities/shared/AssayEvidenceLinks";
 import {
   CardRow,
   CountCell,
   Th,
 } from "@/components/entities/shared/EvidenceTable";
+import {
+  AssaysModal,
+  DetailCountButton,
+} from "@/components/entities/shared/AssayDetailModals";
 import LiteratureBadge from "@/components/entities/shared/LiteratureBadge";
 import SignalChips from "@/components/entities/shared/SignalChips";
 import TargetGeneChips from "@/components/entities/shared/TargetGeneChips";
@@ -38,14 +42,17 @@ interface Props {
 }
 
 // Mirrors the <colgroup> and cell alignment of the real table below.
+// No Assays or Active count columns. n_active_measurements is identically
+// equal to n_assays across all 408,118 rows of mv_disease_bioactivity, and
+// n_assays is already stated by the Assays cell's own button — three
+// printings of one number. See AssayInferredAssociationsTable for the
+// full arithmetic.
 const SKELETON_COLUMNS: SkeletonColumn[] = [
-  { key: "bioactivity", width: "w-[15%]" },
-  { key: "chemical", width: "w-[22%]" },
-  { key: "assays", width: "w-[8%]", align: "right" },
-  { key: "active", width: "w-[8%]", align: "right" },
-  { key: "signal", width: "w-[21%]" },
-  { key: "target", width: "w-[16%]" },
-  { key: "evidence", width: "w-[10%]" },
+  { key: "bioactivity", width: "w-[18%]" },
+  { key: "chemical", width: "w-[24%]" },
+  { key: "signal", width: "w-[22%]" },
+  { key: "target", width: "w-[18%]" },
+  { key: "evidence", width: "w-[18%]" },
 ];
 
 const entityHref = (kind: string, name: string) =>
@@ -73,6 +80,10 @@ const DiseaseBioactivityTable = ({
   const hiddenCount = rows.length - visible.length;
   const rowKey = (r: DiseaseBioactivityChemical) =>
     `${r.bioactivity_foodatlas_id}-${r.chemical_foodatlas_id}`;
+  // Keyed by row, not a boolean, so the modal cannot show a stale row's
+  // assays after a different button is clicked.
+  const [assaysFor, setAssaysFor] = useState<string | null>(null);
+  const assaysRow = rows.find((r) => rowKey(r) === assaysFor);
   const reporter = useReportRows();
   const rowReportProps = (row: DiseaseBioactivityChemical) =>
     reporter.getRowProps({
@@ -91,34 +102,25 @@ const DiseaseBioactivityTable = ({
       <div className="hidden md:block overflow-x-auto">
         <table className="w-full table-fixed">
           <colgroup>
-            <col className="w-[15%]" />
+            <col className="w-[18%]" />
+            <col className="w-[24%]" />
             <col className="w-[22%]" />
-            <col className="w-[8%]" />
-            <col className="w-[8%]" />
-            <col className="w-[21%]" />
-            <col className="w-[16%]" />
-            <col className="w-[10%]" />
+            <col className="w-[18%]" />
+            <col className="w-[18%]" />
           </colgroup>
           <thead className="text-light-400 text-left">
             <tr>
               <Th>Bioactivity</Th>
               <Th>Chemical</Th>
-              <Th
-                align="right"
-                title="Bridging assays linking this chemical and bioactivity to the disease"
-              >
-                Assays
-              </Th>
-              <Th align="right" title="Active measurements across those assays">
-                Active
-              </Th>
               <Th title="How CTD classifies the link: therapeutic (treats) or marker/mechanism (marks or drives). Opposite directions.">
                 Signal
               </Th>
               <Th title="The protein target the bridging assays measure">
                 Target
               </Th>
-              <Th title="The source assays behind this row">Evidence</Th>
+              <Th title="The bridging assays behind this row, and how many">
+                Assays
+              </Th>
             </tr>
           </thead>
           <tbody className="text-sm">
@@ -146,15 +148,6 @@ const DiseaseBioactivityTable = ({
                     </Link>
                   </div>
                 </td>
-                <td className="py-1.5 px-4 text-right">
-                  <CountCell value={row.n_assays} />
-                </td>
-                <td className="py-1.5 px-4 text-right">
-                  <CountCell
-                    value={row.n_active_measurements}
-                    tone="text-emerald-300"
-                  />
-                </td>
                 <td className="py-1.5 px-4">
                   <SignalCell row={row} />
                 </td>
@@ -162,10 +155,10 @@ const DiseaseBioactivityTable = ({
                   <TargetGeneChips targets={row.targets} visible={2} />
                 </td>
                 <td className="py-1.5 px-4">
-                  <AssayEvidenceLinks
-                    assays={row.assays}
-                    totalCount={row.n_assays}
-                    visible={1}
+                  <DetailCountButton
+                    n={row.n_assays}
+                    noun="assay"
+                    onOpen={() => setAssaysFor(rowKey(row))}
                   />
                 </td>
               </tr>
@@ -202,15 +195,6 @@ const DiseaseBioactivityTable = ({
                 {row.bioactivity_name}
               </Link>
             </div>
-            <CardRow label="Assays">
-              <CountCell value={row.n_assays} />
-            </CardRow>
-            <CardRow label="Active">
-              <CountCell
-                value={row.n_active_measurements}
-                tone="text-emerald-300"
-              />
-            </CardRow>
             <div>
               <SignalCell row={row} />
             </div>
@@ -220,17 +204,27 @@ const DiseaseBioactivityTable = ({
               </CardRow>
             )}
             {!!row.assays?.length && (
-              <CardRow label="Evidence">
-                <AssayEvidenceLinks
-                  assays={row.assays}
-                  totalCount={row.n_assays}
-                  visible={1}
+              <CardRow label="Assays">
+                <DetailCountButton
+                  n={row.n_assays}
+                  noun="assay"
+                  onOpen={() => setAssaysFor(rowKey(row))}
                 />
               </CardRow>
             )}
           </div>
         ))}
       </div>
+      )}
+
+      {assaysRow && (
+        <AssaysModal
+          assays={assaysRow.assays ?? []}
+          totalCount={assaysRow.n_assays}
+          peerName={`${assaysRow.chemical_name} — ${assaysRow.bioactivity_name}`}
+          isOpen
+          onClose={() => setAssaysFor(null)}
+        />
       )}
 
       {hiddenCount > 0 && (

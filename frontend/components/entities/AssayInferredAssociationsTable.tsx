@@ -61,11 +61,10 @@ export type { PeerDirection };
 // the loading grid lines up with the loaded one. Kept next to them: if
 // one changes, the other is a line away.
 const SKELETON_COLUMNS: SkeletonColumn[] = [
-  { key: "peer", width: "w-[28%]" },
-  { key: "assays", width: "w-[10%]", align: "right" },
-  { key: "signal", width: "w-[24%]" },
-  { key: "target", width: "w-[20%]" },
-  { key: "evidence", width: "w-[18%]" },
+  { key: "peer", width: "w-[30%]" },
+  { key: "signal", width: "w-[26%]" },
+  { key: "target", width: "w-[22%]" },
+  { key: "evidence", width: "w-[22%]" },
 ];
 
 interface Props {
@@ -186,28 +185,23 @@ const AssayInferredAssociationsTable = ({
       <div className="hidden md:block overflow-x-auto">
         <table className="w-full table-fixed">
           <colgroup>
-            <col className="w-[28%]" />
-            <col className="w-[10%]" />
-            <col className="w-[24%]" />
-            <col className="w-[20%]" />
-            <col className="w-[18%]" />
+            <col className="w-[30%]" />
+            <col className="w-[26%]" />
+            <col className="w-[22%]" />
+            <col className="w-[22%]" />
           </colgroup>
           <thead className="text-light-400 text-left">
             <tr>
               <Th>{peerLabel}</Th>
-              <Th
-                align="right"
-                title="Number of distinct shared bioactivity assays backing this association"
-              >
-                # Assays
-              </Th>
               <Th title="How CTD classifies the link: therapeutic (treats) or marker/mechanism (marks or drives). Opposite directions.">
                 Signal
               </Th>
               <Th title="The protein target the bridging assays measure — what the association runs through">
                 Target
               </Th>
-              <Th title="The source assays behind this association">Assays</Th>
+              <Th title="The source assays behind this association, and how many">
+                Assays
+              </Th>
             </tr>
           </thead>
           <tbody className="text-sm">

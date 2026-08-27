@@ -41,13 +41,21 @@ const PAGE_SIZE = 50;
 
 // Mirrors the <colgroup> and cell alignment of the real table below, so
 // the loading grid lines up with the loaded one.
+// No Active column: n_active_measurements is identically equal to
+// n_assays across all 408,118 rows of mv_disease_bioactivity, so it was
+// the same number printed twice.
+//
+// Assays STAYS here, unlike the other two tables, which dropped it
+// because their Assays cell already states the count on its button. This
+// endpoint (/bioactivity/diseases) returns no assay list — only the
+// count — so there is no button to move it onto, and removing the column
+// would lose the number rather than de-duplicate it.
 const SKELETON_COLUMNS: SkeletonColumn[] = [
-  { key: "disease", width: "w-[27%]" },
-  { key: "chemicals", width: "w-[9%]", align: "right" },
-  { key: "assays", width: "w-[9%]", align: "right" },
-  { key: "active", width: "w-[9%]", align: "right" },
-  { key: "signal", width: "w-[26%]" },
-  { key: "targets", width: "w-[20%]" },
+  { key: "disease", width: "w-[29%]" },
+  { key: "chemicals", width: "w-[10%]", align: "right" },
+  { key: "assays", width: "w-[10%]", align: "right" },
+  { key: "signal", width: "w-[29%]" },
+  { key: "targets", width: "w-[22%]" },
 ];
 
 const BioactivityDiseasesSection = ({ commonName }: Props) => {
@@ -117,12 +125,11 @@ const BioactivityDiseasesSection = ({ commonName }: Props) => {
       <div className="hidden md:block overflow-x-auto">
         <table className="w-full table-fixed">
           <colgroup>
-            <col className="w-[27%]" />
-            <col className="w-[9%]" />
-            <col className="w-[9%]" />
-            <col className="w-[9%]" />
-            <col className="w-[26%]" />
-            <col className="w-[20%]" />
+            <col className="w-[29%]" />
+            <col className="w-[10%]" />
+            <col className="w-[10%]" />
+            <col className="w-[29%]" />
+            <col className="w-[22%]" />
           </colgroup>
           <thead className="text-light-400 text-left">
             <tr>
@@ -135,12 +142,6 @@ const BioactivityDiseasesSection = ({ commonName }: Props) => {
               </Th>
               <Th align="right" title="Bridging assays behind those links">
                 Assays
-              </Th>
-              <Th
-                align="right"
-                title="Active measurements across those assays"
-              >
-                Active
               </Th>
               <Th title="How many of those chemicals CTD classifies as therapeutic (treats) versus marker/mechanism (marks or drives), and how many the literature also records. A chemical can be both, so these need not sum to the chemical count.">
                 Signal
@@ -172,12 +173,6 @@ const BioactivityDiseasesSection = ({ commonName }: Props) => {
                   </td>
                   <td className="py-1.5 px-4 text-right">
                     <CountCell value={row.n_assays} />
-                  </td>
-                  <td className="py-1.5 px-4 text-right">
-                    <CountCell
-                      value={row.n_active_measurements}
-                      tone="text-emerald-300"
-                    />
                   </td>
                   <td className="py-1.5 px-4">
                     <DirectionSplit
@@ -221,12 +216,6 @@ const BioactivityDiseasesSection = ({ commonName }: Props) => {
               </CardRow>
               <CardRow label="Assays">
                 <CountCell value={row.n_assays} />
-              </CardRow>
-              <CardRow label="Active">
-                <CountCell
-                  value={row.n_active_measurements}
-                  tone="text-emerald-300"
-                />
               </CardRow>
               <div>
                 <DirectionSplit

@@ -71,39 +71,36 @@ const mount = async (rows: Record<string, unknown>[]) => {
 
 beforeEach(() => vi.clearAllMocks());
 
+const headerTexts = () =>
+  Array.from(document.querySelectorAll("th")).map((th) => th.textContent);
+
 describe("column headers", () => {
-  it("calls the source-assay column Assays, and the count column # Assays", async () => {
-    // Both columns are about assays; before the rename the source column
-    // was "Evidence", which read as publications on a page whose other
-    // table has a Publications column.
+  it("names the source-assay column Assays", async () => {
+    // It was "Evidence", which read as publications on a page whose
+    // other table has a Publications column.
     await mount([row()]);
     // Scoped to <th>: the mobile card list renders an "Assays" label of
     // its own, so a bare getByText matches two nodes.
-    const headers = Array.from(document.querySelectorAll("th")).map(
-      (th) => th.textContent
-    );
-    expect(headers).toContain("Assays");
-    expect(headers).toContain("# Assays");
-    expect(headers).not.toContain("Evidence");
+    expect(headerTexts()).toContain("Assays");
+    expect(headerTexts()).not.toContain("Evidence");
   });
 });
 
-describe("the Active column", () => {
-  it("is not rendered — it duplicates # Assays in every row of the data", () => {
-    // n_active_measurements == n_assays for 347,632/347,632 rows of
-    // mv_chemical_disease_bioactivity and 408,118/408,118 of
-    // mv_disease_bioactivity. The materializer counts distinct assay ids
+describe("the assay count", () => {
+  it("appears exactly once, on the Assays button", async () => {
+    // Three printings of one number used to sit side by side: an Active
+    // column (n_active_measurements == n_assays for 347,632/347,632 rows
+    // of mv_chemical_disease_bioactivity and 408,118/408,118 of
+    // mv_disease_bioactivity — the materializer counts distinct assay ids
     // and distinct measurement ids over evidence with one measurement per
-    // assay, so the two cannot diverge. A second column of the same number
-    // reads as a corroborating signal and is not one.
-    return mount([row({ n_assays: 7, n_active_measurements: 7 })]).then(() => {
-      const headers = Array.from(document.querySelectorAll("th")).map(
-        (th) => th.textContent
-      );
-      expect(headers).not.toContain("Active");
-      // The count still appears once, under # Assays.
-      expect(headers).toContain("# Assays");
-    });
+    // assay, so they cannot diverge), a "# Assays" count column, and the
+    // button that already says how many.
+    await mount([row({ n_assays: 7, n_active_measurements: 7 })]);
+    expect(headerTexts()).not.toContain("Active");
+    expect(headerTexts()).not.toContain("# Assays");
+    expect(screen.getAllByText("See 7 assays").length).toBeGreaterThan(0);
+    // And the bare number is gone from the row entirely.
+    expect(screen.queryByText("7")).not.toBeInTheDocument();
   });
 });
 

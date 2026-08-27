@@ -10,11 +10,45 @@
 // Publications column on the literature table above — the cell is a
 // button that says how many, the modal holds all of them.
 
+import { MdBiotech, MdMyLocation } from "react-icons/md";
+
+import Chip from "@/components/basic/Chip";
 import Link from "@/components/basic/Link";
 import Modal from "@/components/basic/Modal";
 import { targetUrl } from "@/components/entities/shared/TargetGeneChips";
 import { assayExternalUrl } from "@/utils/utils";
 import type { AssayTarget } from "@/types";
+
+// The cell that opens one of these. Shared so every table that shows
+// targets or assays states its count the same way.
+//
+// The count is passed in rather than derived from the list: for assays
+// they differ, because the stored list is capped at 25 upstream while
+// n_assays is not. The button must promise the real total.
+export const DetailCountButton = ({
+  n,
+  noun,
+  onOpen,
+}: {
+  n: number;
+  noun: "target" | "assay";
+  onOpen: () => void;
+}) =>
+  n === 0 ? null : (
+    <Chip
+      icon={
+        noun === "assay" ? (
+          <MdBiotech className="size-3" />
+        ) : (
+          <MdMyLocation className="size-3" />
+        )
+      }
+      label={`See ${n.toLocaleString()} ${noun}${n === 1 ? "" : "s"}`}
+      tone="outline"
+      size="md"
+      onClick={onOpen}
+    />
+  );
 
 interface TargetsModalProps {
   targets: AssayTarget[];
