@@ -5,17 +5,25 @@ object keyed by ``sha256_hex(plaintext_key)``::
 
     {
         "<sha256-of-key>": {
-            "email":   "alice@uni.edu",
-            "created": "2026-05-13",
-            "notes":   "DMD paper figure code"
+            "email":      "alice@uni.edu",
+            "created":    "2026-05-13",
+            "notes":      "DMD paper figure code",
+            "prefix":     "Ky3mAa7Q",
+            "org":        "UC Davis",
+            "status":     "active",
+            "revoked_at": "",
+            "issued_by":  "lmasopust@ucdavis.edu"
         },
         ...
     }
 
+Only the first four fields existed before the ledger work; records written
+then parse unchanged, defaulting ``status`` to ``"active"``.
+
 Plaintext keys never live on disk or in this process — only their hashes do.
-A new key is issued by ``scripts/issue_public_key.py`` and pasted into the
-secret via ``aws secretsmanager update-secret``; the running API picks it up
-on the next refresh tick (default 300s) or restart.
+Keys are issued, listed and revoked with ``python -m scripts.keys``, which
+writes the secret compare-and-swap and verifies the result; the running API
+picks changes up on the next refresh tick (default 300s) or restart.
 
 Failure model: the initial load on startup is fail-closed (the app refuses
 to come up) unless ``debug=True`` or ``public_keys_secret_name`` is empty.
@@ -42,13 +50,36 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+ACTIVE = "active"
+REVOKED = "revoked"
+
+# Characters of the plaintext key kept as a non-secret fingerprint. 8 chars of
+# a 43-char token_urlsafe(32) leaves ~200 bits unguessable, so a prefix can be
+# quoted in a support thread or an access-log line without weakening the key.
+PREFIX_LEN = 8
+
+
 @dataclass(frozen=True)
 class KeyRecord:
-    """Metadata for an issued key. Plaintext is never stored — only the hash."""
+    """Metadata for an issued key. Plaintext is never stored — only the hash.
+
+    ``status`` lets a key be revoked without deleting its record: the entry
+    stays in the secret as the audit trail of who once had access, while
+    :meth:`PublicKeyStore.verify` stops honouring it.
+    """
 
     email: str
     created: str = ""
     notes: str = ""
+    prefix: str = ""
+    org: str = ""
+    status: str = ACTIVE
+    revoked_at: str = ""
+    issued_by: str = ""
+
+    @property
+    def is_active(self) -> bool:
+        return self.status == ACTIVE
 
 
 @dataclass
@@ -68,10 +99,17 @@ class PublicKeyStore:
     _client_factory: Callable[[], Any] | None = None
 
     def verify(self, token: str) -> KeyRecord | None:
-        """Return the matching record (and identify the caller) or None."""
+        """Return the matching active record (identifying the caller) or None.
+
+        A revoked record is indistinguishable from a miss to the caller — it
+        authenticates nothing, it only survives so the ledger stays complete.
+        """
         if not token:
             return None
-        return self._keys.get(_hash(token))
+        record = self._keys.get(_hash(token))
+        if record is None or not record.is_active:
+            return None
+        return record
 
     async def load(self) -> None:
         """Fetch the secret once and replace the in-memory map atomically."""
@@ -155,6 +193,12 @@ def _parse_secret_payload(raw: str) -> dict[str, KeyRecord]:
             email=str(meta.get("email", "")),
             created=str(meta.get("created", "")),
             notes=str(meta.get("notes", "")),
+            prefix=str(meta.get("prefix", "")),
+            org=str(meta.get("org", "")),
+            # Records predating the ledger have no status; they are active.
+            status=str(meta.get("status", "") or ACTIVE),
+            revoked_at=str(meta.get("revoked_at", "")),
+            issued_by=str(meta.get("issued_by", "")),
         )
     return out
 

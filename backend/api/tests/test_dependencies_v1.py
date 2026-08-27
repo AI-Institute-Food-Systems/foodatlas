@@ -91,3 +91,43 @@ class TestVerifyV1Key:
                 await verify_v1_key(request, _settings())
         finally:
             set_store_for_tests(prev)
+
+
+class TestVerifyV1KeyLedger:
+    @pytest.mark.asyncio
+    async def test_prefix_stashed_for_access_log(self) -> None:
+        store = PublicKeyStore(secret_name="s", region="us-west-1")
+        store._keys = {
+            _hash("pub-key"): KeyRecord(email="alice@u.edu", prefix="pub-key1")
+        }
+        set_store_for_tests(store)
+        try:
+            request = MagicMock()
+            request.headers.get.return_value = "Bearer pub-key"
+            request.state = MagicMock()
+            await verify_v1_key(request, _settings())
+            assert request.state.api_key_prefix == "pub-key1"
+        finally:
+            set_store_for_tests(None)
+
+    @pytest.mark.asyncio
+    async def test_internal_key_has_no_prefix(self) -> None:
+        request = MagicMock()
+        request.headers.get.return_value = "Bearer internal-key"
+        request.state = MagicMock()
+        await verify_v1_key(request, _settings())
+        assert request.state.api_key_prefix == ""
+
+    @pytest.mark.asyncio
+    async def test_revoked_key_rejected(self) -> None:
+        store = PublicKeyStore(secret_name="s", region="us-west-1")
+        store._keys = {_hash("gone"): KeyRecord(email="bob@u.edu", status="revoked")}
+        set_store_for_tests(store)
+        try:
+            request = MagicMock()
+            request.headers.get.return_value = "Bearer gone"
+            with pytest.raises(HTTPException) as exc_info:
+                await verify_v1_key(request, _settings())
+            assert exc_info.value.status_code == 401
+        finally:
+            set_store_for_tests(None)
