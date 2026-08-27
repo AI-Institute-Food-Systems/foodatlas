@@ -63,9 +63,7 @@ def _modal_labels(assays: pd.DataFrame) -> pd.DataFrame:
     if pairs.empty:
         return pd.DataFrame(columns=_MV_COLUMNS)
 
-    counts = (
-        pairs.groupby(["gene_id", "target_name"]).size().rename("n").reset_index()
-    )
+    counts = pairs.groupby(["gene_id", "target_name"]).size().rename("n").reset_index()
     # Ties broken by the shorter name, then alphabetically — both deterministic,
     # and the shorter of two equally-common spellings is the less cluttered one
     # ("Histone deacetylase 6" over "histone deacetylase 6 (3.5.1.-…) [Homo…]").

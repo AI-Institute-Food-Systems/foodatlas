@@ -31,7 +31,13 @@ class TestModalLabels:
     def test_entrez_and_uniprot_ids_both_get_a_label(self):
         out = _modal_labels(
             pd.DataFrame(
-                [_assay(entrez="NCBIGene: 4780", uniprot="UniProt: Q16236", name="Nrf2")]
+                [
+                    _assay(
+                        entrez="NCBIGene: 4780",
+                        uniprot="UniProt: Q16236",
+                        name="Nrf2",
+                    )
+                ]
             )
         )
         assert dict(zip(out["gene_id"], out["label"], strict=True)) == {
@@ -49,7 +55,10 @@ class TestModalLabels:
             pd.DataFrame(
                 [
                     _assay(entrez="NCBIGene: 1", name="Histone deacetylase 6"),
-                    _assay(entrez="NCBIGene: 1", name="histone deacetylase 6 (3.5.1.-)"),
+                    _assay(
+                        entrez="NCBIGene: 1",
+                        name="histone deacetylase 6 (3.5.1.-)",
+                    ),
                 ]
             )
         )

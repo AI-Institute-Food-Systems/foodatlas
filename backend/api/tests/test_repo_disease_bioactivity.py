@@ -209,7 +209,9 @@ class TestTargetLabelling:
     async def test_labels_are_zipped_onto_ids(self):
         session = _mock_session(
             [_chemical_row(target_genes=["NCBIGene: 7157", "NCBIGene: 999"])],
-            labels=[{"gene_id": "NCBIGene: 7157", "label": "Cellular tumor antigen p53"}],
+            labels=[
+                {"gene_id": "NCBIGene: 7157", "label": "Cellular tumor antigen p53"}
+            ],
         )
         out = await get_disease_bioactivity_chemicals(session, "melanoma")
         assert out["data"][0]["targets"] == [
