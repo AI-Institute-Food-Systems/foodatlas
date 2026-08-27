@@ -108,11 +108,13 @@ fields @timestamp, email
 | sort requests desc
 ```
 
-What one key is hitting (use the prefix from `list`):
+What one key is hitting. Filter by `email`, not `key_prefix`: keys issued before the ledger
+existed have no prefix (it derives from the plaintext, which was never stored), so they log
+`key_prefix` as empty while still being attributed by email.
 
 ```
 fields @timestamp, route, status
-| filter log = "v1_access" and key_prefix = "aaaa1111"
+| filter log = "v1_access" and email = "alice@u.edu"
 | stats count(*) as calls by route, status
 | sort calls desc
 ```

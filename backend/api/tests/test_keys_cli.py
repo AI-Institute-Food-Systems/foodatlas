@@ -185,6 +185,26 @@ class TestList:
         rows = json.loads(result.output)
         assert {r["email"] for r in rows} == {"alice@u.edu", "bob@u.edu"}
 
+    def test_legacy_records_are_called_out(
+        self, runner: CliRunner, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # No prefix can be backfilled onto these — it derives from a plaintext
+        # that was never stored — so `list` has to say how to select them.
+        _install(
+            monkeypatch,
+            FakeSecrets(json.dumps({"c" * 64: {"email": "dana@u.edu"}})),
+        )
+        result = runner.invoke(cli_module.cli, ["list"])
+        assert "1 predate the ledger" in result.output
+        assert "dana@u.edu" in result.output
+
+    def test_no_legacy_note_when_all_have_prefixes(
+        self, runner: CliRunner, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _install(monkeypatch, FakeSecrets(json.dumps(ACTIVE_LEDGER)))
+        result = runner.invoke(cli_module.cli, ["list"])
+        assert "predate the ledger" not in result.output
+
     def test_empty_ledger(
         self, runner: CliRunner, monkeypatch: pytest.MonkeyPatch
     ) -> None:

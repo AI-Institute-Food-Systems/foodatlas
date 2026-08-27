@@ -100,6 +100,14 @@ def list_keys(
             note = f"revoked {row.revoked_at}. {note}".strip()
         click.echo(f"{row.email:<34}{prefix:<11}{row.created:<12}{row.status:<9}{note}")
     click.echo(f"\n{len(rows)} record(s).")
+    legacy = sum(1 for row in rows if not row.prefix)
+    if legacy:
+        # A prefix derives from the plaintext, which is never stored, so these
+        # cannot be backfilled — only re-issued.
+        click.echo(
+            f"{legacy} predate the ledger and have no prefix. "
+            "Select those by email or by the full hash (--as-json)."
+        )
 
 
 @cli.command()
