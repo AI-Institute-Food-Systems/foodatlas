@@ -215,8 +215,17 @@ def revoke(
         click.secho(f"note: {warning}", fg="yellow")
     click.secho(
         f"Revoked {row.email} (prefix {row.prefix or '—'}). The record stays in "
-        "the ledger; the key stops working within one refresh interval.",
+        "the ledger, so the history of who had access survives.",
         fg="green",
+    )
+    # Deliberately not "the key stops working": enforcement lives in
+    # PublicKeyStore.verify(), so an API image predating the status check
+    # authenticates a revoked record regardless of what this wrote.
+    click.secho(
+        "It stops working within one refresh interval of an API running the "
+        "status check. An older image ignores `status` — delete the hash entry "
+        "instead if the key must die today.",
+        fg="yellow",
     )
 
 

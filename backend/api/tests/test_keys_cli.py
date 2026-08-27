@@ -231,6 +231,9 @@ class TestRevoke:
         assert len(ledger) == 2
         assert ledger["h" * 64]["status"] == "revoked"
         assert ledger["h" * 64]["revoked_at"]
+        # Must not claim the key is dead: an older API image has no status
+        # check and keeps authenticating it.
+        assert "An older image ignores" in result.output
 
     def test_by_email(self, runner: CliRunner, monkeypatch: pytest.MonkeyPatch) -> None:
         fake = _install(monkeypatch, FakeSecrets(json.dumps(ACTIVE_LEDGER)))
