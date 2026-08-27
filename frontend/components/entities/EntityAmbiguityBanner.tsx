@@ -10,18 +10,10 @@ interface EntityAmbiguityBannerProps {
   siblings: AmbiguitySibling[] | undefined | null;
 }
 
-// TEMPORARY — disabled while the loading-skeleton sequence is being debugged.
-// The banner only appears once the header's data arrives, so it pops in late
-// and pushes everything below it down, which makes it impossible to tell a
-// skeleton→data handoff from a layout shift. Delete these two lines to
-// restore; nothing else was changed and no call site was touched.
-const TEMPORARILY_HIDDEN = true;
-
 const EntityAmbiguityBanner = ({
   entityType,
   siblings,
 }: EntityAmbiguityBannerProps) => {
-  if (TEMPORARILY_HIDDEN) return null;
   if (!Array.isArray(siblings) || siblings.length === 0) return null;
   return (
     <div
