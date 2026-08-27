@@ -5,11 +5,11 @@
 // Answers what the other disease tabs don't: which biological activities this
 // disease's assay evidence actually measures, and which chemicals carry them.
 //
-// The attribution is assay-level on purpose. Health Impacts is CTD literature;
-// Chemicals (assay-inferred) lists chemicals but drops what the assays were
-// measuring. Going disease → chemical → all of that chemical's bioactivities
-// would credit melanoma with 1,571 "antiviral" chemicals; attributing through
-// the assay that bridges to the disease gives 3.
+// The attribution is assay-level on purpose. The Chemicals tab lists chemicals
+// — from CTD literature and from shared assays — but either way drops what the
+// assays were measuring. Going disease → chemical → all of that chemical's
+// bioactivities would credit melanoma with 1,571 "antiviral" chemicals;
+// attributing through the assay that bridges to the disease gives 3.
 //
 // Scope is deliberately narrow: assay counts only. Attaching each chemical's
 // best food dose was tried and pulled — see the repository docstring for why.

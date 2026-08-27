@@ -27,19 +27,13 @@ export const ENTITY_TABS = {
   // its method. So food and chemical read as mirror images, and the same
   // word means the same kind of row everywhere.
   //
-  // The assay-inferred tabs list the same rows as the literature tabs from a
-  // weaker source, so the two are named differently on purpose. "Diseases" /
-  // "Chemicals" is a curated claim with a direction and a citation; "Lab
-  // Activity" is a chemical having been Active in assays annotated to the
-  // other side — a signal, not a verdict. Naming them as a matched pair
-  // ("Diseases (Literature)" / "Diseases (Assays)") overstated the second and
-  // produced the longest labels in the app.
-  //
-  // They were hidden for a while because their Signal column rendered
-  // `therapeutic` and `marker/mechanism` — opposite directions — as identical
-  // grey chips, with marker/mechanism at 91% of rows. That is fixed: the
-  // direction is now toned and explained, and the row carries its protein
-  // target, its source assays and whether CTD literature agrees.
+  // Chemical↔disease evidence used to occupy two tabs per page — the
+  // literature claim ("Diseases"/"Chemicals") and the assay signal ("Lab
+  // Activity"). Naming them apart was an attempt to stop the weaker source
+  // reading as a second opinion on the stronger one, but two tabs over one
+  // relationship read as two unrelated features instead. They are now one
+  // tab with two labelled, stacked tables, which puts the distinction where
+  // it belongs — next to the rows, not in the tab strip.
   food: [
     { id: "composition", label: "Chemicals", hasCount: true },
     { id: "bioactivities", label: "Bioactivities", hasCount: true },
@@ -49,12 +43,10 @@ export const ENTITY_TABS = {
     { id: "composition", label: "Foods", hasCount: true },
     { id: "bioactivities", label: "Bioactivities", hasCount: true },
     { id: "health", label: "Diseases", hasCount: true },
-    { id: "assay-inferred", label: "Lab Activity", hasCount: true },
     { id: "overview", label: "Metadata", hasCount: false },
   ],
   disease: [
     { id: "health", label: "Chemicals", hasCount: true },
-    { id: "assay-inferred", label: "Lab Activity", hasCount: true },
     { id: "bioactivities", label: "Bioactivities", hasCount: true },
     { id: "overview", label: "Metadata", hasCount: false },
   ],
@@ -131,12 +123,12 @@ export const TAB_STRIP_FITS: Record<
     stripFlex: "hidden min-[640px]:flex",
     stripBlock: "hidden min-[640px]:block",
   },
-  // Four labels; 561px measured, so 768 bare and 808 with headroom.
-  // Rounded to bioactivity's number rather than carrying a third one.
+  // Three short labels after the Lab Activity merge; fits wherever it
+  // is shown, same as food.
   disease: {
-    select: "min-[825px]:hidden",
-    stripFlex: "hidden min-[825px]:flex",
-    stripBlock: "hidden min-[825px]:block",
+    select: "min-[640px]:hidden",
+    stripFlex: "hidden min-[640px]:flex",
+    stripBlock: "hidden min-[640px]:block",
   },
   // Four labels, all single words. 554px measured.
   bioactivity: {
@@ -144,12 +136,16 @@ export const TAB_STRIP_FITS: Record<
     stripFlex: "hidden min-[825px]:flex",
     stripBlock: "hidden min-[825px]:block",
   },
-  // Five labels and the widest strip at 695px — still far narrower than
-  // the 1025px the qualified "Diseases (Literature)" wording needed.
+  // Four labels since Lab Activity merged into Diseases — but NOT the
+  // same width as bioactivity's four: "Bioactivities" is four characters
+  // longer than the "Chemicals" in the same slot, so the strip runs
+  // ~580px against bioactivity's measured 554. 580 + 192 + 15 + ~40 lands
+  // at ~830, and a threshold sitting on the bare sum is exactly how the
+  // old 900 clipped. 850 keeps the headroom the arithmetic above assumes.
   chemical: {
-    select: "min-[950px]:hidden",
-    stripFlex: "hidden min-[950px]:flex",
-    stripBlock: "hidden min-[950px]:block",
+    select: "min-[850px]:hidden",
+    stripFlex: "hidden min-[850px]:flex",
+    stripBlock: "hidden min-[850px]:block",
   },
 };
 

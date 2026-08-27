@@ -3,9 +3,12 @@
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from . import _correlation
 from .formatting import format_external_ids
 
-ROWS_PER_PAGE = 10
+# 25 to match food.py. The merged Diseases tab stacks two tables, so a
+# 10-row page turned the CTD half into mostly pagination chrome.
+ROWS_PER_PAGE = 25
 
 # Static SQL fragments (no user input — interpolated, never parameterised),
 # following the BASE_SELECT / ALL_EVIDENCE_COLS precedent in food.py. Both
@@ -136,53 +139,65 @@ async def get_correlation(
     session: AsyncSession,
     common_name: str,
     page: int = 1,
-    relation: str = "positive",
+    relation: str = "all",
+    search: str = "",
     rows_per_page: int = ROWS_PER_PAGE,
 ) -> dict[str, object]:
     """Get disease correlations for a chemical.
 
     relation="positive" -> r4 (helps reduce disease)
     relation="negative" -> r3 (worsens disease)
+    relation="all"      -> both, with the direction carried per row
+
+    "all" is the default because the merged Diseases tab renders one
+    table with a direction column rather than a table per direction. The
+    two named directions stay for the sidebar's Direction facet.
+
+    ``relationship_id`` is selected in every mode so a row can render its
+    own direction badge without the caller having to remember which
+    query produced it.
     """
-    relationship_id = "r4" if relation == "positive" else "r3"
+    where, filter_params = _correlation.build_filters(relation, search, "disease_name")
     offset = rows_per_page * (page - 1)
 
     result = await session.execute(
-        text("""
+        text(f"""
             SELECT disease_foodatlas_id AS id, disease_name AS name,
+                   relationship_id,
                    source_chemical_name, source_chemical_foodatlas_id,
                    sources, evidences, evidence_count
-            FROM mv_chemical_disease_correlation
-            WHERE chemical_name = :name AND relationship_id = :rel
-            ORDER BY evidence_count DESC
+            FROM {_correlation.VIEW}
+            WHERE chemical_name = :name{where}
+            ORDER BY evidence_count DESC, disease_name
             OFFSET :offset ROWS FETCH FIRST :limit ROWS ONLY
         """),
         {
             "name": common_name,
-            "rel": relationship_id,
             "offset": offset,
             "limit": rows_per_page,
+            **filter_params,
         },
     )
     data = [dict(r._mapping) for r in result]
 
     count_result = await session.execute(
-        text("""
-            SELECT COUNT(*) FROM mv_chemical_disease_correlation
-            WHERE chemical_name = :name AND relationship_id = :rel
+        text(f"""
+            SELECT COUNT(*) FROM {_correlation.VIEW}
+            WHERE chemical_name = :name{where}
         """),
-        {"name": common_name, "rel": relationship_id},
+        {"name": common_name, **filter_params},
     )
     total_rows = count_result.scalar() or 0
     total_pages = (total_rows + rows_per_page - 1) // rows_per_page if total_rows else 0
 
-    positive = data if relation == "positive" else None
-    negative = data if relation == "negative" else None
-
     return {
         "data": {
-            "positive_associations": positive,
-            "negative_associations": negative,
+            # Canonical key: the page as returned, whatever the direction
+            # filter was. The two below are kept so the older
+            # one-table-per-direction callers keep working.
+            "associations": data,
+            "positive_associations": data if relation == "positive" else None,
+            "negative_associations": data if relation == "negative" else None,
         },
         "metadata": {
             "row_count": len(data),
@@ -193,6 +208,15 @@ async def get_correlation(
             "total_pages": total_pages,
         },
     }
+
+
+async def get_correlation_direction_counts(
+    session: AsyncSession, common_name: str, search: str = ""
+) -> dict[str, int]:
+    """Improves/worsens counts for this chemical, under the active search."""
+    return await _correlation.get_direction_counts(
+        session, "chemical_name", "disease_name", common_name, search
+    )
 
 
 async def get_composition_evidence(

@@ -27,31 +27,31 @@ const rowCount = async (
   return payload?.metadata?.row_count ?? null;
 };
 
-// Health Impacts is two separately paginated tables. Both sections sum
-// positive + negative into one badge (see ChemicalCorrelationSection),
-// so the prefetch has to sum them too. Page 1 of each: we read
+// The merged Diseases/Chemicals tab stacks two tables — CTD literature
+// and assay-inferred — and shows ONE badge summing both, so the prefetch
+// has to sum both too. Anything less and the badge lands wrong, then
+// corrects itself when the tab is opened and the tables publish.
+//
+// `relation=all` is a single request covering both directions; we read
 // metadata.total_rows and discard the rows.
-export const healthImpactsCount = async (
+export const correlationEvidenceCount = async (
   commonName: string,
   tableLocation: "chemical" | "disease"
 ): Promise<number | null> => {
-  const total = async (relation: "positive" | "negative") => {
-    const data = await getDiseaseData(commonName, 1, tableLocation, relation)
-      .catch(() => null);
+  const literature = async () => {
+    const data = await getDiseaseData(commonName, 1, tableLocation, "all");
     const n = data?.metadata?.total_rows;
     return typeof n === "number" ? n : null;
   };
-  const [pos, neg] = await Promise.all([total("positive"), total("negative")]);
-  if (pos === null && neg === null) return null;
-  return (pos ?? 0) + (neg ?? 0);
+  const inferred =
+    tableLocation === "chemical"
+      ? () => rowCount(() => getChemicalDiseaseAssociations(commonName))
+      : () => rowCount(() => getDiseaseChemicalAssociations(commonName));
+
+  const [lit, inf] = await Promise.all([literature(), inferred()]);
+  if (lit === null && inf === null) return null;
+  return (lit ?? 0) + (inf ?? 0);
 };
-
-// Matches AssayInferredAssociationsTable, which publishes rows.length.
-export const chemicalAssayInferredCount = (commonName: string) =>
-  rowCount(() => getChemicalDiseaseAssociations(commonName));
-
-export const diseaseAssayInferredCount = (commonName: string) =>
-  rowCount(() => getDiseaseChemicalAssociations(commonName));
 
 // NOT the chemical rows. DiseaseBioactivitiesSection publishes
 // summary.length — the number of distinct bioactivities — so this reads

@@ -1,37 +1,52 @@
 "use client";
 
-// Chemicals associated with this disease via shared bioactivity assays.
-// Rendered as the "Chemicals (assay-inferred)" tab on disease pages.
-// Mirror of ChemicalAssayInferredSection.
+// The assay-inferred half of the merged Chemicals tab on disease pages.
+//
+// A different evidence source from the CTD literature rows it now sits
+// under: this is "was Active in a shared assay", not "a study reported
+// it". Kept as its own table rather than merged row-wise because the two
+// carry almost disjoint columns.
 
 import { useCallback } from "react";
 
 import AssayInferredAssociationsTable from "@/components/entities/AssayInferredAssociationsTable";
+import Heading from "@/components/basic/Heading";
 import { getDiseaseChemicalAssociations } from "@/utils/fetching";
 
 interface Props {
   commonName: string;
+  search?: string;
+  onTotalRowsChange?: (total: number) => void;
 }
 
-const DiseaseAssayInferredSection = ({ commonName }: Props) => {
+const DiseaseAssayInferredSection = ({
+  commonName,
+  search = "",
+  onTotalRowsChange,
+}: Props) => {
   const fetcher = useCallback(
     () => getDiseaseChemicalAssociations(commonName),
     [commonName]
   );
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-sm text-light-400 leading-relaxed max-w-2xl">
-        Chemicals associated with this disease, inferred from shared
-        bioactivity assays. A row means the chemical has ≥1 <em>Active</em>{" "}
-        measurement in an assay this disease&apos;s bridge ties in via target
-        genes or mechanism. This is a different evidence source from the
-        CTD literature correlations in the Health Impacts tab.
-      </p>
+      <div>
+        <Heading
+          type="h3"
+          className="text-light-300 font-mono text-sm font-medium"
+        >
+          From Lab Assays
+        </Heading>
+        <p className="text-light-500">
+          Chemicals associated with this disease because they were <em>Active</em> in a bioactivity assay that this disease&apos;s bridge ties in via target genes or mechanism. Assay signal, not a curated claim — read it alongside the literature rows above rather than as a second opinion on them.
+        </p>
+      </div>
       <AssayInferredAssociationsTable
         commonName={commonName}
         peer="chemical"
         fetcher={fetcher}
-        tabId="assay-inferred"
+        externalSearch={search}
+        onTotalRowsChange={onTotalRowsChange}
       />
     </div>
   );

@@ -8,15 +8,16 @@
 //
 // This is a DIFFERENT signal from the CTD literature correlations
 // (/chemical/correlation) — an association here means the row entity
-// has ≥1 Active measurement in a shared bioactivity assay. Kept
-// visually distinct from the CTD Health Impacts section so users don't
-// conflate the two evidence sources.
+// has ≥1 Active measurement in a shared bioactivity assay.
 //
-// Rendered on a dedicated "Diseases (assay-inferred)" tab on chemical
-// pages and "Chemicals (assay-inferred)" on disease pages. Rows are
-// ordered by n_assays desc server-side; the endpoint isn't paginated,
-// so we render the first `initialPageSize` and offer a "Show all"
-// affordance for the long tail.
+// The two now share a tab (CorrelationEvidenceTab) but deliberately not
+// a table: they sit as separate labelled blocks so the distinction lands
+// next to the rows rather than being lost in a merged row set.
+//
+// Rows are ordered by n_assays desc server-side; the endpoint isn't
+// paginated, so we render the first `initialPageSize` and offer a "Show
+// all" affordance for the long tail — and filter in memory, since every
+// row is already here.
 
 import { useEffect, useMemo, useState } from "react";
 import { MdKeyboardArrowDown } from "react-icons/md";
@@ -64,17 +65,26 @@ interface Props {
     data: AssayInferredAssociation[];
     metadata: { row_count: number };
   } | null>;
-  // Tab id whose badge should reflect this table's row count.
-  tabId: string;
+  // Tab id whose badge should reflect this table's row count. Empty when
+  // a parent tab owns the badge and sums this table with another —
+  // usePublishTabCount no-ops on a falsy id.
+  tabId?: string;
   initialPageSize?: number;
+  // Search driven by a parent FilterPanel. Filtered client-side because
+  // this endpoint isn't paginated — every row is already in memory.
+  externalSearch?: string;
+  // Post-filter row count, for a parent summing several tables.
+  onTotalRowsChange?: (total: number) => void;
 }
 
 const AssayInferredAssociationsTable = ({
   commonName,
   peer,
   fetcher,
-  tabId,
+  tabId = "",
   initialPageSize = 50,
+  externalSearch = "",
+  onTotalRowsChange,
 }: Props) => {
   const [rows, setRows] = useState<AssayInferredAssociation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -95,7 +105,19 @@ const AssayInferredAssociationsTable = ({
       nActiveMeasurements: row.n_active_measurements,
     });
 
-  usePublishTabCount(tabId, isLoading ? null : rows.length);
+  // Search applies to the peer's name — the only free-text column here.
+  const filtered = useMemo(() => {
+    const term = externalSearch.trim().toLowerCase();
+    if (!term) return rows;
+    return rows.filter((row) =>
+      peerName(row, peer).toLowerCase().includes(term)
+    );
+  }, [rows, externalSearch, peer]);
+
+  usePublishTabCount(tabId, isLoading ? null : filtered.length);
+  useEffect(() => {
+    if (onTotalRowsChange && !isLoading) onTotalRowsChange(filtered.length);
+  }, [onTotalRowsChange, filtered.length, isLoading]);
 
   useEffect(() => {
     let cancelled = false;
@@ -112,18 +134,25 @@ const AssayInferredAssociationsTable = ({
   }, [fetcher]);
 
   const visible = useMemo(
-    () => (showAll ? rows : rows.slice(0, initialPageSize)),
-    [rows, showAll, initialPageSize]
+    () => (showAll ? filtered : filtered.slice(0, initialPageSize)),
+    [filtered, showAll, initialPageSize]
   );
-  const hiddenCount = rows.length - visible.length;
+  const hiddenCount = filtered.length - visible.length;
 
   const peerLabel = peer === "disease" ? "Disease" : "Chemical";
 
-  if (!isLoading && rows.length === 0) {
+  if (!isLoading && filtered.length === 0) {
     return (
       <p className="text-sm text-light-500 italic">
-        No assay-inferred {peer} associations for{" "}
-        <span className="capitalize">{commonName}</span> in the current data.
+        {rows.length === 0 ? (
+          <>
+            No assay-inferred {peer} associations for{" "}
+            <span className="capitalize">{commonName}</span> in the current
+            data.
+          </>
+        ) : (
+          <>No assay-inferred {peer} associations match this search.</>
+        )}
       </p>
     );
   }
@@ -203,7 +232,7 @@ const AssayInferredAssociationsTable = ({
           onClick={() => setShowAll(true)}
           className="self-center inline-flex items-center gap-1 text-xs font-mono italic text-light-400 hover:text-light-100 transition-colors"
         >
-          Show all {rows.length.toLocaleString()} associations
+          Show all {filtered.length.toLocaleString()} associations
           <MdKeyboardArrowDown className="w-4 h-4" />
         </button>
       )}
