@@ -91,9 +91,6 @@ export const PeerRow = ({
     <td className="py-1.5 px-4 text-right">
       <CountCell value={row.n_assays} />
     </td>
-    <td className="py-1.5 px-4 text-right">
-      <CountCell value={row.n_active_measurements} tone="text-emerald-300" />
-    </td>
     <td className="py-1.5 px-4">
       <SignalCell row={row} />
     </td>
@@ -132,9 +129,6 @@ export const PeerCard = ({
     </div>
     <CardRow label="Assays">
       <CountCell value={row.n_assays} />
-    </CardRow>
-    <CardRow label="Active">
-      <CountCell value={row.n_active_measurements} tone="text-emerald-300" />
     </CardRow>
     <div>
       <SignalCell row={row} />

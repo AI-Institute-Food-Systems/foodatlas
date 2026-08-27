@@ -45,16 +45,27 @@ import type { AssayInferredAssociation } from "@/types";
 
 export type { PeerDirection };
 
+// There is no "Active" column, and adding one back would be a mistake.
+// `n_active_measurements` is identically equal to `n_assays` in every row
+// of the data: 347,632/347,632 in mv_chemical_disease_bioactivity and
+// 408,118/408,118 in mv_disease_bioactivity, zero exceptions. The
+// materializer computes them as nunique(source_assay_id) and nunique(bm)
+// over evidence that carries exactly one active measurement per assay, so
+// they cannot diverge as long as that holds. Two columns of the same
+// number read as corroboration and are not.
+//
+// The field is still returned by the API and still travels in the row's
+// report metadata — only the column is gone.
+//
 // Mirrors the <colgroup> and cell alignment of the real table below, so
 // the loading grid lines up with the loaded one. Kept next to them: if
 // one changes, the other is a line away.
 const SKELETON_COLUMNS: SkeletonColumn[] = [
-  { key: "peer", width: "w-[26%]" },
-  { key: "assays", width: "w-[8%]", align: "right" },
-  { key: "active", width: "w-[8%]", align: "right" },
+  { key: "peer", width: "w-[28%]" },
+  { key: "assays", width: "w-[10%]", align: "right" },
   { key: "signal", width: "w-[24%]" },
   { key: "target", width: "w-[20%]" },
-  { key: "evidence", width: "w-[14%]" },
+  { key: "evidence", width: "w-[18%]" },
 ];
 
 interface Props {
@@ -175,12 +186,11 @@ const AssayInferredAssociationsTable = ({
       <div className="hidden md:block overflow-x-auto">
         <table className="w-full table-fixed">
           <colgroup>
-            <col className="w-[26%]" />
-            <col className="w-[8%]" />
-            <col className="w-[8%]" />
+            <col className="w-[28%]" />
+            <col className="w-[10%]" />
             <col className="w-[24%]" />
             <col className="w-[20%]" />
-            <col className="w-[14%]" />
+            <col className="w-[18%]" />
           </colgroup>
           <thead className="text-light-400 text-left">
             <tr>
@@ -190,12 +200,6 @@ const AssayInferredAssociationsTable = ({
                 title="Number of distinct shared bioactivity assays backing this association"
               >
                 # Assays
-              </Th>
-              <Th
-                align="right"
-                title="Number of Active measurements across those assays"
-              >
-                Active
               </Th>
               <Th title="How CTD classifies the link: therapeutic (treats) or marker/mechanism (marks or drives). Opposite directions.">
                 Signal

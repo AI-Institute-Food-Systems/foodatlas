@@ -88,6 +88,25 @@ describe("column headers", () => {
   });
 });
 
+describe("the Active column", () => {
+  it("is not rendered — it duplicates # Assays in every row of the data", () => {
+    // n_active_measurements == n_assays for 347,632/347,632 rows of
+    // mv_chemical_disease_bioactivity and 408,118/408,118 of
+    // mv_disease_bioactivity. The materializer counts distinct assay ids
+    // and distinct measurement ids over evidence with one measurement per
+    // assay, so the two cannot diverge. A second column of the same number
+    // reads as a corroborating signal and is not one.
+    return mount([row({ n_assays: 7, n_active_measurements: 7 })]).then(() => {
+      const headers = Array.from(document.querySelectorAll("th")).map(
+        (th) => th.textContent
+      );
+      expect(headers).not.toContain("Active");
+      // The count still appears once, under # Assays.
+      expect(headers).toContain("# Assays");
+    });
+  });
+});
+
 describe("targets", () => {
   it("states the count rather than previewing chips", async () => {
     await mount([row()]);
