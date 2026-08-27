@@ -5,14 +5,13 @@
 // container (fetch, paginate, publish tab count) and this file owns the
 // six columns and their mobile equivalent.
 
-import { MdArrowForward } from "react-icons/md";
+import { MdArrowForward, MdBiotech, MdMyLocation } from "react-icons/md";
 
+import Chip from "@/components/basic/Chip";
 import Link from "@/components/basic/Link";
-import AssayEvidenceLinks from "@/components/entities/shared/AssayEvidenceLinks";
 import { CardRow, CountCell } from "@/components/entities/shared/EvidenceTable";
 import LiteratureBadge from "@/components/entities/shared/LiteratureBadge";
 import SignalChips from "@/components/entities/shared/SignalChips";
-import TargetGeneChips from "@/components/entities/shared/TargetGeneChips";
 import { encodeSpace } from "@/utils/utils";
 import type { AssayInferredAssociation } from "@/types";
 
@@ -42,13 +41,45 @@ const SignalCell = ({ row }: { row: AssayInferredAssociation }) => (
   </span>
 );
 
+// Counts come from the row's own arrays for targets, but from n_assays
+// for assays — the stored assay list is capped upstream while the count
+// is not, so the button must promise the real total.
+const CountButton = ({
+  n,
+  noun,
+  icon,
+  onOpen,
+}: {
+  n: number;
+  noun: string;
+  icon: React.ReactNode;
+  onOpen: () => void;
+}) =>
+  n === 0 ? null : (
+    <Chip
+      icon={icon}
+      label={`See ${n.toLocaleString()} ${noun}${n === 1 ? "" : "s"}`}
+      tone="outline"
+      size="md"
+      onClick={onOpen}
+    />
+  );
+
 type RowProps = {
   row: AssayInferredAssociation;
   peer: PeerDirection;
   reportProps: Record<string, unknown>;
+  onOpenTargets: () => void;
+  onOpenAssays: () => void;
 };
 
-export const PeerRow = ({ row, peer, reportProps }: RowProps) => (
+export const PeerRow = ({
+  row,
+  peer,
+  reportProps,
+  onOpenTargets,
+  onOpenAssays,
+}: RowProps) => (
   <tr {...reportProps}>
     <td className="py-1.5 pr-4">
       <div className="flex min-h-9 items-center capitalize">
@@ -67,15 +98,31 @@ export const PeerRow = ({ row, peer, reportProps }: RowProps) => (
       <SignalCell row={row} />
     </td>
     <td className="py-1.5 px-4">
-      <TargetGeneChips targets={row.targets} />
+      <CountButton
+        n={row.targets?.length ?? 0}
+        noun="target"
+        icon={<MdMyLocation className="size-3" />}
+        onOpen={onOpenTargets}
+      />
     </td>
     <td className="py-1.5 px-4">
-      <AssayEvidenceLinks assays={row.assays} totalCount={row.n_assays} />
+      <CountButton
+        n={row.n_assays}
+        noun="assay"
+        icon={<MdBiotech className="size-3" />}
+        onOpen={onOpenAssays}
+      />
     </td>
   </tr>
 );
 
-export const PeerCard = ({ row, peer, reportProps }: RowProps) => (
+export const PeerCard = ({
+  row,
+  peer,
+  reportProps,
+  onOpenTargets,
+  onOpenAssays,
+}: RowProps) => (
   <div className="py-3 flex flex-col gap-2" {...reportProps}>
     <div className="flex items-baseline justify-between gap-2 capitalize">
       <Link href={peerHref(row, peer)} isExternal={false}>
@@ -94,15 +141,21 @@ export const PeerCard = ({ row, peer, reportProps }: RowProps) => (
     </div>
     {!!row.targets?.length && (
       <CardRow label="Target">
-        <TargetGeneChips targets={row.targets} visible={2} />
+        <CountButton
+          n={row.targets.length}
+          noun="target"
+          icon={<MdMyLocation className="size-3" />}
+          onOpen={onOpenTargets}
+        />
       </CardRow>
     )}
     {!!row.assays?.length && (
-      <CardRow label="Evidence">
-        <AssayEvidenceLinks
-          assays={row.assays}
-          totalCount={row.n_assays}
-          visible={1}
+      <CardRow label="Assays">
+        <CountButton
+          n={row.n_assays}
+          noun="assay"
+          icon={<MdBiotech className="size-3" />}
+          onOpen={onOpenAssays}
         />
       </CardRow>
     )}

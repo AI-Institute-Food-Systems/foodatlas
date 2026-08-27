@@ -15,7 +15,7 @@
 //    `relationship_id` (r4 improves, r3 worsens). A row that renders the
 //    wrong direction inverts the claim, so it is pinned here.
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 beforeAll(() => {
@@ -147,5 +147,49 @@ describe("hasDistinctSource", () => {
     expect(
       hasDistinctSource({ source_chemical_name: "caffeine" }, "caffeine")
     ).toBe(false);
+  });
+});
+
+describe("publications", () => {
+  it("names the real total instead of previewing three ids", async () => {
+    // The old cell rendered evidences[0..2] inline plus an "N more..."
+    // chip, so a row with 200 PMIDs advertised "197 more" next to three
+    // arbitrary ones. The count is the only part a reader can act on.
+    const evidences = Array.from({ length: 200 }, (_, i) => ({
+      pmid: { id: String(i), url: `https://example.org/${i}` },
+    }));
+    await mount([row({ evidences })], "caffeine");
+    expect(screen.getAllByText("See 200 publications").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/more\.\.\./)).not.toBeInTheDocument();
+  });
+
+  it("singularises a lone publication", async () => {
+    await mount([row()], "caffeine");
+    expect(screen.getAllByText("See 1 publication").length).toBeGreaterThan(0);
+  });
+
+  it("opens a modal listing every publication, not just the visible few", async () => {
+    const evidences = Array.from({ length: 5 }, (_, i) => ({
+      pmid: { id: `pmid-${i}`, url: `https://example.org/${i}` },
+    }));
+    await mount([row({ evidences })], "caffeine");
+
+    fireEvent.click(screen.getAllByText("See 5 publications")[0]);
+
+    await waitFor(() =>
+      expect(screen.getByText("Publications (PMIDs)")).toBeInTheDocument()
+    );
+    // Every id, including the ones the old cell hid behind "+N".
+    for (let i = 0; i < 5; i++) {
+      expect(screen.getByText(`pmid-${i}`)).toBeInTheDocument();
+    }
+  });
+
+  it("disables the button when a row somehow has no evidence", async () => {
+    await mount([row({ evidences: [] })], "caffeine");
+    const buttons = screen.getAllByRole("button", {
+      name: /See 0 publications/,
+    });
+    expect(buttons[0]).toBeDisabled();
   });
 });

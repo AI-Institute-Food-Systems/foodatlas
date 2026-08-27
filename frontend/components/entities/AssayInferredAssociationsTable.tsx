@@ -28,6 +28,10 @@ import {
 } from "@/components/basic/TableSkeleton";
 import type { SkeletonColumn } from "@/components/basic/skeletonTokens";
 import {
+  AssaysModal,
+  AssayTargetsModal,
+} from "@/components/entities/shared/AssayDetailModals";
+import {
   PeerCard,
   PeerRow,
   peerId,
@@ -89,6 +93,11 @@ const AssayInferredAssociationsTable = ({
   const [rows, setRows] = useState<AssayInferredAssociation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showAll, setShowAll] = useState(false);
+  // Which row's Target / Assays modal is open, by peer id. Two ids
+  // rather than one plus a mode, so opening one cannot leave the other
+  // rendering last frame's row.
+  const [targetsFor, setTargetsFor] = useState<string | null>(null);
+  const [assaysFor, setAssaysFor] = useState<string | null>(null);
   const reporter = useReportRows();
 
   // The anchor page is whichever side we're NOT listing: on a chemical page
@@ -140,6 +149,10 @@ const AssayInferredAssociationsTable = ({
   const hiddenCount = filtered.length - visible.length;
 
   const peerLabel = peer === "disease" ? "Disease" : "Chemical";
+  const byId = (id: string | null) =>
+    id === null ? undefined : rows.find((r) => peerId(r, peer) === id);
+  const targetsRow = byId(targetsFor);
+  const assaysRow = byId(assaysFor);
 
   if (!isLoading && filtered.length === 0) {
     return (
@@ -176,7 +189,7 @@ const AssayInferredAssociationsTable = ({
                 align="right"
                 title="Number of distinct shared bioactivity assays backing this association"
               >
-                Assays
+                # Assays
               </Th>
               <Th
                 align="right"
@@ -190,7 +203,7 @@ const AssayInferredAssociationsTable = ({
               <Th title="The protein target the bridging assays measure — what the association runs through">
                 Target
               </Th>
-              <Th title="The source assays behind this association">Evidence</Th>
+              <Th title="The source assays behind this association">Assays</Th>
             </tr>
           </thead>
           <tbody className="text-sm">
@@ -203,6 +216,8 @@ const AssayInferredAssociationsTable = ({
                   row={row}
                   peer={peer}
                   reportProps={rowReportProps(row)}
+                  onOpenTargets={() => setTargetsFor(peerId(row, peer))}
+                  onOpenAssays={() => setAssaysFor(peerId(row, peer))}
                 />
               ))
             )}
@@ -221,9 +236,29 @@ const AssayInferredAssociationsTable = ({
               row={row}
               peer={peer}
               reportProps={rowReportProps(row)}
+              onOpenTargets={() => setTargetsFor(peerId(row, peer))}
+              onOpenAssays={() => setAssaysFor(peerId(row, peer))}
             />
           ))}
         </div>
+      )}
+
+      {targetsRow && (
+        <AssayTargetsModal
+          targets={targetsRow.targets ?? []}
+          peerName={peerName(targetsRow, peer)}
+          isOpen
+          onClose={() => setTargetsFor(null)}
+        />
+      )}
+      {assaysRow && (
+        <AssaysModal
+          assays={assaysRow.assays ?? []}
+          totalCount={assaysRow.n_assays}
+          peerName={peerName(assaysRow, peer)}
+          isOpen
+          onClose={() => setAssaysFor(null)}
+        />
       )}
 
       {hiddenCount > 0 && (

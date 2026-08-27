@@ -75,35 +75,30 @@ export const DirectionCell = ({
   </div>
 );
 
-const EvidenceLinks = ({
+// One button rather than three inline PMIDs plus an overflow chip. The
+// preview was three arbitrary ids out of up to several hundred — not a
+// sample anyone could act on, and it made the column's width depend on
+// how many digits a PMID happens to have. The modal already listed every
+// one; this just makes it the only way in.
+export const EvidenceButton = ({
   row,
-  onShowMore,
+  onOpen,
 }: {
   row: ChemicalCorrelation;
-  onShowMore: () => void;
-}) => (
-  <div className="flex gap-2 justify-end items-center flex-nowrap">
-    {row.evidences.slice(0, 3).map((evidence) => (
-      <Link
-        className="whitespace-nowrap"
-        key={evidence.pmid?.id ?? evidence.pmcid?.id}
-        href={evidence.pmid?.url ?? evidence.pmcid?.url}
-        isExternal
-      >
-        {evidence.pmid?.id ?? evidence.pmcid?.id}
-      </Link>
-    ))}
-    {row.evidences.length > 3 && (
-      <Chip
-        icon={<MdDescription className="size-3" />}
-        label={`${row.evidences.length - 3} more...`}
-        tone="outline"
-        size="md"
-        onClick={onShowMore}
-      />
-    )}
-  </div>
-);
+  onOpen: () => void;
+}) => {
+  const n = row.evidences.length;
+  return (
+    <Chip
+      icon={<MdDescription className="size-3" />}
+      label={`See ${n.toLocaleString()} publication${n === 1 ? "" : "s"}`}
+      tone="outline"
+      size="md"
+      onClick={onOpen}
+      disabled={n === 0}
+    />
+  );
+};
 
 interface RowProps {
   row: ChemicalCorrelation;
@@ -164,8 +159,8 @@ export const CorrelationDesktopRow = ({
       </div>
     </td>
     <td className="py-1.5 pl-4">
-      <div className="flex min-h-9 capitalize items-center justify-end">
-        <EvidenceLinks row={row} onShowMore={onShowMore} />
+      <div className="flex min-h-9 items-center justify-end">
+        <EvidenceButton row={row} onOpen={onShowMore} />
       </div>
     </td>
   </tr>
@@ -218,17 +213,9 @@ export const CorrelationCard = ({
     )}
     <div className="w-full flex items-center justify-between gap-2 text-sm">
       <span className="font-mono italic text-[10px] uppercase tracking-wider text-light-500">
-        Evidence
+        Publications
       </span>
-      <Chip
-        icon={<MdDescription className="size-3" />}
-        label={`${row.evidences.length} PMID${
-          row.evidences.length === 1 ? "" : "s"
-        }`}
-        tone="outline"
-        size="md"
-        onClick={onShowMore}
-      />
+      <EvidenceButton row={row} onOpen={onShowMore} />
     </div>
   </div>
 );

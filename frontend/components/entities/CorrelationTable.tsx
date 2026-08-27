@@ -117,7 +117,7 @@ const CorrelationTable = ({
       { label: "Direction" },
       ...(showSource ? [{ label: "Via Chemical" }] : []),
       { label: peer === "disease" ? "Disease" : "Chemical" },
-      { label: "Publication (PMID)" },
+      { label: "Publications" },
     ],
     [showSource, peer]
   );
@@ -158,6 +158,20 @@ const CorrelationTable = ({
         {/* table — desktop */}
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full table-fixed">
+            {/* Equal widths. `table-fixed` without a colgroup sizes from
+             * the header cells, which made Direction (one short word) and
+             * Publications (one chip) squeeze the two name columns even
+             * though the names are the longest content in the table.
+             * Literal class strings — Tailwind only emits what it can see,
+             * so these cannot be interpolated from headers.length. */}
+            <colgroup>
+              {headers.map((header) => (
+                <col
+                  key={header.label}
+                  className={headers.length === 4 ? "w-1/4" : "w-1/3"}
+                />
+              ))}
+            </colgroup>
             <thead className="text-light-400 text-left">
               <tr>
                 {headers.map((header, index) => (

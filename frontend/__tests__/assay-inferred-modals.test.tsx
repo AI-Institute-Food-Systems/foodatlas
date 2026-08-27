@@ -1,0 +1,173 @@
+// Target and Assays cells on the assay-inferred table.
+//
+// Both used to render two or three items inline plus a "+N" tooltip. A
+// tooltip can't be reached on touch and can't be copied out of, and the
+// visible slice was arbitrary rather than the important ones — so the
+// cell now states the count and the modal holds the full list.
+//
+// The count sources differ and that matters: targets count their own
+// array, but assays count `n_assays`, because the stored assay list is
+// capped upstream (ASSAY_CAP = 25) while the count is not. A row backed
+// by 300 assays must say 300, and the modal must admit it is showing 25.
+
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+
+beforeAll(() => {
+  globalThis.ResizeObserver ??= class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  } as unknown as typeof ResizeObserver;
+});
+
+vi.mock("@/context/reportModeContext", () => ({
+  useReportRows: () => ({ getRowProps: () => ({}), isSelectMode: false }),
+}));
+vi.mock("@/context/tabCountsContext", () => ({
+  usePublishTabCount: () => undefined,
+}));
+// Modal's close Button reaches for the app router.
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn() }),
+  usePathname: () => "/",
+  useSearchParams: () => new URLSearchParams(),
+}));
+
+import AssayInferredAssociationsTable from "@/components/entities/AssayInferredAssociationsTable";
+
+const row = (over: Record<string, unknown> = {}) => ({
+  disease_name: "melanoma",
+  disease_foodatlas_id: "d1",
+  chemical_name: "quercetin",
+  chemical_foodatlas_id: "c1",
+  n_assays: 3,
+  n_active_measurements: 12,
+  relationships: [],
+  literature_directions: [],
+  targets: [
+    { id: "NCBIGene: 7157", label: "cellular tumor antigen p53" },
+    { id: "UniProt: Q16236", label: "nuclear factor erythroid 2-related factor 2" },
+  ],
+  assays: ["AID 1234", "AID 5678", "CHEMBL999"],
+  ...over,
+});
+
+const mount = async (rows: Record<string, unknown>[]) => {
+  render(
+    <AssayInferredAssociationsTable
+      commonName="quercetin"
+      peer="disease"
+      fetcher={async () => ({
+        data: rows as never,
+        metadata: { row_count: rows.length },
+      })}
+    />
+  );
+  await waitFor(() =>
+    expect(screen.getAllByText("melanoma").length).toBeGreaterThan(0)
+  );
+};
+
+beforeEach(() => vi.clearAllMocks());
+
+describe("column headers", () => {
+  it("calls the source-assay column Assays, and the count column # Assays", async () => {
+    // Both columns are about assays; before the rename the source column
+    // was "Evidence", which read as publications on a page whose other
+    // table has a Publications column.
+    await mount([row()]);
+    // Scoped to <th>: the mobile card list renders an "Assays" label of
+    // its own, so a bare getByText matches two nodes.
+    const headers = Array.from(document.querySelectorAll("th")).map(
+      (th) => th.textContent
+    );
+    expect(headers).toContain("Assays");
+    expect(headers).toContain("# Assays");
+    expect(headers).not.toContain("Evidence");
+  });
+});
+
+describe("targets", () => {
+  it("states the count rather than previewing chips", async () => {
+    await mount([row()]);
+    expect(screen.getAllByText("See 2 targets").length).toBeGreaterThan(0);
+  });
+
+  it("opens a modal with every target's label and id", async () => {
+    await mount([row()]);
+    fireEvent.click(screen.getAllByText("See 2 targets")[0]);
+
+    await waitFor(() =>
+      expect(screen.getByText("Protein targets")).toBeInTheDocument()
+    );
+    expect(
+      screen.getByText("cellular tumor antigen p53")
+    ).toBeInTheDocument();
+    // The long label is truncated in the cell but must be whole here.
+    expect(
+      screen.getByText("nuclear factor erythroid 2-related factor 2")
+    ).toBeInTheDocument();
+    expect(screen.getByText("NCBIGene: 7157")).toBeInTheDocument();
+  });
+
+  it("renders no button for a row with no targets", async () => {
+    await mount([row({ targets: [] })]);
+    expect(screen.queryByText(/See \d+ targets?/)).not.toBeInTheDocument();
+  });
+});
+
+describe("assays", () => {
+  it("counts n_assays, not the capped stored list", async () => {
+    await mount([row({ n_assays: 300 })]);
+    expect(screen.getAllByText("See 300 assays").length).toBeGreaterThan(0);
+  });
+
+  it("admits in the modal when the stored list is capped", async () => {
+    await mount([row({ n_assays: 300 })]);
+    fireEvent.click(screen.getAllByText("See 300 assays")[0]);
+
+    await waitFor(() =>
+      expect(screen.getByText("Source assays")).toBeInTheDocument()
+    );
+    expect(screen.getByText(/Showing 3 of 300/)).toBeInTheDocument();
+  });
+
+  it("says nothing about capping when the list is complete", async () => {
+    await mount([row()]);
+    fireEvent.click(screen.getAllByText("See 3 assays")[0]);
+
+    await waitFor(() =>
+      expect(screen.getByText("Source assays")).toBeInTheDocument()
+    );
+    expect(screen.queryByText(/Showing/)).not.toBeInTheDocument();
+    expect(screen.getByText("AID 1234")).toBeInTheDocument();
+    expect(screen.getByText("CHEMBL999")).toBeInTheDocument();
+  });
+});
+
+describe("modal identity", () => {
+  it("opens the clicked row's list, not the first row's", async () => {
+    // Keying the open modal off a boolean plus "current row" is the easy
+    // bug here; both modals are keyed by peer id instead.
+    await mount([
+      row(),
+      row({
+        disease_name: "psoriasis",
+        disease_foodatlas_id: "d2",
+        targets: [{ id: "NCBIGene: 3569", label: "interleukin-6" }],
+        assays: ["AID 4242"],
+        n_assays: 1,
+      }),
+    ]);
+
+    fireEvent.click(screen.getAllByText("See 1 target")[0]);
+    await waitFor(() =>
+      expect(screen.getByText("Protein targets")).toBeInTheDocument()
+    );
+    expect(screen.getByText("interleukin-6")).toBeInTheDocument();
+    expect(
+      screen.queryByText("cellular tumor antigen p53")
+    ).not.toBeInTheDocument();
+  });
+});
