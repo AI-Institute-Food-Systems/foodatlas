@@ -126,15 +126,27 @@ describe("filter panel conventions", () => {
 
   it("every surface that filters offers a way to clear", () => {
     // A panel with filter groups but no reset is the specific defect that
-    // shipped twice. FilterPanelBody renders the reset itself, so using
-    // either it or FilterPanel satisfies this.
+    // shipped twice — and the first version of THIS test missed it. It asked
+    // `src.includes("FilterPanel")`, which the import path
+    // `.../filters/FilterPanel` satisfies on its own, so a file could import
+    // FilterDrawer and pass while rendering no reset at all. Match JSX.
+    const rendersBody = (src: string) => /<FilterPanelBody\b/.test(src);
+    // <FilterPanel renders a FilterPanelBody internally, so using it counts.
+    const rendersPanel = (src: string) => /<FilterPanel[\s>]/.test(src);
+    const rendersDrawer = (src: string) => /<FilterDrawer\b/.test(src);
+
     const offenders = SOURCES.filter((f) => {
       if (isShared(f)) return false;
       const src = code(f);
-      if (!src.includes("<FilterGroup")) return false;
-      return !(
-        src.includes("FilterPanel") || src.includes("FilterPanelBody")
-      );
+      const isSurface = rendersPanel(src) || rendersDrawer(src);
+      // A file with groups but no surface of its own is a content module —
+      // its parent renders the panel and supplies the reset (today that is
+      // only ChemicalCompositionToolbar, consumed by
+      // ChemicalCompositionTable). Structural rather than an allowlist, so a
+      // new content module needs no test edit and a new SURFACE cannot slip
+      // through by claiming to be one.
+      if (!isSurface) return false;
+      return !(rendersPanel(src) || rendersBody(src));
     });
     expect(offenders.map(rel)).toEqual([]);
   });

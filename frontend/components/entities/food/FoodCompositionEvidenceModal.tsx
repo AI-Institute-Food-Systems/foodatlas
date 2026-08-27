@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { MdTune } from "react-icons/md";
 
 import Card from "@/components/basic/Card";
@@ -12,7 +12,10 @@ import {
   FilterOptionList,
   FilterSearchInput,
 } from "@/components/entities/shared/filters/FilterControls";
-import { FilterDrawer } from "@/components/entities/shared/filters/FilterPanel";
+import {
+  FilterDrawer,
+  FilterPanelBody,
+} from "@/components/entities/shared/filters/FilterPanel";
 import { FoodEvidence, FoodEvidenceExtraction } from "@/types/Evidence";
 
 const isLowTrust = (ex: FoodEvidenceExtraction): boolean => Boolean(ex.trust_low);
@@ -103,14 +106,30 @@ const FoodCompositionEvidenceModal = ({
   const [sourceKind, setSourceKind] = useState("");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
+  // Every dimension back to the state the modal opened in. Shared by the
+  // "Clear filters" control and the open effect below so the two cannot
+  // drift as dimensions are added — same arrangement as
+  // BioactivityMeasurementsModal.
+  //
+  // Restores `initialFilter`, not "all": arriving via a TrustBadge opens the
+  // modal already filtered to low-trust, and that IS this modal's fresh
+  // state, so clearing should return to it rather than override the intent
+  // the user clicked with.
+  const resetAllFilters = useCallback(() => {
+    setFilter(initialFilter);
+    setSearchTerm("");
+    setSourceKind("");
+  }, [initialFilter]);
+
+  const isFiltersDirty =
+    filter !== initialFilter || searchTerm !== "" || sourceKind !== "";
+
   useEffect(() => {
     if (isOpen) {
-      setFilter(initialFilter);
-      setSearchTerm("");
-      setSourceKind("");
+      resetAllFilters();
       setMobileFiltersOpen(false);
     }
-  }, [isOpen, initialFilter]);
+  }, [isOpen, resetAllFilters]);
 
   const query = searchTerm.trim().toLowerCase();
 
@@ -214,17 +233,21 @@ const FoodCompositionEvidenceModal = ({
     />
   );
 
+  // One node, rendered into both the sidebar and the drawer, so the reset
+  // belongs here rather than at either call site.
   const filtersPanel = (
-    <FiltersPanel
-      sourceKind={sourceKind}
-      sourceKeys={sourceKeys}
-      sourceCounts={sourceCounts}
-      onSourceKindChange={setSourceKind}
-      filter={filter}
-      lowTrustCount={lowTrustCount}
-      totalCount={totalCount}
-      onSetFilter={setFilter}
-    />
+    <FilterPanelBody isDirty={isFiltersDirty} onReset={resetAllFilters}>
+      <FiltersPanel
+        sourceKind={sourceKind}
+        sourceKeys={sourceKeys}
+        sourceCounts={sourceCounts}
+        onSourceKindChange={setSourceKind}
+        filter={filter}
+        lowTrustCount={lowTrustCount}
+        totalCount={totalCount}
+        onSetFilter={setFilter}
+      />
+    </FilterPanelBody>
   );
 
   return (
@@ -354,32 +377,34 @@ const FiltersPanel = ({
 
     {/* Two mutually exclusive options, so a radio facet like every other
       * single-select group. It used to be one cycle button whose label WAS
-      * its state ("All (6)" / "Only low-trust (2)"), which read as a
-      * mystery chip when nothing was low-trust: disabled, warning-triangled,
-      * and saying "All (6)" next to a line repeating the same 6.
+      * its state ("All (6)" / "Only low-trust (2)"), which read as a mystery
+      * chip when nothing was low-trust: disabled, warning-triangled, and
+      * saying "All (6)" next to a line repeating the same 6.
       *
-      * Hidden entirely when there is nothing low-trust to filter, matching
-      * how Source, Unit and Evidence hide when they have no options. */}
-    {lowTrustCount > 0 && (
-      <FilterGroup label="Quality">
-        <FilterOptionList mode="radio" ariaLabel="Evidence quality">
-          <FilterOption
-            mode="radio"
-            label="All"
-            count={totalCount}
-            selected={filter === "all"}
-            onClick={() => onSetFilter("all")}
-          />
-          <FilterOption
-            mode="radio"
-            label="Low-trust only"
-            count={lowTrustCount}
-            selected={filter === "low-trust"}
-            onClick={() => onSetFilter("low-trust")}
-          />
-        </FilterOptionList>
-      </FilterGroup>
-    )}
+      * Always rendered, with the empty option disabled — the rule Source
+      * above already follows and FilterOption documents. Hiding the group at
+      * zero also trapped the user: these counts are faceted, so searching can
+      * drive lowTrustCount to 0 while "Low-trust only" is still the active
+      * filter, and the control to switch back would disappear with it. */}
+    <FilterGroup label="Quality">
+      <FilterOptionList mode="radio" ariaLabel="Evidence quality">
+        <FilterOption
+          mode="radio"
+          label="All"
+          count={totalCount}
+          selected={filter === "all"}
+          onClick={() => onSetFilter("all")}
+        />
+        <FilterOption
+          mode="radio"
+          label="Low-trust only"
+          count={lowTrustCount}
+          selected={filter === "low-trust"}
+          disabled={lowTrustCount === 0 && filter !== "low-trust"}
+          onClick={() => onSetFilter("low-trust")}
+        />
+      </FilterOptionList>
+    </FilterGroup>
   </div>
 );
 
