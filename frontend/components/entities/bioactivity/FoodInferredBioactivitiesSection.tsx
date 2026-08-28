@@ -29,6 +29,7 @@ import {
 } from "@/components/entities/shared/filters/FilterControls";
 import FilterPanel from "@/components/entities/shared/filters/FilterPanel";
 import Chip from "@/components/basic/Chip";
+import AssayIcon from "@/components/icons/AssayIcon";
 import Link from "@/components/basic/Link";
 import {
   TableSkeletonCards,
@@ -612,7 +613,7 @@ const FoodInferredBioactivitiesSection = ({
                 </div>
                 <div className="w-full flex justify-end">
                   <Chip
-                    icon={<MdDescription className="size-3" />}
+                    icon={<AssayIcon />}
                     label={
                       pendingKey ===
                       `${row.chemical_id}::${row.bioactivity_id}`
@@ -840,7 +841,7 @@ const Row = ({
       <td className="py-1.5 pl-4 text-right">
         <div className="flex min-h-9 items-center justify-end">
           <Chip
-            icon={<MdDescription className="size-3" />}
+            icon={<AssayIcon />}
             label={
               isPending
                 ? "Loading…"

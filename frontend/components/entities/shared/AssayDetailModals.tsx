@@ -10,9 +10,10 @@
 // Publications column on the literature table above — the cell is a
 // button that says how many, the modal holds all of them.
 
-import { MdBiotech, MdMyLocation } from "react-icons/md";
+import { MdMyLocation } from "react-icons/md";
 
 import Chip from "@/components/basic/Chip";
+import AssayIcon from "@/components/icons/AssayIcon";
 import Link from "@/components/basic/Link";
 import Modal from "@/components/basic/Modal";
 import { targetUrl } from "@/components/entities/shared/TargetGeneChips";
@@ -37,11 +38,7 @@ export const DetailCountButton = ({
   n === 0 ? null : (
     <Chip
       icon={
-        noun === "assay" ? (
-          <MdBiotech className="size-3" />
-        ) : (
-          <MdMyLocation className="size-3" />
-        )
+        noun === "assay" ? <AssayIcon /> : <MdMyLocation className="size-3" />
       }
       label={`See ${n.toLocaleString()} ${noun}${n === 1 ? "" : "s"}`}
       tone="outline"
