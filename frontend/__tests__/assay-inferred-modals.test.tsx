@@ -35,6 +35,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 import AssayInferredAssociationsTable from "@/components/entities/AssayInferredAssociationsTable";
+import { PaginationsProvider } from "@/context/paginationsContext";
 
 const row = (over: Record<string, unknown> = {}) => ({
   disease_name: "melanoma",
@@ -53,19 +54,26 @@ const row = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
-const mount = async (rows: Record<string, unknown>[]) => {
+// The real provider rather than a stub: the table pages in memory, so a
+// stubbed currentPage would make every paging assertion vacuous.
+const mount = async (
+  rows: Record<string, unknown>[],
+  expectFirst = "melanoma"
+) => {
   render(
-    <AssayInferredAssociationsTable
-      commonName="quercetin"
-      peer="disease"
-      fetcher={async () => ({
-        data: rows as never,
-        metadata: { row_count: rows.length },
-      })}
-    />
+    <PaginationsProvider>
+      <AssayInferredAssociationsTable
+        commonName="quercetin"
+        peer="disease"
+        fetcher={async () => ({
+          data: rows as never,
+          metadata: { row_count: rows.length },
+        })}
+      />
+    </PaginationsProvider>
   );
   await waitFor(() =>
-    expect(screen.getAllByText("melanoma").length).toBeGreaterThan(0)
+    expect(screen.getAllByText(expectFirst).length).toBeGreaterThan(0)
   );
 };
 
@@ -185,5 +193,42 @@ describe("modal identity", () => {
     expect(
       screen.queryByText("cellular tumor antigen p53")
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("pagination", () => {
+  // It used to render the first 50 rows and a "Show all" button, alone
+  // among the tables on these pages — the literature table directly above
+  // it paginates, and so does every bioactivity table.
+  const manyRows = (n: number) =>
+    Array.from({ length: n }, (_, i) =>
+      row({
+        disease_name: `disease-${i}`,
+        disease_foodatlas_id: `d${i}`,
+      })
+    );
+
+  it("shows 20 rows a page and pages through the rest", async () => {
+    await mount(manyRows(25), "disease-0");
+    // Desktop table and mobile cards both render in jsdom, so count rows
+    // in the <tbody> rather than by text.
+    expect(document.querySelectorAll("tbody tr")).toHaveLength(20);
+    expect(screen.queryAllByText("disease-24")).toHaveLength(0);
+
+    fireEvent.click(screen.getByLabelText(/next page/i));
+    await waitFor(() =>
+      expect(screen.getAllByText("disease-24").length).toBeGreaterThan(0)
+    );
+    expect(document.querySelectorAll("tbody tr")).toHaveLength(5);
+  });
+
+  it("offers no paginator when everything fits on one page", async () => {
+    await mount(manyRows(3), "disease-0");
+    expect(screen.queryByLabelText(/next page/i)).toBeNull();
+  });
+
+  it("has no show-all escape hatch left", async () => {
+    await mount(manyRows(25), "disease-0");
+    expect(screen.queryByText(/show all/i)).toBeNull();
   });
 });

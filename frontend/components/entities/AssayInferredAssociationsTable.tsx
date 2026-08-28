@@ -14,14 +14,16 @@
 // a table: they sit as separate labelled blocks so the distinction lands
 // next to the rows rather than being lost in a merged row set.
 //
-// Rows are ordered by n_assays desc server-side; the endpoint isn't
-// paginated, so we render the first `initialPageSize` and offer a "Show
-// all" affordance for the long tail — and filter in memory, since every
-// row is already here.
+// Rows are ordered by n_assays desc server-side. The endpoint isn't
+// paginated, so filtering and paging both happen in memory — every row is
+// already here. Paging rather than a "show all" button because that is
+// what every other table on these pages does, including the literature
+// table directly above this one, and because the tail is long: caffeine
+// alone has 89 associations, obesity 1,693.
 
-import { useEffect, useMemo, useState } from "react";
-import { MdKeyboardArrowDown } from "react-icons/md";
+import { useEffect, useMemo, useRef, useState } from "react";
 
+import Pagination from "@/components/basic/Pagination";
 import {
   TableSkeletonCards,
   TableSkeletonRows,
@@ -39,6 +41,7 @@ import {
   type PeerDirection,
 } from "@/components/entities/shared/AssayInferredRow";
 import { Th } from "@/components/entities/shared/EvidenceTable";
+import { usePaginations } from "@/context/paginationsContext";
 import { useReportRows } from "@/context/reportModeContext";
 import { usePublishTabCount } from "@/context/tabCountsContext";
 import type { AssayInferredAssociation } from "@/types";
@@ -67,6 +70,8 @@ const SKELETON_COLUMNS: SkeletonColumn[] = [
   { key: "evidence", width: "w-[22%]" },
 ];
 
+const ROWS_PER_PAGE = 20;
+
 interface Props {
   // Anchor entity's common_name — used only in the empty-state copy.
   commonName: string;
@@ -83,7 +88,6 @@ interface Props {
   // a parent tab owns the badge and sums this table with another —
   // usePublishTabCount no-ops on a falsy id.
   tabId?: string;
-  initialPageSize?: number;
   // Search driven by a parent FilterPanel. Filtered client-side because
   // this endpoint isn't paginated — every row is already in memory.
   externalSearch?: string;
@@ -96,13 +100,17 @@ const AssayInferredAssociationsTable = ({
   peer,
   fetcher,
   tabId = "",
-  initialPageSize = 50,
   externalSearch = "",
   onTotalRowsChange,
 }: Props) => {
   const [rows, setRows] = useState<AssayInferredAssociation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [showAll, setShowAll] = useState(false);
+
+  // Per-direction id: the chemical and disease pages each render one of
+  // these, and a shared id would make them share a page number.
+  const tableId = `assay-inferred-${peer}-${commonName}`;
+  const { getTablePaginations, setTablePaginations } = usePaginations();
+  const { currentPage } = getTablePaginations(tableId);
   // Which row's Target / Assays modal is open, by peer id. Two ids
   // rather than one plus a mode, so opening one cannot leave the other
   // rendering last frame's row.
@@ -152,11 +160,38 @@ const AssayInferredAssociationsTable = ({
     };
   }, [fetcher]);
 
-  const visible = useMemo(
-    () => (showAll ? filtered : filtered.slice(0, initialPageSize)),
-    [filtered, showAll, initialPageSize]
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filtered.length / ROWS_PER_PAGE)
   );
-  const hiddenCount = filtered.length - visible.length;
+  const visible = useMemo(
+    () =>
+      filtered.slice(
+        (currentPage - 1) * ROWS_PER_PAGE,
+        currentPage * ROWS_PER_PAGE
+      ),
+    [filtered, currentPage]
+  );
+
+  // Filtering to fewer pages while on a later one slices past the end and
+  // renders the empty state over real rows, with the paginator unmounted
+  // and no way back. Guarded on !isLoading because rows are empty on the
+  // first render, when an unguarded clamp would discard a persisted page.
+  useEffect(() => {
+    if (!isLoading && currentPage > totalPages) {
+      setTablePaginations(tableId, 1, ROWS_PER_PAGE);
+    }
+  }, [isLoading, currentPage, totalPages, tableId, setTablePaginations]);
+
+  // A new search should land on its best matches, not on page 4 of them.
+  // Ref-compared rather than a bare effect so mounting doesn't reset a
+  // page the user navigated to.
+  const lastSearch = useRef(externalSearch);
+  useEffect(() => {
+    if (lastSearch.current === externalSearch) return;
+    lastSearch.current = externalSearch;
+    setTablePaginations(tableId, 1, ROWS_PER_PAGE);
+  }, [externalSearch, tableId, setTablePaginations]);
 
   const peerLabel = peer === "disease" ? "Disease" : "Chemical";
   const byId = (id: string | null) =>
@@ -259,15 +294,14 @@ const AssayInferredAssociationsTable = ({
         />
       )}
 
-      {hiddenCount > 0 && (
-        <button
-          type="button"
-          onClick={() => setShowAll(true)}
-          className="self-center inline-flex items-center gap-1 text-xs font-mono italic text-light-400 hover:text-light-100 transition-colors"
-        >
-          Show all {filtered.length.toLocaleString()} associations
-          <MdKeyboardArrowDown className="w-4 h-4" />
-        </button>
+      {(totalPages > 1 || isLoading) && (
+        <div className="mt-2 max-w-xl w-full mx-auto">
+          <Pagination
+            tableId={tableId}
+            numberOfPages={totalPages}
+            isLoading={isLoading}
+          />
+        </div>
       )}
     </div>
   );
