@@ -1,18 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import {
-  MdAdd,
-  MdDescription,
-  MdErrorOutline,
-  MdInfoOutline,
-  MdRemove,
-} from "react-icons/md";
-import { twMerge } from "tailwind-merge";
+// CTD literature correlations between a chemical and a disease, read
+// from either end (`tableLocation`).
+//
+// One table carries BOTH directions, with r4/r3 rendered as an Improves/
+// Worsens column and filtered from the sidebar. It used to be two tables
+// stacked under two headings, which was tolerable when this owned a whole
+// tab — but the merged Diseases/Chemicals tab also stacks the
+// assay-inferred table underneath, and three tables on one tab read as a
+// list of lists.
+//
+// Row rendering lives in shared/CorrelationRow.tsx; this file owns
+// fetching, paging and the source-chemical decision.
 
-import Chip from "@/components/basic/Chip";
-import EntitySiblingIcon from "@/components/basic/EntitySiblingIcon";
-import Link from "@/components/basic/Link";
+import { useEffect, useMemo, useState } from "react";
+import { MdErrorOutline, MdInfoOutline } from "react-icons/md";
+
 import {
   TableSkeletonCards,
   TableSkeletonRows,
@@ -20,96 +23,136 @@ import {
 import type { SkeletonColumn } from "@/components/basic/skeletonTokens";
 import Pagination from "@/components/basic/Pagination";
 import CorrelationEvidenceModal from "@/components/entities/CorrelationEvidenceModal";
+import {
+  CorrelationCard,
+  CorrelationDesktopRow,
+  hasDistinctSource,
+  rowEvidences,
+  type CorrelationDirection,
+} from "@/components/entities/shared/CorrelationRow";
 import { useReportRows } from "@/context/reportModeContext";
 import { usePaginations } from "@/context/paginationsContext";
 import { getDiseaseData } from "@/utils/fetching";
-import { encodeSpace } from "@/utils/utils";
 import { ChemicalCorrelation } from "@/types";
 
-interface DiseaseTableProps {
+interface CorrelationTableProps {
   commonName: string;
   tableLocation: string;
-  correlationType: "positive" | "negative";
-  headers: { label: string }[];
-  // Fires whenever totalRows changes so a wrapper can sum positive +
-  // negative for the "health" tab badge.
+  // Direction filter. "all" is the merged tab's default.
+  direction?: CorrelationDirection;
+  // Server-side search over the peer entity's name.
+  search?: string;
+  // Fires whenever totalRows changes so the merged tab can sum this
+  // table with the assay-inferred one for a single badge.
   onTotalRowsChange?: (total: number) => void;
 }
 
 const CorrelationTable = ({
   commonName,
   tableLocation,
-  correlationType,
-  headers,
+  direction = "all",
+  search = "",
   onTotalRowsChange,
-}: DiseaseTableProps) => {
-  const tableId = tableLocation + "-" + correlationType + "-table";
-  // Skeleton grid derived from the same `headers` the <th>s render, so
-  // the placeholder cells line up with the real ones and can't drift.
-  // Alignment follows the header rule below: the last column is right
-  // aligned, everything else left.
-  const skeletonColumns: SkeletonColumn[] = headers.map((h, i) => ({
-    key: h.label || String(i),
-    align: i === headers.length - 1 ? "right" : "left",
-  }));
+}: CorrelationTableProps) => {
+  const tableId = tableLocation + "-correlation-table";
+  const peer = tableLocation === "chemical" ? "disease" : "chemical";
+
   const [data, setData] = useState<ChemicalCorrelation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
   const [numberOfPages, setNumberOfPages] = useState(1);
   const [totalRows, setTotalRows] = useState<number | null>(null);
+  const [selectedRowIdx, setSelectedRowIdx] = useState(-1);
+
+  const { getTablePaginations } = usePaginations();
+  const { currentPage } = getTablePaginations(tableId);
+  const reporter = useReportRows();
+
   useEffect(() => {
     if (onTotalRowsChange && totalRows !== null) onTotalRowsChange(totalRows);
   }, [onTotalRowsChange, totalRows]);
-  const { getTablePaginations } = usePaginations();
-  const { currentPage } = getTablePaginations(tableId);
-  const [selectedRowIdx, setSelectedRowIdx] = useState(-1);
-  const reporter = useReportRows();
 
-  // fetch data
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setIsError(false);
-        const data = await getDiseaseData(
-          commonName,
-          currentPage,
-          tableLocation,
-          correlationType
-        );
-        // FIXME backend: "associations" should be changed to "impacts"
-        const dataAccessor = `${correlationType}_associations`;
-        setData(data.data[dataAccessor]);
-        // FIXME backend: metadata is not returning correct total_pages per correlation type but combined?
-        setNumberOfPages(data.metadata.total_pages);
-        setTotalRows(Number(data.metadata.total_rows ?? 0));
-      } catch (error) {
-        console.log(error);
+    let cancelled = false;
+    setIsLoading(true);
+    (async () => {
+      const payload = await getDiseaseData(
+        commonName,
+        currentPage,
+        tableLocation,
+        direction,
+        search
+      );
+      if (cancelled) return;
+      if (!payload) {
         setIsError(true);
-      } finally {
         setIsLoading(false);
+        return;
       }
+      setIsError(false);
+      setData(payload.data.associations ?? []);
+      setNumberOfPages(payload.metadata.total_pages);
+      setTotalRows(Number(payload.metadata.total_rows ?? 0));
+      setIsLoading(false);
+    })();
+    return () => {
+      cancelled = true;
     };
+  }, [tableLocation, direction, search, currentPage, commonName]);
 
-    fetchData();
-  }, [tableLocation, correlationType, currentPage, commonName]);
+  // Show the source-chemical column when ANY row on this page attributes
+  // its evidence to a different chemical — true on ChEBI class pages,
+  // false on the ~80% of pages that are leaves. Decided per page rather
+  // than per row because a column cannot be conditional per row; rows
+  // that do match then simply name the page's own chemical.
+  const showSource = useMemo(
+    () =>
+      tableLocation === "chemical" &&
+      data.some((row) => hasDistinctSource(row, commonName)),
+    [data, tableLocation, commonName]
+  );
 
-  // handle evidence show more click
-  const handleEvidenceShowMoreClick = (idx: number) => {
-    setSelectedRowIdx(idx);
-  };
+  const headers = useMemo(
+    () => [
+      { label: "Direction" },
+      // Peer first, attribution second: the row is about the disease, and
+      // the descendant chemical the evidence came through qualifies it.
+      { label: peer === "disease" ? "Disease" : "Chemical" },
+      ...(showSource ? [{ label: "Via Chemical" }] : []),
+      { label: "Publications" },
+    ],
+    [showSource, peer]
+  );
 
-  // Small +/- badge — used by both the desktop table and the mobile
-  // card list, so the visual language stays identical.
-  const SignBadge = () =>
-    correlationType === "negative" ? (
-      <div className="w-[1.2rem] h-[1.2rem] flex justify-center items-center rounded-full border-[1.5px] border-red-600 text-red-600 bg-red-600/10 shadow-red-800/50 shadow-[inset_0_2px_8px_rgba(0,0,0,0.4)] md:shadow-inset_0_2px_8px_rgba(0,0,0,0.6) font-bold">
-        <MdRemove />
-      </div>
-    ) : (
-      <div className="w-[1.2rem] h-[1.2rem] flex justify-center items-center rounded-full border-[1.5px] border-lime-600 text-lime-600 bg-lime-600/10 shadow-lime-800/50 shadow-[inset_0_2px_8px_rgba(0,0,0,0.4)] md:shadow-inset_0_2px_8px_rgba(0,0,0,0.6) font-bold">
-        <MdAdd />
-      </div>
-    );
+  // Skeleton grid derived from the same headers the <th>s render, so the
+  // placeholder cells line up. Last column right-aligned, rest left.
+  const skeletonColumns: SkeletonColumn[] = headers.map((h, i) => ({
+    key: h.label,
+    align: i === headers.length - 1 ? "right" : "left",
+  }));
+
+  const rowPropsFor = (row: ChemicalCorrelation) =>
+    reporter.getRowProps({
+      kind: "correlation-row",
+      entityType: tableLocation as "chemical" | "disease",
+      entitySlug: commonName,
+      counterpartName: row.name,
+      pmidCount: rowEvidences(row).length,
+    });
+
+  const emptyState = (
+    <div className="h-[10rem] flex items-center justify-center text-light-300 gap-2">
+      <MdInfoOutline /> No evidence found
+    </div>
+  );
+  const errorState = (
+    <div className="h-[10rem] flex items-center justify-center text-red-400 gap-2">
+      <MdErrorOutline /> An error occurred fetching data, please refresh the
+      page
+    </div>
+  );
+
+  const selected = selectedRowIdx < 0 ? undefined : data[selectedRowIdx];
 
   return (
     <>
@@ -117,12 +160,25 @@ const CorrelationTable = ({
         {/* table — desktop */}
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full table-fixed">
-            {/* table headers */}
+            {/* Equal widths. `table-fixed` without a colgroup sizes from
+             * the header cells, which made Direction (one short word) and
+             * Publications (one chip) squeeze the two name columns even
+             * though the names are the longest content in the table.
+             * Literal class strings — Tailwind only emits what it can see,
+             * so these cannot be interpolated from headers.length. */}
+            <colgroup>
+              {headers.map((header) => (
+                <col
+                  key={header.label}
+                  className={headers.length === 4 ? "w-1/4" : "w-1/3"}
+                />
+              ))}
+            </colgroup>
             <thead className="text-light-400 text-left">
               <tr>
                 {headers.map((header, index) => (
                   <th
-                    key={index}
+                    key={header.label}
                     className={`h-9 border-b border-light-700 leading-none break-all md:break-normal py-1.5 ${
                       index === 0
                         ? "pr-4"
@@ -140,256 +196,81 @@ const CorrelationTable = ({
                 ))}
               </tr>
             </thead>
-            {/* table body */}
             <tbody className="text-sm font-light">
               {isLoading ? (
                 <TableSkeletonRows columns={skeletonColumns} />
-              ) : isError ? (
-                // error message
+              ) : isError || data.length === 0 ? (
                 <tr>
                   <td colSpan={headers.length}>
-                    <div className="h-[10rem] flex items-center justify-center text-red-400 gap-2">
-                      <MdErrorOutline /> An error occurred fetching data, please
-                      refresh the page
-                    </div>
+                    {isError ? errorState : emptyState}
                   </td>
                 </tr>
-              ) : data.length > 0 ? (
-                // data rows
-                data.map((row, rowIdx) => (
-                  <tr
-                    key={`${row.id}-${rowIdx}`}
-                    {...reporter.getRowProps({
-                      kind: "correlation-row",
-                      entityType: tableLocation as "chemical" | "disease",
-                      entitySlug: commonName,
-                      counterpartName: row.name,
-                      pmidCount: row.evidences.length,
-                    })}
-                  >
-                    {/* source chemical (chemical page only) */}
-                    {tableLocation === "chemical" && (
-                      <td className="py-1.5 pr-4">
-                        <div className="flex gap-2.5 min-h-9 capitalize items-center">
-                          {correlationType === "negative" ? (
-                            <div className="w-[1.2rem] h-[1.2rem] flex justify-center items-center rounded-full border-[1.5px] border-red-600 text-red-600 bg-red-600/10 shadow-red-800/50 shadow-[inset_0_2px_8px_rgba(0,0,0,0.4)] md:shadow-inset_0_2px_8px_rgba(0,0,0,0.6) font-bold">
-                              <MdRemove />
-                            </div>
-                          ) : (
-                            <div className="w-[1.2rem] h-[1.2rem] flex justify-center items-center rounded-full border-[1.5px] border-lime-600 text-lime-600 bg-lime-600/10 shadow-lime-800/50 shadow-[inset_0_2px_8px_rgba(0,0,0,0.4)] md:shadow-inset_0_2px_8px_rgba(0,0,0,0.6) font-bold">
-                              <MdAdd />
-                            </div>
-                          )}
-                          <Link
-                            className="capitalize"
-                            href={`/chemical/${encodeURIComponent(encodeSpace(row.source_chemical_name ?? commonName))}`}
-                            isExternal={false}
-                          >
-                            {row.source_chemical_name ?? commonName}
-                          </Link>
-                        </div>
-                      </td>
-                    )}
-                    {/* entity name */}
-                    <td className="py-1.5 pr-4">
-                      <div className="flex gap-2.5 min-h-9 capitalize items-center">
-                        {tableLocation !== "chemical" && (
-                          correlationType === "negative" ? (
-                            <div className="w-[1.2rem] h-[1.2rem] flex justify-center items-center rounded-full border-[1.5px] border-red-600 text-red-600 bg-red-600/10 shadow-red-800/50 shadow-[inset_0_2px_8px_rgba(0,0,0,0.4)] md:shadow-inset_0_2px_8px_rgba(0,0,0,0.6) font-bold">
-                              <MdRemove />
-                            </div>
-                          ) : (
-                            <div className="w-[1.2rem] h-[1.2rem] flex justify-center items-center rounded-full border-[1.5px] border-lime-600 text-lime-600 bg-lime-600/10 shadow-lime-800/50 shadow-[inset_0_2px_8px_rgba(0,0,0,0.4)] md:shadow-inset_0_2px_8px_rgba(0,0,0,0.6) font-bold">
-                              <MdAdd />
-                            </div>
-                          )
-                        )}
-                        <Link
-                          className="capitalize"
-                          href={`/${
-                            tableLocation === "chemical"
-                              ? "disease"
-                              : "chemical"
-                          }/${encodeURIComponent(encodeSpace(row.name))}`}
-                          isExternal={false}
-                        >
-                          {row.name}
-                        </Link>
-                        {tableLocation !== "chemical" && (
-                          <EntitySiblingIcon
-                            siblings={row.ambiguity_siblings}
-                            entityKind="chemical"
-                          />
-                        )}
-                      </div>
-                    </td>
-                    {/* evidence */}
-                    <td className="py-1.5 pl-4">
-                      <div className="flex min-h-9 capitalize items-center justify-end">
-                        <div className="flex gap-2 justify-end items-center flex-nowrap">
-                          {row.evidences.slice(0, 3).map((evidence) => (
-                            <Link
-                              className="whitespace-nowrap"
-                              key={evidence.pmid?.id ?? evidence.pmcid?.id}
-                              href={evidence.pmid?.url ?? evidence.pmcid?.url}
-                              isExternal
-                            >
-                              {evidence.pmid?.id ?? evidence.pmcid?.id}
-                            </Link>
-                          ))}
-                          {row.evidences.length > 3 && (
-                            <Chip
-                              icon={<MdDescription className="size-3" />}
-                              label={`${row.evidences.length - 3} more...`}
-                              tone="outline"
-                              size="md"
-                              onClick={() =>
-                                handleEvidenceShowMoreClick(rowIdx)
-                              }
-                            />
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                  </tr>
-                ))
               ) : (
-                // no rows
-                <tr>
-                  <td colSpan={headers.length}>
-                    <div className="h-[10rem] flex items-center justify-center text-light-300 gap-2">
-                      <MdInfoOutline /> No evidence found
-                    </div>
-                  </td>
-                </tr>
+                data.map((row, rowIdx) => (
+                  <CorrelationDesktopRow
+                    key={`${row.id}-${rowIdx}`}
+                    row={row}
+                    peer={peer}
+                    showSource={showSource}
+                    commonName={commonName}
+                    rowProps={rowPropsFor(row)}
+                    onShowMore={() => setSelectedRowIdx(rowIdx)}
+                  />
+                ))
               )}
             </tbody>
           </table>
         </div>
 
-        {/* card list — mobile. Primary line: sign badge + linked entity
-         * name. Evidence collapsed to a single "Show PMIDs" button so
-         * the row never overflows; users still reach every PMID via
-         * the modal. On the chemical page (where each row has both a
-         * source chemical + a disease/other entity), the source
-         * chemical link sits on the primary line and the impacted
-         * entity + evidence sit below it. */}
+        {/* card list — mobile */}
         {isLoading ? (
           <TableSkeletonCards columns={skeletonColumns} />
         ) : (
-        <div className="md:hidden w-full flex flex-col divide-y divide-light-800">
-          {isError ? (
-            <div className="w-full py-6 flex items-center justify-center text-red-400 gap-2">
-              <MdErrorOutline /> An error occurred fetching data, please
-              refresh the page
-            </div>
-          ) : data.length > 0 ? (
-            data.map((row, rowIdx) => {
-              const rowProps = reporter.getRowProps({
-                kind: "correlation-row",
-                entityType: tableLocation as "chemical" | "disease",
-                entitySlug: commonName,
-                counterpartName: row.name,
-                pmidCount: row.evidences.length,
-              });
-              return (
-              <div
-                key={`${row.id}-${rowIdx}`}
-                {...rowProps}
-                className={twMerge(
-                  "w-full py-3 flex flex-col gap-2",
-                  rowProps.className,
-                )}
-              >
-                <div className="w-full flex items-center gap-2 flex-wrap capitalize">
-                  <SignBadge />
-                  <Link
-                    className="capitalize"
-                    href={
-                      tableLocation === "chemical"
-                        ? `/chemical/${encodeURIComponent(encodeSpace(row.source_chemical_name ?? commonName))}`
-                        : `/chemical/${encodeURIComponent(encodeSpace(row.name))}`
-                    }
-                    isExternal={false}
-                  >
-                    {tableLocation === "chemical"
-                      ? (row.source_chemical_name ?? commonName)
-                      : row.name}
-                  </Link>
-                  {tableLocation !== "chemical" && (
-                    <EntitySiblingIcon
-                      siblings={row.ambiguity_siblings}
-                      entityKind="chemical"
-                    />
-                  )}
-                </div>
-                {tableLocation === "chemical" && (
-                  <div className="w-full flex items-baseline justify-between gap-2 text-sm">
-                    <span className="font-mono italic text-[10px] uppercase tracking-wider text-light-500">
-                      Impacts
-                    </span>
-                    <Link
-                      className="capitalize text-right"
-                      href={`/disease/${encodeURIComponent(encodeSpace(row.name))}`}
-                      isExternal={false}
-                    >
-                      {row.name}
-                    </Link>
-                  </div>
-                )}
-                <div className="w-full flex items-center justify-between gap-2 text-sm">
-                  <span className="font-mono italic text-[10px] uppercase tracking-wider text-light-500">
-                    Evidence
-                  </span>
-                  <Chip
-                    icon={<MdDescription className="size-3" />}
-                    label={`${row.evidences.length} PMID${
-                      row.evidences.length === 1 ? "" : "s"
-                    }`}
-                    tone="outline"
-                    size="md"
-                    onClick={() => handleEvidenceShowMoreClick(rowIdx)}
-                  />
-                </div>
+          <div className="md:hidden w-full flex flex-col divide-y divide-light-800">
+            {isError || data.length === 0 ? (
+              <div className="w-full py-6">
+                {isError ? errorState : emptyState}
               </div>
-              );
-            })
-          ) : (
-            <div className="w-full py-6 flex items-center justify-center text-light-300 gap-2">
-              <MdInfoOutline /> No evidence found
-            </div>
-          )}
-        </div>
+            ) : (
+              data.map((row, rowIdx) => (
+                <CorrelationCard
+                  key={`${row.id}-${rowIdx}`}
+                  row={row}
+                  peer={peer}
+                  showSource={showSource}
+                  commonName={commonName}
+                  rowProps={rowPropsFor(row)}
+                  onShowMore={() => setSelectedRowIdx(rowIdx)}
+                />
+              ))
+            )}
+          </div>
         )}
 
         {/* pagination */}
         {(numberOfPages > 1 || isLoading) && (
           <div className="mt-8 max-w-xl w-full mx-auto">
             <Pagination
-              tableId={tableId ?? ""}
+              tableId={tableId}
               numberOfPages={numberOfPages}
               isLoading={isLoading}
             />
           </div>
         )}
       </div>
-      {/* evidence modal */}
+
       <CorrelationEvidenceModal
         entityType={tableLocation as "chemical" | "disease"}
-        correlationType={correlationType}
         chemicalName={
           tableLocation === "chemical"
-            ? (data[selectedRowIdx]?.source_chemical_name ?? commonName)
-            : (data[selectedRowIdx]?.name ?? "")
+            ? (selected?.source_chemical_name ?? commonName)
+            : (selected?.name ?? "")
         }
         diseaseName={
-          tableLocation === "chemical"
-            ? (data[selectedRowIdx]?.name ?? "")
-            : commonName
+          tableLocation === "chemical" ? (selected?.name ?? "") : commonName
         }
-        evidences={
-          selectedRowIdx < 0 ? undefined : data[selectedRowIdx]?.evidences
-        }
+        improvesEvidences={selected?.improves_evidences}
+        worsensEvidences={selected?.worsens_evidences}
         isOpen={selectedRowIdx >= 0}
         onClose={() => setSelectedRowIdx(-1)}
       />

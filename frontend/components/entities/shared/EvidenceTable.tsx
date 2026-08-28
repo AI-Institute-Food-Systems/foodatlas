@@ -20,7 +20,13 @@ export const Th = ({
   <th
     title={title}
     className={twMerge(
-      "h-9 border-b border-light-700 py-1.5 px-4 uppercase text-xs font-medium",
+      // The first header drops its left padding: every body's first cell
+      // is `pr-4` with nothing on the left, so the header's px-4 indented
+      // it 16px past the column it labels. pl-px, not pl-0 — cells keep
+      // the browser's 1px default, and the literature table's hand-rolled
+      // <th> aligns because it does too. Left edge only: right-aligned
+      // headers sit over cells that do keep their px-4.
+      "h-9 border-b border-light-700 py-1.5 px-4 first:pl-px uppercase text-xs font-medium",
       align === "right" ? "text-right" : "text-left",
     )}
   >

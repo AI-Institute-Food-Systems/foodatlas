@@ -24,6 +24,7 @@ import { twMerge } from "tailwind-merge";
 
 import Card from "@/components/basic/Card";
 import Chip from "@/components/basic/Chip";
+import AssayIcon from "@/components/icons/AssayIcon";
 import Link from "@/components/basic/Link";
 import {
   TableSkeletonCards,
@@ -1092,7 +1093,7 @@ export const ViewAssaysCell = ({
   ctx: ColumnContext;
 }) => (
   <Chip
-    icon={<MdDescription className="size-3" />}
+    icon={<AssayIcon />}
     label={`${row.measurement_count.toLocaleString()} assay${
       row.measurement_count === 1 ? "" : "s"
     }`}

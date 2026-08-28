@@ -18,8 +18,6 @@ const ENTITIES_DIR = path.join(process.cwd(), "components", "entities");
 // Renders rows from a collection but is not itself the row surface: the
 // wrapper delegates to a child table that carries the reporting.
 const DELEGATES_TO_CHILD = new Set<string>([
-  // Renders <DiseaseBioactivityTable/>, which is wired.
-  "disease/DiseaseBioactivitiesSection.tsx",
   // Owns the <tbody> but builds each <tr> from
   // <ChemicalCompositionRow/>, which spreads the getRowProps this
   // component computes per row.

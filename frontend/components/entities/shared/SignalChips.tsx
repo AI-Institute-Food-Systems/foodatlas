@@ -10,8 +10,8 @@
 // Rendering both in the same neutral grey (which is what the two duplicate
 // copies of this component used to do) reads as a single vague "associated
 // with" and loses the one bit a reader actually needs. Tone carries the
-// direction; the tooltip carries the caveat, because marker/mechanism is
-// emphatically not a benefit claim.
+// direction; the tooltip states CTD's definition of the value and stops
+// there, rather than editorialising about what it does or does not imply.
 
 import { Tooltip } from "@/components/basic/Tooltip";
 
@@ -23,10 +23,12 @@ const TONE: Record<string, string> = {
   [MARKER]: "text-amber-300 border-amber-800/70",
 };
 
+// CTD's own gloss on its two DirectEvidence values, and nothing beyond it.
 const EXPLANATION: Record<string, string> = {
-  [THERAPEUTIC]: "CTD direct evidence: the chemical treats or mitigates this disease.",
+  [THERAPEUTIC]:
+    "CTD direct evidence: the chemical treats or mitigates this disease.",
   [MARKER]:
-    "CTD direct evidence: the chemical marks or is mechanistically involved in this disease. Not a benefit claim — the association is often an aggravating one.",
+    "CTD direct evidence: the chemical marks or is mechanistically involved in this disease.",
 };
 
 const chipClass = (relationship: string) =>

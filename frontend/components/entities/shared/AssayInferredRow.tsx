@@ -8,11 +8,10 @@
 import { MdArrowForward } from "react-icons/md";
 
 import Link from "@/components/basic/Link";
-import AssayEvidenceLinks from "@/components/entities/shared/AssayEvidenceLinks";
-import { CardRow, CountCell } from "@/components/entities/shared/EvidenceTable";
+import { DetailCountButton } from "@/components/entities/shared/AssayDetailModals";
+import { CardRow } from "@/components/entities/shared/EvidenceTable";
 import LiteratureBadge from "@/components/entities/shared/LiteratureBadge";
 import SignalChips from "@/components/entities/shared/SignalChips";
-import TargetGeneChips from "@/components/entities/shared/TargetGeneChips";
 import { encodeSpace } from "@/utils/utils";
 import type { AssayInferredAssociation } from "@/types";
 
@@ -32,13 +31,21 @@ const peerHref = (row: AssayInferredAssociation, peer: PeerDirection) =>
 // Pairs the assay-side direction with the literature verdict. The badge is
 // null — and so renders nothing — for the ~97.5% of pairs the literature
 // doesn't cover, which keeps the column from filling with "unknown".
+// TEMPORARY: the literature agrees/differs badge is hidden while its
+// wording is reconsidered. Flip to true to bring it back — the component,
+// its verdict logic and its tests are untouched, so this is the only edit
+// needed either way.
+const SHOW_LITERATURE_BADGE = false;
+
 const SignalCell = ({ row }: { row: AssayInferredAssociation }) => (
   <span className="inline-flex flex-wrap items-baseline gap-1">
     <SignalChips relationships={row.relationships} />
-    <LiteratureBadge
-      relationships={row.relationships}
-      literatureDirections={row.literature_directions}
-    />
+    {SHOW_LITERATURE_BADGE && (
+      <LiteratureBadge
+        relationships={row.relationships}
+        literatureDirections={row.literature_directions}
+      />
+    )}
   </span>
 );
 
@@ -46,9 +53,19 @@ type RowProps = {
   row: AssayInferredAssociation;
   peer: PeerDirection;
   reportProps: Record<string, unknown>;
+  onOpenTargets: () => void;
+  onOpenAssays: () => void;
+  onOpenActivities: () => void;
 };
 
-export const PeerRow = ({ row, peer, reportProps }: RowProps) => (
+export const PeerRow = ({
+  row,
+  peer,
+  reportProps,
+  onOpenTargets,
+  onOpenAssays,
+  onOpenActivities,
+}: RowProps) => (
   <tr {...reportProps}>
     <td className="py-1.5 pr-4">
       <div className="flex min-h-9 items-center capitalize">
@@ -57,25 +74,37 @@ export const PeerRow = ({ row, peer, reportProps }: RowProps) => (
         </Link>
       </div>
     </td>
-    <td className="py-1.5 px-4 text-right">
-      <CountCell value={row.n_assays} />
-    </td>
-    <td className="py-1.5 px-4 text-right">
-      <CountCell value={row.n_active_measurements} tone="text-emerald-300" />
-    </td>
     <td className="py-1.5 px-4">
       <SignalCell row={row} />
     </td>
     <td className="py-1.5 px-4">
-      <TargetGeneChips targets={row.targets} />
+      <DetailCountButton
+        n={row.bioactivities?.length ?? 0}
+        noun="activity"
+        onOpen={onOpenActivities}
+      />
     </td>
     <td className="py-1.5 px-4">
-      <AssayEvidenceLinks assays={row.assays} totalCount={row.n_assays} />
+      <DetailCountButton
+        n={row.targets?.length ?? 0}
+        noun="target"
+        onOpen={onOpenTargets}
+      />
+    </td>
+    <td className="py-1.5 px-4">
+      <DetailCountButton n={row.n_assays} noun="assay" onOpen={onOpenAssays} />
     </td>
   </tr>
 );
 
-export const PeerCard = ({ row, peer, reportProps }: RowProps) => (
+export const PeerCard = ({
+  row,
+  peer,
+  reportProps,
+  onOpenTargets,
+  onOpenAssays,
+  onOpenActivities,
+}: RowProps) => (
   <div className="py-3 flex flex-col gap-2" {...reportProps}>
     <div className="flex items-baseline justify-between gap-2 capitalize">
       <Link href={peerHref(row, peer)} isExternal={false}>
@@ -83,26 +112,33 @@ export const PeerCard = ({ row, peer, reportProps }: RowProps) => (
       </Link>
       <MdArrowForward className="w-3.5 h-3.5 text-light-500 shrink-0" />
     </div>
-    <CardRow label="Assays">
-      <CountCell value={row.n_assays} />
-    </CardRow>
-    <CardRow label="Active">
-      <CountCell value={row.n_active_measurements} tone="text-emerald-300" />
-    </CardRow>
     <div>
       <SignalCell row={row} />
     </div>
+    {!!row.bioactivities?.length && (
+      <CardRow label="Activities">
+        <DetailCountButton
+          n={row.bioactivities.length}
+          noun="activity"
+          onOpen={onOpenActivities}
+        />
+      </CardRow>
+    )}
     {!!row.targets?.length && (
       <CardRow label="Target">
-        <TargetGeneChips targets={row.targets} visible={2} />
+        <DetailCountButton
+          n={row.targets.length}
+          noun="target"
+          onOpen={onOpenTargets}
+        />
       </CardRow>
     )}
     {!!row.assays?.length && (
-      <CardRow label="Evidence">
-        <AssayEvidenceLinks
-          assays={row.assays}
-          totalCount={row.n_assays}
-          visible={1}
+      <CardRow label="Assays">
+        <DetailCountButton
+          n={row.n_assays}
+          noun="assay"
+          onOpen={onOpenAssays}
         />
       </CardRow>
     )}

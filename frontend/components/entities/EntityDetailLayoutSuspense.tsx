@@ -56,8 +56,10 @@ const EntityDetailLayoutSuspense = ({ entityType }: Props) => {
   const defaultTabId = DEFAULT_TAB_ID[entityType];
   const fits = TAB_STRIP_FITS[entityType];
 
+  // mt-10 must match EntityDetailLayout, or the loading shell steps down
+  // when the real page replaces it — see header-skeleton-parity.
   return (
-    <div className="mt-6">
+    <div className="mt-10">
       <section className="min-w-0">
         {/* Select vs chip strip, switched at the width the real strip
           * stops overflowing — see TAB_STRIP_FITS. Assuming `sm` here

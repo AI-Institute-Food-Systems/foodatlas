@@ -10,7 +10,12 @@ const Layout = ({ children }: Props) => {
   return (
     <div>
       <Navbar />
-      <div className="my-24 md:my-28 lg:my-32 px-4 md:px-24 ">
+      {/* Top and bottom split apart: the navbar is `fixed top-0` at
+       * h-12/h-14, so this margin is the only thing clearing it, while the
+       * bottom is just breathing room before the footer. Trimmed 16px off
+       * the top at each breakpoint — clearance below the bar goes 48/56/72
+       * to 32/40/56px — and left the bottom where it was. */}
+      <div className="mt-20 md:mt-24 lg:mt-28 mb-24 md:mb-28 lg:mb-32 px-4 md:px-24 ">
         <div className="max-w-5xl mx-auto min-h-screen">
           <Breadcrumb />
           {children}

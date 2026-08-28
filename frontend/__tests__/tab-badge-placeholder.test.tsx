@@ -89,8 +89,11 @@ describe("tab count badges", () => {
 
   it("never lets the badge push a long label onto a second line", () => {
     // The chip is a flex row, so a badge that can grow makes the label the
-    // thing that gives. "Diseases (assay-inferred)" is the longest label
-    // shipped and was wrapping once the badge widened.
+    // thing that gives. Deliberately longer than any label currently
+    // shipped — "Diseases (assay-inferred)" was the real one that wrapped
+    // once the badge widened, and it went away with the tab merge. The
+    // guard is about the chip's layout, not about which labels exist, so
+    // it keeps an over-long label rather than tracking the shortest set.
     const { container } = renderTabs([
       tab({ id: "assay-inferred", label: "Diseases (assay-inferred)" }),
     ]);

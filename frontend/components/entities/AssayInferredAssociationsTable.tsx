@@ -8,24 +8,32 @@
 //
 // This is a DIFFERENT signal from the CTD literature correlations
 // (/chemical/correlation) — an association here means the row entity
-// has ≥1 Active measurement in a shared bioactivity assay. Kept
-// visually distinct from the CTD Health Impacts section so users don't
-// conflate the two evidence sources.
+// has ≥1 Active measurement in a shared bioactivity assay.
 //
-// Rendered on a dedicated "Diseases (assay-inferred)" tab on chemical
-// pages and "Chemicals (assay-inferred)" on disease pages. Rows are
-// ordered by n_assays desc server-side; the endpoint isn't paginated,
-// so we render the first `initialPageSize` and offer a "Show all"
-// affordance for the long tail.
+// The two now share a tab (CorrelationEvidenceTab) but deliberately not
+// a table: they sit as separate labelled blocks so the distinction lands
+// next to the rows rather than being lost in a merged row set.
+//
+// Rows are ordered by n_assays desc server-side. The endpoint isn't
+// paginated, so filtering and paging both happen in memory — every row is
+// already here. Paging rather than a "show all" button because that is
+// what every other table on these pages does, including the literature
+// table directly above this one, and because the tail is long: caffeine
+// alone has 89 associations, obesity 1,693.
 
-import { useEffect, useMemo, useState } from "react";
-import { MdKeyboardArrowDown } from "react-icons/md";
+import { useEffect, useState } from "react";
 
+import Pagination from "@/components/basic/Pagination";
 import {
   TableSkeletonCards,
   TableSkeletonRows,
 } from "@/components/basic/TableSkeleton";
 import type { SkeletonColumn } from "@/components/basic/skeletonTokens";
+import {
+  AssayActivitiesModal,
+  AssaysModal,
+  AssayTargetsModal,
+} from "@/components/entities/shared/AssayDetailModals";
 import {
   PeerCard,
   PeerRow,
@@ -35,21 +43,33 @@ import {
 } from "@/components/entities/shared/AssayInferredRow";
 import { Th } from "@/components/entities/shared/EvidenceTable";
 import { useReportRows } from "@/context/reportModeContext";
+import { useAssayInferredRows } from "@/hooks/useAssayInferredRows";
 import { usePublishTabCount } from "@/context/tabCountsContext";
 import type { AssayInferredAssociation } from "@/types";
 
 export type { PeerDirection };
 
+// There is no "Active" column, and adding one back would be a mistake.
+// `n_active_measurements` is identically equal to `n_assays` in every row
+// of the data: 347,632/347,632 in mv_chemical_disease_bioactivity and
+// 408,118/408,118 in mv_disease_bioactivity, zero exceptions. The
+// materializer computes them as nunique(source_assay_id) and nunique(bm)
+// over evidence that carries exactly one active measurement per assay, so
+// they cannot diverge as long as that holds. Two columns of the same
+// number read as corroboration and are not.
+//
+// The field is still returned by the API and still travels in the row's
+// report metadata — only the column is gone.
+//
 // Mirrors the <colgroup> and cell alignment of the real table below, so
 // the loading grid lines up with the loaded one. Kept next to them: if
 // one changes, the other is a line away.
 const SKELETON_COLUMNS: SkeletonColumn[] = [
-  { key: "peer", width: "w-[26%]" },
-  { key: "assays", width: "w-[8%]", align: "right" },
-  { key: "active", width: "w-[8%]", align: "right" },
-  { key: "signal", width: "w-[24%]" },
-  { key: "target", width: "w-[20%]" },
-  { key: "evidence", width: "w-[14%]" },
+  { key: "peer", width: "w-[28%]" },
+  { key: "signal", width: "w-[22%]" },
+  { key: "activities", width: "w-[17%]" },
+  { key: "target", width: "w-[17%]" },
+  { key: "evidence", width: "w-[16%]" },
 ];
 
 interface Props {
@@ -64,21 +84,59 @@ interface Props {
     data: AssayInferredAssociation[];
     metadata: { row_count: number };
   } | null>;
-  // Tab id whose badge should reflect this table's row count.
-  tabId: string;
-  initialPageSize?: number;
+  // Tab id whose badge should reflect this table's row count. Empty when
+  // a parent tab owns the badge and sums this table with another —
+  // usePublishTabCount no-ops on a falsy id.
+  tabId?: string;
+  // Search driven by a parent FilterPanel. Filtered client-side because
+  // this endpoint isn't paginated — every row is already in memory.
+  externalSearch?: string;
+  // CTD DirectEvidence values to keep, from the same panel. Empty means
+  // no signal filter. A row can carry both values, so this is an ANY
+  // match rather than an equality test — which is also why the facet is
+  // multi-select where the literature table's Direction is a radio.
+  externalSignals?: string[];
+  // Bioactivity names to keep, same ANY-match rule as signals.
+  externalActivities?: string[];
+  // Per-signal row counts, so the panel can label its options. Counted
+  // under the search but not under the signal selection, so an option
+  // never reads zero just because the other one is picked.
+  onSignalCountsChange?: (counts: Record<string, number>) => void;
+  onActivityCountsChange?: (counts: Record<string, number>) => void;
+  // Post-filter row count, for a parent summing several tables.
+  onTotalRowsChange?: (total: number) => void;
 }
 
 const AssayInferredAssociationsTable = ({
   commonName,
   peer,
   fetcher,
-  tabId,
-  initialPageSize = 50,
+  tabId = "",
+  externalSearch = "",
+  externalSignals = [],
+  externalActivities = [],
+  onTotalRowsChange,
+  onSignalCountsChange,
+  onActivityCountsChange,
 }: Props) => {
-  const [rows, setRows] = useState<AssayInferredAssociation[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [showAll, setShowAll] = useState(false);
+  const { rows, isLoading, filtered, visible, totalPages, tableId } =
+    useAssayInferredRows({
+      commonName,
+      peer,
+      fetcher,
+      search: externalSearch,
+      signals: externalSignals,
+      activities: externalActivities,
+      onSignalCountsChange,
+      onActivityCountsChange,
+    });
+
+  // Which row's Target / Assays modal is open, by peer id. Two ids
+  // rather than one plus a mode, so opening one cannot leave the other
+  // rendering last frame's row.
+  const [targetsFor, setTargetsFor] = useState<string | null>(null);
+  const [assaysFor, setAssaysFor] = useState<string | null>(null);
+  const [activitiesFor, setActivitiesFor] = useState<string | null>(null);
   const reporter = useReportRows();
 
   // The anchor page is whichever side we're NOT listing: on a chemical page
@@ -95,35 +153,30 @@ const AssayInferredAssociationsTable = ({
       nActiveMeasurements: row.n_active_measurements,
     });
 
-  usePublishTabCount(tabId, isLoading ? null : rows.length);
-
+  usePublishTabCount(tabId, isLoading ? null : filtered.length);
   useEffect(() => {
-    let cancelled = false;
-    setIsLoading(true);
-    (async () => {
-      const payload = await fetcher();
-      if (cancelled) return;
-      setRows(payload?.data ?? []);
-      setIsLoading(false);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [fetcher]);
-
-  const visible = useMemo(
-    () => (showAll ? rows : rows.slice(0, initialPageSize)),
-    [rows, showAll, initialPageSize]
-  );
-  const hiddenCount = rows.length - visible.length;
+    if (onTotalRowsChange && !isLoading) onTotalRowsChange(filtered.length);
+  }, [onTotalRowsChange, filtered.length, isLoading]);
 
   const peerLabel = peer === "disease" ? "Disease" : "Chemical";
+  const byId = (id: string | null) =>
+    id === null ? undefined : rows.find((r) => peerId(r, peer) === id);
+  const targetsRow = byId(targetsFor);
+  const assaysRow = byId(assaysFor);
+  const activitiesRow = byId(activitiesFor);
 
-  if (!isLoading && rows.length === 0) {
+  if (!isLoading && filtered.length === 0) {
     return (
       <p className="text-sm text-light-500 italic">
-        No assay-inferred {peer} associations for{" "}
-        <span className="capitalize">{commonName}</span> in the current data.
+        {rows.length === 0 ? (
+          <>
+            No assay-inferred {peer} associations for{" "}
+            <span className="capitalize">{commonName}</span> in the current
+            data.
+          </>
+        ) : (
+          <>No assay-inferred {peer} associations match this search.</>
+        )}
       </p>
     );
   }
@@ -133,35 +186,27 @@ const AssayInferredAssociationsTable = ({
       <div className="hidden md:block overflow-x-auto">
         <table className="w-full table-fixed">
           <colgroup>
-            <col className="w-[26%]" />
-            <col className="w-[8%]" />
-            <col className="w-[8%]" />
-            <col className="w-[24%]" />
-            <col className="w-[20%]" />
-            <col className="w-[14%]" />
+            <col className="w-[28%]" />
+            <col className="w-[22%]" />
+            <col className="w-[17%]" />
+            <col className="w-[17%]" />
+            <col className="w-[16%]" />
           </colgroup>
           <thead className="text-light-400 text-left">
             <tr>
               <Th>{peerLabel}</Th>
-              <Th
-                align="right"
-                title="Number of distinct shared bioactivity assays backing this association"
-              >
-                Assays
-              </Th>
-              <Th
-                align="right"
-                title="Number of Active measurements across those assays"
-              >
-                Active
-              </Th>
               <Th title="How CTD classifies the link: therapeutic (treats) or marker/mechanism (marks or drives). Opposite directions.">
                 Signal
+              </Th>
+              <Th title="What the bridging assays measure — the activity classes this pair was Active in">
+                Activities
               </Th>
               <Th title="The protein target the bridging assays measure — what the association runs through">
                 Target
               </Th>
-              <Th title="The source assays behind this association">Evidence</Th>
+              <Th title="The source assays behind this association, and how many">
+                Assays
+              </Th>
             </tr>
           </thead>
           <tbody className="text-sm">
@@ -174,6 +219,9 @@ const AssayInferredAssociationsTable = ({
                   row={row}
                   peer={peer}
                   reportProps={rowReportProps(row)}
+                  onOpenTargets={() => setTargetsFor(peerId(row, peer))}
+                  onOpenAssays={() => setAssaysFor(peerId(row, peer))}
+                  onOpenActivities={() => setActivitiesFor(peerId(row, peer))}
                 />
               ))
             )}
@@ -192,20 +240,48 @@ const AssayInferredAssociationsTable = ({
               row={row}
               peer={peer}
               reportProps={rowReportProps(row)}
+              onOpenTargets={() => setTargetsFor(peerId(row, peer))}
+              onOpenAssays={() => setAssaysFor(peerId(row, peer))}
+              onOpenActivities={() => setActivitiesFor(peerId(row, peer))}
             />
           ))}
         </div>
       )}
 
-      {hiddenCount > 0 && (
-        <button
-          type="button"
-          onClick={() => setShowAll(true)}
-          className="self-center inline-flex items-center gap-1 text-xs font-mono italic text-light-400 hover:text-light-100 transition-colors"
-        >
-          Show all {rows.length.toLocaleString()} associations
-          <MdKeyboardArrowDown className="w-4 h-4" />
-        </button>
+      {activitiesRow && (
+        <AssayActivitiesModal
+          activities={activitiesRow.bioactivities ?? []}
+          peerName={peerName(activitiesRow, peer)}
+          isOpen
+          onClose={() => setActivitiesFor(null)}
+        />
+      )}
+      {targetsRow && (
+        <AssayTargetsModal
+          targets={targetsRow.targets ?? []}
+          peerName={peerName(targetsRow, peer)}
+          isOpen
+          onClose={() => setTargetsFor(null)}
+        />
+      )}
+      {assaysRow && (
+        <AssaysModal
+          assays={assaysRow.assays ?? []}
+          totalCount={assaysRow.n_assays}
+          peerName={peerName(assaysRow, peer)}
+          isOpen
+          onClose={() => setAssaysFor(null)}
+        />
+      )}
+
+      {(totalPages > 1 || isLoading) && (
+        <div className="mt-2 max-w-xl w-full mx-auto">
+          <Pagination
+            tableId={tableId}
+            numberOfPages={totalPages}
+            isLoading={isLoading}
+          />
+        </div>
       )}
     </div>
   );
