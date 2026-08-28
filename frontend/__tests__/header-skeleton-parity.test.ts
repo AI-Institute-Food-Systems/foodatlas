@@ -11,6 +11,11 @@
 // And the name placeholder was h-9/h-10 against an H1 that renders
 // 1.875rem/2.25rem at leading-none — 6px too tall at both breakpoints.
 //
+// There are TWO such pairs, not one, and covering only the header is how
+// a 16px shift shipped: EntityDetailLayout moved from mt-6 to mt-10 while
+// EntityDetailLayoutSuspense stayed behind, so every entity route stepped
+// down when the loading shell handed off. Both pairs are checked here.
+//
 // Static, because HeaderSection is an async Server Component: rendering it
 // would mean standing up the data layer to compare two boxes.
 
@@ -33,6 +38,26 @@ const classNames = (src: string): string[] =>
   Array.from(stripComments(src).matchAll(/className="([^"]+)"/g)).map(
     (m) => m[1]
   );
+
+// The wrapper each pair opens with. These set where everything below them
+// starts, so a mismatch moves the entire page, not just its own box.
+const OUTER_MARGIN = /<div className="(m[tbxy]-[^"]*)"/;
+
+describe("layout/skeleton pairs agree on their outer margin", () => {
+  const PAIRS: [string, string][] = [
+    ["HeaderSection.tsx", "HeaderSectionSuspense.tsx"],
+    ["EntityDetailLayout.tsx", "EntityDetailLayoutSuspense.tsx"],
+  ];
+
+  for (const [real, skeleton] of PAIRS) {
+    it(`${real} matches ${skeleton}`, () => {
+      const margin = (f: string) =>
+        stripComments(read(f)).match(OUTER_MARGIN)?.[1];
+      expect(margin(real), `${real} has no outer margin to compare`).toBeDefined();
+      expect(margin(real)).toBe(margin(skeleton));
+    });
+  }
+});
 
 describe("header skeleton parity", () => {
   it("uses the same row structure in both", () => {
