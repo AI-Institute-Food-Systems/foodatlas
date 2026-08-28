@@ -20,11 +20,11 @@ import {
 } from "@/components/entities/shared/EvidenceTable";
 import {
   AssaysModal,
+  AssayTargetsModal,
   DetailCountButton,
 } from "@/components/entities/shared/AssayDetailModals";
 import LiteratureBadge from "@/components/entities/shared/LiteratureBadge";
 import SignalChips from "@/components/entities/shared/SignalChips";
-import TargetGeneChips from "@/components/entities/shared/TargetGeneChips";
 import { useReportRows } from "@/context/reportModeContext";
 import { encodeSpace } from "@/utils/utils";
 import type { DiseaseBioactivityChemical } from "@/types";
@@ -81,9 +81,13 @@ const DiseaseBioactivityTable = ({
   const rowKey = (r: DiseaseBioactivityChemical) =>
     `${r.bioactivity_foodatlas_id}-${r.chemical_foodatlas_id}`;
   // Keyed by row, not a boolean, so the modal cannot show a stale row's
-  // assays after a different button is clicked.
+  // assays after a different button is clicked. Two ids rather than one
+  // plus a mode, matching AssayInferredAssociationsTable, so opening one
+  // cannot leave the other rendering last frame's row.
   const [assaysFor, setAssaysFor] = useState<string | null>(null);
+  const [targetsFor, setTargetsFor] = useState<string | null>(null);
   const assaysRow = rows.find((r) => rowKey(r) === assaysFor);
+  const targetsRow = rows.find((r) => rowKey(r) === targetsFor);
   const reporter = useReportRows();
   const rowReportProps = (row: DiseaseBioactivityChemical) =>
     reporter.getRowProps({
@@ -152,7 +156,11 @@ const DiseaseBioactivityTable = ({
                   <SignalCell row={row} />
                 </td>
                 <td className="py-1.5 px-4">
-                  <TargetGeneChips targets={row.targets} visible={2} />
+                  <DetailCountButton
+                    n={row.targets?.length ?? 0}
+                    noun="target"
+                    onOpen={() => setTargetsFor(rowKey(row))}
+                  />
                 </td>
                 <td className="py-1.5 px-4">
                   <DetailCountButton
@@ -200,7 +208,11 @@ const DiseaseBioactivityTable = ({
             </div>
             {!!row.targets?.length && (
               <CardRow label="Target">
-                <TargetGeneChips targets={row.targets} visible={2} />
+                <DetailCountButton
+                  n={row.targets.length}
+                  noun="target"
+                  onOpen={() => setTargetsFor(rowKey(row))}
+                />
               </CardRow>
             )}
             {!!row.assays?.length && (
@@ -217,6 +229,14 @@ const DiseaseBioactivityTable = ({
       </div>
       )}
 
+      {targetsRow && (
+        <AssayTargetsModal
+          targets={targetsRow.targets ?? []}
+          peerName={`${targetsRow.chemical_name} — ${targetsRow.bioactivity_name}`}
+          isOpen
+          onClose={() => setTargetsFor(null)}
+        />
+      )}
       {assaysRow && (
         <AssaysModal
           assays={assaysRow.assays ?? []}
