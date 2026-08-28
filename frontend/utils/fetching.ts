@@ -248,23 +248,37 @@ export async function getDiseaseData(
   commonName: string,
   currentPage: number,
   tableLocation: string,
-  correlationType: "positive" | "negative"
+  relation: "all" | "positive" | "negative" = "all",
+  search = ""
 ) {
-  const url = `${apiBase()}/${tableLocation}/correlation?common_name=${encodeURIComponent(
-    commonName
-  )}&page=${currentPage}&relation=${correlationType}`;
-  const response = await apiFetch(
-    url,
-    { revalidate: 86400 }
-  );
+  const url =
+    `${apiBase()}/${tableLocation}/correlation?common_name=${encodeURIComponent(
+      commonName
+    )}&page=${currentPage}&relation=${relation}` +
+    (search ? `&search=${encodeURIComponent(search)}` : "");
+  const response = await apiFetch(url, { revalidate: 86400 });
 
-  if (!response.ok) {
-    throw new Error(`Failed to fetch data for ${tableLocation} ${commonName}`);
-  }
+  // Null rather than throw: staging is flaky enough that a throw here
+  // surfaces as a user-facing 500 on an otherwise fine page.
+  if (!response.ok) return null;
+  return await response.json();
+}
 
-  const data = await response.json();
-
-  return data;
+// Improves/worsens counts for the merged tab's Direction facet. Counted
+// under the active search but not the active direction, so the option
+// the user is about to pick doesn't read zero.
+export async function getCorrelationDirectionCounts(
+  commonName: string,
+  tableLocation: string,
+  search = ""
+): Promise<{ improves: number; worsens: number; both: number } | null> {
+  const url =
+    `${apiBase()}/${tableLocation}/correlation/direction-counts` +
+    `?common_name=${encodeURIComponent(commonName)}` +
+    (search ? `&search=${encodeURIComponent(search)}` : "");
+  const response = await apiFetch(url, { revalidate: 86400 });
+  if (!response.ok) return null;
+  return await response.json();
 }
 
 // fetch db bundle download entries
@@ -685,19 +699,8 @@ export const getChemicalDiseaseAssociations = (commonName: string) =>
 export const getDiseaseChemicalAssociations = (commonName: string) =>
   assayInferredFetch("/disease/chemical-associations", commonName);
 
-// Disease bioactivity profile — one row per bioactivity, attributed through
-// the bridging assay rather than through the chemical. Returns
-// { data: DiseaseBioactivitySummary[], metadata: { row_count } }.
-export const getDiseaseBioactivities = (commonName: string) =>
-  assayInferredFetch("/disease/bioactivities", commonName);
-
-// The chemicals behind those bioactivities, ordered by bridging assay count.
-// Returns { data: DiseaseBioactivityChemical[], metadata: { row_count } }.
-export const getDiseaseBioactivityChemicals = (commonName: string) =>
-  assayInferredFetch("/disease/bioactivity-chemicals", commonName);
-
-// Same view read from the bioactivity side — the diseases whose bridging
-// assays measure this activity, most chemicals first.
+// The diseases whose bridging assays measure this activity, most chemicals
+// first — the bioactivity page's Diseases tab.
 // Returns { data: BioactivityDisease[], metadata: { row_count } }.
 export const getBioactivityDiseases = (commonName: string) =>
   assayInferredFetch("/bioactivity/diseases", commonName);

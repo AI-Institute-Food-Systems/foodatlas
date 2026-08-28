@@ -33,10 +33,26 @@ async def disease_taxonomy(
 async def disease_correlation(
     common_name: str = Query(...),
     page: int = Query(1),
-    relation: str = Query("positive"),
+    relation: str = Query("all"),
+    search: str = Query(""),
     db: AsyncSession = Depends(get_db),
 ):
-    return await disease.get_correlation(db, common_name, page, relation)
+    """CTD literature correlations, one page.
+
+    ``relation`` is "all" (both directions, each row carrying its own
+    ``relationship_id``), "positive" or "negative".
+    """
+    return await disease.get_correlation(db, common_name, page, relation, search)
+
+
+@router.get("/correlation/direction-counts")
+async def disease_correlation_direction_counts(
+    common_name: str = Query(...),
+    search: str = Query(""),
+    db: AsyncSession = Depends(get_db),
+):
+    """Row counts per direction, for the merged tab's Direction facet."""
+    return await disease.get_correlation_direction_counts(db, common_name, search)
 
 
 @router.get("/chemical-associations")

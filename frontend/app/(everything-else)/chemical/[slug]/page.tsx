@@ -1,18 +1,14 @@
 import { Suspense } from "react";
 import { Metadata } from "next";
 
-import ChemicalAssayInferredSection from "@/components/entities/chemical/ChemicalAssayInferredSection";
 import ChemicalCompositionSection from "@/components/entities/chemical/ChemicalCompositionSection";
-import ChemicalCorrelationSection from "@/components/entities/chemical/ChemicalCorrelationSection";
+import CorrelationEvidenceTab from "@/components/entities/shared/CorrelationEvidenceTab";
 import ChemicalBioactivitiesSection from "@/components/entities/bioactivity/ChemicalBioactivitiesSection";
 import HeaderSection from "@/components/entities/HeaderSection";
 import HeaderSectionSuspense from "@/components/entities/HeaderSectionSuspense";
 import EntityDetailLayout from "@/components/entities/EntityDetailLayout";
 import { buildTabs } from "@/components/entities/buildTabs";
-import {
-  chemicalAssayInferredCount,
-  healthImpactsCount,
-} from "@/utils/tabCounts";
+import { correlationEvidenceCount } from "@/utils/tabCounts";
 import { DEFAULT_TAB_ID } from "@/components/entities/entityTabs.config";
 import EntityOverviewPanel from "@/components/entities/EntityOverviewPanel";
 import EntityOverviewPanelSuspense from "@/components/entities/EntityOverviewPanelSuspense";
@@ -51,13 +47,12 @@ const ChemicalPage = async ({ params }: ChemicalPageProps) => {
   // tab needs one: a tab only mounts when opened, so without a count from
   // here its badge placeholder pulses for the life of the page. These are
   // counts, not content — the tabs still load lazily.
-  const [composition, bioPayload, metaPayload, healthCount, inferredCount] =
+  const [composition, bioPayload, metaPayload, healthCount] =
     await Promise.all([
       getChemicalCompositionData(commonName).catch(() => null),
       getChemicalBioactivities(commonName).catch(() => null),
       getMetaData(commonName, entityType).catch(() => null),
-      healthImpactsCount(commonName, "chemical"),
-      chemicalAssayInferredCount(commonName),
+      correlationEvidenceCount(commonName, "chemical"),
     ]);
   const compositionCount = composition
     ? (composition.with_concentrations?.length ?? 0) +
@@ -95,11 +90,12 @@ const ChemicalPage = async ({ params }: ChemicalPageProps) => {
           },
           health: {
             count: healthCount,
-            content: <ChemicalCorrelationSection commonName={commonName} />,
-          },
-          "assay-inferred": {
-            count: inferredCount,
-            content: <ChemicalAssayInferredSection commonName={commonName} />,
+            content: (
+              <CorrelationEvidenceTab
+                commonName={commonName}
+                anchor="chemical"
+              />
+            ),
           },
           overview: {
             content: (

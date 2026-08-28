@@ -2,18 +2,12 @@ import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
-import DiseaseBioactivitiesSection from "@/components/entities/disease/DiseaseBioactivitiesSection";
-import DiseaseAssayInferredSection from "@/components/entities/disease/DiseaseAssayInferredSection";
-import DiseaseCorrelationsSection from "@/components/entities/disease/DiseaseCorrelationsSection";
+import CorrelationEvidenceTab from "@/components/entities/shared/CorrelationEvidenceTab";
 import HeaderSection from "@/components/entities/HeaderSection";
 import EntityDetailLayout from "@/components/entities/EntityDetailLayout";
 import EntityOverviewPanel from "@/components/entities/EntityOverviewPanel";
 import { buildTabs } from "@/components/entities/buildTabs";
-import {
-  diseaseAssayInferredCount,
-  diseaseBioactivitiesCount,
-  healthImpactsCount,
-} from "@/utils/tabCounts";
+import { correlationEvidenceCount } from "@/utils/tabCounts";
 import { DEFAULT_TAB_ID } from "@/components/entities/entityTabs.config";
 import EntityOverviewPanelSuspense from "@/components/entities/EntityOverviewPanelSuspense";
 import HeaderSectionSuspense from "@/components/entities/HeaderSectionSuspense";
@@ -46,15 +40,10 @@ const DiseasePage = async ({ params }: DiseasePageProps) => {
   const commonName = decodeSpace(decodeURIComponent(slug));
   const entityType = "disease" as const;
 
-  // Counts for every counted tab, in parallel. A tab mounts only when
-  // opened, so an unfetched count leaves its badge placeholder pulsing for
-  // the life of the page — this page previously fetched none, so all three
-  // badges did. Counts only; the tabs still load lazily.
-  const [healthCount, inferredCount, bioactivitiesCount] = await Promise.all([
-    healthImpactsCount(commonName, "disease"),
-    diseaseAssayInferredCount(commonName),
-    diseaseBioactivitiesCount(commonName),
-  ]);
+  // The one counted tab. A tab mounts only when opened, so an unfetched
+  // count leaves its badge placeholder pulsing for the life of the page.
+  // Count only; the tab still loads lazily.
+  const healthCount = await correlationEvidenceCount(commonName, "disease");
 
   return (
     <>
@@ -67,15 +56,12 @@ const DiseasePage = async ({ params }: DiseasePageProps) => {
         tabs={buildTabs(entityType, {
           health: {
             count: healthCount,
-            content: <DiseaseCorrelationsSection commonName={commonName} />,
-          },
-          "assay-inferred": {
-            count: inferredCount,
-            content: <DiseaseAssayInferredSection commonName={commonName} />,
-          },
-          bioactivities: {
-            count: bioactivitiesCount,
-            content: <DiseaseBioactivitiesSection commonName={commonName} />,
+            content: (
+              <CorrelationEvidenceTab
+                commonName={commonName}
+                anchor="disease"
+              />
+            ),
           },
           overview: {
             content: (

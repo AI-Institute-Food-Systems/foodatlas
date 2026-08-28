@@ -39,7 +39,7 @@ const DirectionSplit = ({
       </span>
     </Tooltip>
     <Tooltip
-      content={`${nMarker.toLocaleString()} of ${nChemicals.toLocaleString()} chemicals carry marker/mechanism direct evidence — the chemical marks or drives this disease. Not a benefit claim.`}
+      content={`${nMarker.toLocaleString()} of ${nChemicals.toLocaleString()} chemicals carry marker/mechanism direct evidence — the chemical marks or drives this disease.`}
     >
       <span className="text-amber-300 tabular-nums">
         {nMarker.toLocaleString()} mark.

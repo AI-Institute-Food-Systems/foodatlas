@@ -37,6 +37,11 @@ export type AssayInferredAssociation = {
   // Assay ids ("AID: 1055355"). Capped at 25 per row by the materializer
   // (ASSAY_CAP), so a row with n_assays > 25 lists a sample, not all of them.
   assays: string[];
+  // What those assays were measuring — "anticancer", "antidementia", …
+  // Attached by the API from mv_disease_bioactivity, which is this same
+  // evidence one grain finer. Optional because a row can predate the
+  // field; treat a missing value as an empty list, not as "unknown".
+  bioactivities?: string[];
   // The same vocabulary as `relationships`, but from CTD literature rather
   // than the assay bridge — so the two can be compared. Empty for ~97.5% of
   // rows, which is what makes a match worth surfacing.

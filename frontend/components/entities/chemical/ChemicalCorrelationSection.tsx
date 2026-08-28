@@ -1,99 +1,68 @@
 "use client";
 
-import { useState } from "react";
+// The CTD-literature half of the merged Diseases tab on chemical pages.
+//
+// No longer owns a tab: it renders one table (both directions, filtered
+// from the parent's sidebar) and reports its row count upward, so
+// ChemicalDiseasesTab can sum it with the assay-inferred table for a
+// single badge. The Improves/Worsens headings that used to split this
+// into two tables are now a Direction column plus a sidebar facet.
 
 import Heading from "@/components/basic/Heading";
 import CorrelationTable from "@/components/entities/CorrelationTable";
 import InfoBanner from "@/components/basic/InfoBanner";
 import Link from "@/components/basic/Link";
-import { usePublishTabCount } from "@/context/tabCountsContext";
+import type { CorrelationDirection } from "@/components/entities/shared/CorrelationRow";
 
 interface ChemicalCorrelationSectionProps {
   commonName: string;
+  direction?: CorrelationDirection;
+  search?: string;
+  onTotalRowsChange?: (total: number) => void;
 }
 
 const ChemicalCorrelationSection = ({
   commonName,
-}: ChemicalCorrelationSectionProps) => {
-  // Aggregated Improves + Worsens totals → the "Health Impacts" tab badge.
-  // The two tables resolve independently, so publish only once both have
-  // reported — otherwise the badge shows one table's count and then
-  // visibly jumps when the other lands.
-  const [posTotal, setPosTotal] = useState<number | null>(null);
-  const [negTotal, setNegTotal] = useState<number | null>(null);
-  usePublishTabCount(
-    "health",
-    posTotal === null || negTotal === null ? null : posTotal + negTotal,
-  );
-
-  return (
-    <div className="flex flex-col gap-7">
-      <InfoBanner
-        description={
-          <div>
-            <p>
-              Please note that all information below reflects the positive
-              (&apos;T&apos;) and Negative (&apos;M&apos;) literature evidence
-              in the{" "}
-              <Link href="https://ctdbase.org" isExternal>
-                Comparative Toxicogenomics Database (CTD)
-              </Link>
-              . Any chemical can be toxic at high doses; refer to the
-              appropriate references for validity of the claims and dosage
-              effects.
-            </p>
-          </div>
-        }
-      />
-      <div className="flex flex-col gap-7">
-        {/* positive correlations */}
-        <div className="flex flex-col gap-4">
-          <div>
-            <Heading
-              type="h3"
-              className="text-light-300 font-mono text-sm font-medium"
-            >
-              Improves
-            </Heading>
-            <p className="text-light-500">
-              Diseases for which the consumption of this chemical has been shown
-              to either improve health outcomes or reduce the risk of onset.
-            </p>
-          </div>
-          <CorrelationTable
-            commonName={commonName}
-            tableLocation={"chemical"}
-            headers={[{ label: "Chemical" }, { label: "Disease" }, { label: "Publication (PMID)" }]}
-            correlationType={"positive"}
-            onTotalRowsChange={setPosTotal}
-          />
-        </div>
-        {/* negative correlations */}
-        <div className="flex flex-col gap-4">
-          <div>
-            <Heading
-              type="h3"
-              className="text-light-300 font-mono text-sm font-medium"
-            >
-              Worsens
-            </Heading>
-            <p className="text-light-500">
-              Diseases for which the consumption of this chemical has been shown
-              to either worsen health outcomes or increase the risk of onset.
-            </p>
-          </div>
-          <CorrelationTable
-            commonName={commonName}
-            tableLocation={"chemical"}
-            headers={[{ label: "Chemical" }, { label: "Disease" }, { label: "Publication (PMID)" }]}
-            correlationType={"negative"}
-            onTotalRowsChange={setNegTotal}
-          />
-        </div>
-      </div>
+  direction = "all",
+  search = "",
+  onTotalRowsChange,
+}: ChemicalCorrelationSectionProps) => (
+  <div className="flex flex-col gap-4">
+    {/* Section label + blurb in the same chip-over-serif vocabulary the
+      * food page's stacked sections use, so a tab that stacks two sources
+      * reads the same way whichever entity you are on. */}
+    <div className="flex flex-col gap-2">
+      <Heading type="h3" variant="chip" className="self-start">
+        From Literature
+      </Heading>
+      <p className="font-serif italic text-light-400 text-sm">
+        Diseases whose outcomes or risk of onset this chemical has been
+        reported to improve or worsen, curated from published studies.
+      </p>
     </div>
-  );
-};
+    <InfoBanner
+      description={
+        <p>
+          Please note that all information below reflects the positive
+          (&apos;T&apos;) and Negative (&apos;M&apos;) literature evidence in
+          the{" "}
+          <Link href="https://ctdbase.org" isExternal>
+            Comparative Toxicogenomics Database (CTD)
+          </Link>
+          . Any chemical can be toxic at high doses; refer to the appropriate
+          references for validity of the claims and dosage effects.
+        </p>
+      }
+    />
+    <CorrelationTable
+      commonName={commonName}
+      tableLocation="chemical"
+      direction={direction}
+      search={search}
+      onTotalRowsChange={onTotalRowsChange}
+    />
+  </div>
+);
 
 ChemicalCorrelationSection.displayName = "ChemicalCorrelationSection";
 
