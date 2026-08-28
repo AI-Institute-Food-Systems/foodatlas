@@ -13,7 +13,7 @@
 // (PMIDs and a direction on one side, assay/active counts, signal and
 // target genes on the other), so one table would be mostly empty cells.
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import {
   FilterGroup,
@@ -27,6 +27,7 @@ import ChemicalCorrelationSection from "@/components/entities/chemical/ChemicalC
 import DiseaseAssayInferredSection from "@/components/entities/disease/DiseaseAssayInferredSection";
 import DiseaseCorrelationsSection from "@/components/entities/disease/DiseaseCorrelationsSection";
 import type { CorrelationDirection } from "@/components/entities/shared/CorrelationRow";
+import SignalFilterGroup from "@/components/entities/shared/filters/SignalFilterGroup";
 import { usePublishTabCount } from "@/context/tabCountsContext";
 import { getCorrelationDirectionCounts } from "@/utils/fetching";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
@@ -44,9 +45,15 @@ const DIRECTIONS: { key: CorrelationDirection; label: string }[] = [
   { key: "negative", label: "Worsens" },
 ];
 
+// Signal is its own facet rather than folded into Direction above: it is
+// the same r3/r4 vocabulary, but it filters the OTHER table, a row can
+// carry both values at once, and the rows label it in CTD's wording
+// rather than as Improves/Worsens.
+
 const CorrelationEvidenceTab = ({ commonName, anchor }: Props) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [direction, setDirection] = useState<CorrelationDirection>("all");
+  const [signals, setSignals] = useState<string[]>([]);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   // The CTD half filters server-side, so every keystroke would be a
@@ -89,6 +96,18 @@ const CorrelationEvidenceTab = ({ commonName, anchor }: Props) => {
       cancelled = true;
     };
   }, [commonName, anchor, debouncedSearch]);
+
+  // Reported up by the assay table, which owns those rows. Memoised
+  // setter: the table calls it from an effect keyed on the callback.
+  const [signalCounts, setSignalCounts] = useState<Record<string, number>>({});
+  const handleSignalCounts = useCallback(
+    (counts: Record<string, number>) => setSignalCounts(counts),
+    []
+  );
+  const toggleSignal = (key: string) =>
+    setSignals((prev) =>
+      prev.includes(key) ? prev.filter((s) => s !== key) : [...prev, key]
+    );
 
   const peerLabel = anchor === "chemical" ? "disease" : "chemical";
 
@@ -135,10 +154,12 @@ const CorrelationEvidenceTab = ({ commonName, anchor }: Props) => {
     </FilterGroup>
   );
 
-  const isDirty = searchTerm !== "" || direction !== "all";
+  const isDirty =
+    searchTerm !== "" || direction !== "all" || signals.length > 0;
   const resetAllFilters = () => {
     setSearchTerm("");
     setDirection("all");
+    setSignals([]);
   };
 
   const literature =
@@ -163,20 +184,37 @@ const CorrelationEvidenceTab = ({ commonName, anchor }: Props) => {
       <ChemicalAssayInferredSection
         commonName={commonName}
         search={debouncedSearch}
+        signals={signals}
         onTotalRowsChange={setInferredTotal}
+        onSignalCountsChange={handleSignalCounts}
       />
     ) : (
       <DiseaseAssayInferredSection
         commonName={commonName}
         search={debouncedSearch}
+        signals={signals}
         onTotalRowsChange={setInferredTotal}
+        onSignalCountsChange={handleSignalCounts}
       />
     );
 
   return (
     <FilterPanel
       search={searchInput}
-      filters={directionFilter}
+      filters={
+        <>
+          {directionFilter}
+          {/* Applies to the lab-assay table only — a literature row has a
+           * direction, not a signal. */}
+          <SignalFilterGroup
+            selected={signals}
+            counts={signalCounts}
+            onToggle={toggleSignal}
+            onClear={() => setSignals([])}
+            countsLoaded={Object.keys(signalCounts).length > 0}
+          />
+        </>
+      }
       isDirty={isDirty}
       onReset={resetAllFilters}
       open={mobileFiltersOpen}

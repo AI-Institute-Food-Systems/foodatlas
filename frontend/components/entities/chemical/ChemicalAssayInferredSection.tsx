@@ -16,13 +16,17 @@ import { getChemicalDiseaseAssociations } from "@/utils/fetching";
 interface Props {
   commonName: string;
   search?: string;
+  signals?: string[];
+  onSignalCountsChange?: (counts: Record<string, number>) => void;
   onTotalRowsChange?: (total: number) => void;
 }
 
 const ChemicalAssayInferredSection = ({
   commonName,
   search = "",
+  signals = [],
   onTotalRowsChange,
+  onSignalCountsChange,
 }: Props) => {
   const fetcher = useCallback(
     () => getChemicalDiseaseAssociations(commonName),
@@ -49,7 +53,9 @@ const ChemicalAssayInferredSection = ({
         peer="disease"
         fetcher={fetcher}
         externalSearch={search}
+        externalSignals={signals}
         onTotalRowsChange={onTotalRowsChange}
+        onSignalCountsChange={onSignalCountsChange}
       />
     </div>
   );

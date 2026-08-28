@@ -21,7 +21,7 @@
 // table directly above this one, and because the tail is long: caffeine
 // alone has 89 associations, obesity 1,693.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import Pagination from "@/components/basic/Pagination";
 import {
@@ -41,8 +41,8 @@ import {
   type PeerDirection,
 } from "@/components/entities/shared/AssayInferredRow";
 import { Th } from "@/components/entities/shared/EvidenceTable";
-import { usePaginations } from "@/context/paginationsContext";
 import { useReportRows } from "@/context/reportModeContext";
+import { useAssayInferredRows } from "@/hooks/useAssayInferredRows";
 import { usePublishTabCount } from "@/context/tabCountsContext";
 import type { AssayInferredAssociation } from "@/types";
 
@@ -70,8 +70,6 @@ const SKELETON_COLUMNS: SkeletonColumn[] = [
   { key: "evidence", width: "w-[22%]" },
 ];
 
-const ROWS_PER_PAGE = 20;
-
 interface Props {
   // Anchor entity's common_name — used only in the empty-state copy.
   commonName: string;
@@ -91,6 +89,15 @@ interface Props {
   // Search driven by a parent FilterPanel. Filtered client-side because
   // this endpoint isn't paginated — every row is already in memory.
   externalSearch?: string;
+  // CTD DirectEvidence values to keep, from the same panel. Empty means
+  // no signal filter. A row can carry both values, so this is an ANY
+  // match rather than an equality test — which is also why the facet is
+  // multi-select where the literature table's Direction is a radio.
+  externalSignals?: string[];
+  // Per-signal row counts, so the panel can label its options. Counted
+  // under the search but not under the signal selection, so an option
+  // never reads zero just because the other one is picked.
+  onSignalCountsChange?: (counts: Record<string, number>) => void;
   // Post-filter row count, for a parent summing several tables.
   onTotalRowsChange?: (total: number) => void;
 }
@@ -101,16 +108,20 @@ const AssayInferredAssociationsTable = ({
   fetcher,
   tabId = "",
   externalSearch = "",
+  externalSignals = [],
   onTotalRowsChange,
+  onSignalCountsChange,
 }: Props) => {
-  const [rows, setRows] = useState<AssayInferredAssociation[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { rows, isLoading, filtered, visible, totalPages, tableId } =
+    useAssayInferredRows({
+      commonName,
+      peer,
+      fetcher,
+      search: externalSearch,
+      signals: externalSignals,
+      onSignalCountsChange,
+    });
 
-  // Per-direction id: the chemical and disease pages each render one of
-  // these, and a shared id would make them share a page number.
-  const tableId = `assay-inferred-${peer}-${commonName}`;
-  const { getTablePaginations, setTablePaginations } = usePaginations();
-  const { currentPage } = getTablePaginations(tableId);
   // Which row's Target / Assays modal is open, by peer id. Two ids
   // rather than one plus a mode, so opening one cannot leave the other
   // rendering last frame's row.
@@ -132,66 +143,10 @@ const AssayInferredAssociationsTable = ({
       nActiveMeasurements: row.n_active_measurements,
     });
 
-  // Search applies to the peer's name — the only free-text column here.
-  const filtered = useMemo(() => {
-    const term = externalSearch.trim().toLowerCase();
-    if (!term) return rows;
-    return rows.filter((row) =>
-      peerName(row, peer).toLowerCase().includes(term)
-    );
-  }, [rows, externalSearch, peer]);
-
   usePublishTabCount(tabId, isLoading ? null : filtered.length);
   useEffect(() => {
     if (onTotalRowsChange && !isLoading) onTotalRowsChange(filtered.length);
   }, [onTotalRowsChange, filtered.length, isLoading]);
-
-  useEffect(() => {
-    let cancelled = false;
-    setIsLoading(true);
-    (async () => {
-      const payload = await fetcher();
-      if (cancelled) return;
-      setRows(payload?.data ?? []);
-      setIsLoading(false);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [fetcher]);
-
-  const totalPages = Math.max(
-    1,
-    Math.ceil(filtered.length / ROWS_PER_PAGE)
-  );
-  const visible = useMemo(
-    () =>
-      filtered.slice(
-        (currentPage - 1) * ROWS_PER_PAGE,
-        currentPage * ROWS_PER_PAGE
-      ),
-    [filtered, currentPage]
-  );
-
-  // Filtering to fewer pages while on a later one slices past the end and
-  // renders the empty state over real rows, with the paginator unmounted
-  // and no way back. Guarded on !isLoading because rows are empty on the
-  // first render, when an unguarded clamp would discard a persisted page.
-  useEffect(() => {
-    if (!isLoading && currentPage > totalPages) {
-      setTablePaginations(tableId, 1, ROWS_PER_PAGE);
-    }
-  }, [isLoading, currentPage, totalPages, tableId, setTablePaginations]);
-
-  // A new search should land on its best matches, not on page 4 of them.
-  // Ref-compared rather than a bare effect so mounting doesn't reset a
-  // page the user navigated to.
-  const lastSearch = useRef(externalSearch);
-  useEffect(() => {
-    if (lastSearch.current === externalSearch) return;
-    lastSearch.current = externalSearch;
-    setTablePaginations(tableId, 1, ROWS_PER_PAGE);
-  }, [externalSearch, tableId, setTablePaginations]);
 
   const peerLabel = peer === "disease" ? "Disease" : "Chemical";
   const byId = (id: string | null) =>

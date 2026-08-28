@@ -31,6 +31,10 @@ import {
   FilterSearchInput,
 } from "@/components/entities/shared/filters/FilterControls";
 import FilterPanel from "@/components/entities/shared/filters/FilterPanel";
+import SignalFilterGroup, {
+  countSignals,
+  matchesSignals,
+} from "@/components/entities/shared/filters/SignalFilterGroup";
 import DiseaseBioactivityTable from "@/components/entities/disease/DiseaseBioactivityTable";
 import { usePublishTabCount } from "@/context/tabCountsContext";
 import {
@@ -59,6 +63,7 @@ const DiseaseBioactivitiesSection = ({ commonName }: Props) => {
   const [isLoading, setIsLoading] = useState(true);
 
   const [bioactivity, setBioactivity] = useState<string>(ALL);
+  const [signals, setSignals] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
@@ -99,13 +104,23 @@ const DiseaseBioactivitiesSection = ({ commonName }: Props) => {
     );
   }, [rows, searchTerm]);
 
-  const filtered = useMemo(
+  const byActivity = useMemo(
     () =>
       bioactivity === ALL
         ? searched
         : searched.filter((row) => row.bioactivity_name === bioactivity),
     [searched, bioactivity]
   );
+
+  const filtered = useMemo(
+    () => byActivity.filter((row) => matchesSignals(row.relationships, signals)),
+    [byActivity, signals]
+  );
+
+  // Counted after the activity filter but before their own, the same rule
+  // the activity counts follow: a facet must not zero out the option you
+  // are reaching for.
+  const signalCounts = useMemo(() => countSignals(byActivity), [byActivity]);
 
   // Counted under the active search but NOT the active activity, so the
   // option you are about to pick never reads zero. One pass rather than one
@@ -119,13 +134,22 @@ const DiseaseBioactivitiesSection = ({ commonName }: Props) => {
     return map;
   }, [searched]);
 
-  useEffect(() => setVisibleCount(PAGE_SIZE), [bioactivity, searchTerm]);
+  useEffect(
+    () => setVisibleCount(PAGE_SIZE),
+    [bioactivity, searchTerm, signals]
+  );
 
-  const isDirty = searchTerm !== "" || bioactivity !== ALL;
+  const isDirty =
+    searchTerm !== "" || bioactivity !== ALL || signals.length > 0;
   const resetAllFilters = () => {
     setSearchTerm("");
     setBioactivity(ALL);
+    setSignals([]);
   };
+  const toggleSignal = (key: string) =>
+    setSignals((prev) =>
+      prev.includes(key) ? prev.filter((s) => s !== key) : [...prev, key]
+    );
 
   // Nothing for this disease at all — no filters to offer, so no panel.
   if (!isLoading && rows.length === 0) {
@@ -189,7 +213,18 @@ const DiseaseBioactivitiesSection = ({ commonName }: Props) => {
   return (
     <FilterPanel
       search={searchInput}
-      filters={activityFilter}
+      filters={
+        <>
+          {activityFilter}
+          <SignalFilterGroup
+            selected={signals}
+            counts={signalCounts}
+            onToggle={toggleSignal}
+            onClear={() => setSignals([])}
+            countsLoaded={!isLoading}
+          />
+        </>
+      }
       isDirty={isDirty}
       onReset={resetAllFilters}
       open={mobileFiltersOpen}
