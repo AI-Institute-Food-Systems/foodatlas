@@ -1,9 +1,11 @@
 import { Metadata } from "next";
 
 import Card from "@/components/basic/Card";
+import Citation from "@/components/basic/Citation";
 import Code from "@/components/basic/Code";
 import Heading from "@/components/basic/Heading";
 import Link from "@/components/basic/Link";
+import { CANONICAL_PUBLICATION } from "@/utils/publications";
 
 export const metadata: Metadata = {
   title: "Developers | FoodAtlas Public API",
@@ -147,13 +149,7 @@ const Developers = () => {
       <div className="mt-8">
         <Card>
           <p className="leading-relaxed text-light-200">
-            Li, F., Youn, J., Xie, K., Chan, T., Gupta, P., Yoo, A., ... &
-            Tagkopoulos, I. (2026). A unified knowledge graph linking
-            foodomics to chemical-disease networks and flavor profiles.{" "}
-            <i>npj Science of Food</i>.{" "}
-            <Link href="https://doi.org/10.1038/s41538-025-00680-9">
-              https://doi.org/10.1038/s41538-025-00680-9
-            </Link>
+            <Citation publication={CANONICAL_PUBLICATION} />
           </p>
         </Card>
       </div>

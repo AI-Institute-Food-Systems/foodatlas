@@ -1,5 +1,6 @@
 import { AssayInferredAssociation, AssayTarget } from "@/types/AssayInferred";
 import { TeamMember } from "@/types/TeamMember";
+import { Publication } from "@/types/Publication";
 import { Suggestion } from "@/types/Suggestion";
 import { SearchOptions } from "@/types/SearchOptions";
 import { DownloadEntry } from "@/types/DownloadEntry";
@@ -32,6 +33,7 @@ export type {
   AssayTarget,
   BioactivityDisease,
   TeamMember,
+  Publication,
   Suggestion,
   SearchOptions,
   DownloadEntry,
