@@ -61,8 +61,12 @@ const Modal = ({
       open={isOpen}
       onClose={onClose}
     >
-      {/* backdrop   */}
-      <div className="fixed inset-0 w-screen backdrop-blur-md bg-neutral-800/50" />
+      {/* Backdrop. Black, not neutral-800: the page behind it is
+       * near-black, so a 50% mid-grey scrim LIFTED the background and the
+       * modal read as a panel over a fog rather than over the page.
+       * bg-black/60 matches the filter drawer's scrim, which is the same
+       * affordance — a dismissable overlay you click to get out. */}
+      <div className="fixed inset-0 w-screen backdrop-blur-md bg-black/60" />
       {/* modal */}
       <div className="fixed inset-0 overflow-y-auto sm:p-6 md:p-12">
         {/* center content */}
