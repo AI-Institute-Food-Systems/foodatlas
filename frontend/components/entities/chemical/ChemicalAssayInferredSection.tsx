@@ -30,15 +30,18 @@ const ChemicalAssayInferredSection = ({
   );
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <Heading
-          type="h3"
-          className="text-light-300 font-mono text-sm font-medium"
-        >
+      {/* Matches the literature block above it and the food page's
+        * stacked sections: chip label, serif blurb. */}
+      <div className="flex flex-col gap-2">
+        <Heading type="h3" variant="chip" className="self-start">
           From Lab Assays
         </Heading>
-        <p className="text-light-500">
-          Diseases this chemical is associated with because it was <em>Active</em> in a bioactivity assay that the disease-bridge ties to the disease via target genes or mechanism. Assay signal, not a curated claim — read it alongside the literature rows above rather than as a second opinion on them.
+        <p className="font-serif italic text-light-400 text-sm">
+          Diseases this chemical is associated with because it was{" "}
+          <em>Active</em> in a bioactivity assay that the disease-bridge ties
+          to the disease via target genes or mechanism. Assay signal, not a
+          curated claim — read it alongside the literature rows above rather
+          than as a second opinion on them.
         </p>
       </div>
       <AssayInferredAssociationsTable

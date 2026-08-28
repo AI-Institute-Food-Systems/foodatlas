@@ -28,14 +28,14 @@ const ChemicalCorrelationSection = ({
   onTotalRowsChange,
 }: ChemicalCorrelationSectionProps) => (
   <div className="flex flex-col gap-4">
-    <div>
-      <Heading
-        type="h3"
-        className="text-light-300 font-mono text-sm font-medium"
-      >
+    {/* Section label + blurb in the same chip-over-serif vocabulary the
+      * food page's stacked sections use, so a tab that stacks two sources
+      * reads the same way whichever entity you are on. */}
+    <div className="flex flex-col gap-2">
+      <Heading type="h3" variant="chip" className="self-start">
         From Literature
       </Heading>
-      <p className="text-light-500">
+      <p className="font-serif italic text-light-400 text-sm">
         Diseases whose outcomes or risk of onset this chemical has been
         reported to improve or worsen, curated from published studies.
       </p>
