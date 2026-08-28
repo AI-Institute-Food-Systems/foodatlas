@@ -78,6 +78,11 @@ const mount = async (
 // row's text appears twice in jsdom. Assert on presence, not on a single node.
 const shown = (text: string | RegExp) => screen.queryAllByText(text).length > 0;
 
+// Same reason: FilterPanel puts the search box in the sidebar AND the
+// trigger row, so this is never a single node either.
+const searchBox = () =>
+  screen.getAllByRole("textbox", { name: /search/i })[0];
+
 describe("DiseaseBioactivitiesSection", () => {
   it("renders a chemical row with its assay counts", async () => {
     await mount([chemRow()]);
@@ -95,7 +100,7 @@ describe("DiseaseBioactivitiesSection", () => {
     expect(shown("vorinostat")).toBe(true);
   });
 
-  it("filters rows by bioactivity chip", async () => {
+  it("filters rows by the activity facet", async () => {
     await mount(
       [
         chemRow(),
@@ -116,9 +121,38 @@ describe("DiseaseBioactivitiesSection", () => {
     );
     await waitFor(() => expect(shown("resveratrol")).toBe(true));
 
-    fireEvent.click(screen.getByRole("button", { name: /^antiviral/i }));
+    // A radio, not a Chip pill: the shared FilterPanel renders the facet
+    // list, and a row belongs to exactly one activity.
+    fireEvent.click(screen.getByRole("radio", { name: /^antiviral/i }));
     await waitFor(() => expect(shown("quercetin")).toBe(false));
     expect(shown("resveratrol")).toBe(true);
+  });
+
+  it("filters rows by the shared search box", async () => {
+    await mount([
+      chemRow(),
+      chemRow({ chemical_name: "vorinostat", chemical_foodatlas_id: "c2" }),
+    ]);
+    await waitFor(() => expect(shown("quercetin")).toBe(true));
+
+    // FilterPanel renders the search node into both the sidebar and the
+    // trigger row, so there are two of them; either drives the same state.
+    fireEvent.change(searchBox(), { target: { value: "vorinostat" } });
+    await waitFor(() => expect(shown("quercetin")).toBe(false));
+    expect(shown("vorinostat")).toBe(true);
+  });
+
+  it("offers a way out when the filters match nothing", async () => {
+    await mount([chemRow()]);
+    await waitFor(() => expect(shown("quercetin")).toBe(true));
+
+    fireEvent.change(searchBox(), { target: { value: "nothing-matches" } });
+    await waitFor(() =>
+      expect(shown(/no bioactivities match your filters/i)).toBe(true)
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /clear filters/i }));
+    await waitFor(() => expect(shown("quercetin")).toBe(true));
   });
 
   it("does not surface food doses or efficacy figures", async () => {
