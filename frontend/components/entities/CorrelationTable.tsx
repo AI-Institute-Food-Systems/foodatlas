@@ -115,8 +115,10 @@ const CorrelationTable = ({
   const headers = useMemo(
     () => [
       { label: "Direction" },
-      ...(showSource ? [{ label: "Via Chemical" }] : []),
+      // Peer first, attribution second: the row is about the disease, and
+      // the descendant chemical the evidence came through qualifies it.
       { label: peer === "disease" ? "Disease" : "Chemical" },
+      ...(showSource ? [{ label: "Via Chemical" }] : []),
       { label: "Publications" },
     ],
     [showSource, peer]

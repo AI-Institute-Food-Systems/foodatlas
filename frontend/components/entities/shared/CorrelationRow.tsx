@@ -160,22 +160,6 @@ export const CorrelationDesktopRow = ({
     <td className="py-1.5 pr-4">
       <DirectionCell direction={rowDirection(row)} />
     </td>
-    {showSource && (
-      <td className="py-1.5 px-4">
-        <div className="flex min-h-9 capitalize items-center">
-          <Link
-            className="capitalize"
-            href={entityHref(
-              "chemical",
-              row.source_chemical_name ?? commonName
-            )}
-            isExternal={false}
-          >
-            {row.source_chemical_name ?? commonName}
-          </Link>
-        </div>
-      </td>
-    )}
     <td className="py-1.5 px-4">
       <div className="flex gap-2.5 min-h-9 capitalize items-center">
         <Link
@@ -193,6 +177,22 @@ export const CorrelationDesktopRow = ({
         )}
       </div>
     </td>
+    {showSource && (
+      <td className="py-1.5 px-4">
+        <div className="flex min-h-9 capitalize items-center">
+          <Link
+            className="capitalize"
+            href={entityHref(
+              "chemical",
+              row.source_chemical_name ?? commonName
+            )}
+            isExternal={false}
+          >
+            {row.source_chemical_name ?? commonName}
+          </Link>
+        </div>
+      </td>
+    )}
     <td className="py-1.5 pl-4">
       <div className="flex min-h-9 items-center justify-end">
         <EvidenceButton row={row} onOpen={onShowMore} />
