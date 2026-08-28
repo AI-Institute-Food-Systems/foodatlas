@@ -5,6 +5,7 @@ import Card from "@/components/basic/Card";
 import Code from "@/components/basic/Code";
 import Heading from "@/components/basic/Heading";
 import Link from "@/components/basic/Link";
+import { CANONICAL_PUBLICATION, doiUrl } from "@/utils/publications";
 
 export const metadata: Metadata = {
   title: "Background | How the FoodAtlas Knowledge Graph is Sourced",
@@ -155,7 +156,7 @@ const TechnicalBackground = () => {
           the released graph. For the full study, see the{" "}
           <Link
             className="whitespace-nowrap"
-            href="https://doi.org/10.1038/s41538-025-00680-9"
+            href={doiUrl(CANONICAL_PUBLICATION.doi)}
           >
             npj Science of Food paper
           </Link>
