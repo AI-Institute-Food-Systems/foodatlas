@@ -49,7 +49,7 @@ const HeaderSection = async ({
         <Badge
           color={colorScheme[entityType]}
           leftIcon={icon[entityType]}
-          size="md"
+          size="sm"
         >
           {entityType}
         </Badge>

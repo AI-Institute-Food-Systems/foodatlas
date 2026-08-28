@@ -52,6 +52,15 @@ describe("header skeleton parity", () => {
     }
   });
 
+  it("sizes the entity badge the same in both", () => {
+    // The badge sets the top row's height, so a size that differs between
+    // the two moves the page on handoff just as a wrong name placeholder
+    // would — and it is a one-word edit that looks harmless.
+    const badgeSize = (src: string) =>
+      stripComments(src).match(/size="(xs|sm|md|lg)"/)?.[1];
+    expect(badgeSize(REAL)).toBe(badgeSize(SKELETON));
+  });
+
   it("reserves exactly the H1's height for the name", () => {
     // text-3xl/text-4xl at leading-none is 1.875rem then 2.25rem. The
     // placeholder has to be those numbers, not the nearest h-* step.
