@@ -39,7 +39,7 @@ const HeaderSectionSuspense = ({
        * name-row height. Any change here has to land there too, or the
        * handoff from skeleton to real header moves the page — which is
        * the whole reason the ambiguity warning became a chip. */}
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex items-start justify-between gap-4">
         <Badge
           color={colorScheme[entityType]}
           leftIcon={icon[entityType]}
@@ -47,12 +47,18 @@ const HeaderSectionSuspense = ({
         >
           {entityType}
         </Badge>
-        <span className="flex items-baseline gap-1.5 whitespace-nowrap">
-          <span className="font-mono italic text-[10px] uppercase tracking-[0.12em] text-light-500">
-            FoodAtlas ID
+        <div className="flex flex-col items-end gap-1">
+          {/* Empty on purpose, and the same height as the real one: this
+           * reserves the ambiguity chip's line for every entity, because
+           * at this point we do not yet know which entities have one. */}
+          <div className="min-h-[1.25rem] flex items-center" />
+          <span className="flex items-baseline gap-1.5 whitespace-nowrap">
+            <span className="font-mono italic text-[10px] uppercase tracking-[0.12em] text-light-500">
+              FoodAtlas ID
+            </span>
+            <Skeleton className="w-14 h-3" />
           </span>
-          <Skeleton className="w-14 h-3" />
-        </span>
+        </div>
       </div>
       <div className="mt-3 flex items-center gap-3 flex-wrap">
         {/* Exactly the H1's box: text-3xl/text-4xl at leading-none is

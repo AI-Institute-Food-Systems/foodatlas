@@ -45,7 +45,7 @@ const HeaderSection = async ({
        * name-row height. Any change here has to land there too, or the
        * handoff from skeleton to real header moves the page — which is
        * the whole reason the ambiguity warning became a chip. */}
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex items-start justify-between gap-4">
         <Badge
           color={colorScheme[entityType]}
           leftIcon={icon[entityType]}
@@ -53,14 +53,27 @@ const HeaderSection = async ({
         >
           {entityType}
         </Badge>
-        <span className="flex items-baseline gap-1.5 whitespace-nowrap">
-          <span className="font-mono italic text-[10px] uppercase tracking-[0.12em] text-light-500">
-            FoodAtlas ID
+        <div className="flex flex-col items-end gap-1">
+          {/* The slot is always here, empty when the entity is not
+           * ambiguous. HeaderSectionSuspense paints before the metadata
+           * that decides it, so a slot that only exists on ambiguous
+           * pages would make the top row — and everything below it —
+           * grow on handoff for exactly those pages. */}
+          <div className="min-h-[1.25rem] flex items-center">
+            <EntityAmbiguityBadge
+              entityType={entityType}
+              siblings={data?.ambiguity_siblings}
+            />
+          </div>
+          <span className="flex items-baseline gap-1.5 whitespace-nowrap">
+            <span className="font-mono italic text-[10px] uppercase tracking-[0.12em] text-light-500">
+              FoodAtlas ID
+            </span>
+            <span className="font-mono italic text-xs text-light-300">
+              {data?.id ?? "—"}
+            </span>
           </span>
-          <span className="font-mono italic text-xs text-light-300">
-            {data?.id ?? "—"}
-          </span>
-        </span>
+        </div>
       </div>
       <div className="mt-3 flex items-center gap-3 flex-wrap">
         <Heading
@@ -69,10 +82,6 @@ const HeaderSection = async ({
         >
           {commonName}
         </Heading>
-        <EntityAmbiguityBadge
-          entityType={entityType}
-          siblings={data?.ambiguity_siblings}
-        />
       </div>
     </div>
   );

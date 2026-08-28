@@ -63,13 +63,18 @@ describe("layout/skeleton pairs agree on their outer margin", () => {
 // name line. Declared once — a second copy of these literals is how the
 // "no third block" check below silently stopped matching when the name
 // row's margin changed.
-const BADGE_ROW = "flex items-center justify-between gap-4";
+const BADGE_ROW = "flex items-start justify-between gap-4";
 const NAME_ROW = "mt-3 flex items-center gap-3 flex-wrap";
 const ID_ROW = "flex items-baseline gap-1.5 whitespace-nowrap";
+// The right-hand stack, and the always-present slot the ambiguity chip
+// sits in. The slot is the reason an ambiguous page is the same height as
+// a plain one.
+const RIGHT_STACK = "flex flex-col items-end gap-1";
+const CHIP_SLOT = "min-h-[1.25rem] flex items-center";
 
 describe("header skeleton parity", () => {
   it("uses the same row structure in both", () => {
-    for (const layout of [BADGE_ROW, NAME_ROW, ID_ROW]) {
+    for (const layout of [BADGE_ROW, NAME_ROW, ID_ROW, RIGHT_STACK, CHIP_SLOT]) {
       expect(classNames(REAL), `real header missing: ${layout}`).toContain(
         layout
       );
@@ -97,6 +102,17 @@ describe("header skeleton parity", () => {
 
     const placeholder = classNames(SKELETON).find((c) => c.startsWith("h-["));
     expect(placeholder).toBe("h-[1.875rem] md:h-9 w-56");
+  });
+
+  it("reserves the ambiguity chip's line whether or not there is one", () => {
+    // The skeleton paints before the metadata that says whether this
+    // entity is ambiguous, so the slot cannot be conditional — a chip
+    // that appears only on some pages would grow the top row on exactly
+    // those pages, at handoff, which is what moving it here risked.
+    const slots = (src: string) =>
+      classNames(src).filter((c) => c === CHIP_SLOT).length;
+    expect(slots(REAL)).toBe(1);
+    expect(slots(SKELETON)).toBe(1);
   });
 
   it("keeps the real header free of blocks the skeleton has no room for", () => {
