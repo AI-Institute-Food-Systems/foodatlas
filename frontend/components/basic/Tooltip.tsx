@@ -5,6 +5,7 @@
 import {
   SVGProps,
   forwardRef,
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -14,12 +15,21 @@ import {
 interface TooltipProps {
   content: ReactNode;
   children: ReactNode;
+  // "top" is the default and what every older call site expects. Pass
+  // "bottom" for triggers that sit high on the page — a top tooltip there
+  // opens into the navbar, and the auto-flip below only fires once the
+  // bubble is already off-screen, which the navbar's 96px never is.
+  placement?: "top" | "bottom";
 }
 /**
  * content: use `<br/>` to break lines so that tooltip is not too wide
  * @returns
  */
-export const Tooltip = ({ content, children }: TooltipProps) => {
+export const Tooltip = ({
+  content,
+  children,
+  placement = "top",
+}: TooltipProps) => {
   const [hover, setHover] = useState(false);
   const hoverTimeout = useRef<NodeJS.Timeout | null>(null);
   const tooltipContentRef = useRef<HTMLDivElement>(null);
@@ -43,7 +53,11 @@ export const Tooltip = ({ content, children }: TooltipProps) => {
     setHover(false);
   };
 
-  const updateTooltipPosition = () => {
+  // useCallback because the resize effect depends on it, and it reads
+  // `placement` — a prop, so the identity has to change when that does.
+  const updateTooltipPosition = useCallback(() => {
+    // A bottom-placed tooltip is already where the flip below would put
+    // it, so only the horizontal clamping applies.
     if (
       tooltipContentRef.current &&
       tooltipRef.current &&
@@ -67,7 +81,7 @@ export const Tooltip = ({ content, children }: TooltipProps) => {
       }
 
       // overflowing from top side
-      if (top < 0) {
+      if (placement === "top" && top < 0) {
         // unset top and set bottom
         tooltipRef.current.style.top = "unset";
         tooltipRef.current.style.bottom = "0";
@@ -76,7 +90,7 @@ export const Tooltip = ({ content, children }: TooltipProps) => {
         triangleRef.current.style.display = "block";
       }
     }
-  };
+  }, [placement]);
 
   // Update position on window resize
   useEffect(() => {
@@ -92,23 +106,48 @@ export const Tooltip = ({ content, children }: TooltipProps) => {
     return () => {
       window.removeEventListener("resize", handleResize);
     };
-  }, [hover]);
+  }, [hover, updateTooltipPosition]);
 
   return (
     <div
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      className="inline-flex flex-col items-center cursor-pointer"
+      className={
+        // `relative` only for bottom placement: it makes the bubble
+        // resolve `top-full` against this trigger instead of whatever
+        // distant ancestor happens to be positioned, which is where an
+        // un-anchored bottom tooltip ends up (800px down the page). The
+        // top placement uses its static position and is left alone.
+        placement === "bottom"
+          ? "relative inline-flex flex-col items-center cursor-pointer"
+          : "inline-flex flex-col items-center cursor-pointer"
+      }
     >
       {hover && (
         <div
           ref={tooltipRef}
-          className="absolute flex w-full items-center justify-center gap-0  [transform:translateY(calc(-100%-10px))]"
+          // z-[110] clears everything that can sit under a hover bubble:
+          // the navbar (z-40, z-[60] with the menu open), Modal (z-50),
+          // the FAB and mobile filter panel (z-[60]) and the navigation
+          // progress bar (z-[100]). A tooltip is transient and pointer-
+          // driven, so nothing should ever cover it.
+          className={
+            placement === "bottom"
+              ? "absolute top-full z-[110] flex w-full items-center justify-center gap-0 [transform:translateY(10px)]"
+              : "absolute z-[110] flex w-full items-center justify-center gap-0 [transform:translateY(calc(-100%-10px))]"
+          }
         >
           <div className="mx-auto flex w-0 flex-col items-center justify-center text-light-800">
+            {/* The pointer sits on whichever side faces the trigger: above
+             * the bubble when it hangs below, under it when it floats
+             * above. The refs stay because the top-overflow flip swaps
+             * them imperatively. */}
             <TriangleFilled
               ref={triangleRef}
-              style={{ marginBottom: "-7px", display: "none" }}
+              style={{
+                marginBottom: "-7px",
+                display: placement === "bottom" ? "block" : "none",
+              }}
             />
 
             <div
@@ -120,7 +159,10 @@ export const Tooltip = ({ content, children }: TooltipProps) => {
 
             <TriangleInvertedFilled
               ref={triangleInvertedRef}
-              style={{ marginTop: "-7px" }}
+              style={{
+                marginTop: "-7px",
+                display: placement === "bottom" ? "none" : "block",
+              }}
             />
           </div>
         </div>

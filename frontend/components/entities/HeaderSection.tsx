@@ -36,35 +36,45 @@ const HeaderSection = async ({
 
   return (
     <div>
-      {/* Two lines: entity badge over the name, FoodAtlas id pinned to the
-       * badge's line. The badge and the H1 used to share one row, which
-       * read as a label glued to the front of the title and left the name
-       * competing with the id for horizontal room on narrow viewports.
+      {/* Left column: the entity badge over the name. Right: the FoodAtlas
+       * id, centred against the pair. The badge and the H1 used to share
+       * one row, which read as a label glued to the front of the title and
+       * left the name competing with the id for horizontal room on narrow
+       * viewports.
        *
        * HeaderSectionSuspense mirrors this markup exactly, including the
        * name-row height. Any change here has to land there too, or the
-       * handoff from skeleton to real header moves the page — which is
-       * the whole reason the ambiguity warning became a chip. */}
-      <div className="flex items-start justify-between gap-4">
-        <Badge
-          color={colorScheme[entityType]}
-          leftIcon={icon[entityType]}
-          size="sm"
-        >
-          {entityType}
-        </Badge>
-        <div className="flex flex-col items-end gap-1">
-          {/* The slot is always here, empty when the entity is not
-           * ambiguous. HeaderSectionSuspense paints before the metadata
-           * that decides it, so a slot that only exists on ambiguous
-           * pages would make the top row — and everything below it —
-           * grow on handoff for exactly those pages. */}
-          <div className="min-h-[1.25rem] flex items-center">
+       * handoff from skeleton to real header moves the page. */}
+      <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-0">
+          {/* The ambiguity affordance rides this line rather than
+           * occupying one of its own. The Badge is taller than it, so the
+           * line is the same height on an ambiguous page and a plain one
+           * — which is what lets the skeleton, painted before we know
+           * which this is, reserve the right box without a placeholder. */}
+          <div className="flex items-center gap-2">
+            <Badge
+              color={colorScheme[entityType]}
+              leftIcon={icon[entityType]}
+              size="sm"
+            >
+              {entityType}
+            </Badge>
             <EntityAmbiguityBadge
               entityType={entityType}
               siblings={data?.ambiguity_siblings}
             />
           </div>
+          <div className="mt-3 flex items-center gap-3 flex-wrap">
+            <Heading
+              type="h1"
+              className="capitalize text-3xl md:text-4xl font-semibold break-words leading-none"
+            >
+              {commonName}
+            </Heading>
+          </div>
+        </div>
+        <div className="flex flex-col items-end gap-2">
           <span className="flex items-baseline gap-1.5 whitespace-nowrap">
             <span className="font-mono italic text-[10px] uppercase tracking-[0.12em] text-light-500">
               FoodAtlas ID
@@ -74,14 +84,6 @@ const HeaderSection = async ({
             </span>
           </span>
         </div>
-      </div>
-      <div className="mt-3 flex items-center gap-3 flex-wrap">
-        <Heading
-          type="h1"
-          className="capitalize text-3xl md:text-4xl font-semibold break-words leading-none"
-        >
-          {commonName}
-        </Heading>
       </div>
     </div>
   );

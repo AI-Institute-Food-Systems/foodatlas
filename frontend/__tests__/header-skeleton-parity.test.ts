@@ -6,10 +6,12 @@
 // height, the page moves when one replaces the other, and everything below
 // (tab strip, tables) moves with it.
 //
-// This has gone wrong twice. The ambiguity banner hung below the band in
-// the real header only, so ambiguous pages inserted a block on handoff.
-// And the name placeholder was h-9/h-10 against an H1 that renders
-// 1.875rem/2.25rem at leading-none — 6px too tall at both breakpoints.
+// This has gone wrong three times. The ambiguity banner hung below the band
+// in the real header only, so ambiguous pages inserted a block on handoff.
+// The name placeholder was h-9/h-10 against an H1 measured at 1.875rem
+// below md. And md:h-9 was 4px SHORT from md up, because `leading-none` is
+// unprefixed and the responsive md:text-4xl's own line-height wins there —
+// so the class list said 36px and the browser rendered 40.
 //
 // There are TWO such pairs, not one, and covering only the header is how
 // a 16px shift shipped: EntityDetailLayout moved from mt-6 to mt-10 while
@@ -59,22 +61,27 @@ describe("layout/skeleton pairs agree on their outer margin", () => {
   }
 });
 
-// The two rows that set the header's height: the badge/id line and the
-// name line. Declared once — a second copy of these literals is how the
-// "no third block" check below silently stopped matching when the name
-// row's margin changed.
-const BADGE_ROW = "flex items-start justify-between gap-4";
+// The rows that set the header's height: the outer split, the badge line
+// the ambiguity affordance rides on, and the name line. Declared once — a
+// second copy of these literals is how the "no third block" check below
+// silently stopped matching when the name row's margin changed.
+const OUTER_ROW = "flex items-center justify-between";
+const NAME_COLUMN = "flex flex-col gap-0";
+const BADGE_ROW = "flex items-center gap-2";
 const NAME_ROW = "mt-3 flex items-center gap-3 flex-wrap";
 const ID_ROW = "flex items-baseline gap-1.5 whitespace-nowrap";
-// The right-hand stack, and the always-present slot the ambiguity chip
-// sits in. The slot is the reason an ambiguous page is the same height as
-// a plain one.
-const RIGHT_STACK = "flex flex-col items-end gap-1";
-const CHIP_SLOT = "min-h-[1.25rem] flex items-center";
+const RIGHT_STACK = "flex flex-col items-end gap-2";
 
 describe("header skeleton parity", () => {
   it("uses the same row structure in both", () => {
-    for (const layout of [BADGE_ROW, NAME_ROW, ID_ROW, RIGHT_STACK, CHIP_SLOT]) {
+    for (const layout of [
+      OUTER_ROW,
+      NAME_COLUMN,
+      BADGE_ROW,
+      NAME_ROW,
+      ID_ROW,
+      RIGHT_STACK,
+    ]) {
       expect(classNames(REAL), `real header missing: ${layout}`).toContain(
         layout
       );
@@ -94,31 +101,44 @@ describe("header skeleton parity", () => {
   });
 
   it("reserves exactly the H1's height for the name", () => {
-    // text-3xl/text-4xl at leading-none is 1.875rem then 2.25rem. The
-    // placeholder has to be those numbers, not the nearest h-* step.
+    // Measured in the browser, not derived from the class names: the H1
+    // is 30px below md and 40px from md up. `leading-none` is unprefixed,
+    // so at md the responsive `md:text-4xl` and its line-height: 2.5rem
+    // override it — the "2.25rem at leading-none" this test used to
+    // assume never renders, and reserving it left the strip 4px low.
     const h1 = classNames(REAL).find((c) => c.includes("text-3xl"));
     expect(h1).toContain("md:text-4xl");
     expect(h1).toContain("leading-none");
 
     const placeholder = classNames(SKELETON).find((c) => c.startsWith("h-["));
-    expect(placeholder).toBe("h-[1.875rem] md:h-9 w-56");
+    expect(placeholder).toBe("h-[1.875rem] md:h-10 w-56");
   });
 
-  it("reserves the ambiguity chip's line whether or not there is one", () => {
+  it("puts the ambiguity affordance on the badge's line", () => {
     // The skeleton paints before the metadata that says whether this
-    // entity is ambiguous, so the slot cannot be conditional — a chip
-    // that appears only on some pages would grow the top row on exactly
-    // those pages, at handoff, which is what moving it here risked.
-    const slots = (src: string) =>
-      classNames(src).filter((c) => c === CHIP_SLOT).length;
-    expect(slots(REAL)).toBe(1);
-    expect(slots(SKELETON)).toBe(1);
+    // entity is ambiguous, so it cannot reserve a box for the affordance.
+    // The affordance is therefore only free if it rides a line something
+    // else already sizes — the Badge's. Anywhere else and ambiguous pages
+    // grow at handoff, which is the bug this whole pair exists to stop.
+    const body = stripComments(REAL);
+    const badgeLine = body.indexOf(`className="${BADGE_ROW}"`);
+    const nameLine = body.indexOf(`className="${NAME_ROW}"`);
+    const affordance = body.indexOf("<EntityAmbiguityBadge");
+    expect(badgeLine, "badge line not found").toBeGreaterThan(-1);
+    expect(affordance, "ambiguity affordance not rendered").toBeGreaterThan(
+      badgeLine
+    );
+    expect(affordance, "affordance escaped the badge line").toBeLessThan(
+      nameLine
+    );
+    // And the skeleton must not try to reserve one anyway — a placeholder
+    // where the real header has inline text is its own mismatch.
+    expect(stripComments(SKELETON)).not.toMatch(/min-h-\[/);
   });
 
   it("keeps the real header free of blocks the skeleton has no room for", () => {
-    // The ambiguity affordance is a chip inside the name row, which the
-    // skeleton already sizes. Anything that renders as a sibling of the
-    // two rows would add height the skeleton does not reserve.
+    // Both files are two lines in a column beside the id. Anything that
+    // renders as a third sibling adds height the skeleton does not have.
     const body = stripComments(REAL);
     const rows = classNames(REAL).filter(
       (c) => c === BADGE_ROW || c === NAME_ROW

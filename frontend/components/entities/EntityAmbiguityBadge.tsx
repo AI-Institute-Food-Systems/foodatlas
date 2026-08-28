@@ -1,23 +1,29 @@
 "use client";
 
-// The ambiguity affordance on an entity page: a chip in the header band,
-// with the explanation behind it.
+// The ambiguity affordance on an entity page: a text link on the entity
+// badge's line, with the explanation behind it.
 //
 // It replaces a full-width amber banner that sat BELOW the header band.
 // HeaderSectionSuspense renders the band and nothing else, so when the
 // real header streamed in with a banner attached it inserted a block and
-// pushed the tab strip and the whole page down. Living inside the band
-// fixes that: the row's height is set by the H1, which is taller than a
-// chip, so the chip costs no vertical space whether it is there or not.
+// pushed the tab strip and the whole page down. Living on the badge line
+// fixes that: the line's height is set by the entity Badge, which is
+// taller than this text, so the affordance costs no vertical space
+// whether it is there or not. `whitespace-nowrap` is what keeps that
+// true — a label that wrapped would add a line the skeleton has not
+// reserved.
 //
-// What the badge is warning about — see EntityAmbiguityBadgeModal below
-// and materializer._build_sibling_map. Short version: it is about
+// Styled as a link rather than a warning chip: the amber sits on the
+// glyph alone, and the label underlines on hover like every other
+// inline action in the app.
+//
+// What it is warning about — see the modal copy below and
+// materializer._build_sibling_map. Short version: it is about
 // attribution, not naming, and the clusters are transitive.
 
 import { MdCallSplit } from "react-icons/md";
 import { useState } from "react";
 
-import Chip from "@/components/basic/Chip";
 import Link from "@/components/basic/Link";
 import Modal from "@/components/basic/Modal";
 import Tooltip from "@/components/basic/Tooltip";
@@ -41,17 +47,29 @@ const EntityAmbiguityBadge = ({ entityType, siblings }: Props) => {
 
   return (
     <>
-      <Tooltip content="Some evidence here may belong to another entity — click for detail">
-        <Chip
-          tone="amber"
-          size="sm"
-          icon={<MdCallSplit className="size-2.5 rotate-90" />}
-          label="Ambiguous term"
+      <Tooltip
+        content="Some evidence here may belong to another entity — click for detail"
+        placement="bottom"
+      >
+        <button
+          type="button"
           onClick={() => setIsOpen(true)}
           aria-label={`Ambiguous term — ${siblings.length} related ${entityType}${
             siblings.length === 1 ? "" : "s"
           }`}
-        />
+          className="inline-flex items-center gap-1 whitespace-nowrap font-mono italic text-[0.7rem] text-light-300 underline-offset-4 transition-colors hover:text-light-100 hover:underline"
+        >
+          <MdCallSplit
+            aria-hidden="true"
+            className="size-3 rotate-90 text-amber-400"
+          />
+          {/* Glyph-only under 640px. The badge line also carries the
+           * FoodAtlas id, and at 320px the label pushed it past the
+           * viewport — a page-wide horizontal scroll on exactly the
+           * ambiguous pages. The tooltip and aria-label still say what
+           * it is, and the modal is one tap away either way. */}
+          <span className="hidden sm:inline">Ambiguous term</span>
+        </button>
       </Tooltip>
 
       <Modal

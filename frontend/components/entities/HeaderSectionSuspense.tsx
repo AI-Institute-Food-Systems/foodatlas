@@ -30,43 +30,62 @@ const HeaderSectionSuspense = ({
 }: HeaderSectionSuspenseProps) => {
   return (
     <div>
-      {/* Two lines: entity badge over the name, FoodAtlas id pinned to the
-       * badge's line. The badge and the H1 used to share one row, which
-       * read as a label glued to the front of the title and left the name
-       * competing with the id for horizontal room on narrow viewports.
+      {/* Left column: the entity badge over the name. Right: the FoodAtlas
+       * id, centred against the pair. The badge and the H1 used to share
+       * one row, which read as a label glued to the front of the title and
+       * left the name competing with the id for horizontal room on narrow
+       * viewports.
        *
        * HeaderSectionSuspense mirrors this markup exactly, including the
        * name-row height. Any change here has to land there too, or the
-       * handoff from skeleton to real header moves the page — which is
-       * the whole reason the ambiguity warning became a chip. */}
-      <div className="flex items-start justify-between gap-4">
-        <Badge
-          color={colorScheme[entityType]}
-          leftIcon={icon[entityType]}
-          size="sm"
-        >
-          {entityType}
-        </Badge>
-        <div className="flex flex-col items-end gap-1">
-          {/* Empty on purpose, and the same height as the real one: this
-           * reserves the ambiguity chip's line for every entity, because
-           * at this point we do not yet know which entities have one. */}
-          <div className="min-h-[1.25rem] flex items-center" />
+       * handoff from skeleton to real header moves the page. */}
+      <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-0">
+          {/* No placeholder for the ambiguity affordance: it sits on this
+           * line beside the Badge, which is taller, so it adds no height
+           * to reserve. We could not reserve it anyway — the metadata
+           * that says whether this entity is ambiguous has not arrived
+           * when the skeleton paints. */}
+          <div className="flex items-center gap-2">
+            <Badge
+              color={colorScheme[entityType]}
+              leftIcon={icon[entityType]}
+              size="sm"
+            >
+              {entityType}
+            </Badge>
+          </div>
+          <div className="mt-3 flex items-center gap-3 flex-wrap">
+            {/* Exactly the H1's box, which is NOT what the class list
+             * suggests: `leading-none` is unprefixed, so from md up the
+             * responsive `md:text-4xl` — which carries its own
+             * line-height: 2.5rem — wins and the H1 renders 40px, not the
+             * 36px "text-4xl at leading-none" implies. Measured: 30px
+             * below md, 40px at and above it. Reserving 36 there is how
+             * the tab strip and the whole card sat 4px low until the real
+             * header arrived. */}
+            <Skeleton className="h-[1.875rem] md:h-10 w-56" />
+          </div>
+        </div>
+        <div className="flex flex-col items-end gap-2">
           <span className="flex items-baseline gap-1.5 whitespace-nowrap">
             <span className="font-mono italic text-[10px] uppercase tracking-[0.12em] text-light-500">
               FoodAtlas ID
             </span>
-            <Skeleton className="w-14 h-3" />
+            {/* Width sized from the rendered id, not guessed: mono
+             * text-xs is ~7.2px per character and ids are 7 chars for
+             * 118k entities, 6 for 90k — 43-50px. w-14 reserved 56 and,
+             * because the column is right-aligned, the surplus pushed the
+             * "FoodAtlas ID" label 12px left until the real id arrived;
+             * w-12 leaves at most 4px either way.
+             *
+             * h-3 rather than the text's h-4 because the row is
+             * items-baseline: a box has no text baseline, so it aligns by
+             * its bottom edge. 12px puts that edge where the 16px line's
+             * baseline sits; 16px pushes the whole row 2px down. */}
+            <Skeleton className="w-12 h-3" />
           </span>
         </div>
-      </div>
-      <div className="mt-3 flex items-center gap-3 flex-wrap">
-        {/* Exactly the H1's box: text-3xl/text-4xl at leading-none is
-         * 1.875rem then 2.25rem. h-9/h-10 was 6px taller at both
-         * breakpoints, so the title row shrank on handoff. No ambiguity
-         * chip here — it is optional, and reserving room for one would
-         * move the page on the pages that do not have it. */}
-        <Skeleton className="h-[1.875rem] md:h-9 w-56" />
       </div>
     </div>
   );

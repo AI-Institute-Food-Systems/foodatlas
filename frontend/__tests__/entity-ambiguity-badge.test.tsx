@@ -1,10 +1,10 @@
 // The ambiguity affordance: where it sits, and what it is allowed to claim.
 //
-// Placement is the reason this is a chip and not the banner it replaced.
-// HeaderSectionSuspense renders the header band alone, so a banner hanging
-// below the band appeared only once the real header streamed in — inserting
-// a block and pushing the tab strip and the rest of the page down. The chip
-// lives inside the band, whose height comes from the H1.
+// Placement is the reason this is inline text and not the banner it
+// replaced. HeaderSectionSuspense renders the header band alone, so a banner
+// hanging below the band appeared only once the real header streamed in —
+// inserting a block and pushing the tab strip and the rest of the page down.
+// This rides the entity badge's line, whose height comes from the Badge.
 //
 // The claim is about attribution, not naming. materializer._build_sibling_map
 // treats two entities as siblings when one raw name in one source resolved to
@@ -56,10 +56,38 @@ describe("empty states", () => {
   });
 });
 
-describe("the collapsed badge", () => {
-  it("is a short chip, with the explanation behind it", () => {
+describe("the collapsed affordance", () => {
+  it("reads as a link, with the warning colour on the glyph alone", () => {
+    // It sits beside the entity badge, where a filled amber chip competed
+    // with the badge instead of deferring to it. Underline-on-hover is the
+    // app's inline-action convention (FilterControls, EvidenceTable).
+    render(
+      <EntityAmbiguityBadge entityType="chemical" siblings={siblings(2)} />
+    );
+    const button = screen.getByText("Ambiguous term").closest("button")!;
+    expect(button.className).toContain("hover:underline");
+    expect(button.className).toContain("underline-offset-4");
+    expect(button.className).not.toContain("bg-amber");
+    expect(button.querySelector("svg")?.getAttribute("class")).toContain(
+      "text-amber-400"
+    );
+  });
+
+  it("cannot wrap onto a second line", () => {
+    // Load-bearing: the badge line is sized by the Badge, and the skeleton
+    // reserves nothing for this. A label that wrapped would add a line the
+    // skeleton has no room for, and the page would step down at handoff.
+    render(
+      <EntityAmbiguityBadge entityType="chemical" siblings={siblings(2)} />
+    );
+    expect(
+      screen.getByText("Ambiguous term").closest("button")!.className
+    ).toContain("whitespace-nowrap");
+  });
+
+  it("is short, with the explanation behind it", () => {
     // Everything the old banner said inline now lives in the modal, so
-    // the header band gains a chip's width and no height.
+    // the header band gains a few words' width and no height.
     render(
       <EntityAmbiguityBadge entityType="chemical" siblings={siblings(400)} />
     );
