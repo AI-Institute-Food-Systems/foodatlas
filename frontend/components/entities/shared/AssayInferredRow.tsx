@@ -31,13 +31,21 @@ const peerHref = (row: AssayInferredAssociation, peer: PeerDirection) =>
 // Pairs the assay-side direction with the literature verdict. The badge is
 // null — and so renders nothing — for the ~97.5% of pairs the literature
 // doesn't cover, which keeps the column from filling with "unknown".
+// TEMPORARY: the literature agrees/differs badge is hidden while its
+// wording is reconsidered. Flip to true to bring it back — the component,
+// its verdict logic and its tests are untouched, so this is the only edit
+// needed either way.
+const SHOW_LITERATURE_BADGE = false;
+
 const SignalCell = ({ row }: { row: AssayInferredAssociation }) => (
   <span className="inline-flex flex-wrap items-baseline gap-1">
     <SignalChips relationships={row.relationships} />
-    <LiteratureBadge
-      relationships={row.relationships}
-      literatureDirections={row.literature_directions}
-    />
+    {SHOW_LITERATURE_BADGE && (
+      <LiteratureBadge
+        relationships={row.relationships}
+        literatureDirections={row.literature_directions}
+      />
+    )}
   </span>
 );
 
