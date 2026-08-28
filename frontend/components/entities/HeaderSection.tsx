@@ -36,10 +36,16 @@ const HeaderSection = async ({
 
   return (
     <div>
-      {/* one-line header band: badge left, entity name beside it, FoodAtlas
-       * id pinned right. items-center vertically aligns the smaller badge
-       * with the H1's optical center (not horizontally centered). */}
-      <div className="relative flex items-center gap-x-4 gap-y-2 flex-wrap pr-16 md:pr-24">
+      {/* Two lines: entity badge over the name, FoodAtlas id pinned to the
+       * badge's line. The badge and the H1 used to share one row, which
+       * read as a label glued to the front of the title and left the name
+       * competing with the id for horizontal room on narrow viewports.
+       *
+       * HeaderSectionSuspense mirrors this markup exactly, including the
+       * name-row height. Any change here has to land there too, or the
+       * handoff from skeleton to real header moves the page — which is
+       * the whole reason the ambiguity warning became a chip. */}
+      <div className="flex items-center justify-between gap-4">
         <Badge
           color={colorScheme[entityType]}
           leftIcon={icon[entityType]}
@@ -47,20 +53,7 @@ const HeaderSection = async ({
         >
           {entityType}
         </Badge>
-        <Heading
-          type="h1"
-          className="capitalize text-3xl md:text-4xl font-semibold break-words leading-none"
-        >
-          {commonName}
-        </Heading>
-        {/* Inside the band, not below it. The band's height comes from the
-         * H1, so the chip adds none — which is what keeps the page from
-         * jumping when this header replaces its skeleton. */}
-        <EntityAmbiguityBadge
-          entityType={entityType}
-          siblings={data?.ambiguity_siblings}
-        />
-        <span className="absolute right-0 top-1/2 -translate-y-1/2 flex items-baseline gap-1.5 whitespace-nowrap">
+        <span className="flex items-baseline gap-1.5 whitespace-nowrap">
           <span className="font-mono italic text-[10px] uppercase tracking-[0.12em] text-light-500">
             FoodAtlas ID
           </span>
@@ -68,6 +61,18 @@ const HeaderSection = async ({
             {data?.id ?? "—"}
           </span>
         </span>
+      </div>
+      <div className="mt-2 flex items-center gap-3 flex-wrap">
+        <Heading
+          type="h1"
+          className="capitalize text-3xl md:text-4xl font-semibold break-words leading-none"
+        >
+          {commonName}
+        </Heading>
+        <EntityAmbiguityBadge
+          entityType={entityType}
+          siblings={data?.ambiguity_siblings}
+        />
       </div>
     </div>
   );
