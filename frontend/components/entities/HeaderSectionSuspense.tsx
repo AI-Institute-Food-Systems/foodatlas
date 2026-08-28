@@ -54,7 +54,7 @@ const HeaderSectionSuspense = ({
           <Skeleton className="w-14 h-3" />
         </span>
       </div>
-      <div className="mt-2 flex items-center gap-3 flex-wrap">
+      <div className="mt-3 flex items-center gap-3 flex-wrap">
         {/* Exactly the H1's box: text-3xl/text-4xl at leading-none is
          * 1.875rem then 2.25rem. h-9/h-10 was 6px taller at both
          * breakpoints, so the title row shrank on handoff. No ambiguity

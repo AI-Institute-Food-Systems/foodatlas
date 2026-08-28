@@ -59,15 +59,17 @@ describe("layout/skeleton pairs agree on their outer margin", () => {
   }
 });
 
+// The two rows that set the header's height: the badge/id line and the
+// name line. Declared once — a second copy of these literals is how the
+// "no third block" check below silently stopped matching when the name
+// row's margin changed.
+const BADGE_ROW = "flex items-center justify-between gap-4";
+const NAME_ROW = "mt-3 flex items-center gap-3 flex-wrap";
+const ID_ROW = "flex items-baseline gap-1.5 whitespace-nowrap";
+
 describe("header skeleton parity", () => {
   it("uses the same row structure in both", () => {
-    // The two rows that set the header's height: the badge/id line and the
-    // name line. Both files must build them the same way.
-    for (const layout of [
-      "flex items-center justify-between gap-4",
-      "mt-2 flex items-center gap-3 flex-wrap",
-      "flex items-baseline gap-1.5 whitespace-nowrap",
-    ]) {
+    for (const layout of [BADGE_ROW, NAME_ROW, ID_ROW]) {
       expect(classNames(REAL), `real header missing: ${layout}`).toContain(
         layout
       );
@@ -102,7 +104,9 @@ describe("header skeleton parity", () => {
     // skeleton already sizes. Anything that renders as a sibling of the
     // two rows would add height the skeleton does not reserve.
     const body = stripComments(REAL);
-    const rows = body.match(/className="(?:flex items-center justify-between|mt-2 flex)/g);
+    const rows = classNames(REAL).filter(
+      (c) => c === BADGE_ROW || c === NAME_ROW
+    );
     expect(rows).toHaveLength(2);
     expect(body).not.toMatch(/role="note"/);
   });

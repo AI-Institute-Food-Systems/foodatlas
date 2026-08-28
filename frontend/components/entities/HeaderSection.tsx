@@ -62,7 +62,7 @@ const HeaderSection = async ({
           </span>
         </span>
       </div>
-      <div className="mt-2 flex items-center gap-3 flex-wrap">
+      <div className="mt-3 flex items-center gap-3 flex-wrap">
         <Heading
           type="h1"
           className="capitalize text-3xl md:text-4xl font-semibold break-words leading-none"
