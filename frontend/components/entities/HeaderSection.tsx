@@ -4,7 +4,7 @@ import ChemicalIcon from "@/components/icons/ChemicalIcon";
 import DiseaseIcon from "@/components/icons/DiseaseIcon";
 import BioactivityIcon from "@/components/icons/BioactivityIcon";
 import Heading from "@/components/basic/Heading";
-import EntityAmbiguityBanner from "@/components/entities/EntityAmbiguityBanner";
+import EntityAmbiguityBadge from "@/components/entities/EntityAmbiguityBadge";
 import { getMetaData } from "@/utils/fetching";
 
 const colorScheme = {
@@ -53,6 +53,13 @@ const HeaderSection = async ({
         >
           {commonName}
         </Heading>
+        {/* Inside the band, not below it. The band's height comes from the
+         * H1, so the chip adds none — which is what keeps the page from
+         * jumping when this header replaces its skeleton. */}
+        <EntityAmbiguityBadge
+          entityType={entityType}
+          siblings={data?.ambiguity_siblings}
+        />
         <span className="absolute right-0 top-1/2 -translate-y-1/2 flex items-baseline gap-1.5 whitespace-nowrap">
           <span className="font-mono italic text-[10px] uppercase tracking-[0.12em] text-light-500">
             FoodAtlas ID
@@ -62,10 +69,6 @@ const HeaderSection = async ({
           </span>
         </span>
       </div>
-      <EntityAmbiguityBanner
-        entityType={entityType}
-        siblings={data?.ambiguity_siblings}
-      />
     </div>
   );
 };
