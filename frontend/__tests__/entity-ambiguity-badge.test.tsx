@@ -37,7 +37,7 @@ const siblings = (n: number) =>
     common_name: `sibling-${i}`,
   }));
 
-const open = () => fireEvent.click(screen.getByText("Ambiguous term"));
+const open = () => fireEvent.click(screen.getByText("Ambiguous entities"));
 
 describe("empty states", () => {
   it("renders nothing without siblings", () => {
@@ -64,7 +64,7 @@ describe("the collapsed affordance", () => {
     render(
       <EntityAmbiguityBadge entityType="chemical" siblings={siblings(2)} />
     );
-    const button = screen.getByText("Ambiguous term").closest("button")!;
+    const button = screen.getByText("Ambiguous entities").closest("button")!;
     expect(button.className).toContain("hover:underline");
     expect(button.className).toContain("underline-offset-4");
     expect(button.className).not.toContain("bg-amber");
@@ -81,7 +81,7 @@ describe("the collapsed affordance", () => {
       <EntityAmbiguityBadge entityType="chemical" siblings={siblings(2)} />
     );
     expect(
-      screen.getByText("Ambiguous term").closest("button")!.className
+      screen.getByText("Ambiguous entities").closest("button")!.className
     ).toContain("whitespace-nowrap");
   });
 
@@ -91,7 +91,7 @@ describe("the collapsed affordance", () => {
     render(
       <EntityAmbiguityBadge entityType="chemical" siblings={siblings(400)} />
     );
-    expect(screen.getByText("Ambiguous term")).toBeInTheDocument();
+    expect(screen.getByText("Ambiguous entities")).toBeInTheDocument();
     // No sibling names, no prose, until it is opened.
     expect(screen.queryByText("sibling-0")).toBeNull();
     expect(screen.queryByRole("dialog")).toBeNull();

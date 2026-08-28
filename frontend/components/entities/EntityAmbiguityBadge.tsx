@@ -54,7 +54,7 @@ const EntityAmbiguityBadge = ({ entityType, siblings }: Props) => {
         <button
           type="button"
           onClick={() => setIsOpen(true)}
-          aria-label={`Ambiguous term — ${siblings.length} related ${entityType}${
+          aria-label={`Ambiguous entities — ${siblings.length} related ${entityType}${
             siblings.length === 1 ? "" : "s"
           }`}
           className="inline-flex items-center gap-1 whitespace-nowrap font-mono italic text-[0.7rem] text-light-300 underline-offset-4 transition-colors hover:text-light-100 hover:underline"
@@ -68,13 +68,13 @@ const EntityAmbiguityBadge = ({ entityType, siblings }: Props) => {
            * viewport — a page-wide horizontal scroll on exactly the
            * ambiguous pages. The tooltip and aria-label still say what
            * it is, and the modal is one tap away either way. */}
-          <span className="hidden sm:inline">Ambiguous term</span>
+          <span className="hidden sm:inline">Ambiguous entities</span>
         </button>
       </Tooltip>
 
       <Modal
         fullHeight
-        title="Ambiguous term"
+        title="Ambiguous entities"
         description={
           <div className="flex flex-col gap-3 text-light-300">
             <p>
