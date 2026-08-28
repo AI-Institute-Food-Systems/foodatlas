@@ -65,19 +65,16 @@ const EntityAmbiguityBadge = ({ entityType, siblings }: Props) => {
               {entityType}s below instead, and the same rows may appear on
               their pages too.
             </p>
-            <p className="text-light-500">
-              This is a limit of how the evidence was extracted, not a claim
-              that these names mean the same thing.
-              {chained && (
-                <>
-                  {" "}
-                  These {siblings.length.toLocaleString()} were grouped by
-                  chained overlaps — one name linking to a second, that second
-                  to a third — so the more distant entries may never have
-                  shared a name with this {entityType}.
-                </>
-              )}
-            </p>
+            {/* Only the chained caveat earns a second paragraph. The
+             * sentence that used to lead it restated the one above. */}
+            {chained && (
+              <p className="text-light-500">
+                These {siblings.length.toLocaleString()} were grouped by
+                chained overlaps — one name linking to a second, that second
+                to a third — so the more distant entries may never have shared
+                a name with this {entityType}.
+              </p>
+            )}
           </div>
         }
         isOpen={isOpen}

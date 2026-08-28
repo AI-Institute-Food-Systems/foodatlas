@@ -92,9 +92,6 @@ describe("what the popup claims", () => {
     expect(
       dialog.getByText(/could not resolve to a single chemical/)
     ).toBeInTheDocument();
-    expect(
-      dialog.getByText(/not a claim that these names mean the same thing/)
-    ).toBeInTheDocument();
   });
 
   it("says the evidence may also appear on the sibling's page", () => {
@@ -137,9 +134,12 @@ describe("what the popup claims", () => {
       <EntityAmbiguityBadge entityType="chemical" siblings={siblings(1)} />
     );
     open();
+    const dialog = within(screen.getByRole("dialog"));
+    expect(dialog.queryByText(/chained overlaps/)).toBeNull();
+    // And no empty second paragraph left behind by the removed sentence.
     expect(
-      within(screen.getByRole("dialog")).queryByText(/chained overlaps/)
-    ).toBeNull();
+      screen.getByRole("dialog").querySelectorAll("p")
+    ).toHaveLength(1);
   });
 
   it("names the entity type it is talking about", () => {
