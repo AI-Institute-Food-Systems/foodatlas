@@ -10,7 +10,13 @@
 // capped upstream (ASSAY_CAP = 25) while the count is not. A row backed
 // by 300 assays must say 300, and the modal must admit it is showing 25.
 
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 beforeAll(() => {
@@ -51,6 +57,7 @@ const row = (over: Record<string, unknown> = {}) => ({
     { id: "UniProt: Q16236", label: "nuclear factor erythroid 2-related factor 2" },
   ],
   assays: ["AID 1234", "AID 5678", "CHEMBL999"],
+  bioactivities: ["anticancer", "antiviral"],
   ...over,
 });
 
@@ -230,5 +237,36 @@ describe("pagination", () => {
   it("has no show-all escape hatch left", async () => {
     await mount(manyRows(25), "disease-0");
     expect(screen.queryByText(/show all/i)).toBeNull();
+  });
+});
+
+describe("activities", () => {
+  // The disease page's separate Bioactivities tab listed the same pairs one
+  // row per activity. The dimension now rides the row instead.
+  it("states the count on the row and lists them in a modal", async () => {
+    await mount([row()]);
+    const button = screen.getAllByRole("button", { name: /see 2 activities/i })[0];
+    expect(button).toBeInTheDocument();
+
+    fireEvent.click(button);
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("anticancer")).toBeInTheDocument();
+    expect(within(dialog).getByText("antiviral")).toBeInTheDocument();
+    // Each links to its own bioactivity page.
+    expect(
+      within(dialog).getByText("anticancer").closest("a")
+    ).toHaveAttribute("href", "/bioactivity/anticancer");
+  });
+
+  it("renders no button for a row with no activities", async () => {
+    await mount([row({ bioactivities: [] })]);
+    expect(screen.queryByRole("button", { name: /activities/i })).toBeNull();
+  });
+
+  it("keeps one row per peer, however many activities it carries", async () => {
+    // The point of the merge: a chemical Active under three activities is
+    // one row, not three.
+    await mount([row({ bioactivities: ["a", "b", "c"] })]);
+    expect(document.querySelectorAll("tbody tr")).toHaveLength(1);
   });
 });

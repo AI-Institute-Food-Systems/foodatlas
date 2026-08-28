@@ -699,19 +699,8 @@ export const getChemicalDiseaseAssociations = (commonName: string) =>
 export const getDiseaseChemicalAssociations = (commonName: string) =>
   assayInferredFetch("/disease/chemical-associations", commonName);
 
-// Disease bioactivity profile — one row per bioactivity, attributed through
-// the bridging assay rather than through the chemical. Returns
-// { data: DiseaseBioactivitySummary[], metadata: { row_count } }.
-export const getDiseaseBioactivities = (commonName: string) =>
-  assayInferredFetch("/disease/bioactivities", commonName);
-
-// The chemicals behind those bioactivities, ordered by bridging assay count.
-// Returns { data: DiseaseBioactivityChemical[], metadata: { row_count } }.
-export const getDiseaseBioactivityChemicals = (commonName: string) =>
-  assayInferredFetch("/disease/bioactivity-chemicals", commonName);
-
-// Same view read from the bioactivity side — the diseases whose bridging
-// assays measure this activity, most chemicals first.
+// The diseases whose bridging assays measure this activity, most chemicals
+// first — the bioactivity page's Diseases tab.
 // Returns { data: BioactivityDisease[], metadata: { row_count } }.
 export const getBioactivityDiseases = (commonName: string) =>
   assayInferredFetch("/bioactivity/diseases", commonName);

@@ -17,7 +17,9 @@ interface Props {
   commonName: string;
   search?: string;
   signals?: string[];
+  activities?: string[];
   onSignalCountsChange?: (counts: Record<string, number>) => void;
+  onActivityCountsChange?: (counts: Record<string, number>) => void;
   onTotalRowsChange?: (total: number) => void;
 }
 
@@ -25,8 +27,10 @@ const DiseaseAssayInferredSection = ({
   commonName,
   search = "",
   signals = [],
+  activities = [],
   onTotalRowsChange,
   onSignalCountsChange,
+  onActivityCountsChange,
 }: Props) => {
   const fetcher = useCallback(
     () => getDiseaseChemicalAssociations(commonName),
@@ -43,9 +47,10 @@ const DiseaseAssayInferredSection = ({
         <p className="font-serif italic text-light-400 text-sm">
           Chemicals associated with this disease because they were{" "}
           <em>Active</em> in a bioactivity assay that this disease&apos;s
-          bridge ties in via target genes or mechanism. Assay signal, not a
-          curated claim — read it alongside the literature rows above rather
-          than as a second opinion on them.
+          bridge ties in via target genes or mechanism, and what those assays
+          were measuring. Assay signal, not a curated claim — read it
+          alongside the literature rows above rather than as a second opinion
+          on them.
         </p>
       </div>
       <AssayInferredAssociationsTable
@@ -54,8 +59,10 @@ const DiseaseAssayInferredSection = ({
         fetcher={fetcher}
         externalSearch={search}
         externalSignals={signals}
+        externalActivities={activities}
         onTotalRowsChange={onTotalRowsChange}
         onSignalCountsChange={onSignalCountsChange}
+        onActivityCountsChange={onActivityCountsChange}
       />
     </div>
   );

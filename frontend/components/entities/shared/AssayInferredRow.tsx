@@ -47,6 +47,7 @@ type RowProps = {
   reportProps: Record<string, unknown>;
   onOpenTargets: () => void;
   onOpenAssays: () => void;
+  onOpenActivities: () => void;
 };
 
 export const PeerRow = ({
@@ -55,6 +56,7 @@ export const PeerRow = ({
   reportProps,
   onOpenTargets,
   onOpenAssays,
+  onOpenActivities,
 }: RowProps) => (
   <tr {...reportProps}>
     <td className="py-1.5 pr-4">
@@ -66,6 +68,13 @@ export const PeerRow = ({
     </td>
     <td className="py-1.5 px-4">
       <SignalCell row={row} />
+    </td>
+    <td className="py-1.5 px-4">
+      <DetailCountButton
+        n={row.bioactivities?.length ?? 0}
+        noun="activity"
+        onOpen={onOpenActivities}
+      />
     </td>
     <td className="py-1.5 px-4">
       <DetailCountButton
@@ -86,6 +95,7 @@ export const PeerCard = ({
   reportProps,
   onOpenTargets,
   onOpenAssays,
+  onOpenActivities,
 }: RowProps) => (
   <div className="py-3 flex flex-col gap-2" {...reportProps}>
     <div className="flex items-baseline justify-between gap-2 capitalize">
@@ -97,6 +107,15 @@ export const PeerCard = ({
     <div>
       <SignalCell row={row} />
     </div>
+    {!!row.bioactivities?.length && (
+      <CardRow label="Activities">
+        <DetailCountButton
+          n={row.bioactivities.length}
+          noun="activity"
+          onOpen={onOpenActivities}
+        />
+      </CardRow>
+    )}
     {!!row.targets?.length && (
       <CardRow label="Target">
         <DetailCountButton

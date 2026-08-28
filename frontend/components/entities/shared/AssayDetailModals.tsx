@@ -10,14 +10,14 @@
 // Publications column on the literature table above — the cell is a
 // button that says how many, the modal holds all of them.
 
-import { MdMyLocation } from "react-icons/md";
+import { MdMyLocation, MdScience } from "react-icons/md";
 
 import Chip from "@/components/basic/Chip";
 import AssayIcon from "@/components/icons/AssayIcon";
 import Link from "@/components/basic/Link";
 import Modal from "@/components/basic/Modal";
 import { targetUrl } from "@/components/entities/shared/TargetGeneChips";
-import { assayExternalUrl } from "@/utils/utils";
+import { assayExternalUrl, encodeSpace } from "@/utils/utils";
 import type { AssayTarget } from "@/types";
 
 // The cell that opens one of these. Shared so every table that shows
@@ -26,21 +26,32 @@ import type { AssayTarget } from "@/types";
 // The count is passed in rather than derived from the list: for assays
 // they differ, because the stored list is capped at 25 upstream while
 // n_assays is not. The button must promise the real total.
+// "activity" is why this is a map and not `noun + "s"`.
+const PLURAL: Record<string, string> = {
+  assay: "assays",
+  target: "targets",
+  activity: "activities",
+};
+
+const NOUN_ICON: Record<string, JSX.Element> = {
+  assay: <AssayIcon />,
+  target: <MdMyLocation className="size-3" />,
+  activity: <MdScience className="size-3" />,
+};
+
 export const DetailCountButton = ({
   n,
   noun,
   onOpen,
 }: {
   n: number;
-  noun: "target" | "assay";
+  noun: "target" | "assay" | "activity";
   onOpen: () => void;
 }) =>
   n === 0 ? null : (
     <Chip
-      icon={
-        noun === "assay" ? <AssayIcon /> : <MdMyLocation className="size-3" />
-      }
-      label={`See ${n.toLocaleString()} ${noun}${n === 1 ? "" : "s"}`}
+      icon={NOUN_ICON[noun]}
+      label={`See ${n.toLocaleString()} ${n === 1 ? noun : PLURAL[noun]}`}
       tone="outline"
       size="md"
       onClick={onOpen}
@@ -168,3 +179,54 @@ export const AssaysModal = ({
 };
 
 AssaysModal.displayName = "AssaysModal";
+
+interface ActivitiesModalProps {
+  activities: string[];
+  peerName: string;
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+// The bioactivity dimension the association table collapses.
+//
+// mv_chemical_disease_bioactivity holds one row per (chemical, disease);
+// mv_disease_bioactivity holds the same pairs split by what the bridging
+// assays measure. Rather than repeat a chemical once per activity — which
+// is what the disease page's separate Bioactivities tab used to do — the
+// row stays one per chemical and lists its activities here.
+export const AssayActivitiesModal = ({
+  activities,
+  peerName,
+  isOpen,
+  onClose,
+}: ActivitiesModalProps) => (
+  <Modal
+    fullHeight
+    title="Measured activities"
+    description={
+      <p className="text-light-300">
+        What the bridging assays were measuring for{" "}
+        <span className="font-semibold capitalize">{peerName}</span> — the
+        activity classes it was <em>Active</em> in, not a claim that it has
+        that effect in people.
+      </p>
+    }
+    isOpen={isOpen}
+    onClose={onClose}
+  >
+    <ul className="flex flex-col divide-y divide-light-800">
+      {activities.map((activity) => (
+        <li key={activity} className="py-2">
+          <Link
+            href={`/bioactivity/${encodeURIComponent(encodeSpace(activity))}`}
+            isExternal={false}
+          >
+            <span className="capitalize">{activity}</span>
+          </Link>
+        </li>
+      ))}
+    </ul>
+  </Modal>
+);
+
+AssayActivitiesModal.displayName = "AssayActivitiesModal";

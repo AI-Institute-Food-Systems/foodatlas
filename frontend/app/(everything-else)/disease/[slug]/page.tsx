@@ -2,16 +2,12 @@ import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
-import DiseaseBioactivitiesSection from "@/components/entities/disease/DiseaseBioactivitiesSection";
 import CorrelationEvidenceTab from "@/components/entities/shared/CorrelationEvidenceTab";
 import HeaderSection from "@/components/entities/HeaderSection";
 import EntityDetailLayout from "@/components/entities/EntityDetailLayout";
 import EntityOverviewPanel from "@/components/entities/EntityOverviewPanel";
 import { buildTabs } from "@/components/entities/buildTabs";
-import {
-  correlationEvidenceCount,
-  diseaseBioactivitiesCount,
-} from "@/utils/tabCounts";
+import { correlationEvidenceCount } from "@/utils/tabCounts";
 import { DEFAULT_TAB_ID } from "@/components/entities/entityTabs.config";
 import EntityOverviewPanelSuspense from "@/components/entities/EntityOverviewPanelSuspense";
 import HeaderSectionSuspense from "@/components/entities/HeaderSectionSuspense";
@@ -44,14 +40,10 @@ const DiseasePage = async ({ params }: DiseasePageProps) => {
   const commonName = decodeSpace(decodeURIComponent(slug));
   const entityType = "disease" as const;
 
-  // Counts for every counted tab, in parallel. A tab mounts only when
-  // opened, so an unfetched count leaves its badge placeholder pulsing for
-  // the life of the page — this page previously fetched none, so all three
-  // badges did. Counts only; the tabs still load lazily.
-  const [healthCount, bioactivitiesCount] = await Promise.all([
-    correlationEvidenceCount(commonName, "disease"),
-    diseaseBioactivitiesCount(commonName),
-  ]);
+  // The one counted tab. A tab mounts only when opened, so an unfetched
+  // count leaves its badge placeholder pulsing for the life of the page.
+  // Count only; the tab still loads lazily.
+  const healthCount = await correlationEvidenceCount(commonName, "disease");
 
   return (
     <>
@@ -70,10 +62,6 @@ const DiseasePage = async ({ params }: DiseasePageProps) => {
                 anchor="disease"
               />
             ),
-          },
-          bioactivities: {
-            count: bioactivitiesCount,
-            content: <DiseaseBioactivitiesSection commonName={commonName} />,
           },
           overview: {
             content: (

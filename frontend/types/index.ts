@@ -25,18 +25,12 @@ import {
   BioactivityTopMeasurement,
   FoodEfficacyRow,
 } from "./Bioactivity";
-import {
-  BioactivityDisease,
-  DiseaseBioactivityChemical,
-  DiseaseBioactivitySummary,
-} from "./DiseaseBioactivity";
+import { BioactivityDisease } from "./DiseaseBioactivity";
 
 export type {
   AssayInferredAssociation,
   AssayTarget,
   BioactivityDisease,
-  DiseaseBioactivityChemical,
-  DiseaseBioactivitySummary,
   TeamMember,
   Suggestion,
   SearchOptions,

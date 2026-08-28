@@ -15,6 +15,9 @@ Beyond the raw counts, each row carries three things worth rendering:
 * ``literature_directions`` — the same two-value vocabulary sourced from CTD
   literature instead of the assay bridge, so the two can be compared. Empty
   for most rows; that is expected, and is why a match is worth flagging.
+* ``bioactivities`` — what those assays were measuring, attached from
+  ``mv_disease_bioactivity``. See ``_ACTIVITIES`` for why that is a widening
+  of this view rather than a different question.
 """
 
 from sqlalchemy import text
@@ -23,9 +26,33 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .target_labels import attach_targets
 
 _COLUMNS = """
-    chemical_name, chemical_foodatlas_id, disease_name, disease_foodatlas_id,
-    n_assays, n_active_measurements, relationships, target_genes, assays,
-    literature_directions
+    m.chemical_name, m.chemical_foodatlas_id, m.disease_name,
+    m.disease_foodatlas_id, m.n_assays, m.n_active_measurements,
+    m.relationships, m.target_genes, m.assays, m.literature_directions,
+    COALESCE(b.bioactivities, ARRAY[]::text[]) AS bioactivities
+"""
+
+# The activities the bridging assays measure, per pair.
+#
+# ``mv_disease_bioactivity`` is this same evidence one grain finer: one row
+# per (bioactivity, chemical, disease) against this view's one per
+# (chemical, disease). The pair sets are identical — 347,632 either way,
+# set difference 0 in both directions — so joining it back adds the
+# dimension this view collapses and cannot add or drop a pair.
+#
+# Aggregated once for the whole anchor rather than laterally per row: both
+# views are indexed on ``disease_name`` and ``chemical_name``, so each side
+# is a single index scan.
+_ACTIVITIES = """
+    LEFT JOIN (
+      SELECT chemical_foodatlas_id, disease_foodatlas_id,
+             array_agg(DISTINCT bioactivity_name) AS bioactivities
+      FROM mv_disease_bioactivity
+      WHERE {filter_column} = :name
+      GROUP BY chemical_foodatlas_id, disease_foodatlas_id
+    ) b
+      ON b.chemical_foodatlas_id = m.chemical_foodatlas_id
+     AND b.disease_foodatlas_id = m.disease_foodatlas_id
 """
 
 
@@ -54,8 +81,10 @@ async def _associations(
     result = await session.execute(
         text(f"""
             SELECT {_COLUMNS}
-            FROM mv_chemical_disease_bioactivity WHERE {filter_column} = :name
-            ORDER BY n_assays DESC, n_active_measurements DESC
+            FROM mv_chemical_disease_bioactivity m
+            {_ACTIVITIES.format(filter_column=filter_column)}
+            WHERE m.{filter_column} = :name
+            ORDER BY m.n_assays DESC, m.n_active_measurements DESC
         """),
         {"name": common_name},
     )

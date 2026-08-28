@@ -30,6 +30,7 @@ import {
 } from "@/components/basic/TableSkeleton";
 import type { SkeletonColumn } from "@/components/basic/skeletonTokens";
 import {
+  AssayActivitiesModal,
   AssaysModal,
   AssayTargetsModal,
 } from "@/components/entities/shared/AssayDetailModals";
@@ -64,10 +65,11 @@ export type { PeerDirection };
 // the loading grid lines up with the loaded one. Kept next to them: if
 // one changes, the other is a line away.
 const SKELETON_COLUMNS: SkeletonColumn[] = [
-  { key: "peer", width: "w-[30%]" },
-  { key: "signal", width: "w-[26%]" },
-  { key: "target", width: "w-[22%]" },
-  { key: "evidence", width: "w-[22%]" },
+  { key: "peer", width: "w-[28%]" },
+  { key: "signal", width: "w-[22%]" },
+  { key: "activities", width: "w-[17%]" },
+  { key: "target", width: "w-[17%]" },
+  { key: "evidence", width: "w-[16%]" },
 ];
 
 interface Props {
@@ -94,10 +96,13 @@ interface Props {
   // match rather than an equality test — which is also why the facet is
   // multi-select where the literature table's Direction is a radio.
   externalSignals?: string[];
+  // Bioactivity names to keep, same ANY-match rule as signals.
+  externalActivities?: string[];
   // Per-signal row counts, so the panel can label its options. Counted
   // under the search but not under the signal selection, so an option
   // never reads zero just because the other one is picked.
   onSignalCountsChange?: (counts: Record<string, number>) => void;
+  onActivityCountsChange?: (counts: Record<string, number>) => void;
   // Post-filter row count, for a parent summing several tables.
   onTotalRowsChange?: (total: number) => void;
 }
@@ -109,8 +114,10 @@ const AssayInferredAssociationsTable = ({
   tabId = "",
   externalSearch = "",
   externalSignals = [],
+  externalActivities = [],
   onTotalRowsChange,
   onSignalCountsChange,
+  onActivityCountsChange,
 }: Props) => {
   const { rows, isLoading, filtered, visible, totalPages, tableId } =
     useAssayInferredRows({
@@ -119,7 +126,9 @@ const AssayInferredAssociationsTable = ({
       fetcher,
       search: externalSearch,
       signals: externalSignals,
+      activities: externalActivities,
       onSignalCountsChange,
+      onActivityCountsChange,
     });
 
   // Which row's Target / Assays modal is open, by peer id. Two ids
@@ -127,6 +136,7 @@ const AssayInferredAssociationsTable = ({
   // rendering last frame's row.
   const [targetsFor, setTargetsFor] = useState<string | null>(null);
   const [assaysFor, setAssaysFor] = useState<string | null>(null);
+  const [activitiesFor, setActivitiesFor] = useState<string | null>(null);
   const reporter = useReportRows();
 
   // The anchor page is whichever side we're NOT listing: on a chemical page
@@ -153,6 +163,7 @@ const AssayInferredAssociationsTable = ({
     id === null ? undefined : rows.find((r) => peerId(r, peer) === id);
   const targetsRow = byId(targetsFor);
   const assaysRow = byId(assaysFor);
+  const activitiesRow = byId(activitiesFor);
 
   if (!isLoading && filtered.length === 0) {
     return (
@@ -175,16 +186,20 @@ const AssayInferredAssociationsTable = ({
       <div className="hidden md:block overflow-x-auto">
         <table className="w-full table-fixed">
           <colgroup>
-            <col className="w-[30%]" />
-            <col className="w-[26%]" />
+            <col className="w-[28%]" />
             <col className="w-[22%]" />
-            <col className="w-[22%]" />
+            <col className="w-[17%]" />
+            <col className="w-[17%]" />
+            <col className="w-[16%]" />
           </colgroup>
           <thead className="text-light-400 text-left">
             <tr>
               <Th>{peerLabel}</Th>
               <Th title="How CTD classifies the link: therapeutic (treats) or marker/mechanism (marks or drives). Opposite directions.">
                 Signal
+              </Th>
+              <Th title="What the bridging assays measure — the activity classes this pair was Active in">
+                Activities
               </Th>
               <Th title="The protein target the bridging assays measure — what the association runs through">
                 Target
@@ -206,6 +221,7 @@ const AssayInferredAssociationsTable = ({
                   reportProps={rowReportProps(row)}
                   onOpenTargets={() => setTargetsFor(peerId(row, peer))}
                   onOpenAssays={() => setAssaysFor(peerId(row, peer))}
+                  onOpenActivities={() => setActivitiesFor(peerId(row, peer))}
                 />
               ))
             )}
@@ -226,11 +242,20 @@ const AssayInferredAssociationsTable = ({
               reportProps={rowReportProps(row)}
               onOpenTargets={() => setTargetsFor(peerId(row, peer))}
               onOpenAssays={() => setAssaysFor(peerId(row, peer))}
+              onOpenActivities={() => setActivitiesFor(peerId(row, peer))}
             />
           ))}
         </div>
       )}
 
+      {activitiesRow && (
+        <AssayActivitiesModal
+          activities={activitiesRow.bioactivities ?? []}
+          peerName={peerName(activitiesRow, peer)}
+          isOpen
+          onClose={() => setActivitiesFor(null)}
+        />
+      )}
       {targetsRow && (
         <AssayTargetsModal
           targets={targetsRow.targets ?? []}

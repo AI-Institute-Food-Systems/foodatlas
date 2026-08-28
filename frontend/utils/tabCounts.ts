@@ -15,7 +15,6 @@
 import {
   getBioactivityDiseases,
   getChemicalDiseaseAssociations,
-  getDiseaseBioactivities,
   getDiseaseChemicalAssociations,
   getDiseaseData,
 } from "@/utils/fetching";
@@ -52,12 +51,6 @@ export const correlationEvidenceCount = async (
   if (lit === null && inf === null) return null;
   return (lit ?? 0) + (inf ?? 0);
 };
-
-// NOT the chemical rows. DiseaseBioactivitiesSection publishes
-// summary.length — the number of distinct bioactivities — so this reads
-// /disease/bioactivities, the summary endpoint, not bioactivity-chemicals.
-export const diseaseBioactivitiesCount = (commonName: string) =>
-  rowCount(() => getDiseaseBioactivities(commonName));
 
 // Matches BioactivityDiseasesSection, which publishes rows.length.
 export const bioactivityDiseasesCount = (commonName: string) =>

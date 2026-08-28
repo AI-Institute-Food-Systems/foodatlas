@@ -47,7 +47,6 @@ export const ENTITY_TABS = {
   ],
   disease: [
     { id: "health", label: "Chemicals", hasCount: true },
-    { id: "bioactivities", label: "Bioactivities", hasCount: true },
     { id: "overview", label: "Metadata", hasCount: false },
   ],
   bioactivity: [
@@ -123,8 +122,8 @@ export const TAB_STRIP_FITS: Record<
     stripFlex: "hidden min-[640px]:flex",
     stripBlock: "hidden min-[640px]:block",
   },
-  // Three short labels after the Lab Activity merge; fits wherever it
-  // is shown, same as food.
+  // Two labels after the Bioactivities merge — the strip cannot outgrow
+  // any viewport it is shown on.
   disease: {
     select: "min-[640px]:hidden",
     stripFlex: "hidden min-[640px]:flex",

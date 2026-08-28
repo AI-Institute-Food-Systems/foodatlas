@@ -6,7 +6,7 @@
 // the table's markup and was pushing past the 300-line limit; this half
 // is the only part with an ordering that matters:
 //
-//   rows → searched → (signal counts)   counts come from the searched set
+//   rows → searched → (facet counts)    counts come from the searched set
 //        → filtered → visible           so a facet never zeroes the option
 //                                       the user is reaching for
 //
@@ -18,6 +18,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { peerName, type PeerDirection } from "@/components/entities/shared/AssayInferredRow";
+import {
+  countActivities,
+  matchesActivities,
+} from "@/components/entities/shared/filters/ActivityFilterGroup";
 import {
   countSignals,
   matchesSignals,
@@ -36,7 +40,9 @@ interface Args {
   } | null>;
   search: string;
   signals: string[];
+  activities: string[];
   onSignalCountsChange?: (counts: Record<string, number>) => void;
+  onActivityCountsChange?: (counts: Record<string, number>) => void;
 }
 
 export const useAssayInferredRows = ({
@@ -45,7 +51,9 @@ export const useAssayInferredRows = ({
   fetcher,
   search,
   signals,
+  activities,
   onSignalCountsChange,
+  onActivityCountsChange,
 }: Args) => {
   const [rows, setRows] = useState<AssayInferredAssociation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -82,9 +90,21 @@ export const useAssayInferredRows = ({
     if (onSignalCountsChange && !isLoading) onSignalCountsChange(signalCounts);
   }, [onSignalCountsChange, signalCounts, isLoading]);
 
+  const activityCounts = useMemo(() => countActivities(searched), [searched]);
+  useEffect(() => {
+    if (onActivityCountsChange && !isLoading) {
+      onActivityCountsChange(activityCounts);
+    }
+  }, [onActivityCountsChange, activityCounts, isLoading]);
+
   const filtered = useMemo(
-    () => searched.filter((row) => matchesSignals(row.relationships, signals)),
-    [searched, signals]
+    () =>
+      searched.filter(
+        (row) =>
+          matchesSignals(row.relationships, signals) &&
+          matchesActivities(row.bioactivities, activities)
+      ),
+    [searched, signals, activities]
   );
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / ROWS_PER_PAGE));
@@ -110,13 +130,13 @@ export const useAssayInferredRows = ({
   // A new query should land on its best matches, not on page 4 of them.
   // Ref-compared rather than a bare effect so mounting doesn't reset a
   // page the user navigated to.
-  const lastFilters = useRef(`${search}|${signals.join()}`);
+  const lastFilters = useRef(`${search}|${signals.join()}|${activities.join()}`);
   useEffect(() => {
-    const next = `${search}|${signals.join()}`;
+    const next = `${search}|${signals.join()}|${activities.join()}`;
     if (lastFilters.current === next) return;
     lastFilters.current = next;
     setTablePaginations(tableId, 1, ROWS_PER_PAGE);
-  }, [search, signals, tableId, setTablePaginations]);
+  }, [search, signals, activities, tableId, setTablePaginations]);
 
   return { rows, isLoading, filtered, visible, totalPages, tableId };
 };

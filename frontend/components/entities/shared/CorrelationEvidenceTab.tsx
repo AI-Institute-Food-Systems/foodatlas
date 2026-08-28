@@ -27,6 +27,7 @@ import ChemicalCorrelationSection from "@/components/entities/chemical/ChemicalC
 import DiseaseAssayInferredSection from "@/components/entities/disease/DiseaseAssayInferredSection";
 import DiseaseCorrelationsSection from "@/components/entities/disease/DiseaseCorrelationsSection";
 import type { CorrelationDirection } from "@/components/entities/shared/CorrelationRow";
+import ActivityFilterGroup from "@/components/entities/shared/filters/ActivityFilterGroup";
 import SignalFilterGroup from "@/components/entities/shared/filters/SignalFilterGroup";
 import { usePublishTabCount } from "@/context/tabCountsContext";
 import { getCorrelationDirectionCounts } from "@/utils/fetching";
@@ -54,6 +55,7 @@ const CorrelationEvidenceTab = ({ commonName, anchor }: Props) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [direction, setDirection] = useState<CorrelationDirection>("all");
   const [signals, setSignals] = useState<string[]>([]);
+  const [activities, setActivities] = useState<string[]>([]);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   // The CTD half filters server-side, so every keystroke would be a
@@ -104,9 +106,19 @@ const CorrelationEvidenceTab = ({ commonName, anchor }: Props) => {
     (counts: Record<string, number>) => setSignalCounts(counts),
     []
   );
-  const toggleSignal = (key: string) =>
-    setSignals((prev) =>
-      prev.includes(key) ? prev.filter((s) => s !== key) : [...prev, key]
+  const [activityCounts, setActivityCounts] = useState<Record<string, number>>(
+    {}
+  );
+  const handleActivityCounts = useCallback(
+    (counts: Record<string, number>) => setActivityCounts(counts),
+    []
+  );
+  const toggle = (
+    set: (fn: (prev: string[]) => string[]) => void,
+    key: string
+  ) =>
+    set((prev) =>
+      prev.includes(key) ? prev.filter((v) => v !== key) : [...prev, key]
     );
 
   const peerLabel = anchor === "chemical" ? "disease" : "chemical";
@@ -155,11 +167,15 @@ const CorrelationEvidenceTab = ({ commonName, anchor }: Props) => {
   );
 
   const isDirty =
-    searchTerm !== "" || direction !== "all" || signals.length > 0;
+    searchTerm !== "" ||
+    direction !== "all" ||
+    signals.length > 0 ||
+    activities.length > 0;
   const resetAllFilters = () => {
     setSearchTerm("");
     setDirection("all");
     setSignals([]);
+    setActivities([]);
   };
 
   const literature =
@@ -185,16 +201,20 @@ const CorrelationEvidenceTab = ({ commonName, anchor }: Props) => {
         commonName={commonName}
         search={debouncedSearch}
         signals={signals}
+        activities={activities}
         onTotalRowsChange={setInferredTotal}
         onSignalCountsChange={handleSignalCounts}
+        onActivityCountsChange={handleActivityCounts}
       />
     ) : (
       <DiseaseAssayInferredSection
         commonName={commonName}
         search={debouncedSearch}
         signals={signals}
+        activities={activities}
         onTotalRowsChange={setInferredTotal}
         onSignalCountsChange={handleSignalCounts}
+        onActivityCountsChange={handleActivityCounts}
       />
     );
 
@@ -209,9 +229,16 @@ const CorrelationEvidenceTab = ({ commonName, anchor }: Props) => {
           <SignalFilterGroup
             selected={signals}
             counts={signalCounts}
-            onToggle={toggleSignal}
+            onToggle={(key) => toggle(setSignals, key)}
             onClear={() => setSignals([])}
             countsLoaded={Object.keys(signalCounts).length > 0}
+          />
+          <ActivityFilterGroup
+            selected={activities}
+            counts={activityCounts}
+            onToggle={(key) => toggle(setActivities, key)}
+            onClear={() => setActivities([])}
+            countsLoaded={Object.keys(activityCounts).length > 0}
           />
         </>
       }
