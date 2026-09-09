@@ -220,10 +220,6 @@ export async function getFoodCompositionCounts(
     // extraction (llm_plausibility score ≤ threshold) — surfaced next
     // to the "Include low-trust data points" toggle.
     low_trust_count?: number;
-    // Every composition row this food has, before any filter. Paired
-    // with the table's metadata.total_rows (which IS filtered) to say
-    // how many rows the current filters are hiding.
-    total_row_count?: number;
   };
 }
 

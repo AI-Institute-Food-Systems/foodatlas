@@ -133,7 +133,6 @@ const mockServer = () => {
     classification_counts: { flavonoid: 2, alkaloid: 1 },
     no_concentration_count: 1,
     low_trust_count: 0,
-    total_row_count: ROWS.length,
   } as never);
 };
 
@@ -264,26 +263,4 @@ describe("composition source filter", () => {
     expect(emptyStateShown()).toBe(false);
   });
 
-  it("reports how many rows the filters hide, and stops when they are cleared", async () => {
-    const { container } = await mount();
-    // Nothing hidden on an untouched table.
-    expect(screen.queryByText(/hidden by filters/i)).toBeNull();
-
-    fireEvent.click(sourceChip("FoodAtlas"));
-    await waitFor(() => expect(desktopRowCount(container)).toBe(1));
-
-    // 3 rows total, 1 visible.
-    expect(await screen.findByText(/2 hidden by filters/i)).toBeInTheDocument();
-    expect(screen.getByText(/3 chemicals/i)).toBeInTheDocument();
-
-    // Scope to the summary line's own control — the sidebar reset and the
-    // empty state both also read "clear filters".
-    const summary = screen.getByText(/hidden by filters/i).closest("p");
-    const clear = summary?.querySelector("button");
-    expect(clear).toBeTruthy();
-    fireEvent.click(clear as HTMLButtonElement);
-    await waitFor(() =>
-      expect(screen.queryByText(/hidden by filters/i)).toBeNull(),
-    );
-  });
 });

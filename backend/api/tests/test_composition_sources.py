@@ -313,17 +313,6 @@ class TestCountsAgreeWithRows:
         ]
         result = await get_composition_counts(_mock_session_sequence(rows, []), "x")
         assert result["data"]["no_concentration_count"] == 1
-        assert result["data"]["total_row_count"] == 1
-
-    @pytest.mark.asyncio
-    async def test_total_row_count_is_pre_filter(self) -> None:
-        result = await get_composition_counts(
-            _counts_session(), TARGET_FOOD, filter_source="ptfi"
-        )
-        # Seven target rows regardless of how narrow the filter is — the
-        # frontend subtracts metadata.total_rows from this to say how many
-        # rows the filters are hiding.
-        assert result["data"]["total_row_count"] == 7
 
 
 class TestEverySourceIsEnumeratedEverywhere:

@@ -30,7 +30,6 @@ import SortListbox from "@/components/basic/SortListbox";
 import { useReportRows } from "@/context/reportModeContext";
 import { AmbiguityBadge } from "@/components/basic/Ambiguity";
 import { TrustBadge } from "@/components/basic/TrustBadge";
-import CompositionFilterSummary from "@/components/entities/food/CompositionFilterSummary";
 import FoodCompositionEvidenceModal, {
   EvidenceFilter,
 } from "@/components/entities/food/FoodCompositionEvidenceModal";
@@ -192,12 +191,6 @@ const FoodCompositionSection = ({
   const [lowTrustCount, setLowTrustCount] = useState<number | undefined>(
     undefined,
   );
-  // Rows this food has before any filter. Only the counts endpoint knows
-  // it — /food/composition reports the filtered total — so the "N hidden"
-  // line needs both responses.
-  const [totalRowCount, setTotalRowCount] = useState<number | undefined>(
-    undefined,
-  );
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   // Mobile card view sort options — mirror the sortable desktop
@@ -267,7 +260,6 @@ const FoodCompositionSection = ({
         setClassificationCounts(counts.classification_counts);
         setNoConcentrationCount(counts.no_concentration_count);
         setLowTrustCount(counts.low_trust_count);
-        setTotalRowCount(counts.total_row_count);
         setCountsLoaded(true);
       } catch {
         if (cancelled) return;
@@ -275,7 +267,6 @@ const FoodCompositionSection = ({
         setClassificationCounts({});
         setNoConcentrationCount(undefined);
         setLowTrustCount(undefined);
-        setTotalRowCount(undefined);
         // Settled either way — a failed count fetch shouldn't leave the
         // filter rows showing placeholders forever.
         setCountsLoaded(true);
@@ -756,20 +747,6 @@ const FoodCompositionSection = ({
 
           <div className="flex flex-col gap-7">
           <div>
-          {/* How much of the food the current view leaves out. Renders
-           * itself away when nothing is hidden, so an untouched table
-           * still shows no row-count chrome. Outside the md: split so it
-           * covers the card list too. */}
-          {/* numberOfRows is -1 until the first fetch resolves, and stays
-            * there if it errors — reporting "all N hidden" for a failed
-            * request would be a lie about the filters. */}
-          {!isLoading && numberOfRows >= 0 && (
-            <CompositionFilterSummary
-              totalRowCount={totalRowCount}
-              visibleRowCount={numberOfRows}
-              onClear={resetAllFilters}
-            />
-          )}
           {/* Row-count line dropped — the Composition tab badge now
            * reflects the filtered total via usePublishTabCount. Mobile
            * sort stays here (no column headers to click on card view). */}
