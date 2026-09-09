@@ -6,6 +6,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.config import APISettings
 
 from ._search_util import build_ilike_pattern
+from ._sources import (
+    COMPOSITION_SOURCES,
+    any_source_sql,
+    parse_sources,
+    row_has_source,
+    source_sql,
+)
 from .formatting import format_external_ids
 from .trust_filter import (
     TrustMode,
@@ -22,27 +29,26 @@ NUTRIENT_KEY_MAP = {
     "nucleotide": "others",
 }
 
-# DMD (Dairy Molecule Database) is retired from the public API surface
-# 2026-07-06 — the DB column `dmd_evidences` stays populated on
-# `mv_food_chemical_composition` but is no longer selectable / filterable
-# / countable via this API.
-# PTFI ships relative_abundance rather than mg/100g, so most of its rows
-# have no median_concentration — they are still real composition evidence
-# and are selectable/filterable/countable like any other source.
-VALID_SOURCES = {"fdc", "foodatlas", "ptfi"}
+# Which sources exist, and the SQL/Python predicates over them, live in
+# ._sources — see that module for why (the rows path and the counts path
+# are two implementations of one rule and drifted apart).
+#
+# `dmd_evidences` is still summed in the evidence_count sort key even
+# though DMD is not exposed as a source: the column exists and carries
+# real attestations, so a row with DMD evidence genuinely does rank above
+# one without. `_resort_after_filter` mirrors this key exactly.
+EVIDENCE_COUNT_SORT_SOURCES = (*COMPOSITION_SOURCES, "dmd")
 VALID_SORT_COLS = {
     "common_name": "chemical_name",
     "median_concentration": "(median_concentration->>'value')::NUMERIC",
-    "evidence_count": (
-        "COALESCE(jsonb_array_length(fdc_evidences), 0) "
-        "+ COALESCE(jsonb_array_length(foodatlas_evidences), 0) "
-        "+ COALESCE(jsonb_array_length(ptfi_evidences), 0) "
-        "+ COALESCE(jsonb_array_length(dmd_evidences), 0)"
+    "evidence_count": " + ".join(
+        f"COALESCE(jsonb_array_length({s}_evidences), 0)"
+        for s in EVIDENCE_COUNT_SORT_SOURCES
     ),
 }
 VALID_DIRECTIONS = {"ASC", "DESC"}
 
-ALL_EVIDENCE_COLS = "fdc_evidences, foodatlas_evidences, ptfi_evidences"
+ALL_EVIDENCE_COLS = ", ".join(f"{s}_evidences" for s in COMPOSITION_SOURCES)
 BASE_SELECT = (
     "chemical_name AS name, chemical_foodatlas_id AS id, "
     "chemical_classification, median_concentration"
@@ -105,11 +111,11 @@ async def get_profile(session: AsyncSession, common_name: str) -> dict[str, obje
 def _collect_attestation_ids(row: dict) -> list[str]:
     """All attestation_ids across a composition row's evidence lists."""
     atts: list[str] = []
-    for ev_list in (
-        row["fdc_evidences"],
-        row["foodatlas_evidences"],
-        row.get("ptfi_evidences"),
-    ):
+    # Derived, not hand-listed. A source missing from this tuple would
+    # have its attestations skipped for trust scoring, so its rows would
+    # silently never count as low-trust — the same omission that produced
+    # the source-filter bug, in the one place it would be hardest to see.
+    for ev_list in (row.get(f"{s}_evidences") for s in COMPOSITION_SOURCES):
         for ev in ev_list or []:
             for ext in ev.get("extraction") or []:
                 aid = ext.get("attestation_id")
@@ -125,9 +131,10 @@ def _annotate_composition_rows(
     for r in rows:
         atts = _collect_attestation_ids(r)
         r["_classifications"] = r["chemical_classification"] or []
-        r["_has_fdc"] = r["fdc_evidences"] is not None
-        r["_has_fa"] = r["foodatlas_evidences"] is not None
-        r["_has_ptfi"] = r.get("ptfi_evidences") is not None
+        # Per-source presence, keyed by source, rather than one flag per
+        # source: the flags were hand-listed and hand-consumed, which is
+        # how PTFI ended up counted in some loops and not others.
+        r["_sources"] = {s for s in COMPOSITION_SOURCES if row_has_source(r, (s,))}
         r["_has_conc"] = r["median_concentration"] is not None
         low = [aid for aid in atts if aid in scores and scores[aid] <= threshold]
         # Two distinct questions, deliberately kept apart.
@@ -163,7 +170,10 @@ async def get_composition_counts(
     - ``classification_counts`` — apply source + concentration + trust +
       search; group by classification.
     - ``source_counts`` — apply class + concentration + trust + search;
-      count rows per source (fdc / foodatlas).
+      count rows per source, one key per ``COMPOSITION_SOURCES`` entry.
+      A row with evidence from two sources counts once under each, so
+      these sum to more than the row total.
+    - ``total_row_count`` — every row for this food, before any filter.
     - ``no_concentration_count`` — apply source + class + trust + search;
       count rows whose median_concentration is NULL. This is the number
       of rows the "Include without concentration" toggle governs.
@@ -185,16 +195,12 @@ async def get_composition_counts(
       extractions count here.
     """
     result = await session.execute(
-        text("""
-            SELECT id, chemical_name, chemical_classification,
-                   median_concentration, fdc_evidences, foodatlas_evidences,
-                   ptfi_evidences
-            FROM mv_food_chemical_composition
-            WHERE food_name = :name
-              AND (fdc_evidences IS NOT NULL
-                   OR foodatlas_evidences IS NOT NULL
-                   OR ptfi_evidences IS NOT NULL)
-        """),
+        text(
+            "SELECT id, chemical_name, chemical_classification, "
+            "median_concentration, " + ALL_EVIDENCE_COLS + " "
+            "FROM mv_food_chemical_composition "
+            "WHERE food_name = :name AND " + any_source_sql()
+        ),
         {"name": common_name},
     )
     rows = [dict(r._mapping) for r in result]
@@ -208,10 +214,11 @@ async def get_composition_counts(
     threshold = APISettings().trust_low_threshold
     _annotate_composition_rows(rows, scores, threshold)
 
+    # No filter means every source, not the two that existed when this
+    # default was written — leaving PTFI out here undercounted every
+    # unfiltered facet (pepper (raw): no_concentration_count 194 vs 294).
     active_sources = (
-        {s for s in filter_source.split("+") if s}
-        if filter_source
-        else {"fdc", "foodatlas"}
+        set(parse_sources(filter_source)) if filter_source else set(COMPOSITION_SOURCES)
     )
     active_classes = (
         {c for c in filter_classification.split("+") if c}
@@ -222,11 +229,8 @@ async def get_composition_counts(
     trust_default = trust == "default"
 
     def m_source(r: dict) -> bool:
-        return (
-            ("fdc" in active_sources and r["_has_fdc"])
-            or ("foodatlas" in active_sources and r["_has_fa"])
-            or ("ptfi" in active_sources and r["_has_ptfi"])
-        )
+        # Same rule the rows path ANDs into its WHERE (_sources.source_sql).
+        return bool(r["_sources"] & active_sources)
 
     def m_class(r: dict) -> bool:
         if not active_classes:
@@ -257,16 +261,12 @@ async def get_composition_counts(
                 cls_counts[cls] = cls_counts.get(cls, 0) + 1
 
     # source_counts — exclude source filter.
-    source_counts = {"fdc": 0, "foodatlas": 0, "ptfi": 0}
+    source_counts = dict.fromkeys(COMPOSITION_SOURCES, 0)
     for r in rows:
         if not (m_class(r) and m_conc(r) and m_trust(r) and m_search(r)):
             continue
-        if r["_has_fdc"]:
-            source_counts["fdc"] += 1
-        if r["_has_fa"]:
-            source_counts["foodatlas"] += 1
-        if r["_has_ptfi"]:
-            source_counts["ptfi"] += 1
+        for s in r["_sources"]:
+            source_counts[s] += 1
 
     # Toggle counts — exclude the toggle's own filter, count rows the
     # toggle governs.
@@ -291,6 +291,11 @@ async def get_composition_counts(
             "source_counts": source_counts,
             "no_concentration_count": no_concentration_count,
             "low_trust_count": low_trust_count,
+            # Every row this food has, before any filter. The table's
+            # metadata.total_rows is the filtered count, so the difference
+            # is what the UI reports as "N hidden by filters" — a number
+            # neither response could produce on its own.
+            "total_row_count": len(rows),
         }
     }
 
@@ -320,7 +325,9 @@ async def get_composition(
     ``rows_per_page`` — acceptable trade-off for v1; revisit if pagination
     accuracy becomes a real UX issue.
     """
-    sources = [s for s in filter_source.split("+") if s] if filter_source else []
+    sources = parse_sources(filter_source) if filter_source else []
+    # An explicit filter that names nothing we recognise ("+", "dmd") is a
+    # request for no rows, not a request for all of them.
     if filter_source and not sources:
         return _empty_composition(rows_per_page)
 
@@ -408,29 +415,31 @@ def _build_query_parts(
     classifications: list[str] | None = None,
 ) -> tuple[str, list[str], dict]:
     """Build SELECT columns, WHERE conditions, and params from validated inputs."""
-    # Evidence columns from allowlist
-    valid = [s for s in sources if s in VALID_SOURCES]
-    if not valid or len(valid) > 1:
-        select_cols = BASE_SELECT + ", " + ALL_EVIDENCE_COLS
-    else:
-        select_cols = BASE_SELECT + ", " + valid[0] + "_evidences"
+    valid = [s for s in COMPOSITION_SOURCES if s in sources]
+
+    # Always select every evidence column. The source filter picks which
+    # *rows* to show, not which evidence a shown row carries — the data
+    # points modal greys out deselected sources rather than hiding them,
+    # and it can only do that if they arrive.
+    select_cols = BASE_SELECT + ", " + ALL_EVIDENCE_COLS
 
     conditions = [
         "food_name = :name",
         # Filter DMD-only rows unconditionally — the public API stopped
         # exposing dmd_evidences in the 2026-07-06 DMD removal (PR #249)
         # so a row with only DMD evidence renders as an empty row on the
-        # composition table. Every source we DO expose must be listed
-        # here, otherwise its rows are silently dropped: PTFI rows carry
-        # only ptfi_evidences, so omitting it would hide all 11k of them.
-        "(fdc_evidences IS NOT NULL"
-        " OR foodatlas_evidences IS NOT NULL"
-        " OR ptfi_evidences IS NOT NULL)",
+        # composition table.
+        any_source_sql(),
     ]
     params: dict = {"name": common_name}
 
-    if len(valid) == 1:
-        conditions.append(valid[0] + "_evidences IS NOT NULL")
+    # Whenever anything is selected — not just when exactly one thing is.
+    # The old `len(valid) == 1` guard read as correct while fdc and
+    # foodatlas were the only sources, because deselecting one of two
+    # always leaves exactly one. With three, {fdc, ptfi} emitted no source
+    # predicate at all and the endpoint answered with the unfiltered set.
+    if valid:
+        conditions.append(source_sql(valid))
 
     if search_term:
         cleaned = search_term.strip()
@@ -514,12 +523,14 @@ def _resort_after_filter(data: list[dict], sort_by: str, direction: str) -> list
             data, key=lambda r: (r.get("name") or "").lower(), reverse=descending
         )
     if sort_by == "evidence_count":
+        # Must sum the same columns as VALID_SORT_COLS["evidence_count"],
+        # or the two orderings disagree and rows jump when the trust
+        # filter kicks in. ptfi was missing here, which scored every
+        # PTFI-only row 0 under the default trust mode.
         return sorted(
             data,
-            key=lambda r: (
-                len(r.get("fdc_evidences") or [])
-                + len(r.get("foodatlas_evidences") or [])
-                + len(r.get("dmd_evidences") or [])
+            key=lambda r: sum(
+                len(r.get(f"{s}_evidences") or []) for s in EVIDENCE_COUNT_SORT_SOURCES
             ),
             reverse=descending,
         )
