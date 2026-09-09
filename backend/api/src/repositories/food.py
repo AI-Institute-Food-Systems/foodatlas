@@ -173,7 +173,6 @@ async def get_composition_counts(
       count rows per source, one key per ``COMPOSITION_SOURCES`` entry.
       A row with evidence from two sources counts once under each, so
       these sum to more than the row total.
-    - ``total_row_count`` — every row for this food, before any filter.
     - ``no_concentration_count`` — apply source + class + trust + search;
       count rows whose median_concentration is NULL. This is the number
       of rows the "Include without concentration" toggle governs.
@@ -291,11 +290,6 @@ async def get_composition_counts(
             "source_counts": source_counts,
             "no_concentration_count": no_concentration_count,
             "low_trust_count": low_trust_count,
-            # Every row this food has, before any filter. The table's
-            # metadata.total_rows is the filtered count, so the difference
-            # is what the UI reports as "N hidden by filters" — a number
-            # neither response could produce on its own.
-            "total_row_count": len(rows),
         }
     }
 
