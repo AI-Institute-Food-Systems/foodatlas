@@ -205,3 +205,92 @@ jobs:
             exit 1
           fi
           echo "All staging smoke tests passed."
+
+          # ---- Source-filter invariants -------------------------------
+          # Pure relationships between responses, so no fixture and no
+          # expected row counts to keep in sync with the data:
+          #
+          #   total_rows(filter_source=s) == source_counts[s]
+          #   max(a, b) <= total_rows(a+b) <= a + b
+          #
+          # The upper bound is the one that matters. When the WHERE
+          # clause for a two-of-three selection went missing, `fdc+ptfi`
+          # returned the UNFILTERED set -- 309 rows against singles of 0
+          # and 106 -- so `309 > 0 + 106` fails loudly here.
+          #
+          # Pinned to `pepper (raw)` rather than the `onion` above
+          # because onion and tomato are both {fdc:0, foodatlas:N,
+          # ptfi:0}. A single-source food satisfies the pair invariant
+          # even with the bug present, so it cannot catch anything. The
+          # precondition below asserts that the pinned food still has two
+          # non-zero sources -- an ETL reload that drops PTFI from pepper
+          # then fails with "repin", instead of quietly going green
+          # forever. Same trap the comment above this step describes.
+          FOOD="pepper (raw)"
+          enc_food=$(jq -rn --arg v "$FOOD" '$v|@uri')
+
+          api_get() {
+            curl --silent --show-error --max-time 30 \
+                 -H "Authorization: Bearer $API_KEY" "$API_URL$1"
+          }
+
+          counts_json=$(api_get "/food/composition/counts?common_name=$enc_food")
+          # `|| echo -1` and the `// -1` fallback keep a failed request or
+          # an unparseable body from aborting under `set -e` before the
+          # invariant gets a chance to report which comparison broke.
+          total_rows_for() {
+            api_get "/food/composition?common_name=$enc_food&page=1&filter_source=$1" \
+              | jq -r '.metadata.total_rows // -1' || echo -1
+          }
+
+          nonzero=0
+          for s in fdc foodatlas ptfi; do
+            c=$(echo "$counts_json" | jq -r --arg s "$s" '.data.source_counts[$s] // 0')
+            eval "count_$s=$c"
+            # An `if`, not `[ ... ] && ...` -- the && form evaluates to
+            # non-zero when the test is false, which under `set -e` at the
+            # top of this step exits the whole job. fdc is 0 on pepper, so
+            # that fires on the very first iteration.
+            if [ "$c" -gt 0 ]; then
+              nonzero=$((nonzero + 1))
+            fi
+          done
+
+          if [ "$nonzero" -lt 2 ]; then
+            echo "::error::'$FOOD' now has $nonzero non-zero sources (fdc=$count_fdc foodatlas=$count_foodatlas ptfi=$count_ptfi). This check needs a multi-source food to mean anything -- repin FOOD in cd-staging.yml."
+            exit 1
+          fi
+
+          inv_failed=0
+          for s in fdc foodatlas ptfi; do
+            eval "expected=\$count_$s"
+            actual=$(total_rows_for "$s")
+            if [ "$actual" != "$expected" ]; then
+              echo "::error::source filter -- filter_source=$s returned $actual rows but source_counts.$s is $expected. The rows path and the counts path disagree."
+              inv_failed=1
+            else
+              echo "  filter_source=$s == source_counts.$s ($actual) OK"
+            fi
+          done
+
+          for pair in "fdc foodatlas" "fdc ptfi" "foodatlas ptfi"; do
+            set -- $pair
+            eval "a=\$count_$1"; eval "b=\$count_$2"
+            both=$(total_rows_for "$1%2B$2")
+            lo=$a
+            if [ "$b" -gt "$lo" ]; then
+              lo=$b
+            fi
+            hi=$((a + b))
+            if [ "$both" -lt "$lo" ] || [ "$both" -gt "$hi" ]; then
+              echo "::error::source filter -- filter_source=$1+$2 returned $both rows, outside [$lo, $hi] implied by the singles ($1=$a, $2=$b). A result above the upper bound means the multi-source WHERE clause is missing."
+              inv_failed=1
+            else
+              echo "  filter_source=$1+$2 = $both in [$lo, $hi] OK"
+            fi
+          done
+
+          if [ "$inv_failed" -ne 0 ]; then
+            exit 1
+          fi
+          echo "Composition source-filter invariants hold."

@@ -53,7 +53,17 @@ interface Props {
   // (extracted name matches the pivot chemical) and to highlight the
   // premise.
   chemicalName: string;
+  // Display-cased source names deselected on the table behind the modal
+  // ("FoodAtlas", "PTFI", ...). Their rows render greyed and
+  // non-interactive but stay in place: the reader deselected a source to
+  // narrow which *chemicals* they see, not to be told this chemical has
+  // less evidence than it does. Default empty — the chemical page renders
+  // this table with no source filter behind it.
+  dimmedSourceNames?: Set<string>;
 }
+
+const isDimmed = (r: EvidenceRow, dimmed?: Set<string>): boolean =>
+  Boolean(dimmed?.has(r.evidence.reference.source_name));
 
 // Numeric key for sort — falls back to -Infinity so rows without a
 // numeric converted value settle at the bottom under "desc".
@@ -81,7 +91,11 @@ const flattenEvidences = (
 
 const PAGE_SIZE = 20;
 
-const EvidenceTable = ({ evidences, chemicalName }: Props) => {
+const EvidenceTable = ({
+  evidences,
+  chemicalName,
+  dimmedSourceNames,
+}: Props) => {
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const reporter = useReportRows();
@@ -176,30 +190,42 @@ const EvidenceTable = ({ evidences, chemicalName }: Props) => {
           </thead>
           <tbody className="text-sm font-light">
             {pagedRows.map((r) => {
-              const expandable = r.evidence.premise?.length > 0;
+              const dimmed = isDimmed(r, dimmedSourceNames);
+              // A dimmed row keeps its content but loses every
+              // affordance — expand, report-select, keyboard focus — so
+              // it reads as context rather than as something to act on.
+              const expandable = !dimmed && r.evidence.premise?.length > 0;
               const isExpanded = expandedKey === r.key;
               const rowReportProps = reporter.getRowProps(buildRowContext(r));
               return (
                 <Fragment key={r.key}>
                   <tr
                     onClick={
-                      reporter.isSelectMode
+                      dimmed
+                        ? undefined
+                        : reporter.isSelectMode
                         ? rowReportProps.onClick
                         : expandable
                         ? () => toggle(r.key)
                         : undefined
                     }
                     aria-expanded={expandable ? isExpanded : undefined}
+                    aria-disabled={dimmed || undefined}
                     className={twMerge(
                       "transition-colors border-b border-light-800/60",
                       expandable && "cursor-pointer hover:bg-light-900/40",
                       isExpanded && "bg-light-900/50",
-                      rowReportProps.className,
+                      !dimmed && rowReportProps.className,
+                      dimmed && "opacity-40",
                     )}
-                    role={rowReportProps.role}
-                    tabIndex={rowReportProps.tabIndex}
-                    onKeyDown={rowReportProps.onKeyDown}
-                    aria-label={rowReportProps["aria-label"]}
+                    role={dimmed ? undefined : rowReportProps.role}
+                    tabIndex={dimmed ? undefined : rowReportProps.tabIndex}
+                    onKeyDown={dimmed ? undefined : rowReportProps.onKeyDown}
+                    aria-label={
+                      dimmed
+                        ? `${r.evidence.reference.source_name} evidence, hidden by the current source filter`
+                        : rowReportProps["aria-label"]
+                    }
                   >
                     <td className="py-2 pr-2 align-top">
                       <SourceBadge source={r.evidence.reference.source_name} />
@@ -217,12 +243,17 @@ const EvidenceTable = ({ evidences, chemicalName }: Props) => {
                       <MethodChip method={r.extraction.method} />
                     </td>
                     <td className="py-2 pl-2 align-top">
-                      <RowActions
-                        row={r}
-                        expandable={expandable}
-                        expanded={isExpanded}
-                        onToggle={() => toggle(r.key)}
-                      />
+                      {/* No actions on a dimmed row — its reference link
+                        * and expand toggle would still be clickable
+                        * through the reduced opacity otherwise. */}
+                      {!dimmed && (
+                        <RowActions
+                          row={r}
+                          expandable={expandable}
+                          expanded={isExpanded}
+                          onToggle={() => toggle(r.key)}
+                        />
+                      )}
                     </td>
                   </tr>
                   {isExpanded && (
@@ -245,16 +276,19 @@ const EvidenceTable = ({ evidences, chemicalName }: Props) => {
       {/* Mobile card list ---------------------------------------------- */}
       <div className="md:hidden w-full flex flex-col divide-y divide-light-800">
         {pagedRows.map((r) => {
-          const expandable = r.evidence.premise?.length > 0;
+          const dimmed = isDimmed(r, dimmedSourceNames);
+          const expandable = !dimmed && r.evidence.premise?.length > 0;
           const isExpanded = expandedKey === r.key;
           const rowReportProps = reporter.getRowProps(buildRowContext(r));
           return (
             <div
               key={r.key}
-              {...rowReportProps}
+              {...(dimmed ? {} : rowReportProps)}
+              aria-disabled={dimmed || undefined}
               className={twMerge(
                 "w-full py-3 flex flex-col gap-2 text-sm",
-                rowReportProps.className,
+                !dimmed && rowReportProps.className,
+                dimmed && "opacity-40",
               )}
             >
               <div className="w-full flex items-center justify-between gap-2 flex-wrap">
@@ -268,12 +302,14 @@ const EvidenceTable = ({ evidences, chemicalName }: Props) => {
                   />
                   {r.extraction.trust_low && <TrustWarning />}
                 </div>
-                <RowActions
-                  row={r}
-                  expandable={expandable}
-                  expanded={isExpanded}
-                  onToggle={() => toggle(r.key)}
-                />
+                {!dimmed && (
+                  <RowActions
+                    row={r}
+                    expandable={expandable}
+                    expanded={isExpanded}
+                    onToggle={() => toggle(r.key)}
+                  />
+                )}
               </div>
               <div className="w-full flex items-baseline justify-between gap-2">
                 <span className="font-mono italic text-[10px] uppercase tracking-wider text-light-500">

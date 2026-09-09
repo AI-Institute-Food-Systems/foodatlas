@@ -30,6 +30,7 @@ import SortListbox from "@/components/basic/SortListbox";
 import { useReportRows } from "@/context/reportModeContext";
 import { AmbiguityBadge } from "@/components/basic/Ambiguity";
 import { TrustBadge } from "@/components/basic/TrustBadge";
+import CompositionFilterSummary from "@/components/entities/food/CompositionFilterSummary";
 import FoodCompositionEvidenceModal, {
   EvidenceFilter,
 } from "@/components/entities/food/FoodCompositionEvidenceModal";
@@ -51,6 +52,10 @@ import {
   getFoodCompositionCounts,
   getFoodCompositionData,
 } from "@/utils/fetching";
+import {
+  ALL_SOURCE_VALUES,
+  SOURCE_OPTIONS,
+} from "@/components/entities/food/compositionSources";
 import { FoodCompositionData } from "@/types";
 
 // headers for table
@@ -104,17 +109,6 @@ const CLASSIFICATION_OPTIONS = [
   "n/a",
 ];
 
-// mapping of source filters to their labels
-const SOURCE_OPTIONS = [
-  { value: "fdc", label: "FDC" },
-  { value: "foodatlas", label: "FoodAtlas" },
-  { value: "ptfi", label: "PTFI" },
-];
-
-// Every source starts selected. Derived rather than hardcoded — the initial
-// state and the reset handler both used to list sources literally, so adding
-// PTFI silently left it unselected on load and un-selected it again on reset.
-const ALL_SOURCE_VALUES = SOURCE_OPTIONS.map((o) => o.value);
 
 interface FoodCompositionSectionProps {
   commonName: string;
@@ -198,6 +192,12 @@ const FoodCompositionSection = ({
   const [lowTrustCount, setLowTrustCount] = useState<number | undefined>(
     undefined,
   );
+  // Rows this food has before any filter. Only the counts endpoint knows
+  // it — /food/composition reports the filtered total — so the "N hidden"
+  // line needs both responses.
+  const [totalRowCount, setTotalRowCount] = useState<number | undefined>(
+    undefined,
+  );
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   // Mobile card view sort options — mirror the sortable desktop
@@ -267,6 +267,7 @@ const FoodCompositionSection = ({
         setClassificationCounts(counts.classification_counts);
         setNoConcentrationCount(counts.no_concentration_count);
         setLowTrustCount(counts.low_trust_count);
+        setTotalRowCount(counts.total_row_count);
         setCountsLoaded(true);
       } catch {
         if (cancelled) return;
@@ -274,6 +275,7 @@ const FoodCompositionSection = ({
         setClassificationCounts({});
         setNoConcentrationCount(undefined);
         setLowTrustCount(undefined);
+        setTotalRowCount(undefined);
         // Settled either way — a failed count fetch shouldn't leave the
         // filter rows showing placeholders forever.
         setCountsLoaded(true);
@@ -335,19 +337,14 @@ const FoodCompositionSection = ({
         if (findChemical) {
           setFindChemical("");
         }
-        // client-side filter: only keep rows with evidence from selected sources
-        const filteredData = (
-          result.data as FoodCompositionData[]
-        ).filter((row) =>
-          sourceFilters.some((source) => {
-            const evidences =
-              row[
-                `${source}_evidences` as keyof FoodCompositionData
-              ];
-            return Array.isArray(evidences) && evidences.length > 0;
-          })
-        );
-        setData(filteredData);
+        // No client-side re-filter. The server's WHERE now restricts rows
+        // to the selected sources, so every row here already qualifies —
+        // and re-filtering a page that was already paginated and counted
+        // server-side is what produced "pager says 13 pages, table shows
+        // nothing": the filter dropped rows but total_rows/total_pages
+        // below still came from the unfiltered response. Dropping it makes
+        // that contradiction structurally impossible rather than fixed.
+        setData(result.data as FoodCompositionData[]);
         setNumberOfPages(result.metadata.total_pages);
         setNumberOfRows(result.metadata.total_rows);
       } catch (error) {
@@ -689,15 +686,20 @@ const FoodCompositionSection = ({
         <FilterOptionList>
           {SOURCE_OPTIONS.map((opt) => {
             const c = sourceCounts[opt.value];
+            const isSelected = sourceFilters.includes(opt.value);
             return (
               <FilterOption
                 key={opt.value}
                 label={opt.label}
                 count={c}
                 countsLoaded={countsLoaded}
-                selected={sourceFilters.includes(opt.value)}
+                selected={isSelected}
                 onClick={() => toggleSource(opt.value)}
-                disabled={countsLoaded && c === 0}
+                // A count of 0 disables the option — but never while it's
+                // still selected, or the user is trapped. On pepper (raw)
+                // FDC is 0 and selected by default, so the one combination
+                // that works (PTFI alone) was unreachable by clicking.
+                disabled={countsLoaded && c === 0 && !isSelected}
               />
             );
           })}
@@ -754,6 +756,20 @@ const FoodCompositionSection = ({
 
           <div className="flex flex-col gap-7">
           <div>
+          {/* How much of the food the current view leaves out. Renders
+           * itself away when nothing is hidden, so an untouched table
+           * still shows no row-count chrome. Outside the md: split so it
+           * covers the card list too. */}
+          {/* numberOfRows is -1 until the first fetch resolves, and stays
+            * there if it errors — reporting "all N hidden" for a failed
+            * request would be a lie about the filters. */}
+          {!isLoading && numberOfRows >= 0 && (
+            <CompositionFilterSummary
+              totalRowCount={totalRowCount}
+              visibleRowCount={numberOfRows}
+              onClear={resetAllFilters}
+            />
+          )}
           {/* Row-count line dropped — the Composition tab badge now
            * reflects the filtered total via usePublishTabCount. Mobile
            * sort stays here (no column headers to click on card view). */}
@@ -1201,6 +1217,7 @@ const FoodCompositionSection = ({
           isOpen={selectedEvidenceName !== ""}
           onClose={() => setSelectedEvidenceName("")}
           initialFilter={evidenceFilter}
+          selectedSources={sourceFilters}
         />
       </Portal>
     </>

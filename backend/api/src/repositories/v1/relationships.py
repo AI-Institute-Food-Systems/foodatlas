@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import text
 
+from .._sources import COMPOSITION_SOURCES, evidence_column
 from .pagination import offset as _offset
 
 if TYPE_CHECKING:
@@ -20,19 +21,31 @@ if TYPE_CHECKING:
 _RELATION_TO_ID: dict[str, str] = {"reduces": "r4", "worsens": "r3"}
 
 
-_COMPOSITION_SELECT_CLAUSE = """
+# Generated from COMPOSITION_SOURCES rather than hand-listed. Both of
+# these used to name fdc and foodatlas only, so every PTFI-only row came
+# back as `sources: []` with `attestation_count: 0` — 100 of the 310 rows
+# on GET /v1/foods/e7737/chemicals, reported to API consumers as evidence
+# from nowhere.
+_ATTESTATION_COUNT_SQL = "\n        + ".join(
+    f"COALESCE(jsonb_array_length({evidence_column(s)}), 0)"
+    for s in COMPOSITION_SOURCES
+)
+_SOURCE_CASE_SQL = ",\n            ".join(
+    f"CASE WHEN {evidence_column(s)} IS NOT NULL THEN '{s}' END"
+    for s in COMPOSITION_SOURCES
+)
+
+_COMPOSITION_SELECT_CLAUSE = f"""
     food_foodatlas_id AS food_id,
     food_name,
     chemical_foodatlas_id AS chemical_id,
     chemical_name,
     chemical_classification,
     median_concentration,
-    COALESCE(jsonb_array_length(fdc_evidences), 0)
-        + COALESCE(jsonb_array_length(foodatlas_evidences), 0) AS attestation_count,
+    {_ATTESTATION_COUNT_SQL} AS attestation_count,
     ARRAY_REMOVE(
         ARRAY[
-            CASE WHEN fdc_evidences IS NOT NULL THEN 'fdc' END,
-            CASE WHEN foodatlas_evidences IS NOT NULL THEN 'foodatlas' END
+            {_SOURCE_CASE_SQL}
         ],
         NULL
     ) AS sources

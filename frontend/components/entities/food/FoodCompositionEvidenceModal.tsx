@@ -16,6 +16,7 @@ import {
   FilterDrawer,
   FilterPanelBody,
 } from "@/components/entities/shared/filters/FilterPanel";
+import { SOURCE_DISPLAY_NAMES } from "@/components/entities/food/compositionSources";
 import { FoodEvidence, FoodEvidenceExtraction } from "@/types/Evidence";
 
 const isLowTrust = (ex: FoodEvidenceExtraction): boolean => Boolean(ex.trust_low);
@@ -91,6 +92,13 @@ interface FoodCompositionEvidenceModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialFilter?: EvidenceFilter;
+  // Source filter keys ("fdc", "ptfi", ...) selected on the table behind
+  // this modal. Evidence from a source the reader has deselected is
+  // greyed out rather than removed: the row is in the table because some
+  // *other* source vouches for it, and hiding the rest would misrepresent
+  // how much evidence exists. Omit (the chemical page does) to grey
+  // nothing.
+  selectedSources?: string[];
 }
 
 const FoodCompositionEvidenceModal = ({
@@ -100,6 +108,7 @@ const FoodCompositionEvidenceModal = ({
   isOpen,
   onClose,
   initialFilter = "all",
+  selectedSources,
 }: FoodCompositionEvidenceModalProps) => {
   const [filter, setFilter] = useState<EvidenceFilter>(initialFilter);
   const [searchTerm, setSearchTerm] = useState("");
@@ -132,6 +141,23 @@ const FoodCompositionEvidenceModal = ({
   }, [isOpen, resetAllFilters]);
 
   const query = searchTerm.trim().toLowerCase();
+
+  // Display-cased names of the sources the reader has deselected on the
+  // table. `matchesSource` compares against `reference.source_name`,
+  // which is "FoodAtlas"/"FDC"/"PTFI", while the filter deals in
+  // lowercase keys — hence the map rather than a direct comparison.
+  //
+  // Undefined selectedSources (the chemical page mounts this modal too)
+  // means "nothing is deselected", not "everything is".
+  const dimmedSourceNames = useMemo(() => {
+    if (!selectedSources) return new Set<string>();
+    const selected = new Set(
+      selectedSources.map((s) => SOURCE_DISPLAY_NAMES[s] ?? s),
+    );
+    return new Set(
+      Object.values(SOURCE_DISPLAY_NAMES).filter((n) => !selected.has(n)),
+    );
+  }, [selectedSources]);
 
   // Counts every extraction passing the given filter combination. Callers
   // omit the dimension whose own chip they're labelling, which is what makes
@@ -262,6 +288,7 @@ const FoodCompositionEvidenceModal = ({
         sourceKind={sourceKind}
         sourceKeys={sourceKeys}
         sourceCounts={sourceCounts}
+        dimmedSourceNames={dimmedSourceNames}
         onSourceKindChange={setSourceKind}
         filter={filter}
         lowTrustCount={lowTrustCount}
@@ -322,6 +349,7 @@ const FoodCompositionEvidenceModal = ({
       <EvidenceTable
         evidences={displayedEvidences}
         chemicalName={chemicalName}
+        dimmedSourceNames={dimmedSourceNames}
       />
 
       {/* Sub-1440px filter drawer. Mirrors the bioactivity modal's
@@ -365,6 +393,7 @@ const FiltersPanel = ({
   sourceKind,
   sourceKeys,
   sourceCounts,
+  dimmedSourceNames,
   onSourceKindChange,
   filter,
   lowTrustCount,
@@ -375,6 +404,10 @@ const FiltersPanel = ({
   sourceKind: string;
   sourceKeys: string[];
   sourceCounts: Record<string, number>;
+  // Sources deselected on the table behind the modal. Their rows stay in
+  // SOURCE_ORDER position, greyed, so the reader can see the evidence
+  // exists without the filter pretending it doesn't.
+  dimmedSourceNames: Set<string>;
   onSourceKindChange: (k: string) => void;
   filter: EvidenceFilter;
   lowTrustCount: number;
@@ -393,7 +426,10 @@ const FiltersPanel = ({
             label={label}
             count={sourceCounts[key] ?? 0}
             selected={sourceKind === key}
-            disabled={key !== "" && (sourceCounts[key] ?? 0) === 0}
+            disabled={
+              key !== "" &&
+              ((sourceCounts[key] ?? 0) === 0 || dimmedSourceNames.has(key))
+            }
             onClick={() => onSourceKindChange(key)}
           />
         ))}

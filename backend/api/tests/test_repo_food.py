@@ -155,16 +155,41 @@ class TestFoodGetComposition:
         assert result["metadata"]["current_page"] == 2
 
     @pytest.mark.asyncio
-    async def test_multiple_sources(self) -> None:
+    async def test_multi_source_filter_reaches_the_query(self) -> None:
+        """A two-of-three selection must still restrict the rows.
+
+        This assertion replaces one that checked `total_pages == 0`
+        against an empty mock — true no matter what SQL was generated,
+        which is why the missing predicate for {fdc, ptfi} shipped. The
+        row-level proof lives in test_composition_sources.py; this keeps
+        the endpoint-level path honest about what it sends to the DB.
+        """
         session = AsyncMock()
         data_result = MagicMock()
         data_result.__iter__ = lambda self: iter([])
-        count_result = MagicMock()
-        count_result.scalar.return_value = 0
-        session.execute.side_effect = [data_result, count_result]
+        session.execute.side_effect = [data_result]
 
-        result = await get_composition(session, "apple", filter_source="fdc+dmd")
-        assert result["metadata"]["total_pages"] == 0
+        await get_composition(session, "apple", filter_source="fdc+ptfi")
+
+        sql = str(session.execute.call_args_list[0].args[0])
+        assert "(fdc_evidences IS NOT NULL OR ptfi_evidences IS NOT NULL)" in sql
+        # ...and the unselected source is not what's being filtered on.
+        assert "AND (foodatlas_evidences IS NOT NULL)" not in sql
+
+    @pytest.mark.asyncio
+    async def test_retired_source_is_dropped_from_a_mixed_filter(self) -> None:
+        session = AsyncMock()
+        data_result = MagicMock()
+        data_result.__iter__ = lambda self: iter([])
+        session.execute.side_effect = [data_result]
+
+        await get_composition(session, "apple", filter_source="fdc+dmd")
+
+        sql = str(session.execute.call_args_list[0].args[0])
+        # dmd is retired from the public surface — it must not become a
+        # filterable source by way of being named in the query string.
+        assert "AND (fdc_evidences IS NOT NULL)" in sql
+        assert "dmd_evidences IS NOT NULL" not in sql
 
 
 class TestResortAfterFilter:
