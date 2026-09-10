@@ -147,6 +147,19 @@ jobs:
 
       - name: Test ${{ matrix.project.path }}
         run: cd ${{ matrix.project.path }} && uv sync && uv run pytest
+        env:
+          # backend/api's filter-predicate tests execute real SQL against a
+          # throwaway Postgres (testcontainers). They skip when Docker is
+          # unavailable so a laptop without it can still run the suite —
+          # this flag turns that skip into a hard failure on CI.
+          #
+          # Without it the one suite that can catch a wrong-but-valid WHERE
+          # clause could stop running (Docker hiccup, image pull failure,
+          # runner change) and the pipeline would still report green. That
+          # is precisely how the composition source filter shipped broken:
+          # the checks were green, they just weren't checking this.
+          # ubuntu-latest runners ship Docker, so it is always satisfiable.
+          REQUIRE_DB_TESTS: "1"
 
       - name: CDK synth (infra/aws only)
         if: matrix.project.path == 'infra/aws'
