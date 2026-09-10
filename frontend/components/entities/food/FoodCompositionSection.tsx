@@ -666,6 +666,18 @@ const FoodCompositionSection = ({
           <ToggleSwitch
             label="Low-trust data points"
             count={lowTrustCount}
+            // The count here is chemicals-with-hidden-points, not rows the
+            // toggle adds — a row only disappears when EVERY one of its
+            // extractions is low-trust, which is rare. On strawberry the
+            // toggle reveals 7 hidden points across 5 chemicals and the
+            // list stays at 271, which reads as a broken filter next to
+            // Source and Class counts that do mean "rows you will get".
+            title={
+              "Counts chemicals that have at least one hidden low-trust " +
+              "data point. Turning this on reveals those points inside " +
+              "those chemicals' evidence — it does not change how many " +
+              "chemicals are listed."
+            }
             checked={showLowTrust}
             onChange={handleLowTrustSwitchChange}
           />
