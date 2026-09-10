@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import text
 
+from .._search_util import build_ilike_pattern
 from .pagination import offset as _offset
 
 if TYPE_CHECKING:
@@ -65,9 +66,17 @@ async def list_entities(
 
     where: list[str] = []
     params: dict[str, object] = {}
-    if q:
+    # build_ilike_pattern, not f"%{q}%": `%` and `_` are ILIKE
+    # metacharacters, so the raw form made a search for "50%" match every
+    # name containing "50", and "cocoa_nib" match "cocoaXnib". PR #289
+    # fixed this for the internal search endpoints and did not reach /v1.
+    # Also returns None for whitespace-only input, so an accidental space
+    # skips the clause instead of becoming ILIKE '% %' (i.e. every name
+    # containing a space).
+    q_pattern = build_ilike_pattern(q)
+    if q_pattern:
         where.append("common_name ILIKE :q")
-        params["q"] = f"%{q}%"
+        params["q"] = q_pattern
     if classification and entity_type in ("food", "chemical"):
         col = (
             "food_classification"

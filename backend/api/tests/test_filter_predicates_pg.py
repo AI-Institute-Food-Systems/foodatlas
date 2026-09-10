@@ -965,36 +965,41 @@ class TestV1EntityFilters:
             seen.extend(r["common_name"] for r in rows)
         assert len(seen) == len(set(seen)) == total
 
-    @pytest.mark.xfail(
-        reason=(
-            'v1 builds f"%{q}%" directly (repositories/v1/entities.py:70) '
-            "instead of using build_ilike_pattern, so ILIKE metacharacters in "
-            "user input are still wildcards. PR #289 fixed this for the "
-            "internal search and did not reach /v1. Searching '50%' matches "
-            "every name containing '50'. Flagged, not silently fixed: /v1 is "
-            "the public API and widening or narrowing its match semantics is "
-            "a product call."
-        ),
-        strict=True,
-    )
     async def test_percent_in_query_is_a_literal(
         self, pg_session: AsyncSession
     ) -> None:
+        """`%` is an ILIKE wildcard; a user typing it means the character.
+
+        /v1 built `f"%{q}%"` directly, so "50%" matched every name
+        containing "50". PR #289 fixed this for the internal search
+        endpoints and never reached /v1.
+        """
         await _load_food_entities(pg_session)
         rows, total = await list_entities(pg_session, "food", q="50%", page_size=100)
         assert total == 1
         assert rows[0]["common_name"] == "50% cocoa chocolate"
 
-    @pytest.mark.xfail(
-        reason="Same gap as above: '_' is an ILIKE single-char wildcard.",
-        strict=True,
-    )
     async def test_underscore_in_query_is_a_literal(
         self, pg_session: AsyncSession
     ) -> None:
+        """`_` matches any single character unless escaped."""
         await _load_food_entities(pg_session)
         _, total = await list_entities(pg_session, "food", q="cocoa_nib", page_size=100)
         assert total == 1
+
+    async def test_whitespace_only_query_is_not_a_filter(
+        self, pg_session: AsyncSession
+    ) -> None:
+        """An accidental space must not become ILIKE '% %'.
+
+        Truthy in Python, so the old code built a pattern from it and
+        returned every name containing a space. build_ilike_pattern
+        returns None for blank input and the clause is skipped.
+        """
+        await _load_food_entities(pg_session)
+        _, spaced = await list_entities(pg_session, "food", q="   ", page_size=100)
+        _, unfiltered = await list_entities(pg_session, "food", page_size=100)
+        assert spaced == unfiltered
 
 
 class TestIlikePatternAgainstRealPostgres:
