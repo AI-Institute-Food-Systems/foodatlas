@@ -218,11 +218,44 @@ const BioactivityMeasurementsModal = ({
 
   // Faceted counts — each dimension applies every OTHER active filter
   // (excluding its own) so the numbers stay in sync with what the modal
-  // would render under each selection. Kills the "count says 5 but
-  // filter changes row count by 3" mismatch the composition sidebar had
-  // before we made its counts faceted server-side.
+  // would render under each selection.
+  //
+  // One predicate, parameterised by which dimension to skip, rather than
+  // a hand-written copy per facet. There were four copies and they had
+  // drifted: Evidence was added after the others and never wired into
+  // them, so Outcome and Source counted as if no Evidence filter existed,
+  // and Evidence itself counted the raw rows and never recomputed at all
+  // — picking Outcome "inconclusive" shrank the table while every
+  // Evidence number sat frozen. Adding a fifth dimension now means one
+  // new branch here instead of four edits nobody remembers to make.
+  const rowMatches = useCallback(
+    (r: ModalRow, skip: "outcome" | "source" | "evidence" | null): boolean => {
+      if (skip !== "outcome" && outcomeFilter !== "all") {
+        const o = r.outcome?.toLowerCase().trim() ?? "";
+        if (o !== outcomeFilter) return false;
+      }
+      if (
+        skip !== "source" &&
+        sourceFilter &&
+        !matchesSourceKind(r.evidence_source, sourceFilter)
+      ) {
+        return false;
+      }
+      if (skip !== "evidence" && evidenceTypeFilter.length > 0) {
+        const et = (r.evidence_type ?? "").trim();
+        if (!evidenceTypeFilter.includes(et)) return false;
+      }
+      const q = searchTerm.trim().toLowerCase();
+      if (q) {
+        const haystack = `${r.assay ?? ""} ${r.endpoint ?? ""}`.toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+      return true;
+    },
+    [outcomeFilter, sourceFilter, evidenceTypeFilter, searchTerm]
+  );
+
   const outcomeCounts = useMemo<Record<OutcomeFilter, number>>(() => {
-    const q = searchTerm.trim().toLowerCase();
     const counts: Record<OutcomeFilter, number> = {
       all: 0,
       active: 0,
@@ -230,43 +263,23 @@ const BioactivityMeasurementsModal = ({
       unspecified: 0,
       inconclusive: 0,
     };
-    // Apply source + search; exclude outcome. Then group by outcome.
     rows.forEach((r) => {
-      if (sourceFilter && !matchesSourceKind(r.evidence_source, sourceFilter)) {
-        return;
-      }
-      if (
-        q &&
-        !`${r.assay ?? ""} ${r.endpoint ?? ""}`.toLowerCase().includes(q)
-      ) {
-        return;
-      }
+      if (!rowMatches(r, "outcome")) return;
       counts.all += 1;
       const o = r.outcome?.toLowerCase().trim() as OutcomeFilter | undefined;
       if (o && o in counts && o !== "all") counts[o] += 1;
     });
     return counts;
-  }, [rows, sourceFilter, searchTerm]);
+  }, [rows, rowMatches]);
 
   const sourceKindCounts = useMemo<Record<string, number>>(() => {
-    const q = searchTerm.trim().toLowerCase();
     const counts: Record<string, number> = {
       "": 0,
       experimental: 0,
       predicted: 0,
     };
-    // Apply outcome + search; exclude source_kind. Then group by kind.
     rows.forEach((r) => {
-      if (outcomeFilter !== "all") {
-        const o = r.outcome?.toLowerCase().trim() ?? "";
-        if (o !== outcomeFilter) return;
-      }
-      if (
-        q &&
-        !`${r.assay ?? ""} ${r.endpoint ?? ""}`.toLowerCase().includes(q)
-      ) {
-        return;
-      }
+      if (!rowMatches(r, "source")) return;
       counts[""] += 1;
       if (matchesSourceKind(r.evidence_source, "experimental")) {
         counts.experimental += 1;
@@ -276,11 +289,11 @@ const BioactivityMeasurementsModal = ({
       }
     });
     return counts;
-  }, [rows, outcomeFilter, searchTerm]);
+  }, [rows, rowMatches]);
 
-  // Per-evidence_type row counts derived from the full row set. Sorted
-  // by count desc so the biggest bucket surfaces first — same ordering
-  // as the sidebar chip counts on the big BioactivityTable.
+  // Key list comes from the UNFILTERED rows so an option never vanishes
+  // mid-interaction; only the counts are faceted, and a zero renders
+  // disabled. Sorted by count desc so the biggest bucket surfaces first.
   const evidenceTypeOptions = useMemo<
     { evidence_type: string; count: number }[]
   >(() => {
@@ -288,35 +301,19 @@ const BioactivityMeasurementsModal = ({
     rows.forEach((r) => {
       const et = (r.evidence_type ?? "").trim();
       if (!et) return;
+      if (!counts.has(et)) counts.set(et, 0);
+      if (!rowMatches(r, "evidence")) return;
       counts.set(et, (counts.get(et) ?? 0) + 1);
     });
     return Array.from(counts.entries())
       .map(([evidence_type, count]) => ({ evidence_type, count }))
       .sort((a, b) => b.count - a.count);
-  }, [rows]);
+  }, [rows, rowMatches]);
 
-  const filtered = useMemo(() => {
-    const term = searchTerm.trim().toLowerCase();
-    const wantedEvidence = new Set(evidenceTypeFilter);
-    return rows.filter((r) => {
-      if (outcomeFilter !== "all") {
-        const o = r.outcome?.toLowerCase().trim() ?? "";
-        if (o !== outcomeFilter) return false;
-      }
-      if (sourceFilter && !matchesSourceKind(r.evidence_source, sourceFilter)) {
-        return false;
-      }
-      if (wantedEvidence.size > 0) {
-        const et = (r.evidence_type ?? "").trim();
-        if (!wantedEvidence.has(et)) return false;
-      }
-      if (term) {
-        const haystack = `${r.assay ?? ""} ${r.endpoint ?? ""}`.toLowerCase();
-        if (!haystack.includes(term)) return false;
-      }
-      return true;
-    });
-  }, [rows, searchTerm, outcomeFilter, sourceFilter, evidenceTypeFilter]);
+  const filtered = useMemo(
+    () => rows.filter((r) => rowMatches(r, null)),
+    [rows, rowMatches]
+  );
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   // Snap to page 1 when filters shrink the result set below the current page.
