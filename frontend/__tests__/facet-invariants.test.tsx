@@ -24,6 +24,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import {
   assertFacetCountsMatchRows,
   assertFacetsRespondToOtherFilters,
+  assertOptionCountsHoldUnderSwitches,
   assertNoEmptyTableUnderPositiveCount,
   countTableRows,
   type FacetSurface,
@@ -48,13 +49,31 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/",
   useSearchParams: () => new URLSearchParams(),
 }));
+// Stable identities: FoodCompositionSection lists setTablePaginations in
+// its fetch effect's deps, so a factory returning a fresh vi.fn() per
+// render re-runs the effect forever.
+const pagination = vi.hoisted(() => ({
+  getTablePaginations: () => ({ currentPage: 1, rowsPerPage: 20 }),
+  setTablePaginations: vi.fn(),
+}));
+vi.mock("@/context/paginationsContext", () => ({
+  usePaginations: () => pagination,
+}));
+
 vi.mock("@/utils/fetching", () => ({
   getBioactivityMeasurements: vi.fn().mockResolvedValue(null),
   getChemicalCompositionEvidence: vi.fn().mockResolvedValue([]),
+  getFoodCompositionData: vi.fn(),
+  getFoodCompositionCounts: vi.fn(),
 }));
 
 import BioactivityMeasurementsModal from "@/components/entities/bioactivity/BioactivityMeasurementsModal";
 import FoodCompositionEvidenceModal from "@/components/entities/food/FoodCompositionEvidenceModal";
+import FoodCompositionSection from "@/components/entities/food/FoodCompositionSection";
+import {
+  getFoodCompositionCounts,
+  getFoodCompositionData,
+} from "@/utils/fetching";
 
 afterEach(cleanup);
 
@@ -114,6 +133,142 @@ const EVIDENCES = [
   evidence("PTFI", "capsaicin", "e4"),
 ];
 
+// A faithful stand-in for /food/composition and its counts endpoint.
+//
+// FoodCompositionSection is server-driven, so this mock necessarily
+// reimplements the server's filter semantics — and a test can only be as
+// honest as its mock. What it is FOR is the client wiring the server
+// tests cannot see: whether the component refetches counts when a filter
+// changes, hands the right arguments over, and renders counts against the
+// rows it actually received. The predicates themselves are pinned
+// server-side by backend/api tests/test_filter_predicates_pg.py against
+// real Postgres.
+type CRow = {
+  name: string;
+  sources: string[];
+  classes: string[];
+  hasConc: boolean;
+  fullyLowTrust: boolean;
+};
+
+const COMPOSITION_ROWS: CRow[] = [
+  { name: "quercetin", sources: ["foodatlas"], classes: ["flavonoid"], hasConc: true, fullyLowTrust: false },
+  { name: "kaempferol", sources: ["foodatlas"], classes: ["flavonoid"], hasConc: false, fullyLowTrust: false },
+  { name: "capsaicin", sources: ["ptfi"], classes: ["alkaloid"], hasConc: false, fullyLowTrust: false },
+  { name: "rutin", sources: ["foodatlas", "ptfi"], classes: ["flavonoid"], hasConc: true, fullyLowTrust: false },
+  { name: "solanine", sources: ["ptfi"], classes: [], hasConc: true, fullyLowTrust: true },
+  { name: "lutein", sources: ["fdc"], classes: ["alkaloid"], hasConc: false, fullyLowTrust: false },
+];
+
+interface CFilters {
+  sources: string[];
+  classes: string[];
+  showAllConc: boolean;
+  showLowTrust: boolean;
+}
+
+const selectRows = (f: CFilters, skip?: keyof CFilters): CRow[] =>
+  COMPOSITION_ROWS.filter((r) => {
+    if (skip !== "sources" && !f.sources.some((s) => r.sources.includes(s))) {
+      return false;
+    }
+    if (skip !== "classes" && f.classes.length > 0) {
+      const wantsNa = f.classes.includes("n/a");
+      const hit =
+        (wantsNa && r.classes.length === 0) ||
+        r.classes.some((c) => f.classes.includes(c));
+      if (!hit) return false;
+    }
+    if (skip !== "showAllConc" && !f.showAllConc && !r.hasConc) return false;
+    if (skip !== "showLowTrust" && !f.showLowTrust && r.fullyLowTrust) {
+      return false;
+    }
+    return true;
+  });
+
+const installCompositionServer = () => {
+  vi.mocked(getFoodCompositionData).mockImplementation((async (
+    _n: string,
+    _page: number,
+    sources: string[],
+    _search: string,
+    _sort: unknown,
+    showAllConc: boolean,
+    classes: string[] = [],
+    trust = "default"
+  ) => {
+    const rows = selectRows({
+      sources,
+      classes,
+      showAllConc,
+      showLowTrust: trust === "show_all",
+    });
+    return {
+      data: rows.map((r) => ({
+        id: r.name,
+        name: r.name,
+        median_concentration: r.hasConc
+          ? { unit: "mg", value: 1, converted: false, base_units: [] }
+          : null,
+        chemical_classification: r.classes,
+        fdc_evidences: r.sources.includes("fdc") ? [] : null,
+        foodatlas_evidences: r.sources.includes("foodatlas") ? [] : null,
+        ptfi_evidences: r.sources.includes("ptfi") ? [] : null,
+      })),
+      metadata: {
+        row_count: rows.length,
+        rows_per_page: 25,
+        current_row: 1,
+        current_page: 1,
+        total_rows: rows.length,
+        total_pages: rows.length > 0 ? 1 : 0,
+        highlight_page: null,
+      },
+    };
+  }) as never);
+
+  vi.mocked(getFoodCompositionCounts).mockImplementation((async (
+    _n: string,
+    filters: {
+      sourceFilters?: string[];
+      classificationFilters?: string[];
+      showAllConcentrations?: boolean;
+      showLowTrust?: boolean;
+    } = {}
+  ) => {
+    const f: CFilters = {
+      sources: filters.sourceFilters ?? ["fdc", "foodatlas", "ptfi"],
+      classes: filters.classificationFilters ?? [],
+      showAllConc: filters.showAllConcentrations !== false,
+      showLowTrust: Boolean(filters.showLowTrust),
+    };
+    // Each facet excludes its own dimension — the same rule the API follows.
+    const source_counts: Record<string, number> = {};
+    for (const s of ["fdc", "foodatlas", "ptfi"]) {
+      source_counts[s] = selectRows(f, "sources").filter((r) =>
+        r.sources.includes(s)
+      ).length;
+    }
+    const classification_counts: Record<string, number> = {};
+    for (const r of selectRows(f, "classes")) {
+      const keys = r.classes.length ? r.classes : ["n/a"];
+      for (const k of keys) {
+        classification_counts[k] = (classification_counts[k] ?? 0) + 1;
+      }
+    }
+    return {
+      source_counts,
+      classification_counts,
+      no_concentration_count: selectRows(f, "showAllConc").filter(
+        (r) => !r.hasConc
+      ).length,
+      low_trust_count: selectRows(f, "showLowTrust").filter(
+        (r) => r.fullyLowTrust
+      ).length,
+    };
+  }) as never);
+};
+
 const SURFACES: Record<string, FacetSurface> = {
   "BioactivityMeasurementsModal": {
     mount: async () => {
@@ -145,6 +300,16 @@ const SURFACES: Record<string, FacetSurface> = {
     },
     countRows: countTableRows,
   },
+  "FoodCompositionSection": {
+    mount: async () => {
+      installCompositionServer();
+      render(<FoodCompositionSection commonName="pepper (raw)" />);
+      await waitFor(() => expect(countTableRows()).toBeGreaterThan(0));
+    },
+    countRows: countTableRows,
+    // "n/a" is a real classification option, not a reset.
+    skipLabels: ["all", "any"],
+  },
 };
 
 // Surfaces not driven through this harness, each with a reason. The
@@ -155,12 +320,6 @@ const EXCLUDED: Record<string, string> = {
     "a filter group rendered inside other surfaces; covered through them",
   "components/entities/shared/filters/SignalFilterGroup.tsx":
     "a filter group rendered inside other surfaces; covered through them",
-  "components/entities/food/FoodCompositionSection.tsx":
-    "server-driven: counts come from /food/composition/counts and rows from " +
-    "/food/composition, so the invariant is only as good as the mock. Held " +
-    "instead by the server-side pair (backend test_filter_predicates_pg.py " +
-    "asserts facet == rows against real Postgres) plus " +
-    "composition-source-filter.test.tsx for the contradiction case.",
   "components/entities/bioactivity/BioactivityTable.tsx":
     "server-driven, same reasoning; the facet endpoints are covered by " +
     "backend TestBioactivityCountsAgreeWithRows.",
@@ -188,6 +347,10 @@ describe.each(Object.entries(SURFACES))("%s", (_name, surface) => {
 
   it("recomputes its facets when another filter narrows the set", async () => {
     await assertFacetsRespondToOtherFilters(surface, cleanup);
+  });
+
+  it("keeps option counts truthful while a toggle switch is on", async () => {
+    await assertOptionCountsHoldUnderSwitches(surface, cleanup);
   });
 });
 
