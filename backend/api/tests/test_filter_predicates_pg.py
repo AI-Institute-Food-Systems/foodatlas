@@ -27,6 +27,8 @@ from __future__ import annotations
 
 import itertools
 import json
+import re
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
@@ -564,3 +566,175 @@ class TestCompositionClassificationPredicate:
         )
         want = {r["chemical_name"] for r in rows if set(combo) & set(r["sources"])}
         assert {r["name"] for r in got["data"]} == want, combo
+
+
+class TestPaginationAgreesWithFiltering:
+    """Paging must not lose, duplicate, or invent rows under a filter.
+
+    The original bug was *experienced* through pagination: the pager said
+    13 pages, page 1 rendered nothing. Even with a correct WHERE, a
+    filter applied on the wrong side of LIMIT/OFFSET reproduces exactly
+    that symptom, so the relationship between the two is worth pinning
+    independently of the predicate itself.
+    """
+
+    @pytest.mark.parametrize("filter_source", ["", "ptfi", "fdc+ptfi"])
+    async def test_pages_partition_the_filtered_set(
+        self, pg_session: AsyncSession, filter_source: str
+    ) -> None:
+        await _load_composition(pg_session)
+        first = await get_composition(
+            pg_session, "pepper", rows_per_page=2, filter_source=filter_source
+        )
+        total = first["metadata"]["total_rows"]
+        pages = first["metadata"]["total_pages"]
+
+        seen: list[str] = []
+        for page in range(1, pages + 1):
+            got = await get_composition(
+                pg_session,
+                "pepper",
+                page=page,
+                rows_per_page=2,
+                filter_source=filter_source,
+            )
+            seen.extend(r["name"] for r in got["data"])
+
+        assert len(seen) == len(set(seen)), f"row served on two pages: {seen}"
+        assert len(seen) == total, f"{len(seen)} rows across {pages} pages != {total}"
+
+        unpaged = await get_composition(
+            pg_session, "pepper", rows_per_page=100, filter_source=filter_source
+        )
+        assert set(seen) == {r["name"] for r in unpaged["data"]}
+
+    async def test_total_pages_is_zero_when_nothing_matches(
+        self, pg_session: AsyncSession
+    ) -> None:
+        """A pager promising pages over an empty table is the reported bug."""
+        await _load_composition(pg_session)
+        got = await get_composition(
+            pg_session,
+            "pepper",
+            rows_per_page=2,
+            filter_classification="nonexistent-class",
+        )
+        assert got["data"] == []
+        assert got["metadata"]["total_rows"] == 0
+        assert got["metadata"]["total_pages"] == 0
+
+    async def test_no_page_is_empty_while_total_rows_is_positive(
+        self, pg_session: AsyncSession
+    ) -> None:
+        """The contradiction invariant, server-side."""
+        await _load_composition(pg_session)
+        for src in ("fdc", "foodatlas", "ptfi", "fdc+ptfi", "foodatlas+ptfi"):
+            head = await get_composition(
+                pg_session, "pepper", rows_per_page=2, filter_source=src
+            )
+            if head["metadata"]["total_rows"] == 0:
+                continue
+            for page in range(1, head["metadata"]["total_pages"] + 1):
+                got = await get_composition(
+                    pg_session, "pepper", page=page, rows_per_page=2, filter_source=src
+                )
+                assert got["data"], f"{src} page {page} empty but total_rows > 0"
+
+
+class TestEndpointUnitPair:
+    """filter_endpoint only takes effect paired with filter_unit."""
+
+    async def test_strict_pair_matches_both_fields(
+        self, pg_session: AsyncSession
+    ) -> None:
+        await _load_bioactivity(pg_session)
+        await pg_session.execute(
+            text(
+                "INSERT INTO mv_chemical_bioactivity (bioactivity_name,"
+                " chemical_name, chemical_foodatlas_id, measurement_count,"
+                " measurements) VALUES (:b, 'pairfixture', 'cpair', 1,"
+                " CAST(:m AS JSONB))"
+            ),
+            {
+                "b": BIOACT,
+                "m": json.dumps([measurement(endpoint="EC50", unit="mg/L", value=9.0)]),
+            },
+        )
+        await pg_session.commit()
+
+        got = await get_chemicals(
+            pg_session,
+            BIOACT,
+            rows_per_page=100,
+            filter_endpoint="EC50",
+            filter_unit="mg/L",
+        )
+        assert _names(got) == {"pairfixture"}
+
+        # Endpoint matches but unit does not -> the pair must not match.
+        mismatched = await get_chemicals(
+            pg_session,
+            BIOACT,
+            rows_per_page=100,
+            filter_endpoint="EC50",
+            filter_unit="uM",
+        )
+        assert "pairfixture" not in _names(mismatched)
+
+    async def test_endpoint_without_unit_is_inert(
+        self, pg_session: AsyncSession
+    ) -> None:
+        """Documented behaviour: endpoint alone applies no filter.
+
+        Pinned deliberately. If it ever starts filtering, the sidebar
+        counts (which assume the pair) silently stop matching the table.
+        """
+        await _load_bioactivity(pg_session)
+        unfiltered = await get_chemicals(pg_session, BIOACT, rows_per_page=100)
+        endpoint_only = await get_chemicals(
+            pg_session, BIOACT, rows_per_page=100, filter_endpoint="IC50"
+        )
+        assert _names(endpoint_only) == _names(unfiltered)
+
+
+@pytest.mark.filterwarnings("ignore::pytest.PytestWarning")
+class TestEveryFilterDimensionIsExercised:
+    """A new filter param must come with a predicate test, or CI fails.
+
+    Pure source inspection — no DB, no event loop. The module-level
+    `asyncio` mark does not apply to these, hence the local override.
+
+    Every other test here guards a filter that exists today. This one
+    guards the ones that don't exist yet: it reads the `filter_*` query
+    parameters off the route signatures and asserts each is named in this
+    module. Adding `filter_species` to a route and shipping it untested
+    now breaks the build instead of waiting for a user to notice.
+
+    Deliberately a source-text check rather than an import-and-inspect:
+    it should fail for a filter that is *declared* on a route, whether or
+    not the repository layer has caught up with it yet.
+    """
+
+    @staticmethod
+    def _declared_filters() -> set[str]:
+        routes = Path(__file__).resolve().parents[1] / "src" / "routes"
+        pattern = re.compile(r"(filter_[a-z_]+)\s*:\s*str\s*=\s*Query")
+        found: set[str] = set()
+        for path in routes.rglob("*.py"):
+            found.update(pattern.findall(path.read_text(encoding="utf-8")))
+        return found
+
+    def test_at_least_one_filter_is_discovered(self) -> None:
+        """Guards the guard: a broken regex would vacuously pass below."""
+        assert len(self._declared_filters()) >= 5
+
+    def test_every_declared_filter_has_a_predicate_test(self) -> None:
+        own_source = Path(__file__).read_text(encoding="utf-8")
+        missing = sorted(
+            f for f in self._declared_filters() if f"{f}=" not in own_source
+        )
+        assert not missing, (
+            f"filter params with no executable predicate test: {missing}. "
+            "Add a fixture + oracle here; a filter that only has route-level "
+            "tests can return the wrong rows with every check green."
+        )
