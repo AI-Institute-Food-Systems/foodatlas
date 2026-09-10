@@ -33,6 +33,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 from sqlalchemy import text
+from src.repositories._search_util import build_ilike_pattern
 from src.repositories.bioactivity import (
     _source_kind_of,
     get_category_options,
@@ -41,6 +42,7 @@ from src.repositories.bioactivity import (
     get_source_kind_counts,
 )
 from src.repositories.food import get_composition, get_composition_counts
+from src.repositories.v1.entities import list_entities
 from tests.dbharness import chem_bioactivity_row, measurement
 
 if TYPE_CHECKING:
@@ -438,19 +440,20 @@ async def _load_composition(session: AsyncSession) -> list[dict]:
                 "sources": srcs,
             }
         )
-    for r in rows:
+    for i, r in enumerate(rows):
         await session.execute(
             text(
                 "INSERT INTO mv_food_chemical_composition (id, food_name,"
                 " food_foodatlas_id, chemical_name, chemical_foodatlas_id,"
                 " chemical_classification, median_concentration, fdc_evidences,"
                 " foodatlas_evidences, ptfi_evidences, dmd_evidences)"
-                " VALUES (:chemical_foodatlas_id, :food_name, 'f1', :chemical_name,"
+                " VALUES (:row_id, :food_name, 'f1', :chemical_name,"
                 " :chemical_foodatlas_id, :cls, NULL,"
                 " CAST(:fdc AS JSONB), CAST(:fa AS JSONB),"
                 " CAST(:ptfi AS JSONB), NULL)"
             ),
             {
+                "row_id": i,
                 "food_name": r["food_name"],
                 "chemical_name": r["chemical_name"],
                 "chemical_foodatlas_id": r["chemical_foodatlas_id"],
@@ -738,3 +741,293 @@ class TestEveryFilterDimensionIsExercised:
             "Add a fixture + oracle here; a filter that only has route-level "
             "tests can return the wrong rows with every check green."
         )
+
+
+class TestSortTwinsAgree:
+    """The Python re-sort must order rows the same way the SQL does.
+
+    `get_composition` sorts in SQL, then `_resort_after_filter` re-sorts in
+    Python whenever trust != show_all, because the trust filter rewrites
+    medians. Two implementations of one ordering. `evidence_count` had
+    already drifted — it omitted ptfi, scoring every PTFI-only row 0 — and
+    nothing covered the other two keys.
+    """
+
+    @pytest.mark.parametrize("sort_by", ["common_name", "median_concentration"])
+    @pytest.mark.parametrize("sort_dir", ["asc", "desc"])
+    async def test_sql_and_python_orderings_match(
+        self, pg_session: AsyncSession, sort_by: str, sort_dir: str
+    ) -> None:
+        await _load_composition_with_medians(pg_session)
+        # trust=show_all keeps the SQL order; default re-sorts in Python.
+        sql_order = await get_composition(
+            pg_session,
+            "pepper",
+            rows_per_page=100,
+            sort_by=sort_by,
+            sort_dir=sort_dir,
+            trust="show_all",
+        )
+        py_order = await get_composition(
+            pg_session,
+            "pepper",
+            rows_per_page=100,
+            sort_by=sort_by,
+            sort_dir=sort_dir,
+            trust="default",
+        )
+        assert [r["name"] for r in sql_order["data"]] == [
+            r["name"] for r in py_order["data"]
+        ], f"{sort_by} {sort_dir}: SQL and Python orderings disagree"
+
+    async def test_nulls_sort_last_in_both_paths(
+        self, pg_session: AsyncSession
+    ) -> None:
+        """NULLS LAST in SQL; the Python twin appends the value-less rows."""
+        await _load_composition_with_medians(pg_session)
+        for trust in ("show_all", "default"):
+            got = await get_composition(
+                pg_session,
+                "pepper",
+                rows_per_page=100,
+                sort_by="median_concentration",
+                sort_dir="desc",
+                trust=trust,
+            )
+            has_value = [r["median_concentration"] is not None for r in got["data"]]
+            # Every True must precede every False.
+            assert has_value == sorted(has_value, reverse=True), trust
+
+
+async def _load_composition_with_medians(session: AsyncSession) -> None:
+    """Composition rows with a spread of medians, including NULLs."""
+    ev = [{"extraction": [{"attestation_id": "a1"}]}]
+    values: list[float | None] = [5.0, 1.0, 3.0, None, 2.0, None, 4.0]
+    for i, val in enumerate(values):
+        await session.execute(
+            text(
+                "INSERT INTO mv_food_chemical_composition (id, food_name,"
+                " food_foodatlas_id, chemical_name, chemical_foodatlas_id,"
+                " chemical_classification, median_concentration,"
+                " foodatlas_evidences) VALUES (:i, 'pepper', 'f1', :n, :cid,"
+                " '{}', CAST(:mc AS JSONB), CAST(:ev AS JSONB))"
+            ),
+            {
+                "i": i,
+                "n": f"chem{i}",
+                "cid": f"e{i}",
+                "mc": None if val is None else json.dumps({"value": val}),
+                "ev": json.dumps(ev),
+            },
+        )
+    await session.commit()
+
+
+class TestTrustFilterCountsAgree:
+    """low_trust_count must describe the rows the toggle actually changes."""
+
+    async def _load_with_trust(self, session: AsyncSession) -> None:
+        rows = [("clean", "ok1", 0.9), ("dirty", "bad1", 0.1)]
+        for i, (name, att, score) in enumerate(rows):
+            await session.execute(
+                text(
+                    "INSERT INTO mv_food_chemical_composition (id, food_name,"
+                    " food_foodatlas_id, chemical_name, chemical_foodatlas_id,"
+                    " chemical_classification, median_concentration,"
+                    " foodatlas_evidences) VALUES (:i, 'pepper', 'f1', :n,"
+                    " :cid, '{}', NULL, CAST(:ev AS JSONB))"
+                ),
+                {
+                    "i": i,
+                    "n": name,
+                    "cid": f"e{i}",
+                    "ev": json.dumps([{"extraction": [{"attestation_id": att}]}]),
+                },
+            )
+            await session.execute(
+                text(
+                    "INSERT INTO base_trust_signals (attestation_id,"
+                    " signal_kind, score) VALUES (:a, 'llm_plausibility', :s)"
+                ),
+                {"a": att, "s": score},
+            )
+        await session.commit()
+
+    async def test_show_all_is_a_superset_of_default(
+        self, pg_session: AsyncSession
+    ) -> None:
+        await self._load_with_trust(pg_session)
+        default = await get_composition(
+            pg_session, "pepper", rows_per_page=100, trust="default"
+        )
+        show_all = await get_composition(
+            pg_session, "pepper", rows_per_page=100, trust="show_all"
+        )
+        assert {r["name"] for r in default["data"]} <= {
+            r["name"] for r in show_all["data"]
+        }
+
+    async def test_fully_low_trust_row_is_dropped_by_default(
+        self, pg_session: AsyncSession
+    ) -> None:
+        await self._load_with_trust(pg_session)
+        default = await get_composition(
+            pg_session, "pepper", rows_per_page=100, trust="default"
+        )
+        show_all = await get_composition(
+            pg_session, "pepper", rows_per_page=100, trust="show_all"
+        )
+        assert "dirty" not in {r["name"] for r in default["data"]}
+        assert "dirty" in {r["name"] for r in show_all["data"]}
+
+    async def test_low_trust_count_matches_the_rows_the_toggle_reveals(
+        self, pg_session: AsyncSession
+    ) -> None:
+        await self._load_with_trust(pg_session)
+        counts = await get_composition_counts(pg_session, "pepper")
+        default = await get_composition(
+            pg_session, "pepper", rows_per_page=100, trust="default"
+        )
+        show_all = await get_composition(
+            pg_session, "pepper", rows_per_page=100, trust="show_all"
+        )
+        revealed = (
+            show_all["metadata"]["total_rows"] - default["metadata"]["total_rows"]
+        )
+        # low_trust_count counts rows with AT LEAST ONE low-trust
+        # extraction, which is >= the number the filter fully removes.
+        assert counts["data"]["low_trust_count"] >= revealed
+        assert counts["data"]["low_trust_count"] == 1
+
+
+async def _load_food_entities(session: AsyncSession) -> None:
+    """Foods whose names exercise ILIKE metacharacters."""
+    rows = [
+        ("f1", "tomato", ["fruit"]),
+        ("f2", "Tomato Paste", ["processed"]),
+        ("f3", "50% cocoa chocolate", ["processed"]),
+        ("f4", "50g cocoa bar", ["processed"]),
+        ("f5", "cocoa_nib", ["raw"]),
+        ("f6", "cocoaXnib", ["raw"]),
+    ]
+    for fid, name, cls in rows:
+        await session.execute(
+            text(
+                "INSERT INTO mv_food_entities (foodatlas_id, entity_type,"
+                " common_name, scientific_name, synonyms, external_ids,"
+                " food_classification, ambiguity_siblings) VALUES (:i,"
+                " 'food', :n, '', '{}', '{}'::jsonb, :c, '[]'::jsonb)"
+            ),
+            {"i": fid, "n": name, "c": cls},
+        )
+    await session.commit()
+
+
+class TestV1EntityFilters:
+    """The public /v1 entity list — predicates never executed by a test."""
+
+    async def test_classification_membership(self, pg_session: AsyncSession) -> None:
+        await _load_food_entities(pg_session)
+        rows, total = await list_entities(
+            pg_session, "food", classification="processed", page_size=100
+        )
+        assert total == 3
+        assert {r["common_name"] for r in rows} == {
+            "Tomato Paste",
+            "50% cocoa chocolate",
+            "50g cocoa bar",
+        }
+
+    async def test_classification_and_query_compose(
+        self, pg_session: AsyncSession
+    ) -> None:
+        await _load_food_entities(pg_session)
+        rows, total = await list_entities(
+            pg_session, "food", q="cocoa", classification="raw", page_size=100
+        )
+        assert total == 2
+        assert all("cocoa" in r["common_name"].lower() for r in rows)
+
+    async def test_query_is_case_insensitive(self, pg_session: AsyncSession) -> None:
+        """ILIKE, not LIKE — verified against the real collation."""
+        await _load_food_entities(pg_session)
+        _, total = await list_entities(pg_session, "food", q="TOMATO", page_size=100)
+        assert total == 2
+
+    async def test_pagination_partitions_the_filtered_set(
+        self, pg_session: AsyncSession
+    ) -> None:
+        await _load_food_entities(pg_session)
+        _, total = await list_entities(pg_session, "food", page_size=100)
+        seen: list[str] = []
+        for page in range(1, (total + 1) // 2 + 2):
+            rows, _ = await list_entities(pg_session, "food", page=page, page_size=2)
+            seen.extend(r["common_name"] for r in rows)
+        assert len(seen) == len(set(seen)) == total
+
+    @pytest.mark.xfail(
+        reason=(
+            'v1 builds f"%{q}%" directly (repositories/v1/entities.py:70) '
+            "instead of using build_ilike_pattern, so ILIKE metacharacters in "
+            "user input are still wildcards. PR #289 fixed this for the "
+            "internal search and did not reach /v1. Searching '50%' matches "
+            "every name containing '50'. Flagged, not silently fixed: /v1 is "
+            "the public API and widening or narrowing its match semantics is "
+            "a product call."
+        ),
+        strict=True,
+    )
+    async def test_percent_in_query_is_a_literal(
+        self, pg_session: AsyncSession
+    ) -> None:
+        await _load_food_entities(pg_session)
+        rows, total = await list_entities(pg_session, "food", q="50%", page_size=100)
+        assert total == 1
+        assert rows[0]["common_name"] == "50% cocoa chocolate"
+
+    @pytest.mark.xfail(
+        reason="Same gap as above: '_' is an ILIKE single-char wildcard.",
+        strict=True,
+    )
+    async def test_underscore_in_query_is_a_literal(
+        self, pg_session: AsyncSession
+    ) -> None:
+        await _load_food_entities(pg_session)
+        _, total = await list_entities(pg_session, "food", q="cocoa_nib", page_size=100)
+        assert total == 1
+
+
+class TestIlikePatternAgainstRealPostgres:
+    """build_ilike_pattern's escaping, executed rather than asserted on.
+
+    tests/test_search_util.py checks the string it returns. Whether
+    Postgres then treats that string as a literal is a different question
+    — it depends on ILIKE's escape rules, which only the real engine
+    knows.
+    """
+
+    @pytest.mark.parametrize(
+        ("term", "expected"),
+        [
+            ("50%", {"50% cocoa chocolate"}),
+            ("cocoa_nib", {"cocoa_nib"}),
+            ("tomato", {"tomato", "Tomato Paste"}),
+        ],
+    )
+    async def test_metacharacters_match_literally(
+        self, pg_session: AsyncSession, term: str, expected: set[str]
+    ) -> None:
+        await _load_food_entities(pg_session)
+        pattern = build_ilike_pattern(term)
+        assert pattern is not None
+        result = await pg_session.execute(
+            text("SELECT common_name FROM mv_food_entities WHERE common_name ILIKE :q"),
+            {"q": pattern},
+        )
+        assert {r[0] for r in result} == expected
+
+    async def test_blank_input_yields_no_pattern(
+        self, pg_session: AsyncSession
+    ) -> None:
+        """Whitespace-only input must not become ILIKE '% %'."""
+        assert build_ilike_pattern("   ") is None

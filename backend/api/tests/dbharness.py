@@ -39,6 +39,7 @@ if TYPE_CHECKING:
 # an oracle and becomes a second implementation.
 _CHEM_BIOACT_DDL = """
 CREATE TABLE mv_chemical_bioactivity (
+    id                    INTEGER,
     bioactivity_name      TEXT,
     bioactivity_foodatlas_id TEXT,
     chemical_name         TEXT,
@@ -61,9 +62,22 @@ CREATE TABLE mv_chemical_entities (
 )
 """
 
+_FOOD_ENTITIES_DDL = """
+CREATE TABLE mv_food_entities (
+    foodatlas_id        TEXT,
+    entity_type         TEXT,
+    common_name         TEXT,
+    scientific_name     TEXT,
+    synonyms            TEXT[],
+    external_ids        JSONB,
+    food_classification TEXT[],
+    ambiguity_siblings  JSONB
+)
+"""
+
 _FOOD_COMPOSITION_DDL = """
 CREATE TABLE mv_food_chemical_composition (
-    id                      TEXT,
+    id                      INTEGER,
     food_name               TEXT,
     food_foodatlas_id       TEXT,
     chemical_name           TEXT,
@@ -93,8 +107,18 @@ CREATE TABLE base_trust_signals (
 DDL: tuple[str, ...] = (
     _CHEM_BIOACT_DDL,
     _CHEM_ENTITIES_DDL,
+    _FOOD_ENTITIES_DDL,
     _FOOD_COMPOSITION_DDL,
     _TRUST_SIGNALS_DDL,
+)
+
+# Which of the above mirror a table owned by backend/db. `base_trust_signals`
+# lives on a separate TrustBase and is excluded — see test_schema_drift.
+MIRRORED_TABLES: tuple[str, ...] = (
+    "mv_chemical_bioactivity",
+    "mv_chemical_entities",
+    "mv_food_entities",
+    "mv_food_chemical_composition",
 )
 
 
