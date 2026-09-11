@@ -1,7 +1,7 @@
 "use client";
 
 // Full lists behind the Target and Assays columns of the assay-inferred
-// table.
+// tables, and the Target column of the bioactivity page's Diseases tab.
 //
 // Both columns used to render two or three items inline plus a "+N"
 // tooltip. A tooltip is the wrong home for the tail: it can't be reached
@@ -16,9 +16,18 @@ import Chip from "@/components/basic/Chip";
 import AssayIcon from "@/components/icons/AssayIcon";
 import Link from "@/components/basic/Link";
 import Modal from "@/components/basic/Modal";
-import { targetUrl } from "@/components/entities/shared/TargetGeneChips";
-import { assayExternalUrl, encodeSpace } from "@/utils/utils";
+import { assayExternalUrl, encodeSpace, entrezGeneUrl, uniprotUrl } from "@/utils/utils";
 import type { AssayTarget } from "@/types";
+
+// Ids arrive prefixed exactly as the source records them — "NCBIGene: 4780",
+// "UniProt: Q16236" — so strip the prefix before building a URL.
+export const targetUrl = (id: string): string | null => {
+  const entrez = id.match(/^NCBIGene:\s*(\d+)$/i);
+  if (entrez) return entrezGeneUrl(entrez[1]);
+  const uniprot = id.match(/^UniProt:\s*(\S+)$/i);
+  if (uniprot) return uniprotUrl(uniprot[1]);
+  return null;
+};
 
 // The cell that opens one of these. Shared so every table that shows
 // targets or assays states its count the same way.

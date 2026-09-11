@@ -26,7 +26,10 @@ import {
   CountCell,
   Th,
 } from "@/components/entities/shared/EvidenceTable";
-import TargetGeneChips from "@/components/entities/shared/TargetGeneChips";
+import {
+  AssayTargetsModal,
+  DetailCountButton,
+} from "@/components/entities/shared/AssayDetailModals";
 import { useReportRows } from "@/context/reportModeContext";
 import { usePublishTabCount } from "@/context/tabCountsContext";
 import { getBioactivityDiseases } from "@/utils/fetching";
@@ -63,6 +66,14 @@ const BioactivityDiseasesSection = ({ commonName }: Props) => {
   const [rows, setRows] = useState<BioactivityDisease[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  // Which row's Target modal is open, by disease id — the same button
+  // and modal the assay-inferred tables use, so "See 3 targets" means
+  // the same thing here as on a chemical or disease page.
+  const [targetsFor, setTargetsFor] = useState<string | null>(null);
+  const targetsRow =
+    targetsFor === null
+      ? undefined
+      : rows.find((r) => r.disease_foodatlas_id === targetsFor);
   const reporter = useReportRows();
 
   usePublishTabCount("diseases", isLoading ? null : rows.length);
@@ -148,7 +159,7 @@ const BioactivityDiseasesSection = ({ commonName }: Props) => {
                 Signal
               </Th>
               <Th help="The protein targets the most chemicals converge on for this disease">
-                Targets
+                Target
               </Th>
             </tr>
           </thead>
@@ -184,7 +195,11 @@ const BioactivityDiseasesSection = ({ commonName }: Props) => {
                     />
                   </td>
                   <td className="py-1.5 px-4">
-                    <TargetGeneChips targets={row.targets} visible={2} />
+                    <DetailCountButton
+                      n={row.targets?.length ?? 0}
+                      noun="target"
+                      onOpen={() => setTargetsFor(row.disease_foodatlas_id)}
+                    />
                   </td>
                 </tr>
               );
@@ -227,8 +242,12 @@ const BioactivityDiseasesSection = ({ commonName }: Props) => {
                 />
               </div>
               {!!row.targets?.length && (
-                <CardRow label="Targets">
-                  <TargetGeneChips targets={row.targets} visible={2} />
+                <CardRow label="Target">
+                  <DetailCountButton
+                    n={row.targets.length}
+                    noun="target"
+                    onOpen={() => setTargetsFor(row.disease_foodatlas_id)}
+                  />
                 </CardRow>
               )}
             </div>
@@ -246,6 +265,14 @@ const BioactivityDiseasesSection = ({ commonName }: Props) => {
           Show all {rows.length.toLocaleString()} diseases
           <MdKeyboardArrowDown className="w-4 h-4" />
         </button>
+      )}
+      {targetsRow && (
+        <AssayTargetsModal
+          targets={targetsRow.targets ?? []}
+          peerName={targetsRow.disease_name}
+          isOpen
+          onClose={() => setTargetsFor(null)}
+        />
       )}
     </div>
   );
