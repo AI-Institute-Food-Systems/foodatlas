@@ -147,6 +147,12 @@ describe("assays modal faceted counts", () => {
 
       for (const et of ["in vitro", "molecular-level", "adme/tox"]) {
         const promised = facetCount(et);
+        // A zero is disabled rather than hidden, so it stays in place but
+        // cannot be picked — there is no row set for it to promise.
+        if (promised === 0) {
+          expect(findOption(et)).toHaveAttribute("aria-disabled", "true");
+          continue;
+        }
         clickFacet(et);
         await waitFor(() =>
           expect(renderedRows()).toBe(promised)

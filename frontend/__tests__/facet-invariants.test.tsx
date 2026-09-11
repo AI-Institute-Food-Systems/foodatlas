@@ -26,6 +26,8 @@ import {
   assertFacetsRespondToOtherFilters,
   assertOptionCountsHoldUnderSwitches,
   assertNoEmptyTableUnderPositiveCount,
+  assertOptionSetStableAcrossFilters,
+  assertOptionsAlphabetical,
   countTableRows,
   type FacetSurface,
 } from "./support/facetInvariants";
@@ -351,6 +353,14 @@ describe.each(Object.entries(SURFACES))("%s", (_name, surface) => {
 
   it("keeps option counts truthful while a toggle switch is on", async () => {
     await assertOptionCountsHoldUnderSwitches(surface, cleanup);
+  });
+
+  it("lists every group's options alphabetically", async () => {
+    await assertOptionsAlphabetical(surface, cleanup);
+  });
+
+  it("keeps the same options, in the same order, under any filter", async () => {
+    await assertOptionSetStableAcrossFilters(surface, cleanup);
   });
 });
 

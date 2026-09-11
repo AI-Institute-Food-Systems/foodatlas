@@ -21,6 +21,8 @@ vi.mock("@/utils/fetching", () => ({
     .fn()
     .mockResolvedValue({ both: 0, experimental: 0, predicted: 0 }),
   getBioactivityEvidenceTypeCounts: vi.fn().mockResolvedValue([]),
+  // The facet hook keys its universe fetch on this constant's identity.
+  NO_SIDEBAR_FILTERS: {},
 }));
 
 // next/navigation isn't mounted in the vitest jsdom env; Button uses

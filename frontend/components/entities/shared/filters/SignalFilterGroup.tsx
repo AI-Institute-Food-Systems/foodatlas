@@ -20,9 +20,10 @@ import {
 } from "@/components/entities/shared/filters/FilterControls";
 import { MARKER, THERAPEUTIC } from "@/components/entities/shared/SignalChips";
 
+// Alphabetical by label, like every facet.
 export const SIGNALS: { key: string; label: string }[] = [
-  { key: THERAPEUTIC, label: "Therapeutic" },
   { key: MARKER, label: "Marker/mechanism" },
+  { key: THERAPEUTIC, label: "Therapeutic" },
 ];
 
 // Keep a row when it carries any selected signal. Empty selection keeps
@@ -79,10 +80,11 @@ const SignalFilterGroup = ({
           <FilterOption
             key={key}
             label={label}
-            count={count}
+            // `?? 0` so a signal absent from the counts reads as zero
+            // and greys out, rather than as "not loaded".
+            count={countsLoaded ? (count ?? 0) : undefined}
             countsLoaded={countsLoaded}
             selected={selected.includes(key)}
-            disabled={countsLoaded && (count ?? 0) === 0}
             onClick={() => onToggle(key)}
           />
         );

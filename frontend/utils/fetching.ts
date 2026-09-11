@@ -545,13 +545,18 @@ export async function getBioactivityEndpointOptions(
 // sidebar. Accepts the other active filters (unit, source kind, search)
 // so the counts reflect what the table would render under each category
 // selection.
-interface BioactivitySidebarFilters {
+export interface BioactivitySidebarFilters {
   filterUnit?: string;
   filterCategory?: string;
   filterSourceKind?: string;
   filterEvidenceType?: string;
   search?: string;
 }
+
+// "Nothing selected", as one stable reference. useServerFacetOptions
+// fetches a facet's full option set with this, and keys the fetch on the
+// object's identity — an inline `{}` would be a new universe every render.
+export const NO_SIDEBAR_FILTERS: BioactivitySidebarFilters = Object.freeze({});
 
 const buildBioactivitySidebarParams = (
   base: URLSearchParams,

@@ -471,3 +471,160 @@ export const countTableRows = (): number =>
     if (/no (associations|results|data|measurements)/i.test(text)) return false;
     return true;
   }).length;
+
+// --- the list itself -----------------------------------------------------
+//
+// The assertions above are about the NUMBERS. These two are about the
+// LIST: which options are offered and in what order. Both shipped broken
+// in the same week the count bugs did — the food page's Assay Source hid
+// options that another filter zeroed, and the assays modal's Evidence
+// list reshuffled busiest-first on every Outcome click.
+
+/** Labels of one group's options, top to bottom. */
+const groupLabels = (facets: Facet[], group: Element | null): string[] =>
+  facets
+    .filter((f) => f.kind === "option" && f.group === group)
+    .map((f) => f.label);
+
+/**
+ * The FilterGroup heading over an option list ("Source", "Outcome"…).
+ * A remount replaces every element, so groups are matched across mounts
+ * by this name rather than by container identity. Structural: the list
+ * is FilterGroup's second child and the heading row its first, with the
+ * FilterRowLabel span first inside that.
+ */
+const groupName = (group: Element | null): string =>
+  (
+    group?.parentElement?.firstElementChild?.firstElementChild?.textContent ??
+    ""
+  ).trim();
+
+// Reset options sit first and catch-alls last by design; everything
+// between them must be alphabetical.
+const PINNED_FIRST = ["all", "any"];
+const PINNED_LAST = ["unclassified", "n/a", "other"];
+
+const byLabel = (a: string, b: string): number =>
+  a.localeCompare(b, undefined, { sensitivity: "base" });
+
+/**
+ * Every group lists its options alphabetically (case-insensitive), with
+ * a reset pinned first and a catch-all pinned last.
+ *
+ * Not "sorted by count": the counts move with every other filter, so an
+ * order derived from them moves the options under the cursor. An option
+ * has to stay where the eye left it.
+ */
+export async function assertOptionsAlphabetical(
+  surface: FacetSurface,
+  cleanup: () => void
+): Promise<void> {
+  await surface.mount();
+  const facets = readFacets().filter((f) => f.kind === "option");
+  const groups = Array.from(new Set(facets.map((f) => f.group)));
+  expect(groups.length, "no option groups found").toBeGreaterThan(0);
+
+  for (const group of groups) {
+    const labels = groupLabels(facets, group);
+    const lower = labels.map((l) => l.toLowerCase());
+    const firstIdx = lower.findIndex((l) => !PINNED_FIRST.includes(l));
+    const middle = labels.filter(
+      (l) => !PINNED_FIRST.includes(l.toLowerCase()) && !PINNED_LAST.includes(l.toLowerCase())
+    );
+    const lastPinned = lower.filter((l) => PINNED_LAST.includes(l));
+
+    // Pinned-first options must all come before the alphabetical run.
+    expect(
+      lower.slice(0, firstIdx === -1 ? lower.length : firstIdx).every((l) =>
+        PINNED_FIRST.includes(l)
+      ),
+      `group [${labels.join(", ")}]: a reset option is not at the top`
+    ).toBe(true);
+    // Pinned-last options must all come after it.
+    expect(
+      lower.slice(lower.length - lastPinned.length).every((l) =>
+        PINNED_LAST.includes(l)
+      ),
+      `group [${labels.join(", ")}]: a catch-all is not at the bottom`
+    ).toBe(true);
+    expect(
+      middle,
+      `group [${labels.join(", ")}] is not alphabetical`
+    ).toEqual([...middle].sort(byLabel));
+  }
+  cleanup();
+}
+
+/**
+ * Narrowing by one dimension must not change WHICH options the other
+ * dimensions offer, nor their order — only their counts. An option that
+ * the narrowing zeroes out stays in the list, disabled.
+ *
+ * One narrowing per group, as in assertFacetsRespondToOtherFilters: a
+ * list wired to a faceted GROUP BY only loses options under a filter
+ * that actually excludes some of them.
+ */
+export async function assertOptionSetStableAcrossFilters(
+  surface: FacetSurface,
+  cleanup: () => void
+): Promise<void> {
+  const skip = surface.skipLabels ?? ["all", "any"];
+
+  await surface.mount();
+  const before = readFacets().filter((f) => f.kind === "option");
+  const groups = Array.from(new Set(before.map((f) => f.group)));
+  const baseline = new Map(
+    groups.map((g) => [groupName(g), groupLabels(before, g)])
+  );
+  expect(
+    Array.from(baseline.keys()).every((n) => n !== ""),
+    "an option group has no FilterGroup heading; the crawler cannot track it"
+  ).toBe(true);
+  const plan = groups
+    .map((group) => {
+      const option = before
+        .filter(
+          (f) =>
+            f.group === group &&
+            !isSkipped(f, skip) &&
+            !f.disabled &&
+            (f.count ?? 0) > 0
+        )
+        .sort((a, b) => (a.count ?? 0) - (b.count ?? 0))[0];
+      return option ? { label: option.label, group } : null;
+    })
+    .filter((p): p is NonNullable<typeof p> => p !== null);
+  cleanup();
+
+  for (const step of plan) {
+    await surface.mount();
+    const target = readFacets().find((f) => f.label === step.label);
+    expect(target, `lost track of option "${step.label}"`).toBeTruthy();
+    await isolateOption(step.label, surface.countRows);
+    await waitFor(() => expect(surface.countRows()).toBeGreaterThanOrEqual(0));
+
+    const after = readFacets().filter((f) => f.kind === "option");
+    const afterGroups = Array.from(new Set(after.map((f) => f.group)));
+    for (const [name, wanted] of Array.from(baseline.entries())) {
+      const match = afterGroups.find((ag) => groupName(ag) === name);
+      const got = match === undefined ? [] : groupLabels(after, match);
+      expect(
+        got,
+        `after selecting "${step.label}", the ${name} group that was ` +
+          `[${wanted.join(", ")}] now reads [${got.join(", ")}] — an option ` +
+          "was hidden or reordered instead of being disabled in place."
+      ).toEqual(wanted);
+      // And a zero must be disabled, not merely present.
+      for (const f of after.filter((x) => x.group === match)) {
+        if (f.count === 0 && !f.selected && !isSkipped(f, skip)) {
+          expect(
+            f.disabled,
+            `after selecting "${step.label}", option "${f.label}" reads 0 ` +
+              "but is still clickable"
+          ).toBe(true);
+        }
+      }
+    }
+    cleanup();
+  }
+}

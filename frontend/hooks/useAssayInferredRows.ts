@@ -19,6 +19,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { peerName, type PeerDirection } from "@/components/entities/shared/AssayInferredRow";
 import {
+  activitiesOf,
   countActivities,
   matchesActivities,
 } from "@/components/entities/shared/filters/ActivityFilterGroup";
@@ -85,12 +86,33 @@ export const useAssayInferredRows = ({
     );
   }, [rows, search, peer]);
 
-  const signalCounts = useMemo(() => countSignals(searched), [searched]);
+  // Each facet's counts apply every OTHER filter — search plus the other
+  // facet — and exclude its own, so a number is "rows you get if you pick
+  // this" under the current view. They used to apply the search only, so
+  // picking an activity left the Signal numbers frozen.
+  const signalCounts = useMemo(
+    () =>
+      countSignals(
+        searched.filter((row) => matchesActivities(row.bioactivities, activities))
+      ),
+    [searched, activities]
+  );
   useEffect(() => {
     if (onSignalCountsChange && !isLoading) onSignalCountsChange(signalCounts);
   }, [onSignalCountsChange, signalCounts, isLoading]);
 
-  const activityCounts = useMemo(() => countActivities(searched), [searched]);
+  // The option set is every activity in the UNFILTERED rows; only the
+  // counts follow the filters. A search that excludes an activity zeroes
+  // it, and a zero renders disabled rather than dropping out of the list.
+  const activityUniverse = useMemo(() => activitiesOf(rows), [rows]);
+  const activityCounts = useMemo(
+    () =>
+      countActivities(
+        searched.filter((row) => matchesSignals(row.relationships, signals)),
+        activityUniverse
+      ),
+    [searched, signals, activityUniverse]
+  );
   useEffect(() => {
     if (onActivityCountsChange && !isLoading) {
       onActivityCountsChange(activityCounts);

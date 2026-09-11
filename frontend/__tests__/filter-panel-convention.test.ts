@@ -138,6 +138,43 @@ describe("filter panel conventions", () => {
     expect(offenders.map(rel)).toEqual([]);
   });
 
+  it("leaves the zero-count rule to FilterOption", () => {
+    // `disabled={… === 0 …}` at a call site is the rule written by hand.
+    // It was, at eleven sites, and the ones that forgot it hid the option
+    // instead — so the same facet disabled its empties on one page and
+    // dropped them on the next. FilterOption owns it now; a site passes
+    // `disabled` only for an extra reason (a skeleton, a dimmed source).
+    //
+    // Scoped to the props of a <FilterOption …/> element: a tab or a
+    // "View assays" button disabling itself at zero is a different thing.
+    const zeroRuleInProps =
+      /<FilterOption\b(?:(?!\/>)[\s\S])*?disabled=\{[^}]*(===|!==)\s*0/;
+    const offenders = SOURCES.filter(
+      (f) => !isShared(f) && zeroRuleInProps.test(code(f))
+    );
+    expect(offenders.map(rel)).toEqual([]);
+  });
+
+  it("never orders facet options by count", () => {
+    // `.sort((a, b) => b.count - a.count)` on an option list is
+    // busiest-first, and busiest-first reshuffles on every click because
+    // the counts move with every other filter. Options are alphabetical
+    // via sortFacetOptions; this catches the sort being reintroduced by
+    // hand. Scoped to the entity components, where every facet lives —
+    // sorting a TABLE by count is a different thing and stays allowed.
+    const offenders = SOURCES.filter((f) => {
+      if (isShared(f) || !f.includes(join("components", "entities"))) {
+        return false;
+      }
+      const src = code(f);
+      return (
+        /\.sort\(\s*\(\s*\w+\s*,\s*\w+\s*\)\s*=>\s*\w+\.count\s*-\s*\w+\.count/.test(src) &&
+        /<FilterOption\b/.test(src)
+      );
+    });
+    expect(offenders.map(rel)).toEqual([]);
+  });
+
   it("every surface that filters offers a way to clear", () => {
     // A panel with filter groups but no reset is the specific defect that
     // shipped twice — and the first version of THIS test missed it. It asked

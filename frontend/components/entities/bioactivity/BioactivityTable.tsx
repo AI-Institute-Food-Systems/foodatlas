@@ -7,7 +7,7 @@
 
 "use client";
 
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 
 import { usePublishTabCount } from "@/context/tabCountsContext";
 import {
@@ -34,23 +34,28 @@ import Pagination from "@/components/basic/Pagination";
 import SortListbox from "@/components/basic/SortListbox";
 import {
   ClearFiltersLink,
+  FACET_MAX_HEIGHT,
   FilterGroup,
   FilterOption,
   FilterOptionList,
   FilterSearchInput,
 } from "@/components/entities/shared/filters/FilterControls";
 import FilterPanel from "@/components/entities/shared/filters/FilterPanel";
+import { sumFacetCounts } from "@/components/entities/shared/filters/facetOptions";
 import { useReportRows } from "@/context/reportModeContext";
 import BioactivityMeasurementsModal from "@/components/entities/bioactivity/BioactivityMeasurementsModal";
 import { formatTopMeasurement, topMeasurementOf } from "@/components/entities/bioactivity/format";
 import { usePaginations } from "@/context/paginationsContext";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import { useServerFacetOptions } from "@/hooks/useServerFacetOptions";
 import { encodeSpace } from "@/utils/utils";
 import {
   getBioactivityCategoryOptions,
   getBioactivityEndpointOptions,
   getBioactivityEvidenceTypeCounts,
   getBioactivitySourceKindCounts,
+  NO_SIDEBAR_FILTERS,
+  type BioactivitySidebarFilters,
   type BioactivitySourceKindCounts,
   type BioactivityDirection,
   type BioactivityListParams,
@@ -212,10 +217,6 @@ const BioactivityTable = ({
     dir: defaultSortDir,
   });
   const [selectedUnits, setSelectedUnits] = useState<string[]>([]);
-  const [showAllUnits, setShowAllUnits] = useState(false);
-  const [unitOptions, setUnitOptions] = useState<
-    { unit: string; count: number }[]
-  >([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   // Multi-select Evidence filter. Values are the NPASS-style buckets
   // returned by /bioactivity/evidence_types (typically molecular-level /
@@ -249,44 +250,34 @@ const BioactivityTable = ({
       ? externalEvidenceType
       : evidenceTypeFilterParam;
 
-  // Fetch the endpoint options once per (direction, pivotName). We
-  // aggregate to distinct UNITS + summed counts across endpoints, then
-  // sort by count desc so the sidebar's "top N + show more" pattern
-  // surfaces the most common units first.
-  useEffect(() => {
-    if (!direction || !pivotName) return;
-    let cancelled = false;
-    (async () => {
-      // Every OTHER dimension is applied so the Unit counts track the
-      // rest of the sidebar; the Unit selection itself is excluded, since
-      // this list is what the user picks units from.
-      const opts = await getBioactivityEndpointOptions(pivotName, direction, {
-        filterEvidenceType: effectiveEvidenceTypeParam,
-        filterSourceKind: effectiveSourceKindParam,
-        search: effectiveSearchTerm,
-      });
-      if (cancelled) return;
-      const totals = new Map<string, number>();
-      for (const o of opts) {
-        const u = (o.unit ?? "").trim();
-        if (!u) continue;
-        totals.set(u, (totals.get(u) ?? 0) + (o.count ?? 0));
-      }
-      const sorted = Array.from(totals.entries())
-        .map(([unit, count]) => ({ unit, count }))
-        .sort((a, b) => b.count - a.count);
-      setUnitOptions(sorted);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    direction,
-    pivotName,
-    effectiveEvidenceTypeParam,
-    effectiveSourceKindParam,
-    effectiveSearchTerm,
-  ]);
+  // The three facet lists. Each fetcher is keyed on the pivot so the hook
+  // fetches the full option set once per entity, then lays the faceted
+  // counts over it — every OTHER dimension applied, the facet's own
+  // excluded, since the list is what the user picks that dimension from.
+  // See useServerFacetOptions for why the list and the counts are two
+  // fetches.
+  const fetchUnitCounts = useCallback(
+    async (f: BioactivitySidebarFilters) => {
+      if (!direction || !pivotName) return [];
+      // The endpoint is per (endpoint, unit); the facet is per unit.
+      const opts = await getBioactivityEndpointOptions(pivotName, direction, f);
+      return sumFacetCounts(opts.map((o) => ({ value: o.unit, count: o.count })));
+    },
+    [direction, pivotName]
+  );
+  const unitFacetFilters = useMemo<BioactivitySidebarFilters>(
+    () => ({
+      filterEvidenceType: effectiveEvidenceTypeParam,
+      filterSourceKind: effectiveSourceKindParam,
+      search: effectiveSearchTerm,
+    }),
+    [effectiveEvidenceTypeParam, effectiveSourceKindParam, effectiveSearchTerm]
+  );
+  const { options: unitOptions, loaded: unitsLoaded } = useServerFacetOptions(
+    fetchUnitCounts,
+    unitFacetFilters,
+    NO_SIDEBAR_FILTERS
+  );
 
   const toggleUnit = (unit: string) => {
     setTablePaginations(tableId, 1, 20);
@@ -298,14 +289,6 @@ const BioactivityTable = ({
     setTablePaginations(tableId, 1, 20);
     setSelectedUnits([]);
   };
-
-  // How many units to surface before the "show more" toggle expands
-  // the rest. Kept small so the sidebar stays scannable.
-  const TOP_UNITS = 5;
-  const visibleUnits = showAllUnits
-    ? unitOptions
-    : unitOptions.slice(0, TOP_UNITS);
-  const hiddenUnitsCount = Math.max(0, unitOptions.length - TOP_UNITS);
 
   const [rows, setRows] = useState<BioactivityRow[]>([]);
   const [totalPages, setTotalPages] = useState(0);
@@ -330,39 +313,35 @@ const BioactivityTable = ({
   // aggregates classifications across ALL matching chemicals for the
   // pivot bioactivity — so counts reflect the full result set, not just
   // the current page. Only meaningful for the bioactivity-chemicals
-  // direction; other directions get []).
-  const [categoryOptions, setCategoryOptions] = useState<
-    { category: string; count: number }[]
-  >([]);
-  useEffect(() => {
-    if (direction !== "bioactivity-chemicals" || !pivotName) {
-      setCategoryOptions([]);
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      // Category counts exclude the Category dimension itself, but apply
-      // every other filter so the counts stay in sync with the visible
-      // table as the user narrows the view.
-      const opts = await getBioactivityCategoryOptions(pivotName, {
-        filterUnit: effectiveUnitParam,
-        filterSourceKind: effectiveSourceKindParam,
-        filterEvidenceType: effectiveEvidenceTypeParam,
-        search: effectiveSearchTerm,
-      });
-      if (!cancelled) setCategoryOptions(opts);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    direction,
-    pivotName,
-    effectiveUnitParam,
-    effectiveSourceKindParam,
-    effectiveEvidenceTypeParam,
-    effectiveSearchTerm,
-  ]);
+  // direction; other directions get [].
+  const fetchCategoryCounts = useCallback(
+    async (f: BioactivitySidebarFilters) => {
+      if (direction !== "bioactivity-chemicals" || !pivotName) return [];
+      const opts = await getBioactivityCategoryOptions(pivotName, f);
+      return opts.map((o) => ({ value: o.category, count: o.count }));
+    },
+    [direction, pivotName]
+  );
+  const categoryFacetFilters = useMemo<BioactivitySidebarFilters>(
+    () => ({
+      filterUnit: effectiveUnitParam,
+      filterSourceKind: effectiveSourceKindParam,
+      filterEvidenceType: effectiveEvidenceTypeParam,
+      search: effectiveSearchTerm,
+    }),
+    [
+      effectiveUnitParam,
+      effectiveSourceKindParam,
+      effectiveEvidenceTypeParam,
+      effectiveSearchTerm,
+    ]
+  );
+  const { options: categoryOptions, loaded: categoriesLoaded } =
+    useServerFacetOptions(
+      fetchCategoryCounts,
+      categoryFacetFilters,
+      NO_SIDEBAR_FILTERS
+    );
 
   // Sidebar Assay Source counts. Aggregate across ALL matching rows
   // (not just the current page) and apply every other active filter so
@@ -401,40 +380,29 @@ const BioactivityTable = ({
   ]);
 
   // Sidebar Evidence counts. Same aggregate-across-all-rows semantics
-  // as source-kind + category counts. Endpoint returns one row per
-  // distinct evidence_type present in the pivot's data, sorted by
-  // count desc — so the sidebar surfaces the biggest bucket first.
-  const [evidenceTypeOptions, setEvidenceTypeOptions] = useState<
-    { evidence_type: string; count: number }[]
-  >([]);
-  useEffect(() => {
-    if (!direction || !pivotName) {
-      setEvidenceTypeOptions([]);
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      const opts = await getBioactivityEvidenceTypeCounts(
-        pivotName,
-        direction,
-        {
-          filterUnit: effectiveUnitParam,
-          filterSourceKind: effectiveSourceKindParam,
-          search: effectiveSearchTerm,
-        },
-      );
-      if (!cancelled) setEvidenceTypeOptions(opts);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    direction,
-    pivotName,
-    effectiveUnitParam,
-    effectiveSourceKindParam,
-    effectiveSearchTerm,
-  ]);
+  // as source-kind + category counts.
+  const fetchEvidenceTypeCounts = useCallback(
+    async (f: BioactivitySidebarFilters) => {
+      if (!direction || !pivotName) return [];
+      const opts = await getBioactivityEvidenceTypeCounts(pivotName, direction, f);
+      return opts.map((o) => ({ value: o.evidence_type, count: o.count }));
+    },
+    [direction, pivotName]
+  );
+  const evidenceFacetFilters = useMemo<BioactivitySidebarFilters>(
+    () => ({
+      filterUnit: effectiveUnitParam,
+      filterSourceKind: effectiveSourceKindParam,
+      search: effectiveSearchTerm,
+    }),
+    [effectiveUnitParam, effectiveSourceKindParam, effectiveSearchTerm]
+  );
+  const { options: evidenceTypeOptions, loaded: evidenceTypesLoaded } =
+    useServerFacetOptions(
+      fetchEvidenceTypeCounts,
+      evidenceFacetFilters,
+      NO_SIDEBAR_FILTERS
+    );
 
   const toggleCategory = (category: string) => {
     setTablePaginations(tableId, 1, 20);
@@ -612,8 +580,11 @@ const BioactivityTable = ({
     </div>
   );
 
-  // Non-search filters — currently just Unit. Drawer on small viewports
-  // uses this alone (search stays visible outside the drawer).
+  // Non-search filters. Drawer on small viewports uses this alone (search
+  // stays visible outside the drawer). A group is omitted only when the
+  // entity has NO values for that dimension at all — the full option set
+  // is empty — never because the current filters zeroed it; those options
+  // stay, disabled, so the list keeps its shape.
   const filtersOnlyPanel = (
     <div className="flex flex-col gap-5">
       {unitOptions.length > 0 && (
@@ -621,35 +592,21 @@ const BioactivityTable = ({
           label="Unit"
           onClear={selectedUnits.length > 0 ? clearUnits : undefined}
         >
-          <FilterOptionList>
-            {visibleUnits.map(({ unit, count }) => (
+          {/* Alphabetical, so the tail is a scroll rather than a "5 more…"
+            * collapse: with a fixed order a top-N would hide whatever sorts
+            * late (uM, the commonest unit, under "5 more"). */}
+          <FilterOptionList maxHeightClass={FACET_MAX_HEIGHT}>
+            {unitOptions.map(({ value, count }) => (
               <FilterOption
-                key={unit}
-                label={unit}
+                key={value}
+                label={value}
                 count={count}
-                selected={selectedUnits.includes(unit)}
-                onClick={() => toggleUnit(unit)}
+                countsLoaded={unitsLoaded}
+                selected={selectedUnits.includes(value)}
+                onClick={() => toggleUnit(value)}
                 capitalize={false}
               />
             ))}
-            {!showAllUnits && hiddenUnitsCount > 0 && (
-              <button
-                type="button"
-                onClick={() => setShowAllUnits(true)}
-                className="mt-1 px-1 py-1 text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors text-left"
-              >
-                {hiddenUnitsCount} more…
-              </button>
-            )}
-            {showAllUnits && unitOptions.length > TOP_UNITS && (
-              <button
-                type="button"
-                onClick={() => setShowAllUnits(false)}
-                className="mt-1 px-1 py-1 text-[11px] font-mono italic text-light-400 hover:text-light-100 underline-offset-4 hover:underline transition-colors text-left"
-              >
-                collapse
-              </button>
-            )}
           </FilterOptionList>
         </FilterGroup>
       )}
@@ -659,14 +616,15 @@ const BioactivityTable = ({
           label="Category"
           onClear={selectedCategories.length > 0 ? clearCategories : undefined}
         >
-          <FilterOptionList>
-            {categoryOptions.map(({ category, count }) => (
+          <FilterOptionList maxHeightClass={FACET_MAX_HEIGHT}>
+            {categoryOptions.map(({ value, count }) => (
               <FilterOption
-                key={category}
-                label={category}
+                key={value}
+                label={value}
                 count={count}
-                selected={selectedCategories.includes(category)}
-                onClick={() => toggleCategory(category)}
+                countsLoaded={categoriesLoaded}
+                selected={selectedCategories.includes(value)}
+                onClick={() => toggleCategory(value)}
               />
             ))}
           </FilterOptionList>
@@ -681,13 +639,14 @@ const BioactivityTable = ({
           }
         >
           <FilterOptionList>
-            {evidenceTypeOptions.map(({ evidence_type, count }) => (
+            {evidenceTypeOptions.map(({ value, count }) => (
               <FilterOption
-                key={evidence_type}
-                label={evidence_type}
+                key={value}
+                label={value}
                 count={count}
-                selected={selectedEvidenceTypes.includes(evidence_type)}
-                onClick={() => toggleEvidenceType(evidence_type)}
+                countsLoaded={evidenceTypesLoaded}
+                selected={selectedEvidenceTypes.includes(value)}
+                onClick={() => toggleEvidenceType(value)}
               />
             ))}
           </FilterOptionList>
@@ -715,7 +674,7 @@ const BioactivityTable = ({
                 count={c}
                 countsLoaded={sourceKindCounts !== null}
                 selected={selectedSourceKind === key}
-                disabled={typeof c === "number" && key !== "" && c === 0}
+                resetOption={key === ""}
                 onClick={() => chooseSourceKind(key)}
               />
             );

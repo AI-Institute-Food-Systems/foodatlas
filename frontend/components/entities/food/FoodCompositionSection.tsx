@@ -90,6 +90,8 @@ const TABLE_HEADERS = [
   },
 ];
 
+// Alphabetical, with the catch-all pinned last — the order every facet
+// uses, so an option stays where the eye left it.
 const CLASSIFICATION_OPTIONS = [
   "alkaloid",
   "amino acid",
@@ -687,25 +689,19 @@ const FoodCompositionSection = ({
       {/* source — checkbox list, one row per source */}
       <FilterGroup label="Source">
         <FilterOptionList>
-          {SOURCE_OPTIONS.map((opt) => {
-            const c = sourceCounts[opt.value];
-            const isSelected = sourceFilters.includes(opt.value);
-            return (
-              <FilterOption
-                key={opt.value}
-                label={opt.label}
-                count={c}
-                countsLoaded={countsLoaded}
-                selected={isSelected}
-                onClick={() => toggleSource(opt.value)}
-                // A count of 0 disables the option — but never while it's
-                // still selected, or the user is trapped. On pepper (raw)
-                // FDC is 0 and selected by default, so the one combination
-                // that works (PTFI alone) was unreachable by clicking.
-                disabled={countsLoaded && c === 0 && !isSelected}
-              />
-            );
-          })}
+          {/* Every source starts selected, and on pepper (raw) FDC is 0 —
+            * FilterOption keeps a selected zero clickable so it can be
+            * dropped; see the rule there. */}
+          {SOURCE_OPTIONS.map((opt) => (
+            <FilterOption
+              key={opt.value}
+              label={opt.label}
+              count={sourceCounts[opt.value]}
+              countsLoaded={countsLoaded}
+              selected={sourceFilters.includes(opt.value)}
+              onClick={() => toggleSource(opt.value)}
+            />
+          ))}
         </FilterOptionList>
       </FilterGroup>
 
@@ -736,7 +732,6 @@ const FoodCompositionSection = ({
                 countsLoaded={countsLoaded}
                 selected={classificationFilter.includes(cls)}
                 onClick={() => toggleClassification(cls)}
-                disabled={countsLoaded && c === 0}
               />
             );
           })}

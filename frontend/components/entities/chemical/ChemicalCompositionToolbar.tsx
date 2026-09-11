@@ -78,9 +78,9 @@ export const CompositionFilterPanel = ({
       {/* Rows, not pills. This facet used to render Chips, which made the
         * chemical sidebar the only one in the app where a source was a
         * pill rather than a checkbox row. A source with no rows stays
-        * visible but disabled: hiding it would reshape the facet list
-        * between chemicals, and leaving it live offers a filter whose only
-        * outcome is an empty table. */}
+        * visible but disabled (FilterOption's rule): hiding it would
+        * reshape the facet list between chemicals, and leaving it live
+        * offers a filter whose only outcome is an empty table. */}
       <FilterOptionList>
         {sourceCounts.map(({ key, label, count }) => (
           <FilterOption
@@ -88,7 +88,6 @@ export const CompositionFilterPanel = ({
             label={label}
             count={count}
             selected={selectedSources.includes(key)}
-            disabled={count === 0}
             onClick={() => onToggleSource(key)}
           />
         ))}
