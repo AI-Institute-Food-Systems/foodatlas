@@ -263,4 +263,18 @@ describe("composition source filter", () => {
     expect(emptyStateShown()).toBe(false);
   });
 
+  it("explains that the low-trust count is not a row count", async () => {
+    // Every other count in this panel means "rows you will get"; this one
+    // means "chemicals with at least one hidden data point". Without the
+    // hover text the toggle reads as broken — on strawberry it reveals 7
+    // points across 5 chemicals and the list stays at 271.
+    await mount();
+    const toggle = screen
+      .getAllByText(/Low-trust data points/i)[0]
+      .closest("label");
+    expect(toggle).toBeTruthy();
+    expect(toggle?.getAttribute("title") ?? "").toMatch(
+      /does not change how many chemicals are listed/i
+    );
+  });
 });

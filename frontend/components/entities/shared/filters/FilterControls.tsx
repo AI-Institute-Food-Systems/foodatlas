@@ -70,13 +70,21 @@ const ToggleSwitch = ({
   count,
   checked,
   onChange,
+  title,
 }: {
   label: string;
   count?: number;
   checked: boolean;
   onChange: () => void;
+  // Hover text for the whole row. Worth setting whenever `count` is not
+  // "rows you will get" — every other count in these panels is, so a
+  // toggle counting something else needs to say so.
+  title?: string;
 }) => (
-  <label className="flex items-center gap-2 cursor-pointer select-none">
+  <label
+    title={title}
+    className="flex items-center gap-2 cursor-pointer select-none"
+  >
     <Switch
       checked={checked}
       onChange={onChange}

@@ -26,6 +26,10 @@ import { expect } from "vitest";
 
 export interface Facet {
   label: string;
+  /** "option" = FilterOption checkbox/radio; "switch" = ToggleSwitch. */
+  kind: "option" | "switch";
+  /** Radio groups are single-select; check groups can start all-selected. */
+  mode: "radio" | "check" | "switch";
   /** Identifies the option's group (Source, Outcome, ...) by container. */
   group: Element | null;
   /** undefined when the option renders no count (counts still loading). */
@@ -35,8 +39,13 @@ export interface Facet {
   el: HTMLElement;
 }
 
-/** Every filter option currently rendered, wherever it is in the document. */
+/** Every filter control currently rendered, wherever it is in the document. */
 export function readFacets(): Facet[] {
+  return [...readOptions(), ...readSwitches()];
+}
+
+/** FilterOption checkboxes and radios. */
+function readOptions(): Facet[] {
   const buttons = Array.from(
     document.body.querySelectorAll<HTMLButtonElement>(
       'button[aria-pressed], button[role="radio"]'
@@ -57,15 +66,17 @@ export function readFacets(): Facet[] {
     const labelSpan = spans.find(
       (s) => !s.hasAttribute("aria-hidden") && s !== countSpan
     );
-    const raw = countSpan?.textContent?.trim() ?? "";
-    const parsed = raw === "" ? Number.NaN : Number(raw.replace(/,/g, ""));
     return {
       label: (labelSpan?.textContent ?? "").trim(),
+      kind: "option" as const,
+      mode: (el.getAttribute("role") === "radio" ? "radio" : "check") as
+        | "radio"
+        | "check",
+      count: parseCount(countSpan),
       // Options in one FilterGroup share a parent (the FilterOptionList
       // container), which is enough to tell dimensions apart without
       // coupling to class names.
       group: el.parentElement,
-      count: Number.isNaN(parsed) ? undefined : parsed,
       selected:
         el.getAttribute("aria-pressed") === "true" ||
         el.getAttribute("aria-checked") === "true",
@@ -73,6 +84,51 @@ export function readFacets(): Facet[] {
       el,
     };
   });
+}
+
+/**
+ * ToggleSwitch rows.
+ *
+ * A different shape and a different meaning, both of which matter. Shape:
+ * HeadlessUI renders `button[role=switch]` and the label and count are
+ * siblings of that button inside the enclosing <label>, not children of
+ * it — so the option crawler above sees nothing. Meaning: a switch's
+ * count is not "rows you will get". "Without concentration" counts the
+ * rows it governs, and "Low-trust data points" counts chemicals holding a
+ * hidden point while the row total does not move at all. So switches are
+ * deliberately NOT fed to the count-equals-rows assertion; they are here
+ * for the cross-dimension one, which does hold: flipping a switch changes
+ * the row set, so every other group's counts must be recomputed.
+ */
+function readSwitches(): Facet[] {
+  const switches = Array.from(
+    document.body.querySelectorAll<HTMLButtonElement>('button[role="switch"]')
+  );
+  return switches.map((el) => {
+    const container = el.closest("label");
+    const spans = Array.from(container?.children ?? []).filter(
+      (c): c is HTMLElement => c.tagName === "SPAN"
+    );
+    const countSpan = spans.find((s) => s.className.includes("tabular-nums"));
+    const labelSpan = spans.find((s) => s !== countSpan);
+    return {
+      label: (labelSpan?.textContent ?? "").trim(),
+      kind: "switch" as const,
+      mode: "switch" as const,
+      count: parseCount(countSpan),
+      group: container?.parentElement ?? null,
+      selected: el.getAttribute("aria-checked") === "true",
+      disabled: el.disabled || el.getAttribute("aria-disabled") === "true",
+      el,
+    };
+  });
+}
+
+function parseCount(span?: HTMLElement): number | undefined {
+  const raw = span?.textContent?.trim() ?? "";
+  if (raw === "") return undefined;
+  const n = Number(raw.replace(/,/g, ""));
+  return Number.isNaN(n) ? undefined : n;
 }
 
 export interface FacetSurface {
@@ -88,6 +144,56 @@ export interface FacetSurface {
   skipLabels?: string[];
   /** Guard the guard: fail if fewer than this many options are found. */
   minFacets?: number;
+}
+
+
+/**
+ * Put the surface into the state option `label` advertises.
+ *
+ * Not simply "click it". A check-mode group can start with everything
+ * selected — Source on the composition table does — and there a click
+ * DEselects, leaving the complement of what the count describes. Clicking
+ * "FDC" on a fresh panel drops FDC and shows the other four rows, so a
+ * naive harness reads that as the count lying.
+ *
+ * Isolating means: deselect every other option in the group, then ensure
+ * this one is on. Re-reads between clicks because each one re-renders.
+ */
+async function isolateOption(
+  label: string,
+  countRows: () => number
+): Promise<void> {
+  const target = readFacets().find(
+    (f) => f.kind === "option" && f.label === label
+  );
+  if (!target) return;
+  if (target.mode === "radio") {
+    target.el.click();
+    await waitFor(() => expect(countRows()).toBeGreaterThanOrEqual(0));
+    return;
+  }
+  const group = target.group;
+  // Deselect the siblings one at a time.
+  for (;;) {
+    const sibling = readFacets().find(
+      (f) =>
+        f.kind === "option" &&
+        f.group === group &&
+        f.label !== label &&
+        f.selected &&
+        !f.disabled
+    );
+    if (!sibling) break;
+    sibling.el.click();
+    await waitFor(() => expect(countRows()).toBeGreaterThanOrEqual(0));
+  }
+  const now = readFacets().find(
+    (f) => f.kind === "option" && f.label === label
+  );
+  if (now && !now.selected && !now.disabled) {
+    now.el.click();
+    await waitFor(() => expect(countRows()).toBeGreaterThanOrEqual(0));
+  }
 }
 
 const isSkipped = (f: Facet, skip: string[]): boolean =>
@@ -108,7 +214,9 @@ export async function assertFacetCountsMatchRows(
   const skip = surface.skipLabels ?? ["all", "any"];
 
   await surface.mount();
-  const discovered = readFacets().filter((f) => !isSkipped(f, skip));
+  const discovered = readFacets().filter(
+    (f) => f.kind === "option" && !isSkipped(f, skip)
+  );
   const min = surface.minFacets ?? 2;
   expect(
     discovered.length,
@@ -129,7 +237,7 @@ export async function assertFacetCountsMatchRows(
       continue;
     }
     const promised = facet.count;
-    facet.el.click();
+    await isolateOption(label, surface.countRows);
     await waitFor(() => {
       expect(
         surface.countRows(),
@@ -157,7 +265,13 @@ export async function assertNoEmptyTableUnderPositiveCount(
 
   await surface.mount();
   const labels = readFacets()
-    .filter((f) => !isSkipped(f, skip) && !f.disabled && (f.count ?? 0) > 0)
+    .filter(
+      (f) =>
+        f.kind === "option" &&
+        !isSkipped(f, skip) &&
+        !f.disabled &&
+        (f.count ?? 0) > 0
+    )
     .map((f) => f.label);
   cleanup();
 
@@ -168,7 +282,7 @@ export async function assertNoEmptyTableUnderPositiveCount(
       cleanup();
       continue;
     }
-    facet.el.click();
+    await isolateOption(label, surface.countRows);
     await waitFor(() => {
       expect(
         surface.countRows(),
@@ -196,11 +310,16 @@ export async function assertFacetsRespondToOtherFilters(
   const skip = surface.skipLabels ?? ["all", "any"];
   const sumOfOtherGroups = (facets: Facet[], group: Element | null): number =>
     facets
-      .filter((f) => f.group !== group && !isSkipped(f, skip))
+      .filter(
+        (f) => f.kind === "option" && f.group !== group && !isSkipped(f, skip)
+      )
       .reduce((n, f) => n + (f.count ?? 0), 0);
 
   await surface.mount();
-  const before = readFacets();
+  // Options only. Switches are a filter dimension too, but they are not
+  // isolatable the same way and their counts are not row counts, so they
+  // have their own assertion (assertOptionCountsHoldUnderSwitches).
+  const before = readFacets().filter((f) => f.kind === "option");
   const groups = Array.from(new Set(before.map((f) => f.group)));
   if (groups.length < 2) {
     // Only one dimension on screen. Narrowing within a group correctly
@@ -243,7 +362,7 @@ export async function assertFacetsRespondToOtherFilters(
     const target = readFacets().find((f) => f.label === step.label);
     expect(target, `lost track of option "${step.label}"`).toBeTruthy();
     const targetGroup = target?.group ?? null;
-    target?.el.click();
+    await isolateOption(step.label, surface.countRows);
     await waitFor(() => expect(surface.countRows()).toBe(step.count));
 
     const after = sumOfOtherGroups(readFacets(), targetGroup);
@@ -255,6 +374,91 @@ export async function assertFacetsRespondToOtherFilters(
         "set — its facet is not applying the active filter from this dimension."
     ).toBeLessThan(step.others);
     cleanup();
+  }
+}
+
+/**
+ * Option counts must stay truthful while a switch is on.
+ *
+ * A switch is just another active filter, and the facets around it have
+ * to respect it exactly as they respect each other. Its own count is NOT
+ * a row count — "Without concentration" counts the rows it governs and
+ * "Low-trust data points" counts chemicals holding a hidden point while
+ * the row total does not move — so the switch is never asserted against
+ * rows. What is asserted is that after flipping it, every other group's
+ * most-restrictive option still advertises the rows it yields.
+ *
+ * Bounded to one option per group per switch: the point is whether the
+ * switch is plumbed into the facet computation at all, and the first
+ * option answers that as well as the twentieth.
+ */
+export async function assertOptionCountsHoldUnderSwitches(
+  surface: FacetSurface,
+  cleanup: () => void
+): Promise<void> {
+  const skip = surface.skipLabels ?? ["all", "any"];
+
+  await surface.mount();
+  const switchLabels = readFacets()
+    .filter((f) => f.kind === "switch" && !f.disabled)
+    .map((f) => f.label);
+  cleanup();
+  if (switchLabels.length === 0) return;
+
+  for (const switchLabel of switchLabels) {
+    await surface.mount();
+    const groups = Array.from(
+      new Set(
+        readFacets()
+          .filter((f) => f.kind === "option")
+          .map((f) => f.group)
+      )
+    );
+    cleanup();
+
+    for (let groupIndex = 0; groupIndex < groups.length; groupIndex += 1) {
+      await surface.mount();
+      const sw = readFacets().find(
+        (f) => f.kind === "switch" && f.label === switchLabel
+      );
+      expect(sw, `lost the "${switchLabel}" switch`).toBeTruthy();
+      sw?.el.click();
+      await waitFor(() => expect(surface.countRows()).toBeGreaterThanOrEqual(0));
+
+      const optionGroups = Array.from(
+        new Set(
+          readFacets()
+            .filter((f) => f.kind === "option")
+            .map((f) => f.group)
+        )
+      );
+      const group = optionGroups[groupIndex];
+      const option = readFacets()
+        .filter(
+          (f) =>
+            f.kind === "option" &&
+            f.group === group &&
+            !isSkipped(f, skip) &&
+            !f.disabled &&
+            (f.count ?? 0) > 0
+        )
+        .sort((a, b) => (a.count ?? 0) - (b.count ?? 0))[0];
+      if (!option) {
+        cleanup();
+        continue;
+      }
+      const promised = option.count ?? 0;
+      await isolateOption(option.label, surface.countRows);
+      await waitFor(() => {
+        expect(
+          surface.countRows(),
+          `with "${switchLabel}" flipped, option "${option.label}" advertises ` +
+            `${promised} rows but the table renders ${surface.countRows()} — ` +
+            "that facet is not applying the switch."
+        ).toBe(promised);
+      });
+      cleanup();
+    }
   }
 }
 
