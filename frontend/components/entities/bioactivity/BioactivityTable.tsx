@@ -14,7 +14,6 @@ import {
   MdCheck,
   MdClose,
   MdDescription,
-  MdInfoOutline,
   MdTune,
 } from "react-icons/md";
 import { twMerge } from "tailwind-merge";
@@ -30,7 +29,6 @@ import {
 import Pagination from "@/components/basic/Pagination";
 import SortListbox from "@/components/basic/SortListbox";
 import {
-  ClearFiltersLink,
   FACET_MAX_HEIGHT,
   FilterGroup,
   FilterOption,
@@ -47,6 +45,7 @@ import { usePaginations } from "@/context/paginationsContext";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useServerFacetOptions } from "@/hooks/useServerFacetOptions";
 import { encodeSpace } from "@/utils/utils";
+import TableEmptyState from "@/components/entities/shared/TableEmptyState";
 import {
   getBioactivityCategoryOptions,
   getBioactivityEndpointOptions,
@@ -565,17 +564,11 @@ const BioactivityTable = ({
   // no rows, we show the caller-supplied `emptyMessage` untouched.
   const resetForEmptyState = onResetFilters ?? resetAllFilters;
   const emptyStateBody = hasActiveFilters ? (
-    <div className="flex flex-col items-center gap-2 text-light-300">
-      <div className="flex items-center gap-2 text-sm">
-        <MdInfoOutline />
-        {emptyMessageFiltered ?? "No results match the current filters."}
-      </div>
-      <ClearFiltersLink onClick={resetForEmptyState} />
-    </div>
+    <TableEmptyState onClearFilters={resetForEmptyState}>
+      {emptyMessageFiltered ?? "No results match the current filters."}
+    </TableEmptyState>
   ) : (
-    <div className="flex items-center gap-2 text-light-300 text-sm">
-      <MdInfoOutline /> {emptyMessage}
-    </div>
+    <TableEmptyState>{emptyMessage}</TableEmptyState>
   );
 
   // Non-search filters. Drawer on small viewports uses this alone (search
@@ -777,11 +770,7 @@ const BioactivityTable = ({
               <TableSkeletonRows columns={columns} />
             ) : showEmpty ? (
               <tr>
-                <td colSpan={colSpan}>
-                  <div className="h-[10rem] flex items-center justify-center">
-                    {emptyStateBody}
-                  </div>
-                </td>
+                <td colSpan={colSpan}>{emptyStateBody}</td>
               </tr>
             ) : (
               rows.map((row) => (
@@ -827,9 +816,7 @@ const BioactivityTable = ({
         )}
       >
         {showEmpty ? (
-          <div className="w-full py-6 flex items-center justify-center">
-            {emptyStateBody}
-          </div>
+          emptyStateBody
         ) : (
           rows.map((row) => {
             const ctx: ColumnContext = { openModal: () => setSelected(row) };

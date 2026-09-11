@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { MdInfo, MdInfoOutline } from "react-icons/md";
+import { MdInfo } from "react-icons/md";
 
 import Pagination from "@/components/basic/Pagination";
 import ChemicalCompositionCards from "@/components/entities/chemical/ChemicalCompositionCards";
@@ -37,6 +37,7 @@ import {
   sourceCountOf,
 } from "@/utils/chemicalComposition";
 import { encodeSpace } from "@/utils/utils";
+import TableEmptyState from "@/components/entities/shared/TableEmptyState";
 
 // Pagination writes rowsPerPage=20 into the context on every click, so the
 // page size is not ours to choose — matching it here keeps the slice and
@@ -202,6 +203,15 @@ const ChemicalCompositionTable = ({
   // the empty-state copy below keys off "are rows being hidden".
   const isFiltered = search.trim() !== "" || sources.length > 0;
   const isFiltersDirty = isFiltered || !includeUnmeasured;
+  // The same block the other tables show, with the way out beside it
+  // when it is the filters hiding rows rather than the data lacking them.
+  const emptyStateBody = isFiltered ? (
+    <TableEmptyState onClearFilters={resetAllFilters}>
+      No foods match these filters
+    </TableEmptyState>
+  ) : (
+    <TableEmptyState>No foods with a known concentration</TableEmptyState>
+  );
 
   return (
     <FilterPanel
@@ -261,14 +271,7 @@ const ChemicalCompositionTable = ({
               ))
             ) : (
               <tr>
-                <td colSpan={COLUMN_COUNT}>
-                  <div className="h-[10rem] flex items-center justify-center text-light-300 gap-2">
-                    <MdInfoOutline />
-                    {isFiltered
-                      ? "No foods match these filters"
-                      : "No foods with a known concentration"}
-                  </div>
-                </td>
+                <td colSpan={COLUMN_COUNT}>{emptyStateBody}</td>
               </tr>
             )}
           </tbody>
@@ -286,12 +289,7 @@ const ChemicalCompositionTable = ({
             rowPropsFor={(row) => reporter.getRowProps(rowContextFor(row))}
           />
         ) : (
-          <div className="h-24 flex items-center justify-center text-light-300 gap-2">
-            <MdInfoOutline />
-            {isFiltered
-              ? "No foods match these filters"
-              : "No foods with a known concentration"}
-          </div>
+          emptyStateBody
         )}
       </div>
 

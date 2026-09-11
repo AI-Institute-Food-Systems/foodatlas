@@ -7,8 +7,6 @@ import {
   MdCheck,
   MdClose,
   MdDescription,
-  MdErrorOutline,
-  MdInfoOutline,
   MdTune,
 } from "react-icons/md";
 import { twMerge } from "tailwind-merge";
@@ -38,7 +36,6 @@ import FoodCompositionEvidenceModal, {
   EvidenceFilter,
 } from "@/components/entities/food/FoodCompositionEvidenceModal";
 import {
-  ClearFiltersLink,
   FilterGroup,
   FilterOption,
   FilterOptionList,
@@ -60,6 +57,7 @@ import {
   SOURCE_OPTIONS,
 } from "@/components/entities/food/compositionSources";
 import { FoodCompositionData } from "@/types";
+import TableEmptyState from "@/components/entities/shared/TableEmptyState";
 
 // headers for table
 // One spec drives the <colgroup>, the <th>s and the loading skeleton, so
@@ -461,17 +459,16 @@ const FoodCompositionSection = ({
   // "clear filters" button so the reader doesn't confuse "your filters
   // returned nothing" with "this food has no composition data at all".
   const emptyStateBody = isFiltersDirty ? (
-    <div className="flex flex-col items-center gap-2 text-light-300">
-      <div className="flex items-center gap-2 text-sm">
-        <MdInfoOutline />
-        No associations match your filters
-      </div>
-      <ClearFiltersLink onClick={resetAllFilters} />
-    </div>
+    <TableEmptyState onClearFilters={resetAllFilters}>
+      No associations match your filters
+    </TableEmptyState>
   ) : (
-    <div className="flex items-center gap-2 text-light-300 text-sm">
-      <MdInfoOutline /> No associations found
-    </div>
+    <TableEmptyState>No associations found</TableEmptyState>
+  );
+  const errorStateBody = (
+    <TableEmptyState error>
+      An error occurred fetching data, please refresh the page
+    </TableEmptyState>
   );
 
   // handle evidence button click
@@ -808,12 +805,7 @@ const FoodCompositionSection = ({
                 ) : isError ? (
                   // error message
                   <tr>
-                    <td colSpan={TABLE_HEADERS.length}>
-                      <div className="h-[10rem] flex items-center justify-center text-red-400 gap-2">
-                        <MdErrorOutline /> An error occurred fetching data,
-                        please refresh the page
-                      </div>
-                    </td>
+                    <td colSpan={TABLE_HEADERS.length}>{errorStateBody}</td>
                   </tr>
                 ) : data.length > 0 ? (
                   data.map((row) => {
@@ -940,11 +932,7 @@ const FoodCompositionSection = ({
                 ) : (
                   // no rows
                   <tr>
-                    <td colSpan={TABLE_HEADERS.length}>
-                      <div className="h-[10rem] flex items-center justify-center">
-                        {emptyStateBody}
-                      </div>
-                    </td>
+                    <td colSpan={TABLE_HEADERS.length}>{emptyStateBody}</td>
                   </tr>
                 )}
                 {/* add empty rows to make up for the total of 20 rows */}
@@ -980,10 +968,7 @@ const FoodCompositionSection = ({
               }
             >
               {isError ? (
-                <div className="w-full py-6 flex items-center justify-center text-red-400 gap-2">
-                  <MdErrorOutline /> An error occurred fetching data, please
-                  refresh the page
-                </div>
+                errorStateBody
               ) : data.length > 0 ? (
                 data.map((row) => {
                   const isHighlighted =
@@ -1106,9 +1091,7 @@ const FoodCompositionSection = ({
                   );
                 })
               ) : (
-                <div className="w-full py-6 flex items-center justify-center">
-                  {emptyStateBody}
-                </div>
+                emptyStateBody
               )}
             </div>
           </div>

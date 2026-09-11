@@ -51,6 +51,7 @@ import { useReportRows } from "@/context/reportModeContext";
 import { useAssayInferredRows } from "@/hooks/useAssayInferredRows";
 import { usePublishTabCount } from "@/context/tabCountsContext";
 import type { AssayInferredAssociation } from "@/types";
+import TableEmptyState from "@/components/entities/shared/TableEmptyState";
 
 export type { PeerDirection };
 
@@ -180,18 +181,15 @@ const AssayInferredAssociationsTable = ({
   const activitiesRow = byId(activitiesFor);
 
   if (!isLoading && filtered.length === 0) {
-    return (
-      <p className="text-sm text-light-500 italic">
-        {rows.length === 0 ? (
-          <>
-            No assay-inferred {peer} associations for{" "}
-            <span className="capitalize">{commonName}</span> in the current
-            data.
-          </>
-        ) : (
-          <>No assay-inferred {peer} associations match this search.</>
-        )}
-      </p>
+    return rows.length === 0 ? (
+      <TableEmptyState>
+        No assay-inferred {peer} associations for{" "}
+        <span className="capitalize">{commonName}</span> in the current data
+      </TableEmptyState>
+    ) : (
+      <TableEmptyState>
+        No assay-inferred {peer} associations match these filters
+      </TableEmptyState>
     );
   }
 

@@ -14,14 +14,12 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   MdClose,
   MdDescription,
-  MdInfoOutline,
   MdWarningAmber,
 } from "react-icons/md";
 import { twMerge } from "tailwind-merge";
 
 import Card from "@/components/basic/Card";
 import {
-  ClearFiltersLink,
   FilterSearchInput,
 } from "@/components/entities/shared/filters/FilterControls";
 import FilterPanel from "@/components/entities/shared/filters/FilterPanel";
@@ -52,6 +50,7 @@ import {
 } from "@/utils/fetching";
 import { encodeSpace, formatConcentrationValueAlt } from "@/utils/utils";
 import type { BioactivityMeasurement } from "@/types";
+import TableEmptyState from "@/components/entities/shared/TableEmptyState";
 
 // The card list has no headers to click, so the sort is a listbox there.
 const MOBILE_SORT_COLUMNS: SortableColumn[] = [
@@ -354,17 +353,13 @@ const FoodInferredBioactivitiesSection = ({
       setTablePaginations(tableId, 1, 20);
     });
   const emptyStateBody = hasActiveFilters ? (
-    <div className="flex flex-col items-center gap-2 text-light-300">
-      <div className="flex items-center gap-2 text-sm">
-        <MdInfoOutline />
-        No inferred bioactivities match your filters
-      </div>
-      <ClearFiltersLink onClick={resetForEmptyState} />
-    </div>
+    <TableEmptyState onClearFilters={resetForEmptyState}>
+      No inferred bioactivities match your filters
+    </TableEmptyState>
   ) : (
-    <div className="flex items-center gap-2 text-light-300 text-sm">
-      <MdInfoOutline /> No inferred bioactivities recorded for this food yet
-    </div>
+    <TableEmptyState>
+      No inferred bioactivities recorded for this food yet
+    </TableEmptyState>
   );
 
   const searchInput = (
@@ -524,11 +519,7 @@ const FoodInferredBioactivitiesSection = ({
               <TableSkeletonRows columns={SKELETON_COLUMNS} />
             ) : showEmpty ? (
               <tr>
-                <td colSpan={5}>
-                  <div className="h-[10rem] flex items-center justify-center">
-                    {emptyStateBody}
-                  </div>
-                </td>
+                <td colSpan={5}>{emptyStateBody}</td>
               </tr>
             ) : (
               rows.map((row, idx) => (
@@ -557,9 +548,7 @@ const FoodInferredBioactivitiesSection = ({
       ) : (
       <div className="md:hidden w-full flex flex-col divide-y divide-light-800">
         {showEmpty ? (
-          <div className="w-full py-6 flex items-center justify-center">
-            {emptyStateBody}
-          </div>
+          emptyStateBody
         ) : (
           rows.map((row, idx) => {
             const conc = row.median_concentration;

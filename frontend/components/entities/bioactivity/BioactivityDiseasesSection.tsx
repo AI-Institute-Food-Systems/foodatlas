@@ -32,6 +32,7 @@ import { usePublishTabCount } from "@/context/tabCountsContext";
 import { getBioactivityDiseases } from "@/utils/fetching";
 import { encodeSpace } from "@/utils/utils";
 import type { BioactivityDisease } from "@/types";
+import TableEmptyState from "@/components/entities/shared/TableEmptyState";
 
 interface Props {
   commonName: string;
@@ -101,10 +102,10 @@ const BioactivityDiseasesSection = ({ commonName }: Props) => {
 
   if (!isLoading && rows.length === 0) {
     return (
-      <p className="text-sm text-light-500 italic">
+      <TableEmptyState>
         No assay-attributed diseases for{" "}
-        <span className="capitalize">{commonName}</span> in the current data.
-      </p>
+        <span className="capitalize">{commonName}</span> in the current data
+      </TableEmptyState>
     );
   }
 

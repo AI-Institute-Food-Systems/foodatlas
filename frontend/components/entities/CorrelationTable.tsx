@@ -14,7 +14,6 @@
 // fetching, paging and the source-chemical decision.
 
 import { useEffect, useMemo, useState } from "react";
-import { MdErrorOutline, MdInfoOutline } from "react-icons/md";
 
 import {
   TableSkeletonCards,
@@ -41,6 +40,7 @@ import { useReportRows } from "@/context/reportModeContext";
 import { usePaginations } from "@/context/paginationsContext";
 import { getDiseaseData } from "@/utils/fetching";
 import { ChemicalCorrelation } from "@/types";
+import TableEmptyState from "@/components/entities/shared/TableEmptyState";
 
 // What the server can sort this table by — see backend _correlation.SORT_KEYS.
 // Direction is a filter, not a sort: it is the sidebar's job.
@@ -189,16 +189,11 @@ const CorrelationTable = ({
       pmidCount: rowEvidences(row).length,
     });
 
-  const emptyState = (
-    <div className="h-[10rem] flex items-center justify-center text-light-300 gap-2">
-      <MdInfoOutline /> No evidence found
-    </div>
-  );
+  const emptyState = <TableEmptyState>No evidence found</TableEmptyState>;
   const errorState = (
-    <div className="h-[10rem] flex items-center justify-center text-red-400 gap-2">
-      <MdErrorOutline /> An error occurred fetching data, please refresh the
-      page
-    </div>
+    <TableEmptyState error>
+      An error occurred fetching data, please refresh the page
+    </TableEmptyState>
   );
 
   const selected = selectedRowIdx < 0 ? undefined : data[selectedRowIdx];
@@ -284,9 +279,7 @@ const CorrelationTable = ({
         ) : (
           <div className="md:hidden w-full flex flex-col divide-y divide-light-800">
             {isError || data.length === 0 ? (
-              <div className="w-full py-6">
-                {isError ? errorState : emptyState}
-              </div>
+              isError ? errorState : emptyState
             ) : (
               data.map((row, rowIdx) => (
                 <CorrelationCard
