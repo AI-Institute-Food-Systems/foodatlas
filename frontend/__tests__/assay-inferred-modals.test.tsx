@@ -207,11 +207,15 @@ describe("pagination", () => {
   // It used to render the first 50 rows and a "Show all" button, alone
   // among the tables on these pages — the literature table directly above
   // it paginates, and so does every bioactivity table.
+  // Distinct assay counts, descending with the index, so the default
+  // sort (most assays first) keeps disease-24 last. With equal counts the
+  // name tiebreak would put "disease-24" before "disease-3".
   const manyRows = (n: number) =>
     Array.from({ length: n }, (_, i) =>
       row({
         disease_name: `disease-${i}`,
         disease_foodatlas_id: `d${i}`,
+        n_assays: 100 - i,
       })
     );
 

@@ -15,9 +15,6 @@ import {
   MdClose,
   MdDescription,
   MdInfoOutline,
-  MdKeyboardArrowDown,
-  MdKeyboardArrowUp,
-  MdUnfoldMore,
   MdWarningAmber,
 } from "react-icons/md";
 import { twMerge } from "tailwind-merge";
@@ -38,7 +35,13 @@ import {
 import type { SkeletonColumn } from "@/components/basic/skeletonTokens";
 import Pagination from "@/components/basic/Pagination";
 import SortListbox from "@/components/basic/SortListbox";
-import { InfoTip, Tooltip } from "@/components/basic/Tooltip";
+import { Tooltip } from "@/components/basic/Tooltip";
+import {
+  MobileSort,
+  Th,
+  type SortableColumn,
+  type SortDir,
+} from "@/components/entities/shared/EvidenceTable";
 import BioactivityMeasurementsModal from "@/components/entities/bioactivity/BioactivityMeasurementsModal";
 import { formatEfficacyFraction } from "@/components/entities/bioactivity/efficacy";
 import { useReportRows } from "@/context/reportModeContext";
@@ -49,6 +52,18 @@ import {
 } from "@/utils/fetching";
 import { encodeSpace, formatConcentrationValueAlt } from "@/utils/utils";
 import type { BioactivityMeasurement } from "@/types";
+
+// The card list has no headers to click, so the sort is a listbox there.
+const MOBILE_SORT_COLUMNS: SortableColumn[] = [
+  { key: "bioactivity", labels: { asc: "Bioactivity A–Z", desc: "Bioactivity Z–A" } },
+  { key: "chemical", labels: { asc: "Chemical A–Z", desc: "Chemical Z–A" } },
+  {
+    key: "concentration",
+    labels: { desc: "Highest concentration", asc: "Lowest concentration" },
+  },
+  { key: "efficacy", labels: { desc: "Highest efficacy", asc: "Lowest efficacy" } },
+  { key: "n_curves", labels: { desc: "Most assays", asc: "Fewest assays" } },
+];
 
 // Drives both the <colgroup> and the loading skeleton, so the placeholder
 // grid matches the real one. Order and alignment mirror the SortableTh
@@ -135,7 +150,6 @@ const SORT_KEYS = {
   n_curves: "measurement_count",
 } as const;
 
-type SortDir = "asc" | "desc";
 
 interface Props {
   commonName: string;
@@ -403,31 +417,14 @@ const FoodInferredBioactivitiesSection = ({
        * total via the wrapper's onTotalRowsChange. Mobile sort listbox
        * stays here (no clickable column headers on card view). */}
       {!isLoading && totalRows > 0 && (
-        <div className="mb-1.5 md:hidden flex justify-end items-center gap-2">
-          <span className="font-mono italic text-[11px] text-light-500">
-            sort
-          </span>
-          <SortListbox
-            value={`${sort.by}|${sort.dir}`}
-            options={[
-              { value: "bioactivity|asc", label: "Bioactivity A–Z" },
-              { value: "bioactivity|desc", label: "Bioactivity Z–A" },
-              { value: "chemical|asc", label: "Chemical A–Z" },
-              { value: "chemical|desc", label: "Chemical Z–A" },
-              { value: "concentration|desc", label: "Highest concentration" },
-              { value: "concentration|asc", label: "Lowest concentration" },
-              { value: "efficacy|desc", label: "Highest efficacy" },
-              { value: "efficacy|asc", label: "Lowest efficacy" },
-              { value: "n_curves|desc", label: "Most assays" },
-              { value: "n_curves|asc", label: "Fewest assays" },
-            ]}
-            onChange={(value) => {
-              const [by, dir] = value.split("|");
-              setSort({ by, dir: dir as SortDir });
-              setTablePaginations(tableId, 1, 20);
-            }}
-          />
-        </div>
+        <MobileSort
+          sort={sort}
+          columns={MOBILE_SORT_COLUMNS}
+          onChange={(next) => {
+            setSort(next);
+            setTablePaginations(tableId, 1, 20);
+          }}
+        />
       )}
       <div className="hidden md:block overflow-x-auto">
         <table className="w-full table-fixed">
@@ -438,36 +435,47 @@ const FoodInferredBioactivitiesSection = ({
           </colgroup>
           <thead className="text-light-400 text-left">
             <tr>
-              <SortableTh
-                label="Bioactivity"
-                sortKey="bioactivity"
-                sort={sort}
-                onClick={handleSortClick}
-                align="left"
-                first
-              />
-              <SortableTh
-                label="Via chemical"
-                sortKey="chemical"
-                sort={sort}
-                onClick={handleSortClick}
-                align="left"
-              />
-              <SortableTh
-                label="Concentration"
-                sortKey="concentration"
-                sort={sort}
-                onClick={handleSortClick}
+              <Th
+                className="pr-4 pl-0"
+                sort={{
+                  active: sort.by === "bioactivity",
+                  dir: sort.dir,
+                  onClick: () => handleSortClick("bioactivity"),
+                }}
+              >
+                Bioactivity
+              </Th>
+              <Th
+                className="px-4"
+                sort={{
+                  active: sort.by === "chemical",
+                  dir: sort.dir,
+                  onClick: () => handleSortClick("chemical"),
+                }}
+              >
+                Via chemical
+              </Th>
+              <Th
                 align="right"
-              />
-              <SortableTh
-                label="Efficacy"
-                sortKey="efficacy"
-                sort={sort}
-                onClick={handleSortClick}
+                className="px-4"
+                sort={{
+                  active: sort.by === "concentration",
+                  dir: sort.dir,
+                  onClick: () => handleSortClick("concentration"),
+                }}
+              >
+                Concentration
+              </Th>
+              <Th
                 align="right"
+                className="px-4"
+                sort={{
+                  active: sort.by === "efficacy",
+                  dir: sort.dir,
+                  onClick: () => handleSortClick("efficacy"),
+                }}
                 help={
-                  <div className="whitespace-normal w-[28rem] max-w-[calc(100vw-3rem)]">
+                  <div className="w-[28rem] max-w-[calc(100vw-3rem)]">
                     <p className="mb-2 text-light-400">
                       <span className="font-medium text-amber-300">
                         Caveat
@@ -495,14 +503,20 @@ const FoodInferredBioactivitiesSection = ({
                     </p>
                   </div>
                 }
-              />
-              <SortableTh
-                label="Assays"
-                sortKey="n_curves"
-                sort={sort}
-                onClick={handleSortClick}
+              >
+                Efficacy
+              </Th>
+              <Th
                 align="right"
-              />
+                className="px-4"
+                sort={{
+                  active: sort.by === "n_curves",
+                  dir: sort.dir,
+                  onClick: () => handleSortClick("n_curves"),
+                }}
+              >
+                Assays
+              </Th>
             </tr>
           </thead>
           <tbody className="text-sm font-light">
@@ -672,59 +686,6 @@ const FoodInferredBioactivitiesSection = ({
       />
       </div>
     </FilterPanel>
-  );
-};
-
-const SortableTh = ({
-  label,
-  sortKey,
-  sort,
-  onClick,
-  align,
-  first,
-  help,
-}: {
-  label: string;
-  sortKey: string;
-  sort: { by: string; dir: SortDir };
-  onClick: (k: string) => void;
-  align: "left" | "right";
-  first?: boolean;
-  help?: ReactNode;
-}) => {
-  const active = sort.by === sortKey;
-  return (
-    <th
-      className={`h-9 border-b border-light-700 leading-none py-1.5 ${
-        first ? "pr-4" : "px-4"
-      } ${align === "right" ? "text-right" : "text-left"}`}
-    >
-      <div className={`inline-flex items-center gap-1 ${align === "right" ? "ml-auto" : ""}`}>
-        <button
-          type="button"
-          onClick={() => onClick(sortKey)}
-          className="group flex items-center gap-1 cursor-pointer focus:outline-none"
-        >
-          <span
-            className={`select-none uppercase text-xs font-medium transition duration-300 ease-in-out ${
-              active ? "text-light-100" : "text-light-400 group-hover:text-light-100"
-            }`}
-          >
-            {label}
-          </span>
-          {active ? (
-            sort.dir === "asc" ? (
-              <MdKeyboardArrowUp className="text-accent-600 group-hover:text-accent-300 flex-shrink-0" />
-            ) : (
-              <MdKeyboardArrowDown className="text-accent-600 group-hover:text-accent-300 flex-shrink-0" />
-            )
-          ) : (
-            <MdUnfoldMore className="text-light-400 group-hover:text-light-100 flex-shrink-0" />
-          )}
-        </button>
-        {help && <InfoTip content={help} label={`About the ${label} column`} />}
-      </div>
-    </th>
   );
 };
 

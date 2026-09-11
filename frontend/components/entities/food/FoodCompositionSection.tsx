@@ -9,15 +9,19 @@ import {
   MdDescription,
   MdErrorOutline,
   MdInfoOutline,
-  MdKeyboardArrowDown,
-  MdKeyboardArrowUp,
   MdTune,
-  MdUnfoldMore,
 } from "react-icons/md";
 import { twMerge } from "tailwind-merge";
 
 import Card from "@/components/basic/Card";
 import { Tooltip } from "@/components/basic/Tooltip";
+import {
+  MobileSort,
+  nextSort,
+  Th,
+  type SortableColumn,
+  type SortDir,
+} from "@/components/entities/shared/EvidenceTable";
 import ResetFiltersButton from "@/components/basic/ResetFiltersButton";
 import Chip from "@/components/basic/Chip";
 import Link from "@/components/basic/Link";
@@ -27,7 +31,6 @@ import {
   TableSkeletonCards,
   TableSkeletonRows,
 } from "@/components/basic/TableSkeleton";
-import SortListbox from "@/components/basic/SortListbox";
 import { useReportRows } from "@/context/reportModeContext";
 import { AmbiguityBadge } from "@/components/basic/Ambiguity";
 import { TrustBadge } from "@/components/basic/TrustBadge";
@@ -160,7 +163,7 @@ const FoodCompositionSection = ({
   // keystroke was its own request.
   const debouncedSearch = useDebouncedValue(searchTerm);
   const [sourceFilters, setSourceFilters] = useState<string[]>(ALL_SOURCE_VALUES);
-  const [sort, setSort] = useState({
+  const [sort, setSort] = useState<{ column: string; direction: SortDir }>({
     column: "median_concentration",
     direction: "desc",
   });
@@ -199,48 +202,15 @@ const FoodCompositionSection = ({
   // Mobile card view sort options — mirror the sortable desktop
   // columns. Each option encodes column|direction as a single value so
   // the <select> can drive both dimensions in one interaction.
-  const MOBILE_SORT_OPTIONS: {
-    value: string;
-    label: string;
-    column: string;
-    direction: "asc" | "desc";
-  }[] = [
+  // The card list has no headers to click, so the sort is a listbox
+  // there. Phrases, not arrows: "Chemical ↓" is ambiguous for text.
+  const MOBILE_SORT_COLUMNS: SortableColumn[] = [
     {
-      value: "median_concentration|desc",
-      label: "Highest concentration",
-      column: "median_concentration",
-      direction: "desc",
+      key: "median_concentration",
+      labels: { desc: "Highest concentration", asc: "Lowest concentration" },
     },
-    {
-      value: "median_concentration|asc",
-      label: "Lowest concentration",
-      column: "median_concentration",
-      direction: "asc",
-    },
-    {
-      value: "evidence_count|desc",
-      label: "Most evidence",
-      column: "evidence_count",
-      direction: "desc",
-    },
-    {
-      value: "evidence_count|asc",
-      label: "Least evidence",
-      column: "evidence_count",
-      direction: "asc",
-    },
-    {
-      value: "common_name|asc",
-      label: "Chemical A–Z",
-      column: "common_name",
-      direction: "asc",
-    },
-    {
-      value: "common_name|desc",
-      label: "Chemical Z–A",
-      column: "common_name",
-      direction: "desc",
-    },
+    { key: "evidence_count", labels: { desc: "Most evidence", asc: "Least evidence" } },
+    { key: "common_name", labels: { asc: "Chemical A–Z", desc: "Chemical Z–A" } },
   ];
 
   // Faceted counts — refetched whenever any filter changes. Each
@@ -580,16 +550,20 @@ const FoodCompositionSection = ({
     setTablePaginations("food-composition-table", 1, 20);
   };
 
-  // handle sort column click
+  // Header click: the shared rule (nextSort) — a new column starts
+  // largest-first for numbers and A→Z for the name, the same column
+  // flips. This table used to start every column ascending, so its
+  // first click on Concentration gave the LOWEST values while every
+  // other table's gave the highest.
   const handleSortClick = (sortName: string) => {
-    setSort((prevSort: { column: string; direction: string }) => {
-      setTablePaginations("food-composition-table", 1, 20);
-      const isSameColumn = prevSort.column === sortName;
-      return {
-        column: sortName,
-        direction:
-          isSameColumn && prevSort.direction === "asc" ? "desc" : "asc",
-      };
+    setTablePaginations("food-composition-table", 1, 20);
+    setSort((prev) => {
+      const next = nextSort(
+        { by: prev.column, dir: prev.direction },
+        sortName,
+        sortName === "common_name" ? "asc" : "desc"
+      );
+      return { column: next.by, direction: next.dir };
     });
   };
 
@@ -759,23 +733,14 @@ const FoodCompositionSection = ({
            * reflects the filtered total via usePublishTabCount. Mobile
            * sort stays here (no column headers to click on card view). */}
           {!isLoading && numberOfRows > 0 && (
-            <div className="mb-1.5 mt-1 md:hidden flex justify-end items-center gap-2">
-              <span className="font-mono italic text-[11px] text-light-500">
-                sort
-              </span>
-              <SortListbox
-                value={`${sort.column}|${sort.direction}`}
-                options={MOBILE_SORT_OPTIONS}
-                onChange={(value) => {
-                  const opt = MOBILE_SORT_OPTIONS.find(
-                    (o) => o.value === value
-                  );
-                  if (!opt) return;
-                  setSort({ column: opt.column, direction: opt.direction });
-                  setTablePaginations("food-composition-table", 1, 20);
-                }}
-              />
-            </div>
+            <MobileSort
+              sort={{ by: sort.column, dir: sort.direction }}
+              columns={MOBILE_SORT_COLUMNS}
+              onChange={({ by, dir }) => {
+                setSort({ column: by, direction: dir });
+                setTablePaginations("food-composition-table", 1, 20);
+              }}
+            />
           )}
           {/* table — desktop only. Card list below covers mobile. */}
           <div
@@ -810,49 +775,30 @@ const FoodCompositionSection = ({
               </colgroup>
               <thead className="text-light-400 text-left">
                 <tr>
-                  {/* table headers */}
                   {TABLE_HEADERS.map((header, index) => (
-                    <th
-                      key={index}
-                      className={`h-9 border-b border-light-700 leading-none break-all md:break-normal py-1.5 ${
+                    <Th
+                      key={header.key}
+                      align={header.align === "right" ? "right" : undefined}
+                      className={twMerge(
+                        "break-all md:break-normal",
                         index === 0
-                          ? "pr-4"
+                          ? "pr-4 pl-0"
                           : index === TABLE_HEADERS.length - 1
-                          ? "pl-4"
+                          ? "pl-4 pr-0"
                           : "px-4"
-                      } ${header.align === "right" ? "text-right" : "text-left"}`}
+                      )}
+                      sort={
+                        header.sortName
+                          ? {
+                              active: header.sortName === sort.column,
+                              dir: sort.direction,
+                              onClick: () => handleSortClick(header.sortName),
+                            }
+                          : undefined
+                      }
                     >
-                      <div
-                        className={`group flex gap-1 items-center flex-nowrap w-full ${
-                          header.sortName
-                            ? "cursor-pointer"
-                            : "pointer-events-none"
-                        } ${header.align === "right" ? "justify-end" : "justify-between"}`}
-                        onClick={() =>
-                          header.sortName && handleSortClick(header.sortName)
-                        }
-                      >
-                        <span
-                          className={`select-none uppercase text-xs font-medium group-hover:text-light-100 transition duration-300 ease-in-out ${
-                            header.sortName === sort.column
-                              ? "text-light-100"
-                              : ""
-                          }`}
-                        >
-                          {header.label}
-                        </span>
-                        {header.sortName &&
-                          (header.sortName === sort.column ? (
-                            sort.direction === "asc" ? (
-                              <MdKeyboardArrowDown className="text-accent-600 group-hover:text-accent-300 transition duration-300 ease-in-out flex-shrink-0" />
-                            ) : (
-                              <MdKeyboardArrowUp className="text-accent-600 group-hover:text-accent-300 transition duration-300 ease-in-out flex-shrink-0" />
-                            )
-                          ) : (
-                            <MdUnfoldMore className="text-light-400 group-hover:text-light-100 transition duration-300 ease-in-out flex-shrink-0" />
-                          ))}
-                      </div>
-                    </th>
+                      {header.label}
+                    </Th>
                   ))}
                 </tr>
               </thead>

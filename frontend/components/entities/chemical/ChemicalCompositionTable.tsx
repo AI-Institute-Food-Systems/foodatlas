@@ -18,6 +18,7 @@ import {
 } from "@/components/entities/chemical/ChemicalCompositionToolbar";
 import FilterPanel from "@/components/entities/shared/filters/FilterPanel";
 import ChemicalCompositionHead from "@/components/entities/chemical/ChemicalCompositionHead";
+import { nextSort } from "@/components/entities/shared/EvidenceTable";
 import { usePaginations } from "@/context/paginationsContext";
 import { useReportRows } from "@/context/reportModeContext";
 import {
@@ -164,11 +165,14 @@ const ChemicalCompositionTable = ({
   });
 
   const handleSortClick = (column: SortColumn) => {
-    setSort((prev) =>
-      prev.column === column
-        ? { column, direction: prev.direction === "asc" ? "desc" : "asc" }
-        : { column, direction: column === "name" ? "asc" : "desc" }
-    );
+    setSort((prev) => {
+      const next = nextSort(
+        { by: prev.column, dir: prev.direction },
+        column,
+        column === "name" ? "asc" : "desc"
+      );
+      return { column: next.by, direction: next.dir };
+    });
     setTablePaginations(TABLE_ID, 1, ROWS_PER_PAGE);
   };
 

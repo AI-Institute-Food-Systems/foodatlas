@@ -15,10 +15,7 @@ import {
   MdClose,
   MdDescription,
   MdInfoOutline,
-  MdKeyboardArrowDown,
-  MdKeyboardArrowUp,
   MdTune,
-  MdUnfoldMore,
 } from "react-icons/md";
 import { twMerge } from "tailwind-merge";
 
@@ -41,6 +38,7 @@ import {
   FilterSearchInput,
 } from "@/components/entities/shared/filters/FilterControls";
 import FilterPanel from "@/components/entities/shared/filters/FilterPanel";
+import { MobileSort, Th } from "@/components/entities/shared/EvidenceTable";
 import { sumFacetCounts } from "@/components/entities/shared/filters/facetOptions";
 import { useReportRows } from "@/context/reportModeContext";
 import BioactivityMeasurementsModal from "@/components/entities/bioactivity/BioactivityMeasurementsModal";
@@ -702,31 +700,22 @@ const BioactivityTable = ({
        * Mobile sort listbox stays here (no clickable column headers on
        * card view). */}
       {!isLoading && totalRows > 0 && columns.some((c) => c.sortable) && (
-        <div className="mb-1.5 md:hidden flex justify-end items-center gap-2">
-          <span className="font-mono italic text-[11px] text-light-500">
-            sort
-          </span>
-          <SortListbox
-            value={`${sort.by}|${sort.dir}`}
-            options={columns
-              .filter((c) => c.sortable)
-              .flatMap((c) => [
-                {
-                  value: `${c.key}|desc`,
-                  label: c.sortLabels?.desc ?? `${c.label} ↓`,
-                },
-                {
-                  value: `${c.key}|asc`,
-                  label: c.sortLabels?.asc ?? `${c.label} ↑`,
-                },
-              ])}
-            onChange={(value) => {
-              const [by, dir] = value.split("|");
-              setSort({ by, dir: dir as SortDir });
-              setTablePaginations(tableId, 1, 20);
-            }}
-          />
-        </div>
+        <MobileSort
+          sort={sort}
+          columns={columns
+            .filter((c) => c.sortable)
+            .map((c) => ({
+              key: c.key,
+              labels: c.sortLabels ?? {
+                desc: `${c.label} ↓`,
+                asc: `${c.label} ↑`,
+              },
+            }))}
+          onChange={(next) => {
+            setSort(next);
+            setTablePaginations(tableId, 1, 20);
+          }}
+        />
       )}
       <div
         aria-busy={isRefetching}
@@ -756,30 +745,29 @@ const BioactivityTable = ({
                     ? `Assays (${effectiveSourceKindParam})`
                     : c.label;
                 return (
-                  <th
+                  <Th
                     key={c.key}
-                    className={`h-9 border-b border-light-700 leading-none break-all md:break-normal py-1.5 ${
+                    align={c.align === "right" ? "right" : undefined}
+                    className={twMerge(
+                      "break-all md:break-normal",
                       idx === 0
-                        ? "pr-4"
+                        ? "pr-4 pl-0"
                         : idx === columns.length - 1
-                        ? "pl-4"
+                        ? "pl-4 pr-0"
                         : "px-4"
-                    } ${c.align === "right" ? "text-right" : "text-left"}`}
-                  >
-                    {c.sortable ? (
-                      <SortableHeader
-                        label={label}
-                        align={c.align}
-                        active={sort.by === c.key}
-                        dir={sort.dir}
-                        onClick={() => handleSortClick(c.key)}
-                      />
-                    ) : (
-                      <span className="select-none uppercase text-xs font-medium">
-                        {label}
-                      </span>
                     )}
-                  </th>
+                    sort={
+                      c.sortable
+                        ? {
+                            active: sort.by === c.key,
+                            dir: sort.dir,
+                            onClick: () => handleSortClick(c.key),
+                          }
+                        : undefined
+                    }
+                  >
+                    {label}
+                  </Th>
                 );
               })}
             </tr>
@@ -968,46 +956,6 @@ const BioactivityTableRow = ({
     </tr>
   );
 };
-
-const SortableHeader = ({
-  label,
-  align,
-  active,
-  dir,
-  onClick,
-}: {
-  label: string;
-  align?: "left" | "right";
-  active: boolean;
-  dir: SortDir;
-  onClick: () => void;
-}) => (
-  <button
-    type="button"
-    onClick={onClick}
-    className={twMerge(
-      "group flex items-center gap-1 cursor-pointer focus:outline-none",
-      align === "right" && "justify-end ml-auto",
-    )}
-  >
-    <span
-      className={`select-none uppercase text-xs font-medium transition duration-300 ease-in-out ${
-        active ? "text-light-100" : "text-light-400 group-hover:text-light-100"
-      }`}
-    >
-      {label}
-    </span>
-    {active ? (
-      dir === "asc" ? (
-        <MdKeyboardArrowUp className="text-accent-600 group-hover:text-accent-300 flex-shrink-0" />
-      ) : (
-        <MdKeyboardArrowDown className="text-accent-600 group-hover:text-accent-300 flex-shrink-0" />
-      )
-    ) : (
-      <MdUnfoldMore className="text-light-400 group-hover:text-light-100 flex-shrink-0" />
-    )}
-  </button>
-);
 
 // Sort key recognised by the API as "sort by max value across
 // measurements that match filter_endpoint + filter_unit". Exported so

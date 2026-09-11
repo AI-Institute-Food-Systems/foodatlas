@@ -97,6 +97,43 @@ def shape_pair_rows(rows: list[dict]) -> list[dict]:
     return rows
 
 
+# What the literature tables can sort by, and the SQL each key means.
+# The value is a template: ``{peer}`` is the (possibly qualified) peer name
+# column of the query it is spliced into. Allowlisted — the key comes off
+# the query string and is never interpolated as given.
+SORT_KEYS: dict[str, str] = {
+    "evidence_count": "SUM({evidence_count})",
+    "name": "{peer}",
+}
+DEFAULT_SORT_BY = "evidence_count"
+DEFAULT_SORT_DIR = "desc"
+
+
+def build_order(sort_by: str, sort_dir: str, peer_column: str) -> str:
+    """ORDER BY clause for a page query, from allowlisted inputs.
+
+    Unknown keys fall back to the default rather than erroring, matching
+    how the composition endpoint treats ``sort_by``. The peer name is
+    always the tiebreaker so pages are stable across requests; when it is
+    the primary key the tiebreaker is redundant and omitted.
+
+    ``peer_column`` must be qualified to match the query — the disease
+    page query aliases the view as ``c``, the chemical one does not — and
+    the evidence_count column is qualified the same way.
+    """
+    key = sort_by if sort_by in SORT_KEYS else DEFAULT_SORT_BY
+    direction = "ASC" if sort_dir.lower() == "asc" else "DESC"
+    qualifier = (
+        peer_column.split(".", maxsplit=1)[0] + "." if "." in peer_column else ""
+    )
+    expr = SORT_KEYS[key].format(
+        peer=peer_column, evidence_count=f"{qualifier}evidence_count"
+    )
+    if key == "name":
+        return f"ORDER BY {expr} {direction}"
+    return f"ORDER BY {expr} {direction}, {peer_column}"
+
+
 def build_filters(
     relation: str, search: str, peer_column: str
 ) -> tuple[str, dict[str, object]]:

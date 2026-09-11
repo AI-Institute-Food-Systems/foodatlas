@@ -30,10 +30,21 @@ import {
   rowEvidences,
   type CorrelationDirection,
 } from "@/components/entities/shared/CorrelationRow";
+import {
+  MobileSort,
+  nextSort,
+  Th,
+  type SortableColumn,
+  type SortDir,
+} from "@/components/entities/shared/EvidenceTable";
 import { useReportRows } from "@/context/reportModeContext";
 import { usePaginations } from "@/context/paginationsContext";
 import { getDiseaseData } from "@/utils/fetching";
 import { ChemicalCorrelation } from "@/types";
+
+// What the server can sort this table by — see backend _correlation.SORT_KEYS.
+// Direction is a filter, not a sort: it is the sidebar's job.
+export type CorrelationSortKey = "name" | "evidence_count";
 
 interface CorrelationTableProps {
   commonName: string;
@@ -64,9 +75,23 @@ const CorrelationTable = ({
   const [totalRows, setTotalRows] = useState<number | null>(null);
   const [selectedRowIdx, setSelectedRowIdx] = useState(-1);
 
-  const { getTablePaginations } = usePaginations();
+  const { getTablePaginations, setTablePaginations } = usePaginations();
   const { currentPage } = getTablePaginations(tableId);
   const reporter = useReportRows();
+
+  // Server-side sort. Most evidence first by default — the order the
+  // table always had — and a header click changes it for every page.
+  const [sort, setSort] = useState<{ by: CorrelationSortKey; dir: SortDir }>({
+    by: "evidence_count",
+    dir: "desc",
+  });
+  const changeSort = (next: { by: CorrelationSortKey; dir: SortDir }) => {
+    setSort(next);
+    // Back to page 1: page 3 of the old order is nowhere in the new one.
+    setTablePaginations(tableId, 1);
+  };
+  const sortBy = (key: CorrelationSortKey) =>
+    changeSort(nextSort(sort, key, key === "name" ? "asc" : "desc"));
 
   useEffect(() => {
     if (onTotalRowsChange && totalRows !== null) onTotalRowsChange(totalRows);
@@ -81,7 +106,8 @@ const CorrelationTable = ({
         currentPage,
         tableLocation,
         direction,
-        search
+        search,
+        sort
       );
       if (cancelled) return;
       if (!payload) {
@@ -98,7 +124,7 @@ const CorrelationTable = ({
     return () => {
       cancelled = true;
     };
-  }, [tableLocation, direction, search, currentPage, commonName]);
+  }, [tableLocation, direction, search, currentPage, commonName, sort]);
 
   // Show the source-chemical column when ANY row on this page attributes
   // its evidence to a different chemical — true on ChEBI class pages,
@@ -112,17 +138,25 @@ const CorrelationTable = ({
     [data, tableLocation, commonName]
   );
 
-  const headers = useMemo(
+  const peerLabel = peer === "disease" ? "Disease" : "Chemical";
+  const headers = useMemo<{ label: string; sortKey?: CorrelationSortKey }[]>(
     () => [
       { label: "Direction" },
       // Peer first, attribution second: the row is about the disease, and
       // the descendant chemical the evidence came through qualifies it.
-      { label: peer === "disease" ? "Disease" : "Chemical" },
+      { label: peerLabel, sortKey: "name" },
       ...(showSource ? [{ label: "Via Chemical" }] : []),
-      { label: "Publications" },
+      { label: "Publications", sortKey: "evidence_count" },
     ],
-    [showSource, peer]
+    [showSource, peerLabel]
   );
+  const sortableColumns: SortableColumn<CorrelationSortKey>[] = [
+    {
+      key: "evidence_count",
+      labels: { desc: "Most publications", asc: "Fewest publications" },
+    },
+    { key: "name", labels: { asc: `${peerLabel} A–Z`, desc: `${peerLabel} Z–A` } },
+  ];
 
   // Skeleton grid derived from the same headers the <th>s render, so the
   // placeholder cells line up. Last column right-aligned, rest left.
@@ -157,6 +191,14 @@ const CorrelationTable = ({
   return (
     <>
       <div>
+        {!isLoading && data.length > 0 && (
+          <MobileSort
+            sort={sort}
+            columns={sortableColumns}
+            onChange={changeSort}
+            ariaLabel={`Sort ${peerLabel.toLowerCase()}s`}
+          />
+        )}
         {/* table — desktop */}
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full table-fixed">
@@ -176,23 +218,27 @@ const CorrelationTable = ({
             </colgroup>
             <thead className="text-light-400 text-left">
               <tr>
-                {headers.map((header, index) => (
-                  <th
-                    key={header.label}
-                    className={`h-9 border-b border-light-700 leading-none break-all md:break-normal py-1.5 ${
+                {headers.map(({ label, sortKey }, index) => (
+                  <Th
+                    key={label}
+                    align={index === headers.length - 1 ? "right" : undefined}
+                    className={
                       index === 0
-                        ? "pr-4"
+                        ? "pr-4 pl-0"
                         : index === headers.length - 1
-                        ? "pl-4 text-right"
+                        ? "pl-4 pr-0"
                         : "px-4"
-                    }`}
+                    }
+                    sort={
+                      sortKey && {
+                        active: sort.by === sortKey,
+                        dir: sort.dir,
+                        onClick: () => sortBy(sortKey),
+                      }
+                    }
                   >
-                    <div className="flex flex-nowrap">
-                      <span className="select-none uppercase text-xs font-medium w-full">
-                        {header.label}
-                      </span>
-                    </div>
-                  </th>
+                    {label}
+                  </Th>
                 ))}
               </tr>
             </thead>

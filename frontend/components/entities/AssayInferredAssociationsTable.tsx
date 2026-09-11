@@ -41,7 +41,12 @@ import {
   peerName,
   type PeerDirection,
 } from "@/components/entities/shared/AssayInferredRow";
-import { Th } from "@/components/entities/shared/EvidenceTable";
+import {
+  MobileSort,
+  Th,
+  type SortableColumn,
+} from "@/components/entities/shared/EvidenceTable";
+import type { AssayInferredSortKey } from "@/hooks/useAssayInferredRows";
 import { useReportRows } from "@/context/reportModeContext";
 import { useAssayInferredRows } from "@/hooks/useAssayInferredRows";
 import { usePublishTabCount } from "@/context/tabCountsContext";
@@ -119,8 +124,17 @@ const AssayInferredAssociationsTable = ({
   onSignalCountsChange,
   onActivityCountsChange,
 }: Props) => {
-  const { rows, isLoading, filtered, visible, totalPages, tableId } =
-    useAssayInferredRows({
+  const {
+    rows,
+    isLoading,
+    filtered,
+    visible,
+    totalPages,
+    tableId,
+    sort,
+    setSort,
+    sortBy,
+  } = useAssayInferredRows({
       commonName,
       peer,
       fetcher,
@@ -181,8 +195,21 @@ const AssayInferredAssociationsTable = ({
     );
   }
 
+  const sortableColumns: SortableColumn<AssayInferredSortKey>[] = [
+    { key: "n_assays", labels: { desc: "Most assays", asc: "Fewest assays" } },
+    { key: "name", labels: { asc: `${peerLabel} A–Z`, desc: `${peerLabel} Z–A` } },
+  ];
+
   return (
     <div className="flex flex-col gap-4">
+      {!isLoading && filtered.length > 0 && (
+        <MobileSort
+          sort={sort}
+          columns={sortableColumns}
+          onChange={setSort}
+          ariaLabel={`Sort ${peerLabel.toLowerCase()}s`}
+        />
+      )}
       <div className="hidden md:block overflow-x-auto">
         <table className="w-full table-fixed">
           <colgroup>
@@ -194,7 +221,15 @@ const AssayInferredAssociationsTable = ({
           </colgroup>
           <thead className="text-light-400 text-left">
             <tr>
-              <Th>{peerLabel}</Th>
+              <Th
+                sort={{
+                  active: sort.by === "name",
+                  dir: sort.dir,
+                  onClick: () => sortBy("name"),
+                }}
+              >
+                {peerLabel}
+              </Th>
               <Th help="How CTD classifies the link: therapeutic (treats) or marker/mechanism (marks or drives). Opposite directions.">
                 Signal
               </Th>
@@ -204,7 +239,14 @@ const AssayInferredAssociationsTable = ({
               <Th help="The protein target the bridging assays measure — what the association runs through">
                 Target
               </Th>
-              <Th help="The source assays behind this association, and how many">
+              <Th
+                help="The source assays behind this association, and how many"
+                sort={{
+                  active: sort.by === "n_assays",
+                  dir: sort.dir,
+                  onClick: () => sortBy("n_assays"),
+                }}
+              >
                 Assays
               </Th>
             </tr>

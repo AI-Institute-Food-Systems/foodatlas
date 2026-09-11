@@ -249,13 +249,16 @@ export async function getDiseaseData(
   currentPage: number,
   tableLocation: string,
   relation: "all" | "positive" | "negative" = "all",
-  search = ""
+  search = "",
+  // Server-side sort; omitted = the API default (most evidence first).
+  sort?: { by: "name" | "evidence_count"; dir: "asc" | "desc" }
 ) {
   const url =
     `${apiBase()}/${tableLocation}/correlation?common_name=${encodeURIComponent(
       commonName
     )}&page=${currentPage}&relation=${relation}` +
-    (search ? `&search=${encodeURIComponent(search)}` : "");
+    (search ? `&search=${encodeURIComponent(search)}` : "") +
+    (sort ? `&sort_by=${sort.by}&sort_dir=${sort.dir}` : "");
   const response = await apiFetch(url, { revalidate: 86400 });
 
   // Null rather than throw: staging is flaky enough that a throw here
