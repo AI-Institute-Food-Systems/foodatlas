@@ -17,7 +17,7 @@
 
 "use client";
 
-import { useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 
 interface Props {
   zero: number | null | undefined;
@@ -29,12 +29,22 @@ interface Props {
   unit?: string | null;
   width?: number;
   height?: number;
-  // When true, the SVG fills its container (width/height = 100%) while
-  // keeping the supplied width/height as the internal viewBox. Used
-  // for the accordion's expanded view so the curve takes whatever
-  // horizontal space the layout offers.
+  // When true, the SVG fills its container and draws at the container's
+  // real pixel size — one viewBox unit is one screen pixel — so labels
+  // are the same size on every screen. Used for the accordion's expanded
+  // view so the curve takes whatever horizontal space the layout offers;
+  // `width`/`height` then only set the aspect ratio before the first
+  // measurement. The previous fluid mode kept the supplied 720×320 as the
+  // viewBox and let the browser scale it, which made the labels a few
+  // pixels on phones — and, once they were bumped to read on phones,
+  // twenty-odd pixels on a desktop.
   fluid?: boolean;
 }
+
+// Label sizes in fluid mode, in screen pixels: the modal's own small-text
+// vocabulary (text-[11px] / text-[10px]).
+const FLUID_MAJOR_PX = 11;
+const FLUID_MINOR_PX = 10;
 
 const SAMPLES = 80;
 // Sweep 3 decades on each side of AC50 — captures the plateau-rise-plateau
@@ -66,28 +76,53 @@ const HillCurveSparkline = ({
 }: Props) => {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [hoverPx, setHoverPx] = useState<number | null>(null);
+  // The container's rendered size, in fluid mode. Measured before paint
+  // so the first frame already draws at 1:1; re-measured on resize.
+  const [measured, setMeasured] = useState<{ w: number; h: number } | null>(
+    null
+  );
 
-  if (
-    zero == null ||
-    infinite == null ||
-    logAC50 == null ||
-    slope == null ||
-    !Number.isFinite(zero) ||
-    !Number.isFinite(infinite) ||
-    !Number.isFinite(logAC50) ||
-    !Number.isFinite(slope) ||
-    slope === 0 ||
-    zero === infinite
-  ) {
-    return null;
-  }
+  const drawable =
+    zero != null &&
+    infinite != null &&
+    logAC50 != null &&
+    slope != null &&
+    Number.isFinite(zero) &&
+    Number.isFinite(infinite) &&
+    Number.isFinite(logAC50) &&
+    Number.isFinite(slope) &&
+    slope !== 0 &&
+    zero !== infinite;
 
-  // Label sizes scale with the viewBox width so the sparkline default
-  // (160 wide) keeps its 7/8-unit ticks while the modal's expanded view
-  // (720 wide) gets ~18/20-unit labels — otherwise, in fluid mode the
-  // labels render at a few screen pixels on phones.
-  const majorFontSize = Math.max(8, Math.round(width / 36));
-  const minorFontSize = Math.max(7, Math.round(width / 40));
+  useLayoutEffect(() => {
+    if (!fluid || !drawable) return;
+    const el = svgRef.current;
+    if (!el) return;
+    const update = () => {
+      const r = el.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) {
+        setMeasured({ w: Math.round(r.width), h: Math.round(r.height) });
+      }
+    };
+    update();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [fluid, drawable]);
+
+  if (!drawable) return null;
+
+  // Drawing size. Fluid: the measured pixels, so nothing scales. Fixed:
+  // the supplied size, drawn as-is.
+  const vw = fluid && measured ? measured.w : width;
+  const vh = fluid && measured ? measured.h : height;
+
+  // Label sizes. Fixed mode scales them with the width so the 160-wide
+  // sparkline keeps its 7/8-unit ticks; fluid mode draws at 1:1, so the
+  // sizes are screen pixels and stay put whatever the container is.
+  const majorFontSize = fluid ? FLUID_MAJOR_PX : Math.max(8, Math.round(vw / 36));
+  const minorFontSize = fluid ? FLUID_MINOR_PX : Math.max(7, Math.round(vw / 40));
   // Reserved gutters for axis labels — scale with the minor font size
   // (label height) and allow ~3 characters of horizontal room for y
   // labels ("-44", "1000", etc.). Hardcoded 22/10/9 constants only
@@ -96,8 +131,8 @@ const HillCurveSparkline = ({
   const PAD_LEFT = Math.max(22, Math.round(minorFontSize * 3));
   const PAD_BOTTOM = Math.max(10, minorFontSize + 6);
   const PAD_TOP = Math.max(9, majorFontSize + 6);
-  const plotW = width - PAD_LEFT;
-  const plotH = height - PAD_TOP - PAD_BOTTOM;
+  const plotW = vw - PAD_LEFT;
+  const plotH = vh - PAD_TOP - PAD_BOTTOM;
   const logXMin = logAC50 - DECADES;
   const logXMax = logAC50 + DECADES;
   const yMin = Math.min(zero, infinite);
@@ -138,7 +173,7 @@ const HillCurveSparkline = ({
     const rect = svgRef.current?.getBoundingClientRect();
     if (!rect) return;
     // Account for SVG viewBox vs displayed size scaling.
-    const scale = width / rect.width;
+    const scale = vw / rect.width;
     setHoverPx((e.clientX - rect.left) * scale);
   };
 
@@ -148,14 +183,14 @@ const HillCurveSparkline = ({
   const handlePointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
     const rect = svgRef.current?.getBoundingClientRect();
     if (!rect) return;
-    const scale = width / rect.width;
+    const scale = vw / rect.width;
     setHoverPx((e.clientX - rect.left) * scale);
   };
   const handleTouchMove = (e: React.TouchEvent<SVGSVGElement>) => {
     const rect = svgRef.current?.getBoundingClientRect();
     if (!rect || e.touches.length === 0) return;
     e.preventDefault();
-    const scale = width / rect.width;
+    const scale = vw / rect.width;
     setHoverPx((e.touches[0].clientX - rect.left) * scale);
   };
 
@@ -169,9 +204,9 @@ const HillCurveSparkline = ({
   return (
     <svg
       ref={svgRef}
-      width={fluid ? "100%" : width}
-      height={fluid ? "100%" : height}
-      viewBox={`0 0 ${width} ${height}`}
+      width={fluid ? "100%" : vw}
+      height={fluid ? "100%" : vh}
+      viewBox={`0 0 ${vw} ${vh}`}
       role="img"
       aria-label={`Hill curve fit, AC50 at 10^${logAC50.toFixed(2)}, slope ${slope.toFixed(2)}`}
       // overflow:visible so text glyphs anchored at the right edge
@@ -193,7 +228,7 @@ const HillCurveSparkline = ({
     >
       {/* readout / AC50 label across the top — switches to live value on hover */}
       <text
-        x={width}
+        x={vw}
         y={PAD_TOP - 2}
         fontSize={majorFontSize}
         fontFamily={labelFont}
@@ -233,7 +268,7 @@ const HillCurveSparkline = ({
       {/* x-axis labels (log concentration range) at the bottom corners */}
       <text
         x={PAD_LEFT}
-        y={height - 2}
+        y={vh - 2}
         fontSize={minorFontSize}
         fontFamily={labelFont}
         fill="currentColor"
@@ -242,8 +277,8 @@ const HillCurveSparkline = ({
         {fmtConc(logXMin)}
       </text>
       <text
-        x={width}
-        y={height - 2}
+        x={vw}
+        y={vh - 2}
         fontSize={minorFontSize}
         fontFamily={labelFont}
         fill="currentColor"
@@ -256,7 +291,7 @@ const HillCurveSparkline = ({
       {/* plot frame — left + bottom axes */}
       <line
         x1={PAD_LEFT}
-        x2={width}
+        x2={vw}
         y1={PAD_TOP + plotH}
         y2={PAD_TOP + plotH}
         stroke="currentColor"
@@ -335,7 +370,7 @@ const HillCurveSparkline = ({
           />
           <text
             x={toPx(hoverLogX)}
-            y={height - 1}
+            y={vh - 1}
             fontSize={majorFontSize}
             fontFamily={labelFont}
             fill="currentColor"
