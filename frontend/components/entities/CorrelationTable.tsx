@@ -139,15 +139,29 @@ const CorrelationTable = ({
   );
 
   const peerLabel = peer === "disease" ? "Disease" : "Chemical";
-  const headers = useMemo<{ label: string; sortKey?: CorrelationSortKey }[]>(
-    () => [
-      { label: "Direction" },
-      // Peer first, attribution second: the row is about the disease, and
-      // the descendant chemical the evidence came through qualifies it.
-      { label: peerLabel, sortKey: "name" },
-      ...(showSource ? [{ label: "Via Chemical" }] : []),
-      { label: "Publications", sortKey: "evidence_count" },
-    ],
+  // Widths are literal class strings: Tailwind only emits what it can
+  // see. Direction is one badge and one short word, Publications one
+  // chip; the names are the longest content, so they take what is left.
+  // With the attribution column the two names share it.
+  const headers = useMemo<
+    { label: string; sortKey?: CorrelationSortKey; width: string }[]
+  >(
+    () =>
+      showSource
+        ? [
+            { label: "Direction", width: "w-[13%]" },
+            // Peer first, attribution second: the row is about the
+            // disease, and the descendant chemical the evidence came
+            // through qualifies it.
+            { label: peerLabel, sortKey: "name", width: "w-[34%]" },
+            { label: "Via Chemical", width: "w-[31%]" },
+            { label: "Publications", sortKey: "evidence_count", width: "w-[22%]" },
+          ]
+        : [
+            { label: "Direction", width: "w-[15%]" },
+            { label: peerLabel, sortKey: "name", width: "w-[61%]" },
+            { label: "Publications", sortKey: "evidence_count", width: "w-[24%]" },
+          ],
     [showSource, peerLabel]
   );
   const sortableColumns: SortableColumn<CorrelationSortKey>[] = [
@@ -162,6 +176,7 @@ const CorrelationTable = ({
   // placeholder cells line up. Last column right-aligned, rest left.
   const skeletonColumns: SkeletonColumn[] = headers.map((h, i) => ({
     key: h.label,
+    width: h.width,
     align: i === headers.length - 1 ? "right" : "left",
   }));
 
@@ -202,18 +217,13 @@ const CorrelationTable = ({
         {/* table — desktop */}
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full table-fixed">
-            {/* Equal widths. `table-fixed` without a colgroup sizes from
-             * the header cells, which made Direction (one short word) and
-             * Publications (one chip) squeeze the two name columns even
-             * though the names are the longest content in the table.
-             * Literal class strings — Tailwind only emits what it can see,
-             * so these cannot be interpolated from headers.length. */}
+            {/* `table-fixed` without a colgroup sizes from the header cells,
+             * which made Direction (one short word) and Publications (one
+             * chip) squeeze the name columns. Equal thirds were the first
+             * fix, and gave a one-word column a third of the table. */}
             <colgroup>
               {headers.map((header) => (
-                <col
-                  key={header.label}
-                  className={headers.length === 4 ? "w-1/4" : "w-1/3"}
-                />
+                <col key={header.label} className={header.width} />
               ))}
             </colgroup>
             <thead className="text-light-400 text-left">

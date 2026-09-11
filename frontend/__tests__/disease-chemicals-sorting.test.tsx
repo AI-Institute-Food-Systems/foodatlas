@@ -179,3 +179,32 @@ describe("assay table (AssayInferredAssociationsTable)", () => {
     }
   });
 });
+
+describe("literature table column widths", () => {
+  // Direction is one badge and one word; giving it an equal third of the
+  // table (the previous colgroup) pushed the chemical names into a
+  // narrower column than a single word got.
+  const widths = () =>
+    Array.from(document.querySelectorAll("colgroup col")).map((c) =>
+      (c.getAttribute("class") ?? "").match(/w-\[(\d+)%\]/)?.[1]
+    );
+
+  it("gives the name column the most room and Direction the least", async () => {
+    vi.mocked(getDiseaseData).mockResolvedValue({
+      data: { associations: [literatureRow("caffeine", 3)] },
+      metadata: { total_rows: 1, total_pages: 1 },
+    });
+    render(
+      <PaginationsProvider>
+        <CorrelationTable commonName="diabetes" tableLocation="disease" />
+      </PaginationsProvider>
+    );
+    await waitFor(() =>
+      expect(screen.getAllByText("caffeine").length).toBeGreaterThan(0)
+    );
+    const [direction, name, publications] = widths().map(Number);
+    expect(direction).toBeLessThan(publications);
+    expect(publications).toBeLessThan(name);
+    expect(direction + name + publications).toBe(100);
+  });
+});
