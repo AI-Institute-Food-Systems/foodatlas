@@ -17,6 +17,7 @@ import {
 import { twMerge } from "tailwind-merge";
 
 import Card from "@/components/basic/Card";
+import { Tooltip } from "@/components/basic/Tooltip";
 import ResetFiltersButton from "@/components/basic/ResetFiltersButton";
 import Chip from "@/components/basic/Chip";
 import Link from "@/components/basic/Link";
@@ -674,7 +675,7 @@ const FoodCompositionSection = ({
             // toggle reveals 7 hidden points across 5 chemicals and the
             // list stays at 271, which reads as a broken filter next to
             // Source and Class counts that do mean "rows you will get".
-            title={
+            help={
               "Counts chemicals that have at least one hidden low-trust " +
               "data point. Turning this on reveals those points inside " +
               "those chemicals' evidence — it does not change how many " +
@@ -956,15 +957,14 @@ const FoodCompositionSection = ({
                                   {formatConcentrationValueAlt(v)}
                                 </span>
                                 {fmtPct && (
-                                  <span
-                                    className="font-mono text-xs text-light-500 whitespace-nowrap tabular-nums text-right min-w-[3.5rem]"
-                                    title="Percentage of the food's mass"
-                                  >
-                                    {fmtPct}
-                                    <span className="ml-1 text-light-600">
-                                      by mass
+                                  <Tooltip content="Percentage of the food's mass">
+                                    <span className="font-mono text-xs text-light-500 whitespace-nowrap tabular-nums text-right min-w-[3.5rem]">
+                                      {fmtPct}
+                                      <span className="ml-1 text-light-600">
+                                        by mass
+                                      </span>
                                     </span>
-                                  </span>
+                                  </Tooltip>
                                 )}
                               </>
                             );
@@ -1130,12 +1130,11 @@ const FoodCompositionSection = ({
                             {fmtPct && (
                               <span className="text-light-500 text-xs">
                                 {fmtPct}
-                                <span
-                                  className="ml-1 not-italic text-light-600"
-                                  title="Percentage of the food's mass"
-                                >
-                                  by mass
-                                </span>
+                                <Tooltip content="Percentage of the food's mass">
+                                  <span className="ml-1 not-italic text-light-600">
+                                    by mass
+                                  </span>
+                                </Tooltip>
                               </span>
                             )}
                           </>

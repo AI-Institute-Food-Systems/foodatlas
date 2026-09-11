@@ -1074,7 +1074,6 @@ const SourceBadge = ({
   return (
     <span
       className={`inline-block capitalize text-[10px] leading-tight px-2 py-0.5 rounded-full border ${tone}`}
-      title={source}
     >
       {source}
     </span>

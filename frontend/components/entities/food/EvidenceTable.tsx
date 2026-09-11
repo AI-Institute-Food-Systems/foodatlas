@@ -26,6 +26,8 @@ import {
 } from "react-icons/md";
 import { twMerge } from "tailwind-merge";
 
+import { Tooltip } from "@/components/basic/Tooltip";
+
 import Button from "@/components/basic/Button";
 import Chip from "@/components/basic/Chip";
 import { AmbiguityIcon } from "@/components/basic/Ambiguity";
@@ -404,15 +406,16 @@ const SourceBadge = ({ source }: { source: string }) => {
     title: source,
   };
   return (
-    <span
-      className={twMerge(
-        "inline-flex items-center justify-center rounded-full border px-2 py-[0.05rem] text-[10px] font-mono tracking-wide whitespace-nowrap",
-        meta.tone
-      )}
-      title={meta.title}
-    >
-      {source}
-    </span>
+    <Tooltip content={meta.title}>
+      <span
+        className={twMerge(
+          "inline-flex items-center justify-center rounded-full border px-2 py-[0.05rem] text-[10px] font-mono tracking-wide whitespace-nowrap",
+          meta.tone
+        )}
+      >
+        {source}
+      </span>
+    </Tooltip>
   );
 };
 
@@ -484,11 +487,13 @@ const MethodChip = ({ method }: { method: string | null | undefined }) => {
 };
 
 const TrustWarning = () => (
-  <MdWarningAmber
-    className="size-3.5 text-rose-400 shrink-0"
-    aria-label="Low-trust extraction"
-    title="Low-trust extraction"
-  />
+  <Tooltip content="Low-trust extraction">
+    <MdWarningAmber
+      className="size-3.5 text-rose-400 shrink-0"
+      role="img"
+      aria-label="Low-trust extraction"
+    />
+  </Tooltip>
 );
 
 const RowActions = ({
@@ -512,25 +517,27 @@ const RowActions = ({
   return (
     <div className="flex items-center justify-end gap-2 flex-wrap">
       {url ? (
-        <a
-          href={url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-xs font-mono italic text-light-300 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
-          onClick={(e) => e.stopPropagation()}
-          aria-label={linkLabel}
-          title={row.evidence.reference.display_name}
-        >
-          {linkLabel}
-          <MdOpenInNew className="size-3 shrink-0" aria-hidden />
-        </a>
+        <Tooltip content={row.evidence.reference.display_name}>
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-xs font-mono italic text-light-300 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
+            onClick={(e) => e.stopPropagation()}
+            aria-label={linkLabel}
+          >
+            {linkLabel}
+            <MdOpenInNew className="size-3 shrink-0" aria-hidden />
+          </a>
+        </Tooltip>
       ) : (
-        <span
-          className="text-xs font-mono italic text-light-500"
-          title={`${row.evidence.reference.source_name} provides no linkable reference`}
+        <Tooltip
+          content={`${row.evidence.reference.source_name} provides no linkable reference`}
         >
-          {row.evidence.reference.source_name}
-        </span>
+          <span className="text-xs font-mono italic text-light-500">
+            {row.evidence.reference.source_name}
+          </span>
+        </Tooltip>
       )}
       {expandable && (
         <Chip

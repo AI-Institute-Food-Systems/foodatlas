@@ -7,6 +7,7 @@ import { AmbiguityIcon } from "@/components/basic/Ambiguity";
 import Chip from "@/components/basic/Chip";
 import ConcentrationBar from "@/components/basic/ConcentrationBar";
 import Link from "@/components/basic/Link";
+import { Tooltip } from "@/components/basic/Tooltip";
 import { cellPadding } from "@/components/basic/skeletonTokens";
 import {
   ChemicalCompositionRow as Row,
@@ -79,13 +80,12 @@ const ChemicalCompositionTableRow = ({
                 {formatConcentrationValueAlt(value)}
               </span>
               {pctByMass && (
-                <span
-                  className="font-mono text-xs text-light-500 whitespace-nowrap tabular-nums text-right min-w-[3.5rem]"
-                  title="Percentage of the food's mass"
-                >
-                  {pctByMass}
-                  <span className="ml-1 text-light-600">by mass</span>
-                </span>
+                <Tooltip content="Percentage of the food's mass">
+                  <span className="font-mono text-xs text-light-500 whitespace-nowrap tabular-nums text-right min-w-[3.5rem]">
+                    {pctByMass}
+                    <span className="ml-1 text-light-600">by mass</span>
+                  </span>
+                </Tooltip>
               )}
             </>
           )}

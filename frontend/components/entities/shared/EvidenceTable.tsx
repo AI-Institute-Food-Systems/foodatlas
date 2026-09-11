@@ -8,17 +8,22 @@
 import type { ReactNode } from "react";
 import { twMerge } from "tailwind-merge";
 
+import { InfoTip } from "@/components/basic/Tooltip";
+
 export const Th = ({
   children,
   align,
-  title,
+  help,
 }: {
   children: ReactNode;
   align?: "right";
-  title?: string;
+  // What the column means, as the "i" every explained header carries.
+  // Was a native `title` on the <th>, which rendered as the browser's
+  // tooltip — a different box from the one the Efficacy header's "i"
+  // opens two tabs over.
+  help?: string;
 }) => (
   <th
-    title={title}
     className={twMerge(
       // The first header drops its left padding: every body's first cell
       // is `pr-4` with nothing on the left, so the header's px-4 indented
@@ -30,9 +35,26 @@ export const Th = ({
       align === "right" ? "text-right" : "text-left",
     )}
   >
-    {children}
+    {help ? (
+      <span
+        className={twMerge(
+          "inline-flex items-center gap-1",
+          align === "right" && "justify-end"
+        )}
+      >
+        {children}
+        <InfoTip content={help} label={`About the ${textOf(children)} column`} />
+      </span>
+    ) : (
+      children
+    )}
   </th>
 );
+
+// The header's text, for the InfoTip's accessible name. Headers here are
+// plain strings; anything richer falls back to a generic label.
+const textOf = (node: ReactNode): string =>
+  typeof node === "string" || typeof node === "number" ? String(node) : "this";
 
 export const CardRow = ({
   label,

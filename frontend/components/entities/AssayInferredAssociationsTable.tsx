@@ -195,16 +195,16 @@ const AssayInferredAssociationsTable = ({
           <thead className="text-light-400 text-left">
             <tr>
               <Th>{peerLabel}</Th>
-              <Th title="How CTD classifies the link: therapeutic (treats) or marker/mechanism (marks or drives). Opposite directions.">
+              <Th help="How CTD classifies the link: therapeutic (treats) or marker/mechanism (marks or drives). Opposite directions.">
                 Signal
               </Th>
-              <Th title="What the bridging assays measure — the activity classes this pair was Active in">
+              <Th help="What the bridging assays measure — the activity classes this pair was Active in">
                 Activities
               </Th>
-              <Th title="The protein target the bridging assays measure — what the association runs through">
+              <Th help="The protein target the bridging assays measure — what the association runs through">
                 Target
               </Th>
-              <Th title="The source assays behind this association, and how many">
+              <Th help="The source assays behind this association, and how many">
                 Assays
               </Th>
             </tr>

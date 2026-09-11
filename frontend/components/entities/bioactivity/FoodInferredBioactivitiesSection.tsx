@@ -38,7 +38,7 @@ import {
 import type { SkeletonColumn } from "@/components/basic/skeletonTokens";
 import Pagination from "@/components/basic/Pagination";
 import SortListbox from "@/components/basic/SortListbox";
-import { Tooltip } from "@/components/basic/Tooltip";
+import { InfoTip, Tooltip } from "@/components/basic/Tooltip";
 import BioactivityMeasurementsModal from "@/components/entities/bioactivity/BioactivityMeasurementsModal";
 import { formatEfficacyFraction } from "@/components/entities/bioactivity/efficacy";
 import { useReportRows } from "@/context/reportModeContext";
@@ -722,14 +722,7 @@ const SortableTh = ({
             <MdUnfoldMore className="text-light-400 group-hover:text-light-100 flex-shrink-0" />
           )}
         </button>
-        {help && (
-          <Tooltip content={help}>
-            <MdInfoOutline
-              className="w-3.5 h-3.5 text-light-500 hover:text-light-100 transition-colors"
-              aria-label={`About the ${label} column`}
-            />
-          </Tooltip>
-        )}
+        {help && <InfoTip content={help} label={`About the ${label} column`} />}
       </div>
     </th>
   );
@@ -825,11 +818,15 @@ const Row = ({
            * meant it stayed hidden on exactly those rows, which are the
            * ones where the user can least judge the number for themselves. */}
           {row.conc_quality_flag === "suspect_high" && (
-            <MdWarningAmber
-              className="ml-1 size-3 text-amber-500 flex-shrink-0"
-              title="Upstream flagged the concentration behind this row as implausibly high (>10% of the food by mass). The efficacy figure is derived from it."
-              aria-label="Concentration flagged as implausibly high"
-            />
+            <Tooltip
+              content="Upstream flagged the concentration behind this row as implausibly high (>10% of the food by mass). The efficacy figure is derived from it."
+            >
+              <MdWarningAmber
+                className="ml-1 size-3 text-amber-500 flex-shrink-0"
+                role="img"
+                aria-label="Concentration flagged as implausibly high"
+              />
+            </Tooltip>
           )}
         </div>
       </td>

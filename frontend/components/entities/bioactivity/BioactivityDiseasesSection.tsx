@@ -136,17 +136,17 @@ const BioactivityDiseasesSection = ({ commonName }: Props) => {
               <Th>Disease</Th>
               <Th
                 align="right"
-                title="Distinct chemicals linking this disease to the bioactivity"
+                help="Distinct chemicals linking this disease to the bioactivity"
               >
                 Chemicals
               </Th>
-              <Th align="right" title="Bridging assays behind those links">
+              <Th align="right" help="Bridging assays behind those links">
                 Assays
               </Th>
-              <Th title="How many of those chemicals CTD classifies as therapeutic (treats) versus marker/mechanism (marks or drives), and how many the literature also records. A chemical can be both, so these need not sum to the chemical count.">
+              <Th help="How many of those chemicals CTD classifies as therapeutic (treats) versus marker/mechanism (marks or drives), and how many the literature also records. A chemical can be both, so these need not sum to the chemical count.">
                 Signal
               </Th>
-              <Th title="The protein targets the most chemicals converge on for this disease">
+              <Th help="The protein targets the most chemicals converge on for this disease">
                 Targets
               </Th>
             </tr>

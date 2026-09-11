@@ -19,6 +19,7 @@ import { MdCheck, MdClose, MdSearch } from "react-icons/md";
 import { twMerge } from "tailwind-merge";
 
 import Skeleton from "@/components/basic/Skeleton";
+import { InfoTip } from "@/components/basic/Tooltip";
 
 const FilterRowLabel = ({ children }: { children: ReactNode }) => (
   <span className="font-mono italic text-[11px] uppercase tracking-wider text-light-400 min-w-[3.5rem]">
@@ -70,21 +71,19 @@ const ToggleSwitch = ({
   count,
   checked,
   onChange,
-  title,
+  help,
 }: {
   label: string;
   count?: number;
   checked: boolean;
   onChange: () => void;
-  // Hover text for the whole row. Worth setting whenever `count` is not
-  // "rows you will get" — every other count in these panels is, so a
-  // toggle counting something else needs to say so.
-  title?: string;
+  // An "i" after the label. Worth setting whenever `count` is not "rows
+  // you will get" — every other count in these panels is, so a toggle
+  // counting something else needs to say so. Was a native `title` on the
+  // row, i.e. the browser's tooltip rather than the app's.
+  help?: string;
 }) => (
-  <label
-    title={title}
-    className="flex items-center gap-2 cursor-pointer select-none"
-  >
+  <label className="flex items-center gap-2 cursor-pointer select-none">
     <Switch
       checked={checked}
       onChange={onChange}
@@ -100,6 +99,7 @@ const ToggleSwitch = ({
     >
       {label}
     </span>
+    {help && <InfoTip content={help} label={`About ${label}`} />}
     {typeof count === "number" && (
       <span
         className={twMerge(
