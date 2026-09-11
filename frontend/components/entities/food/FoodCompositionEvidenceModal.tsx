@@ -338,7 +338,6 @@ const FoodCompositionEvidenceModal = ({
 
       <EvidenceTable
         evidences={displayedEvidences}
-        chemicalName={chemicalName}
         dimmedSourceNames={dimmedSourceNames}
       />
 

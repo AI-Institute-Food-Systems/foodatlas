@@ -49,10 +49,6 @@ export type EvidenceRow = {
 
 interface Props {
   evidences: FoodEvidence[] | undefined;
-  // Modal context — used to decide when to mute the Chemical column
-  // (extracted name matches the pivot chemical) and to highlight the
-  // premise.
-  chemicalName: string;
   // Display-cased source names deselected on the table behind the modal
   // ("FoodAtlas", "PTFI", ...). Their rows render greyed and
   // non-interactive but stay in place: the reader deselected a source to
@@ -91,11 +87,7 @@ const flattenEvidences = (
 
 const PAGE_SIZE = 20;
 
-const EvidenceTable = ({
-  evidences,
-  chemicalName,
-  dimmedSourceNames,
-}: Props) => {
+const EvidenceTable = ({ evidences, dimmedSourceNames }: Props) => {
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const reporter = useReportRows();
@@ -231,10 +223,7 @@ const EvidenceTable = ({
                       <SourceBadge source={r.evidence.reference.source_name} />
                     </td>
                     <td className="py-2 px-2 align-top">
-                      <ChemicalCell
-                        extraction={r.extraction}
-                        pivotChemical={chemicalName}
-                      />
+                      <ChemicalCell extraction={r.extraction} />
                     </td>
                     <td className="py-2 px-2 align-top">
                       <ConcentrationCell extraction={r.extraction} />
@@ -427,25 +416,18 @@ const SourceBadge = ({ source }: { source: string }) => {
   );
 };
 
-const ChemicalCell = ({
-  extraction,
-  pivotChemical,
-}: {
-  extraction: FoodEvidenceExtraction;
-  pivotChemical: string;
-}) => {
+// One colour for every name, whatever the source. This used to mute a
+// row whose extracted name equalled the row's chemical, so the eye would
+// skim to the rows whose extraction differed — but FDC is normalised
+// data, so its extracted name ALWAYS equals the chemical (22/22 on
+// staging) while literature extractions mostly don't (~1 in 3). The
+// muting therefore read as "FDC rows are greyer", and the mobile card
+// never applied it at all.
+const ChemicalCell = ({ extraction }: { extraction: FoodEvidenceExtraction }) => {
   const name = extraction.extracted_chemical_name;
   if (!name) return <span className="text-light-600">—</span>;
-  // Same-as-pivot rows are muted so eyes skim past them to the rows
-  // whose extraction differs (aliases, ambiguous mappings, etc).
-  const isPivot = name.trim().toLowerCase() === pivotChemical.trim().toLowerCase();
   return (
-    <span
-      className={twMerge(
-        "inline-flex items-center gap-1 align-middle capitalize break-words",
-        isPivot ? "text-light-400" : "text-light-100"
-      )}
-    >
+    <span className="inline-flex items-center gap-1 align-middle capitalize break-words text-light-100">
       {name}
       <AmbiguityIcon chemicalCandidates={extraction.chemical_candidates} />
       {extraction.trust_low && <TrustWarning />}
