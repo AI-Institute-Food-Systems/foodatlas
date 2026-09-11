@@ -80,7 +80,6 @@ const ReportFab = () => {
             type="button"
             onClick={toggleSelectMode}
             aria-label="Report an issue with a data point"
-            title="Report an issue"
             className={twMerge(
               "flex items-center gap-2 rounded-full pl-3 pr-4 py-2",
               "border border-light-600/60 bg-light-950/85 text-light-100",

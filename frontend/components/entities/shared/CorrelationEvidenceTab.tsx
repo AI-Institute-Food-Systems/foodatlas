@@ -101,14 +101,21 @@ const CorrelationEvidenceTab = ({ commonName, anchor }: Props) => {
 
   // Reported up by the assay table, which owns those rows. Memoised
   // setter: the table calls it from an effect keyed on the callback.
-  const [signalCounts, setSignalCounts] = useState<Record<string, number>>({});
+  // `null` until the first report — "not loaded" has to be a distinct
+  // state from "loaded and every count is zero", or a search that empties
+  // the table puts skeletons where the zeros should be.
+  const [signalCounts, setSignalCounts] = useState<Record<
+    string,
+    number
+  > | null>(null);
   const handleSignalCounts = useCallback(
     (counts: Record<string, number>) => setSignalCounts(counts),
     []
   );
-  const [activityCounts, setActivityCounts] = useState<Record<string, number>>(
-    {}
-  );
+  const [activityCounts, setActivityCounts] = useState<Record<
+    string,
+    number
+  > | null>(null);
   const handleActivityCounts = useCallback(
     (counts: Record<string, number>) => setActivityCounts(counts),
     []
@@ -155,9 +162,7 @@ const CorrelationEvidenceTab = ({ commonName, anchor }: Props) => {
               count={count}
               countsLoaded={directionCounts !== null}
               selected={direction === key}
-              disabled={
-                typeof count === "number" && key !== "all" && count === 0
-              }
+              resetOption={key === "all"}
               onClick={() => setDirection(key)}
             />
           );
@@ -228,17 +233,17 @@ const CorrelationEvidenceTab = ({ commonName, anchor }: Props) => {
            * direction, not a signal. */}
           <SignalFilterGroup
             selected={signals}
-            counts={signalCounts}
+            counts={signalCounts ?? {}}
             onToggle={(key) => toggle(setSignals, key)}
             onClear={() => setSignals([])}
-            countsLoaded={Object.keys(signalCounts).length > 0}
+            countsLoaded={signalCounts !== null}
           />
           <ActivityFilterGroup
             selected={activities}
-            counts={activityCounts}
+            counts={activityCounts ?? {}}
             onToggle={(key) => toggle(setActivities, key)}
             onClear={() => setActivities([])}
-            countsLoaded={Object.keys(activityCounts).length > 0}
+            countsLoaded={activityCounts !== null}
           />
         </>
       }

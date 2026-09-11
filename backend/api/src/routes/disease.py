@@ -35,6 +35,8 @@ async def disease_correlation(
     page: int = Query(1),
     relation: str = Query("all"),
     search: str = Query(""),
+    sort_by: str = Query("evidence_count"),
+    sort_dir: str = Query("desc"),
     db: AsyncSession = Depends(get_db),
 ):
     """CTD literature correlations, one page.
@@ -42,7 +44,9 @@ async def disease_correlation(
     ``relation`` is "all" (both directions, each row carrying its own
     ``relationship_id``), "positive" or "negative".
     """
-    return await disease.get_correlation(db, common_name, page, relation, search)
+    return await disease.get_correlation(
+        db, common_name, page, relation, search, sort_by=sort_by, sort_dir=sort_dir
+    )
 
 
 @router.get("/correlation/direction-counts")

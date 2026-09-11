@@ -19,6 +19,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { peerName, type PeerDirection } from "@/components/entities/shared/AssayInferredRow";
 import {
+  activitiesOf,
   countActivities,
   matchesActivities,
 } from "@/components/entities/shared/filters/ActivityFilterGroup";
@@ -26,10 +27,43 @@ import {
   countSignals,
   matchesSignals,
 } from "@/components/entities/shared/filters/SignalFilterGroup";
+import {
+  nextSort,
+  type SortDir,
+} from "@/components/entities/shared/EvidenceTable";
 import { usePaginations } from "@/context/paginationsContext";
 import type { AssayInferredAssociation } from "@/types";
 
 export const ROWS_PER_PAGE = 20;
+
+// Client-side: the endpoint returns every row for the anchor, so the
+// order is ours to choose. The peer's name and the assay count are the
+// two scalar columns; Signal, Activities and Target are lists, and a
+// list has no single order to sort by.
+export type AssayInferredSortKey = "name" | "n_assays";
+export type AssayInferredSort = { by: AssayInferredSortKey; dir: SortDir };
+// Most assays first — the order the endpoint already ships.
+export const DEFAULT_ASSAY_SORT: AssayInferredSort = { by: "n_assays", dir: "desc" };
+
+export const sortAssayInferredRows = (
+  rows: readonly AssayInferredAssociation[],
+  peer: PeerDirection,
+  sort: AssayInferredSort
+): AssayInferredAssociation[] => {
+  const sign = sort.dir === "asc" ? 1 : -1;
+  const byName = (a: AssayInferredAssociation, b: AssayInferredAssociation) =>
+    peerName(a, peer).localeCompare(peerName(b, peer), undefined, {
+      sensitivity: "base",
+    });
+  return [...rows].sort((a, b) => {
+    if (sort.by === "n_assays") {
+      // Name breaks ties, A→Z whichever way the count runs, so equal
+      // counts read as a list rather than as arbitrary.
+      return sign * (a.n_assays - b.n_assays) || byName(a, b);
+    }
+    return sign * byName(a, b);
+  });
+};
 
 interface Args {
   commonName: string;
@@ -57,6 +91,9 @@ export const useAssayInferredRows = ({
 }: Args) => {
   const [rows, setRows] = useState<AssayInferredAssociation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [sort, setSort] = useState<AssayInferredSort>(DEFAULT_ASSAY_SORT);
+  const sortBy = (key: AssayInferredSortKey) =>
+    setSort((s) => nextSort(s, key, key === "name" ? "asc" : "desc"));
 
   const tableId = `assay-inferred-${peer}-${commonName}`;
   const { getTablePaginations, setTablePaginations } = usePaginations();
@@ -85,12 +122,33 @@ export const useAssayInferredRows = ({
     );
   }, [rows, search, peer]);
 
-  const signalCounts = useMemo(() => countSignals(searched), [searched]);
+  // Each facet's counts apply every OTHER filter — search plus the other
+  // facet — and exclude its own, so a number is "rows you get if you pick
+  // this" under the current view. They used to apply the search only, so
+  // picking an activity left the Signal numbers frozen.
+  const signalCounts = useMemo(
+    () =>
+      countSignals(
+        searched.filter((row) => matchesActivities(row.bioactivities, activities))
+      ),
+    [searched, activities]
+  );
   useEffect(() => {
     if (onSignalCountsChange && !isLoading) onSignalCountsChange(signalCounts);
   }, [onSignalCountsChange, signalCounts, isLoading]);
 
-  const activityCounts = useMemo(() => countActivities(searched), [searched]);
+  // The option set is every activity in the UNFILTERED rows; only the
+  // counts follow the filters. A search that excludes an activity zeroes
+  // it, and a zero renders disabled rather than dropping out of the list.
+  const activityUniverse = useMemo(() => activitiesOf(rows), [rows]);
+  const activityCounts = useMemo(
+    () =>
+      countActivities(
+        searched.filter((row) => matchesSignals(row.relationships, signals)),
+        activityUniverse
+      ),
+    [searched, signals, activityUniverse]
+  );
   useEffect(() => {
     if (onActivityCountsChange && !isLoading) {
       onActivityCountsChange(activityCounts);
@@ -99,12 +157,16 @@ export const useAssayInferredRows = ({
 
   const filtered = useMemo(
     () =>
-      searched.filter(
-        (row) =>
-          matchesSignals(row.relationships, signals) &&
-          matchesActivities(row.bioactivities, activities)
+      sortAssayInferredRows(
+        searched.filter(
+          (row) =>
+            matchesSignals(row.relationships, signals) &&
+            matchesActivities(row.bioactivities, activities)
+        ),
+        peer,
+        sort
       ),
-    [searched, signals, activities]
+    [searched, signals, activities, peer, sort]
   );
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / ROWS_PER_PAGE));
@@ -130,13 +192,23 @@ export const useAssayInferredRows = ({
   // A new query should land on its best matches, not on page 4 of them.
   // Ref-compared rather than a bare effect so mounting doesn't reset a
   // page the user navigated to.
-  const lastFilters = useRef(`${search}|${signals.join()}|${activities.join()}`);
+  const filterKey = `${search}|${signals.join()}|${activities.join()}|${sort.by}|${sort.dir}`;
+  const lastFilters = useRef(filterKey);
   useEffect(() => {
-    const next = `${search}|${signals.join()}|${activities.join()}`;
-    if (lastFilters.current === next) return;
-    lastFilters.current = next;
+    if (lastFilters.current === filterKey) return;
+    lastFilters.current = filterKey;
     setTablePaginations(tableId, 1, ROWS_PER_PAGE);
-  }, [search, signals, activities, tableId, setTablePaginations]);
+  }, [filterKey, tableId, setTablePaginations]);
 
-  return { rows, isLoading, filtered, visible, totalPages, tableId };
+  return {
+    rows,
+    isLoading,
+    filtered,
+    visible,
+    totalPages,
+    tableId,
+    sort,
+    setSort,
+    sortBy,
+  };
 };

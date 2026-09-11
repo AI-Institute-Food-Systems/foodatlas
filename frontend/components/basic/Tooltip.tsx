@@ -1,235 +1,220 @@
-// author: https://gourav.io/blog/react-tooltip-component
-
 "use client";
 
+// THE hover info box. Every explanatory hover in the app — the "i" beside
+// a column header, a source badge, a warning glyph, a chip — renders
+// through here, so they all look and behave the same.
+//
+// The bubble is portalled to <body> and positioned from the trigger's own
+// getBoundingClientRect(), fixed to the viewport. That is the whole
+// design: the previous version was `position: absolute` inside the
+// trigger, and when it flipped to avoid the top of the screen it set
+// `bottom: 0` — which resolves against the nearest POSITIONED ANCESTOR,
+// not the trigger. Inside a table that ancestor was the card or the page,
+// so the bubble for the Efficacy column's "i" landed at the bottom of the
+// screen. An `overflow-x-auto` table wrapper also clipped it. Neither can
+// happen to a fixed element in <body>.
+//
+// Native `title=` is NOT this. It is fine for revealing clipped text
+// (FilterOption's label, an assay name), where the browser's own tooltip
+// is the expected affordance; an explanation goes through Tooltip.
+
 import {
-  SVGProps,
-  forwardRef,
   useCallback,
   useEffect,
+  useId,
+  useLayoutEffect,
   useRef,
   useState,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
+import { MdInfoOutline } from "react-icons/md";
+import { twMerge } from "tailwind-merge";
+
+type Placement = "top" | "bottom";
 
 interface TooltipProps {
   content: ReactNode;
   children: ReactNode;
-  // "top" is the default and what every older call site expects. Pass
-  // "bottom" for triggers that sit high on the page — a top tooltip there
-  // opens into the navbar, and the auto-flip below only fires once the
-  // bubble is already off-screen, which the navbar's 96px never is.
-  placement?: "top" | "bottom";
+  // Preferred side. Flips when that side has no room and the other does,
+  // so a trigger at the very top of the page opens downward and one at
+  // the bottom opens upward whatever the caller asked for.
+  placement?: Placement;
 }
-/**
- * content: use `<br/>` to break lines so that tooltip is not too wide
- * @returns
- */
+
+// Trigger ↔ bubble, and bubble ↔ viewport edge.
+const GAP = 8;
+const MARGIN = 8;
+const ARROW = 8;
+const DELAY_MS = 300;
+
+interface Position {
+  top: number;
+  left: number;
+  // The arrow tracks the trigger even when the bubble is shoved sideways
+  // to stay inside the viewport.
+  arrowLeft: number;
+  side: Placement;
+}
+
 export const Tooltip = ({
   content,
   children,
   placement = "top",
 }: TooltipProps) => {
-  const [hover, setHover] = useState(false);
-  const hoverTimeout = useRef<NodeJS.Timeout | null>(null);
-  const tooltipContentRef = useRef<HTMLDivElement>(null);
-  const triangleRef = useRef<SVGSVGElement>(null);
-  const triangleInvertedRef = useRef<SVGSVGElement>(null);
-  const tooltipRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<Position | null>(null);
+  const triggerRef = useRef<HTMLSpanElement>(null);
+  const bubbleRef = useRef<HTMLDivElement>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const id = useId();
 
-  const delay = 300;
-
-  const handleMouseEnter = () => {
-    hoverTimeout.current = setTimeout(() => {
-      setHover(true);
-    }, delay);
-  };
-
-  const handleMouseLeave = () => {
-    if (hoverTimeout.current) {
-      clearTimeout(hoverTimeout.current);
-      hoverTimeout.current = null;
-    }
-    setHover(false);
-  };
-
-  // useCallback because the resize effect depends on it, and it reads
-  // `placement` — a prop, so the identity has to change when that does.
-  const updateTooltipPosition = useCallback(() => {
-    // A bottom-placed tooltip is already where the flip below would put
-    // it, so only the horizontal clamping applies.
-    if (
-      tooltipContentRef.current &&
-      tooltipRef.current &&
-      triangleRef.current &&
-      triangleInvertedRef.current
+  const place = useCallback(() => {
+    const t = triggerRef.current?.getBoundingClientRect();
+    const b = bubbleRef.current?.getBoundingClientRect();
+    if (!t || !b) return;
+    const roomAbove = t.top - GAP - MARGIN;
+    const roomBelow = window.innerHeight - t.bottom - GAP - MARGIN;
+    let side = placement;
+    if (side === "top" && b.height > roomAbove && roomBelow > roomAbove) {
+      side = "bottom";
+    } else if (
+      side === "bottom" &&
+      b.height > roomBelow &&
+      roomAbove > roomBelow
     ) {
-      const rect = tooltipContentRef.current.getBoundingClientRect();
-
-      let { top, left, right } = rect;
-      const padding = 40;
-
-      // overflowing from left side
-      if (left < 0 + padding) {
-        const newLeft = Math.abs(left) + padding;
-        tooltipContentRef.current.style.left = `${newLeft}px`;
-      }
-      // overflowing from right side
-      else if (right + padding > window.innerWidth) {
-        const newRight = right + padding - window.innerWidth;
-        tooltipContentRef.current.style.right = `${newRight}px`;
-      }
-
-      // overflowing from top side
-      if (placement === "top" && top < 0) {
-        // unset top and set bottom
-        tooltipRef.current.style.top = "unset";
-        tooltipRef.current.style.bottom = "0";
-        tooltipRef.current.style.transform = "translateY(calc(100% + 10px))";
-        triangleInvertedRef.current.style.display = "none";
-        triangleRef.current.style.display = "block";
-      }
+      side = "top";
     }
+    const top = side === "top" ? t.top - GAP - b.height : t.bottom + GAP;
+    const centre = t.left + t.width / 2;
+    const left = Math.min(
+      Math.max(centre - b.width / 2, MARGIN),
+      Math.max(MARGIN, window.innerWidth - MARGIN - b.width)
+    );
+    setPos({ top, left, arrowLeft: centre - left, side });
   }, [placement]);
 
-  // Update position on window resize
+  // Measure after the bubble exists in the DOM, before paint: the first
+  // render puts it at 0,0 hidden, this moves it, and the user only ever
+  // sees the second.
+  useLayoutEffect(() => {
+    if (open) place();
+  }, [open, place]);
+
   useEffect(() => {
-    const handleResize = () => {
-      if (hover) {
-        updateTooltipPosition();
-      }
+    if (!open) return;
+    // Capture phase so a scrolling table wrapper counts, not just window.
+    window.addEventListener("scroll", place, true);
+    window.addEventListener("resize", place);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
     };
-
-    handleResize();
-    window.addEventListener("resize", handleResize);
-
+    window.addEventListener("keydown", onKey);
     return () => {
-      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("scroll", place, true);
+      window.removeEventListener("resize", place);
+      window.removeEventListener("keydown", onKey);
     };
-  }, [hover, updateTooltipPosition]);
+  }, [open, place]);
+
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+    },
+    []
+  );
+
+  const show = () => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => setOpen(true), DELAY_MS);
+  };
+  const hide = () => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
+    setOpen(false);
+    setPos(null);
+  };
 
   return (
-    <div
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-      className={
-        // `relative` only for bottom placement: it makes the bubble
-        // resolve `top-full` against this trigger instead of whatever
-        // distant ancestor happens to be positioned, which is where an
-        // un-anchored bottom tooltip ends up (800px down the page). The
-        // top placement uses its static position and is left alone.
-        placement === "bottom"
-          ? "relative inline-flex flex-col items-center cursor-pointer"
-          : "inline-flex flex-col items-center cursor-pointer"
-      }
+    <span
+      ref={triggerRef}
+      onMouseEnter={show}
+      onMouseLeave={hide}
+      onFocus={show}
+      onBlur={hide}
+      aria-describedby={open ? id : undefined}
+      className="inline-flex items-center cursor-pointer"
     >
-      {hover && (
-        <div
-          ref={tooltipRef}
-          // z-[110] clears everything that can sit under a hover bubble:
-          // the navbar (z-40, z-[60] with the menu open), Modal (z-50),
-          // the FAB and mobile filter panel (z-[60]) and the navigation
-          // progress bar (z-[100]). A tooltip is transient and pointer-
-          // driven, so nothing should ever cover it.
-          className={
-            placement === "bottom"
-              ? "absolute top-full z-[110] flex w-full items-center justify-center gap-0 [transform:translateY(10px)]"
-              : "absolute z-[110] flex w-full items-center justify-center gap-0 [transform:translateY(calc(-100%-10px))]"
-          }
-        >
-          <div className="mx-auto flex w-0 flex-col items-center justify-center text-light-800">
-            {/* The pointer sits on whichever side faces the trigger: above
-             * the bubble when it hangs below, under it when it floats
-             * above. The refs stay because the top-overflow flip swaps
-             * them imperatively. */}
-            <TriangleFilled
-              ref={triangleRef}
-              style={{
-                marginBottom: "-7px",
-                display: placement === "bottom" ? "block" : "none",
-              }}
-            />
-
-            <div
-              ref={tooltipContentRef}
-              className="relative whitespace-nowrap rounded-md bg-light-800 p-2.5 text-[14px] text-left leading-relaxed tracking-wide  text-light-300 shadow-sm [font-weight:400]"
-            >
-              {content}
-            </div>
-
-            <TriangleInvertedFilled
-              ref={triangleInvertedRef}
-              style={{
-                marginTop: "-7px",
-                display: placement === "bottom" ? "none" : "block",
-              }}
-            />
-          </div>
-        </div>
-      )}
       {children}
-    </div>
+      {open &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            ref={bubbleRef}
+            id={id}
+            role="tooltip"
+            data-side={pos?.side ?? placement}
+            // z-[110] clears everything that can sit under a hover
+            // bubble: the navbar (z-40, z-[60] with the menu open), Modal
+            // (z-50), the FAB and mobile filter panel (z-[60]) and the
+            // navigation progress bar (z-[100]). A tooltip is transient
+            // and pointer-driven, so nothing should ever cover it.
+            className="pointer-events-none fixed z-[110]"
+            style={{
+              top: pos?.top ?? 0,
+              left: pos?.left ?? 0,
+              visibility: pos ? "visible" : "hidden",
+            }}
+          >
+            {/* Wraps at a readable width rather than running to the edge
+              * of the screen: the old bubble was nowrap, so a sentence-long
+              * explanation was a 900px bar shoved sideways to fit. Short
+              * content is unaffected. */}
+            <div className="relative max-w-[min(22rem,calc(100vw-1rem))] rounded-md bg-light-800 p-2.5 text-[14px] text-left leading-relaxed tracking-wide text-light-300 shadow-sm [font-weight:400]">
+              {content}
+              {/* The pointer: a rotated square on whichever edge faces the
+                * trigger, centred under it. */}
+              <span
+                aria-hidden
+                className={twMerge(
+                  "absolute size-2 rotate-45 bg-light-800",
+                  (pos?.side ?? placement) === "top"
+                    ? "-bottom-1"
+                    : "-top-1"
+                )}
+                style={{ left: (pos?.arrowLeft ?? 0) - ARROW / 2 }}
+              />
+            </div>
+          </div>,
+          document.body
+        )}
+    </span>
   );
 };
 
-const TriangleInvertedFilled = forwardRef<
-  SVGSVGElement,
-  SVGProps<SVGSVGElement>
->((props, ref) => {
-  return (
-    <svg
-      ref={ref}
-      xmlns="http://www.w3.org/2000/svg"
-      width="1em"
-      height="1em"
-      viewBox="0 0 24 24"
-      {...props}
-    >
-      <g
-        fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="2"
-      >
-        <path d="M0 0h24v24H0z"></path>
-        <path
-          fill="currentColor"
-          d="M20.118 3H3.893A2.914 2.914 0 0 0 1.39 7.371L9.506 20.92a2.917 2.917 0 0 0 4.987.005l8.11-13.539A2.914 2.914 0 0 0 20.117 3z"
-        ></path>
-      </g>
-    </svg>
-  );
-});
-TriangleInvertedFilled.displayName = "TriangleInvertedFilled";
-
-const TriangleFilled = forwardRef<SVGSVGElement, SVGProps<SVGSVGElement>>(
-  (props, ref) => {
-    return (
-      <svg
-        ref={ref}
-        xmlns="http://www.w3.org/2000/svg"
-        width="1em"
-        height="1em"
-        viewBox="0 0 24 24"
-        {...props}
-      >
-        <g
-          fill="none"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth="2"
-        >
-          <path d="M0 0h24v24H0z"></path>
-          <path
-            fill="currentColor"
-            d="M12 1.67a2.914 2.914 0 0 0-2.492 1.403L1.398 16.61a2.914 2.914 0 0 0 2.484 4.385h16.225a2.914 2.914 0 0 0 2.503-4.371L14.494 3.078A2.917 2.917 0 0 0 12 1.67"
-          ></path>
-        </g>
-      </svg>
-    );
-  }
+// The "i" that opens a Tooltip. One glyph, one size, one colour, so an
+// explanation looks the same beside a column header, a toggle, or a
+// value — and a reader learns once what it means.
+export const InfoTip = ({
+  content,
+  label,
+  className,
+}: {
+  content: ReactNode;
+  // What the glyph explains, for screen readers: "About the Efficacy column".
+  label: string;
+  className?: string;
+}) => (
+  <Tooltip content={content}>
+    <MdInfoOutline
+      role="img"
+      aria-label={label}
+      className={twMerge(
+        "w-3.5 h-3.5 text-light-500 hover:text-light-100 transition-colors",
+        className
+      )}
+    />
+  </Tooltip>
 );
-
-TriangleFilled.displayName = "TriangleFilled";
 
 export default Tooltip;

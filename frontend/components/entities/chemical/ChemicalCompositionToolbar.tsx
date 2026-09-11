@@ -1,7 +1,6 @@
 "use client";
 
 
-import SortListbox from "@/components/basic/SortListbox";
 import {
   FilterGroup,
   FilterSearchInput,
@@ -9,6 +8,10 @@ import {
   FilterOptionList,
   ToggleSwitch,
 } from "@/components/entities/shared/filters/FilterControls";
+import {
+  MobileSort,
+  type SortableColumn,
+} from "@/components/entities/shared/EvidenceTable";
 import {
   SortColumn,
   SortDirection,
@@ -23,13 +26,13 @@ import {
 // FoodCompositionSection for the original.
 
 // Mobile has no clickable column headers, so the sort lives here instead.
-const SORT_OPTIONS = [
-  { value: "median_concentration:desc", label: "Concentration (high → low)" },
-  { value: "median_concentration:asc", label: "Concentration (low → high)" },
-  { value: "name:asc", label: "Food (A → Z)" },
-  { value: "name:desc", label: "Food (Z → A)" },
-  { value: "evidence_count:desc", label: "Evidence (most first)" },
-  { value: "evidence_count:asc", label: "Evidence (fewest first)" },
+const SORT_COLUMNS: SortableColumn<SortColumn>[] = [
+  {
+    key: "median_concentration",
+    labels: { desc: "Highest concentration", asc: "Lowest concentration" },
+  },
+  { key: "name", labels: { asc: "Food A–Z", desc: "Food Z–A" } },
+  { key: "evidence_count", labels: { desc: "Most evidence", asc: "Least evidence" } },
 ];
 
 export const CompositionSearchInput = ({
@@ -78,9 +81,9 @@ export const CompositionFilterPanel = ({
       {/* Rows, not pills. This facet used to render Chips, which made the
         * chemical sidebar the only one in the app where a source was a
         * pill rather than a checkbox row. A source with no rows stays
-        * visible but disabled: hiding it would reshape the facet list
-        * between chemicals, and leaving it live offers a filter whose only
-        * outcome is an empty table. */}
+        * visible but disabled (FilterOption's rule): hiding it would
+        * reshape the facet list between chemicals, and leaving it live
+        * offers a filter whose only outcome is an empty table. */}
       <FilterOptionList>
         {sourceCounts.map(({ key, label, count }) => (
           <FilterOption
@@ -88,7 +91,6 @@ export const CompositionFilterPanel = ({
             label={label}
             count={count}
             selected={selectedSources.includes(key)}
-            disabled={count === 0}
             onClick={() => onToggleSource(key)}
           />
         ))}
@@ -107,18 +109,10 @@ export const CompositionMobileSort = ({
     direction: SortDirection;
   }) => void;
 }) => (
-  <div className="md:hidden">
-    <SortListbox
-      ariaLabel="Sort foods"
-      value={`${sort.column}:${sort.direction}`}
-      options={SORT_OPTIONS}
-      onChange={(value) => {
-        const [column, direction] = value.split(":");
-        onSortChange({
-          column: column as SortColumn,
-          direction: direction as SortDirection,
-        });
-      }}
-    />
-  </div>
+  <MobileSort
+    ariaLabel="Sort foods"
+    sort={{ by: sort.column, dir: sort.direction }}
+    columns={SORT_COLUMNS}
+    onChange={({ by, dir }) => onSortChange({ column: by, direction: dir })}
+  />
 );

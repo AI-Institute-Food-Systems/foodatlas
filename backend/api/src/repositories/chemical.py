@@ -142,6 +142,8 @@ async def get_correlation(
     relation: str = "all",
     search: str = "",
     rows_per_page: int = ROWS_PER_PAGE,
+    sort_by: str = _correlation.DEFAULT_SORT_BY,
+    sort_dir: str = _correlation.DEFAULT_SORT_DIR,
 ) -> dict[str, object]:
     """Get disease correlations for a chemical.
 
@@ -158,6 +160,7 @@ async def get_correlation(
     query produced it.
     """
     where, filter_params = _correlation.build_filters(relation, search, "disease_name")
+    order = _correlation.build_order(sort_by, sort_dir, "disease_name")
     offset = rows_per_page * (page - 1)
 
     result = await session.execute(
@@ -168,7 +171,7 @@ async def get_correlation(
             FROM {_correlation.VIEW}
             WHERE chemical_name = :name{where}
             GROUP BY {_correlation.GROUP_BY_PAIR}
-            ORDER BY SUM(evidence_count) DESC, disease_name
+            {order}
             OFFSET :offset ROWS FETCH FIRST :limit ROWS ONLY
         """),
         {

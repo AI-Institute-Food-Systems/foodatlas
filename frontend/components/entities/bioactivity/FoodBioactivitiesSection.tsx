@@ -4,6 +4,7 @@ import { useCallback, useMemo } from "react";
 
 import { getFoodBioactivities } from "@/utils/fetching";
 import type { BioactivityListParams } from "@/utils/fetching";
+import Heading from "@/components/basic/Heading";
 import BioactivityTable, {
   NameLinkCell,
   TOP_MEASUREMENT_SORT_KEY,
@@ -86,9 +87,9 @@ const FoodBioactivitiesSection = ({
       {/* Header — mirrors the chip+blurb pattern on the inferred section
        * so the two are visually parallel and the diff is obvious. */}
       <div className="flex flex-col gap-2">
-        <span className="self-start bg-light-200 shadow-inner shadow-light-50 rounded-r-md px-2.5 py-0.5 font-mono italic font-medium text-light-900 text-[10px] tracking-[0.12em] uppercase -ml-3">
+        <Heading type="h3" variant="chip" className="self-start">
           Directly measured
-        </span>
+        </Heading>
         <p className="font-serif italic text-light-400 text-sm">
           Bioactivities {commonName} (or an extract of it) was tested for in
           an assay. These are direct food-level measurements — the food

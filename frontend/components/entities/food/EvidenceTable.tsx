@@ -26,6 +26,8 @@ import {
 } from "react-icons/md";
 import { twMerge } from "tailwind-merge";
 
+import { Tooltip } from "@/components/basic/Tooltip";
+
 import Button from "@/components/basic/Button";
 import Chip from "@/components/basic/Chip";
 import { AmbiguityIcon } from "@/components/basic/Ambiguity";
@@ -49,10 +51,6 @@ export type EvidenceRow = {
 
 interface Props {
   evidences: FoodEvidence[] | undefined;
-  // Modal context — used to decide when to mute the Chemical column
-  // (extracted name matches the pivot chemical) and to highlight the
-  // premise.
-  chemicalName: string;
   // Display-cased source names deselected on the table behind the modal
   // ("FoodAtlas", "PTFI", ...). Their rows render greyed and
   // non-interactive but stay in place: the reader deselected a source to
@@ -91,11 +89,7 @@ const flattenEvidences = (
 
 const PAGE_SIZE = 20;
 
-const EvidenceTable = ({
-  evidences,
-  chemicalName,
-  dimmedSourceNames,
-}: Props) => {
+const EvidenceTable = ({ evidences, dimmedSourceNames }: Props) => {
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const reporter = useReportRows();
@@ -231,10 +225,7 @@ const EvidenceTable = ({
                       <SourceBadge source={r.evidence.reference.source_name} />
                     </td>
                     <td className="py-2 px-2 align-top">
-                      <ChemicalCell
-                        extraction={r.extraction}
-                        pivotChemical={chemicalName}
-                      />
+                      <ChemicalCell extraction={r.extraction} />
                     </td>
                     <td className="py-2 px-2 align-top">
                       <ConcentrationCell extraction={r.extraction} />
@@ -415,37 +406,31 @@ const SourceBadge = ({ source }: { source: string }) => {
     title: source,
   };
   return (
-    <span
-      className={twMerge(
-        "inline-flex items-center justify-center rounded-full border px-2 py-[0.05rem] text-[10px] font-mono tracking-wide whitespace-nowrap",
-        meta.tone
-      )}
-      title={meta.title}
-    >
-      {source}
-    </span>
+    <Tooltip content={meta.title}>
+      <span
+        className={twMerge(
+          "inline-flex items-center justify-center rounded-full border px-2 py-[0.05rem] text-[10px] font-mono tracking-wide whitespace-nowrap",
+          meta.tone
+        )}
+      >
+        {source}
+      </span>
+    </Tooltip>
   );
 };
 
-const ChemicalCell = ({
-  extraction,
-  pivotChemical,
-}: {
-  extraction: FoodEvidenceExtraction;
-  pivotChemical: string;
-}) => {
+// One colour for every name, whatever the source. This used to mute a
+// row whose extracted name equalled the row's chemical, so the eye would
+// skim to the rows whose extraction differed — but FDC is normalised
+// data, so its extracted name ALWAYS equals the chemical (22/22 on
+// staging) while literature extractions mostly don't (~1 in 3). The
+// muting therefore read as "FDC rows are greyer", and the mobile card
+// never applied it at all.
+const ChemicalCell = ({ extraction }: { extraction: FoodEvidenceExtraction }) => {
   const name = extraction.extracted_chemical_name;
   if (!name) return <span className="text-light-600">—</span>;
-  // Same-as-pivot rows are muted so eyes skim past them to the rows
-  // whose extraction differs (aliases, ambiguous mappings, etc).
-  const isPivot = name.trim().toLowerCase() === pivotChemical.trim().toLowerCase();
   return (
-    <span
-      className={twMerge(
-        "inline-flex items-center gap-1 align-middle capitalize break-words",
-        isPivot ? "text-light-400" : "text-light-100"
-      )}
-    >
+    <span className="inline-flex items-center gap-1 align-middle capitalize break-words text-light-100">
       {name}
       <AmbiguityIcon chemicalCandidates={extraction.chemical_candidates} />
       {extraction.trust_low && <TrustWarning />}
@@ -502,11 +487,13 @@ const MethodChip = ({ method }: { method: string | null | undefined }) => {
 };
 
 const TrustWarning = () => (
-  <MdWarningAmber
-    className="size-3.5 text-rose-400 shrink-0"
-    aria-label="Low-trust extraction"
-    title="Low-trust extraction"
-  />
+  <Tooltip content="Low-trust extraction">
+    <MdWarningAmber
+      className="size-3.5 text-rose-400 shrink-0"
+      role="img"
+      aria-label="Low-trust extraction"
+    />
+  </Tooltip>
 );
 
 const RowActions = ({
@@ -530,25 +517,27 @@ const RowActions = ({
   return (
     <div className="flex items-center justify-end gap-2 flex-wrap">
       {url ? (
-        <a
-          href={url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-xs font-mono italic text-light-300 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
-          onClick={(e) => e.stopPropagation()}
-          aria-label={linkLabel}
-          title={row.evidence.reference.display_name}
-        >
-          {linkLabel}
-          <MdOpenInNew className="size-3 shrink-0" aria-hidden />
-        </a>
+        <Tooltip content={row.evidence.reference.display_name}>
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-xs font-mono italic text-light-300 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
+            onClick={(e) => e.stopPropagation()}
+            aria-label={linkLabel}
+          >
+            {linkLabel}
+            <MdOpenInNew className="size-3 shrink-0" aria-hidden />
+          </a>
+        </Tooltip>
       ) : (
-        <span
-          className="text-xs font-mono italic text-light-500"
-          title={`${row.evidence.reference.source_name} provides no linkable reference`}
+        <Tooltip
+          content={`${row.evidence.reference.source_name} provides no linkable reference`}
         >
-          {row.evidence.reference.source_name}
-        </span>
+          <span className="text-xs font-mono italic text-light-500">
+            {row.evidence.reference.source_name}
+          </span>
+        </Tooltip>
       )}
       {expandable && (
         <Chip

@@ -49,6 +49,11 @@ import {
   FilterDrawer,
   FilterPanelBody,
 } from "@/components/entities/shared/filters/FilterPanel";
+import {
+  facetOptions,
+  facetUniverse,
+  type FacetOption,
+} from "@/components/entities/shared/filters/facetOptions";
 import { useReportRows } from "@/context/reportModeContext";
 import HillCurveSparkline from "@/components/entities/bioactivity/HillCurveSparkline";
 import { getBioactivityMeasurements } from "@/utils/fetching";
@@ -86,7 +91,8 @@ const MODAL_COLUMNS: SkeletonColumn[] = [
   { key: "evidence", width: "w-[14%]" },
   { key: "value", width: "w-[26%]", align: "right" },
 ];
-const OUTCOME_OPTIONS = ["all", "active", "inactive", "unspecified", "inconclusive"] as const;
+// Reset first, then alphabetical — the order every facet uses.
+const OUTCOME_OPTIONS = ["all", "active", "inactive", "inconclusive", "unspecified"] as const;
 type OutcomeFilter = (typeof OUTCOME_OPTIONS)[number];
 
 // Mirrors the big-table sidebar so users see the same three source
@@ -293,21 +299,19 @@ const BioactivityMeasurementsModal = ({
 
   // Key list comes from the UNFILTERED rows so an option never vanishes
   // mid-interaction; only the counts are faceted, and a zero renders
-  // disabled. Sorted by count desc so the biggest bucket surfaces first.
-  const evidenceTypeOptions = useMemo<
-    { evidence_type: string; count: number }[]
-  >(() => {
+  // disabled. Alphabetical, not busiest-first: the counts move with every
+  // Outcome click, and sorting by them moved the options under the cursor.
+  const evidenceTypeOptions = useMemo<FacetOption[]>(() => {
     const counts = new Map<string, number>();
     rows.forEach((r) => {
-      const et = (r.evidence_type ?? "").trim();
-      if (!et) return;
-      if (!counts.has(et)) counts.set(et, 0);
       if (!rowMatches(r, "evidence")) return;
-      counts.set(et, (counts.get(et) ?? 0) + 1);
+      const et = (r.evidence_type ?? "").trim();
+      if (et) counts.set(et, (counts.get(et) ?? 0) + 1);
     });
-    return Array.from(counts.entries())
-      .map(([evidence_type, count]) => ({ evidence_type, count }))
-      .sort((a, b) => b.count - a.count);
+    return facetOptions(
+      facetUniverse(rows, (r) => r.evidence_type),
+      counts
+    );
   }, [rows, rowMatches]);
 
   const filtered = useMemo(
@@ -597,7 +601,7 @@ const FiltersOnlyPanel = ({
   onOutcomeChange: (o: OutcomeFilter) => void;
   sourceFilter: string;
   onSourceChange: (s: string) => void;
-  evidenceTypeOptions: { evidence_type: string; count: number }[];
+  evidenceTypeOptions: FacetOption[];
   selectedEvidenceTypes: string[];
   onToggleEvidenceType: (etype: string) => void;
   onClearEvidenceTypes: () => void;
@@ -606,20 +610,18 @@ const FiltersOnlyPanel = ({
   <div className="flex flex-col gap-5">
     <FilterGroup label="Outcome">
       <FilterOptionList mode="radio" ariaLabel="Outcome">
-        {OUTCOME_OPTIONS.map((opt) => {
-          const c = outcomeCounts[opt];
-          return (
-            <FilterOption
-              key={opt}
-              mode="radio"
-              label={opt}
-              count={c}
-              selected={outcomeFilter === opt}
-              disabled={showSkeleton || (opt !== "all" && c === 0)}
-              onClick={() => onOutcomeChange(opt)}
-            />
-          );
-        })}
+        {OUTCOME_OPTIONS.map((opt) => (
+          <FilterOption
+            key={opt}
+            mode="radio"
+            label={opt}
+            count={outcomeCounts[opt]}
+            selected={outcomeFilter === opt}
+            resetOption={opt === "all"}
+            disabled={showSkeleton}
+            onClick={() => onOutcomeChange(opt)}
+          />
+        ))}
       </FilterOptionList>
     </FilterGroup>
     {evidenceTypeOptions.length > 0 && (
@@ -630,14 +632,14 @@ const FiltersOnlyPanel = ({
         }
       >
         <FilterOptionList>
-          {evidenceTypeOptions.map(({ evidence_type, count }) => (
+          {evidenceTypeOptions.map(({ value, count }) => (
             <FilterOption
-              key={evidence_type}
-              label={evidence_type}
+              key={value}
+              label={value}
               count={count}
-              selected={selectedEvidenceTypes.includes(evidence_type)}
+              selected={selectedEvidenceTypes.includes(value)}
               disabled={showSkeleton}
-              onClick={() => onToggleEvidenceType(evidence_type)}
+              onClick={() => onToggleEvidenceType(value)}
             />
           ))}
         </FilterOptionList>
@@ -647,20 +649,18 @@ const FiltersOnlyPanel = ({
       <FilterOptionList mode="radio" ariaLabel="Assay Source">
         {/* Counts derived client-side from the modal's row set via
          * `matchesSourceKind` so they match the filter behaviour exactly. */}
-        {SOURCE_KINDS.map(({ key, label }) => {
-          const c = sourceKindCounts[key] ?? 0;
-          return (
-            <FilterOption
-              key={label}
-              mode="radio"
-              label={label}
-              count={c}
-              selected={sourceFilter === key}
-              disabled={showSkeleton || (key !== "" && c === 0)}
-              onClick={() => onSourceChange(key)}
-            />
-          );
-        })}
+        {SOURCE_KINDS.map(({ key, label }) => (
+          <FilterOption
+            key={label}
+            mode="radio"
+            label={label}
+            count={sourceKindCounts[key] ?? 0}
+            selected={sourceFilter === key}
+            resetOption={key === ""}
+            disabled={showSkeleton}
+            onClick={() => onSourceChange(key)}
+          />
+        ))}
       </FilterOptionList>
     </FilterGroup>
   </div>
@@ -1074,7 +1074,6 @@ const SourceBadge = ({
   return (
     <span
       className={`inline-block capitalize text-[10px] leading-tight px-2 py-0.5 rounded-full border ${tone}`}
-      title={source}
     >
       {source}
     </span>

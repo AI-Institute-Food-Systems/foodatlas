@@ -1,5 +1,6 @@
 import ChemicalCompositionTable from "@/components/entities/chemical/ChemicalCompositionTable";
 import { getChemicalCompositionData, getMetaData } from "@/utils/fetching";
+import TableEmptyState from "@/components/entities/shared/TableEmptyState";
 
 interface ChemicalCompositionSectionProps {
   commonName: string;
@@ -19,10 +20,10 @@ const ChemicalCompositionSection = async ({
   // filter chrome implies the user filtered the rows away themselves.
   if (withConc.length === 0 && withoutConc.length === 0) {
     return (
-      <p className="text-sm text-light-500 italic">
-        <span className="capitalize">{commonName}</span> is not recorded in any
-        food in the current data.
-      </p>
+      <TableEmptyState>
+        <span className="capitalize">{commonName}</span> is not recorded in
+        any food in the current data
+      </TableEmptyState>
     );
   }
 

@@ -2,6 +2,7 @@
 
 from unittest.mock import AsyncMock, patch
 
+import pytest
 from fastapi.testclient import TestClient
 
 # -- /chemical/metadata -----------------------------------------------------
@@ -122,6 +123,38 @@ class TestChemicalCorrelation:
                 params={"common_name": "glucose", "relation": "negative"},
             )
         assert resp.status_code == 200
+
+    @pytest.mark.parametrize("path", ["/chemical/correlation", "/disease/correlation"])
+    def test_sort_params_are_forwarded(
+        self, client: TestClient, mock_db: AsyncMock, path: str
+    ) -> None:
+        # The literature tables sort server-side; a header click is only
+        # a sort if these reach the repository.
+        module = path.split("/")[1]
+        with patch(
+            f"src.repositories.{module}.get_correlation",
+            return_value=CHEM_CORR_SAMPLE,
+        ) as mocked:
+            resp = client.get(
+                path,
+                params={"common_name": "glucose", "sort_by": "name", "sort_dir": "asc"},
+            )
+        assert resp.status_code == 200
+        assert mocked.call_args.kwargs["sort_by"] == "name"
+        assert mocked.call_args.kwargs["sort_dir"] == "asc"
+
+    @pytest.mark.parametrize("path", ["/chemical/correlation", "/disease/correlation"])
+    def test_sort_defaults_to_most_evidence_first(
+        self, client: TestClient, mock_db: AsyncMock, path: str
+    ) -> None:
+        module = path.split("/")[1]
+        with patch(
+            f"src.repositories.{module}.get_correlation",
+            return_value=CHEM_CORR_SAMPLE,
+        ) as mocked:
+            client.get(path, params={"common_name": "glucose"})
+        assert mocked.call_args.kwargs["sort_by"] == "evidence_count"
+        assert mocked.call_args.kwargs["sort_dir"] == "desc"
 
 
 # -- /disease/metadata ------------------------------------------------------

@@ -18,14 +18,12 @@
 // carries ANY selected value.
 
 import {
+  FACET_MAX_HEIGHT,
   FilterGroup,
   FilterOption,
   FilterOptionList,
 } from "@/components/entities/shared/filters/FilterControls";
-
-// Long tail: the largest anchors carry ~20 activities. Scrolling keeps
-// the sidebar shorter than the table it filters.
-const FACET_MAX_HEIGHT = "max-h-56";
+import { sortFacetOptions } from "@/components/entities/shared/filters/facetOptions";
 
 export const matchesActivities = (
   activities: string[] | undefined,
@@ -34,20 +32,33 @@ export const matchesActivities = (
   selected.length === 0 ||
   (activities ?? []).some((activity) => selected.includes(activity));
 
-// Rows per activity, deduped within a row. Callers pass the set filtered
-// by everything EXCEPT the activity selection, so an option never reads
-// zero merely because another is picked.
+// Rows per activity, deduped within a row.
+//
+// `universe` is every activity the UNFILTERED rows carry; `rows` is the
+// set filtered by everything EXCEPT the activity selection. Every key in
+// the universe comes back, zero when no filtered row carries it, so an
+// activity the search excluded greys out rather than disappearing — the
+// list was once keyed on the filtered rows, and typing made options
+// vanish.
 export const countActivities = (
-  rows: { bioactivities?: string[] }[]
+  rows: { bioactivities?: string[] }[],
+  universe: readonly string[] = activitiesOf(rows)
 ): Record<string, number> => {
   const counts: Record<string, number> = {};
+  for (const activity of universe) counts[activity] = 0;
   for (const row of rows) {
     for (const activity of Array.from(new Set(row.bioactivities ?? []))) {
-      counts[activity] = (counts[activity] ?? 0) + 1;
+      if (activity in counts) counts[activity] += 1;
     }
   }
   return counts;
 };
+
+/** The distinct activities across a row set. */
+export const activitiesOf = (
+  rows: { bioactivities?: string[] }[]
+): string[] =>
+  Array.from(new Set(rows.flatMap((row) => row.bioactivities ?? [])));
 
 interface Props {
   selected: string[];
@@ -64,11 +75,10 @@ const ActivityFilterGroup = ({
   onClear,
   countsLoaded = true,
 }: Props) => {
-  // Busiest first, like every other facet here — the tail is long and
-  // alphabetical order would bury the activities that carry the rows.
-  const options = Object.entries(counts).sort(
-    ([aName, a], [bName, b]) => b - a || aName.localeCompare(bName)
-  );
+  // Alphabetical. Busiest-first was the rule here once, on the argument
+  // that the tail is long — but the counts move with every other filter,
+  // so the options reshuffled on every click. The tail scrolls instead.
+  const options = sortFacetOptions(Object.entries(counts), ([name]) => name);
   if (options.length === 0) return null;
 
   return (
@@ -84,7 +94,6 @@ const ActivityFilterGroup = ({
             count={count}
             countsLoaded={countsLoaded}
             selected={selected.includes(activity)}
-            disabled={countsLoaded && count === 0}
             onClick={() => onToggle(activity)}
           />
         ))}

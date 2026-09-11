@@ -6,7 +6,7 @@
 // doesn't cover shows no literature badge at all, and a row served by an API
 // that predates these fields still renders instead of taking the tab down.
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 beforeAll(() => {
@@ -33,9 +33,7 @@ import BioactivityDiseasesSection from "@/components/entities/bioactivity/Bioact
 import LiteratureBadge, {
   verdictFor,
 } from "@/components/entities/shared/LiteratureBadge";
-import TargetGeneChips, {
-  targetUrl,
-} from "@/components/entities/shared/TargetGeneChips";
+import { targetUrl } from "@/components/entities/shared/AssayDetailModals";
 import { getBioactivityDiseases } from "@/utils/fetching";
 
 const diseaseRow = (over: Record<string, unknown> = {}) => ({
@@ -95,13 +93,34 @@ describe("Bioactivity Diseases tab", () => {
     expect(shown(/0 ther\./)).toBe(true);
   });
 
-  it("names the protein target rather than showing a bare gene id", async () => {
+  it("states the target count on a button and lists them in a modal", async () => {
+    // The same button and modal the assay-inferred tables use. This cell
+    // was the last one still rendering inline chips plus a "+N" tooltip —
+    // unreachable on touch, uncopyable, and an arbitrary slice.
     await mount([diseaseRow()]);
     await waitFor(() => expect(shown("melanoma")).toBe(true));
-    // Long labels are truncated to keep the chip on one line, so match the
-    // readable stem rather than the whole string.
-    expect(shown(/^Cellular tumor an/)).toBe(true);
-    expect(shown("NCBIGene: 7157")).toBe(false);
+    expect(shown("Cellular tumor antigen p53")).toBe(false);
+    fireEvent.click(screen.getAllByText("See 1 target")[0]);
+    await waitFor(() =>
+      expect(screen.getByText("Protein targets")).toBeInTheDocument()
+    );
+    // The label is whole here, not truncated as a chip had to be, and the
+    // id links out.
+    expect(screen.getByText("Cellular tumor antigen p53")).toBeInTheDocument();
+    expect(screen.getByText("NCBIGene: 7157").closest("a")).toHaveAttribute(
+      "href",
+      expect.stringContaining("ncbi.nlm.nih.gov/gene/7157")
+    );
+  });
+
+  it("names the disease the targets belong to", async () => {
+    await mount([diseaseRow()]);
+    await waitFor(() => expect(shown("melanoma")).toBe(true));
+    fireEvent.click(screen.getAllByText("See 1 target")[0]);
+    await waitFor(() =>
+      expect(screen.getByText("Protein targets")).toBeInTheDocument()
+    );
+    expect(screen.getAllByText("melanoma").length).toBeGreaterThan(1);
   });
 
   it("still renders when the API predates the evidence fields", async () => {
@@ -138,51 +157,10 @@ describe("LiteratureBadge", () => {
   });
 });
 
-describe("TargetGeneChips", () => {
+describe("targetUrl", () => {
   it("links Entrez and UniProt ids to their own databases", () => {
     expect(targetUrl("NCBIGene: 7157")).toContain("ncbi.nlm.nih.gov/gene/7157");
     expect(targetUrl("UniProt: P04637")).toContain("uniprotkb/P04637");
     expect(targetUrl("something else")).toBeNull();
-  });
-
-  it("falls back to the id when no label was resolved", () => {
-    render(<TargetGeneChips targets={[{ id: "NCBIGene: 999", label: null }]} />);
-    expect(screen.getAllByText("NCBIGene: 999").length).toBeGreaterThan(0);
-  });
-
-  it("truncates long labels so a chip cannot wrap the row open", () => {
-    // Untruncated, this label wrapped inside its ~180px column and took the
-    // row from 30px to 115px.
-    render(
-      <TargetGeneChips
-        targets={[
-          {
-            id: "NCBIGene: 3417",
-            label: "Isocitrate dehydrogenase [NADP] cytoplasmic",
-          },
-        ]}
-      />,
-    );
-    // textContent also carries Link's trailing external-link arrow, so measure
-    // the label up to the ellipsis.
-    const chip = screen.getAllByText(/^Isocitrate/)[0];
-    const label = chip.textContent!.split("…")[0] + "…";
-    expect(label.length).toBeLessThanOrEqual(18);
-    expect(chip.textContent).toContain("…");
-  });
-
-  it("collapses the overflow rather than listing every target", () => {
-    render(
-      <TargetGeneChips
-        targets={[
-          { id: "NCBIGene: 1", label: "one" },
-          { id: "NCBIGene: 2", label: "two" },
-          { id: "NCBIGene: 3", label: "three" },
-          { id: "NCBIGene: 4", label: "four" },
-        ]}
-        visible={2}
-      />,
-    );
-    expect(screen.getAllByText("+2").length).toBeGreaterThan(0);
   });
 });

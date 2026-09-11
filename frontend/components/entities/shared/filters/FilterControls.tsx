@@ -19,6 +19,7 @@ import { MdCheck, MdClose, MdSearch } from "react-icons/md";
 import { twMerge } from "tailwind-merge";
 
 import Skeleton from "@/components/basic/Skeleton";
+import { InfoTip } from "@/components/basic/Tooltip";
 
 const FilterRowLabel = ({ children }: { children: ReactNode }) => (
   <span className="font-mono italic text-[11px] uppercase tracking-wider text-light-400 min-w-[3.5rem]">
@@ -70,21 +71,19 @@ const ToggleSwitch = ({
   count,
   checked,
   onChange,
-  title,
+  help,
 }: {
   label: string;
   count?: number;
   checked: boolean;
   onChange: () => void;
-  // Hover text for the whole row. Worth setting whenever `count` is not
-  // "rows you will get" — every other count in these panels is, so a
-  // toggle counting something else needs to say so.
-  title?: string;
+  // An "i" after the label. Worth setting whenever `count` is not "rows
+  // you will get" — every other count in these panels is, so a toggle
+  // counting something else needs to say so. Was a native `title` on the
+  // row, i.e. the browser's tooltip rather than the app's.
+  help?: string;
 }) => (
-  <label
-    title={title}
-    className="flex items-center gap-2 cursor-pointer select-none"
-  >
+  <label className="flex items-center gap-2 cursor-pointer select-none">
     <Switch
       checked={checked}
       onChange={onChange}
@@ -100,6 +99,7 @@ const ToggleSwitch = ({
     >
       {label}
     </span>
+    {help && <InfoTip content={help} label={`About ${label}`} />}
     {typeof count === "number" && (
       <span
         className={twMerge(
@@ -112,6 +112,12 @@ const ToggleSwitch = ({
     )}
   </label>
 );
+
+// The cap for a long-tailed facet (units, activities, categories): the list
+// scrolls past this rather than collapsing behind a "N more…" link. Options
+// are alphabetical, so a top-N would hide whatever happens to sort late —
+// uM, the commonest unit, would sit under "5 more".
+export const FACET_MAX_HEIGHT = "max-h-56";
 
 // Wraps a run of FilterOptions. `maxHeightClass` caps tall facet lists.
 const FilterOptionList = ({
@@ -146,13 +152,26 @@ const FilterOptionList = ({
 // collapsed into one component.
 //
 // A zero-count option renders disabled rather than hidden, so the facet list
-// keeps its shape across pivot entities instead of reshuffling.
+// keeps its shape across pivot entities instead of reshuffling. That rule
+// lives HERE, not at the call sites: it was written by hand at eleven of
+// them, and the ones that forgot it hid the option instead, so the same
+// facet disabled its empties on one page and dropped them on the next.
+//
+// Two exceptions, both about not trapping the user:
+//   - a SELECTED zero stays live. The composition Source facet starts with
+//     everything on, and a source whose count is zero for this food was
+//     greyed out AND checked — it sat in the query and could not be
+//     removed. A zero you already hold is a zero you must be able to drop.
+//   - the group's reset option (`resetOption`) is never disabled. Its
+//     count is the current total, and when a search empties the table that
+//     total is 0 — disabling "All" there would leave no way back.
 const FilterOption = ({
   label,
   count,
   selected,
   onClick,
   disabled,
+  resetOption = false,
   mode = "check",
   capitalize = true,
   countsLoaded = true,
@@ -161,7 +180,11 @@ const FilterOption = ({
   count?: number;
   selected: boolean;
   onClick: () => void;
+  // Extra reasons to disable (a loading skeleton, a dimmed source). ORed
+  // with the zero-count rule above, never a replacement for it.
   disabled?: boolean;
+  // The "All"/"Any" choice of a radio group. Exempt from the zero rule.
+  resetOption?: boolean;
   mode?: "check" | "radio";
   // Off for case-significant labels. Units are the reason this exists:
   // `capitalize` turns uM into UM and ug/mL into Ug/mL. Prose labels
@@ -171,21 +194,25 @@ const FilterOption = ({
   // from "genuinely zero" — without it a row shows no count, stays enabled,
   // then greys out under the cursor when the counts land.
   countsLoaded?: boolean;
-}) => (
+}) => {
+  const zero = countsLoaded && count === 0 && !selected && !resetOption;
+  const isDisabled = Boolean(disabled) || zero;
+  return (
   <button
     type="button"
     onClick={onClick}
-    disabled={disabled}
+    disabled={isDisabled}
+    title={label}
     role={mode === "radio" ? "radio" : undefined}
     aria-checked={mode === "radio" ? selected : undefined}
     aria-pressed={mode === "check" ? selected : undefined}
-    aria-disabled={disabled || undefined}
+    aria-disabled={isDisabled || undefined}
     className={twMerge(
       "group w-full flex items-center gap-2 pl-1 pr-2 py-1 rounded transition-colors text-left",
       selected
         ? "text-light-100 hover:bg-light-900/70"
         : "text-light-400 hover:text-light-100 hover:bg-light-900/50",
-      disabled &&
+      isDisabled &&
         "opacity-40 cursor-not-allowed hover:bg-transparent hover:text-light-400"
     )}
   >
@@ -197,7 +224,7 @@ const FilterOption = ({
         selected
           ? "border-accent-600 bg-accent-600/20 text-accent-600"
           : "border-light-700 group-hover:border-light-500",
-        disabled && "group-hover:border-light-700"
+        isDisabled && "group-hover:border-light-700"
       )}
     >
       {selected &&
@@ -207,6 +234,10 @@ const FilterOption = ({
           <MdCheck className="w-3 h-3" />
         ))}
     </span>
+    {/* `truncate` clips long labels to the w-48 sidebar ("molecular-level"
+      * becomes "Molecular…"), so the row carries the full text as its
+      * tooltip. On the button, not the span, so hovering anywhere on the
+      * row — the tick, the count — shows it. */}
     <span
       className={twMerge(
         "font-mono italic text-xs flex-1 min-w-0 truncate",
@@ -229,7 +260,8 @@ const FilterOption = ({
       !countsLoaded && <Skeleton className="h-3 w-5 flex-shrink-0" />
     )}
   </button>
-);
+  );
+};
 
 // THE search box for every filter panel. Seven copies of this existed; six
 // agreed and the chemical composition one was a `rounded-full bg-light-800`

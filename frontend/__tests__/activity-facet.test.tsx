@@ -6,9 +6,11 @@
 // row per activity instead of one per chemical. So the dimension is now a
 // facet plus a per-row cell, and the grain stays one row per chemical.
 
+import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import {
+import ActivityFilterGroup, {
+  activitiesOf,
   countActivities,
   matchesActivities,
 } from "@/components/entities/shared/filters/ActivityFilterGroup";
@@ -55,5 +57,75 @@ describe("countActivities", () => {
 
   it("ignores rows with no activities", () => {
     expect(countActivities([{ bioactivities: undefined }])).toEqual({});
+  });
+});
+
+describe("countActivities with a universe", () => {
+  it("returns every universe key, zero when no filtered row carries it", () => {
+    // The keys used to come from the FILTERED rows, so a search that
+    // excluded an activity dropped it from the sidebar instead of
+    // greying it out.
+    const counts = countActivities([row("anticancer")], [
+      "anticancer",
+      "antiviral",
+    ]);
+    expect(counts).toEqual({ anticancer: 1, antiviral: 0 });
+  });
+
+  it("ignores activities outside the universe", () => {
+    expect(countActivities([row("stale")], ["anticancer"])).toEqual({
+      anticancer: 0,
+    });
+  });
+});
+
+describe("activitiesOf", () => {
+  it("collects the distinct activities across rows", () => {
+    expect(
+      activitiesOf([row("anticancer", "antiviral"), row("antiviral")])
+    ).toEqual(["anticancer", "antiviral"]);
+  });
+});
+
+describe("ActivityFilterGroup's list", () => {
+  it("is alphabetical, whatever the counts", () => {
+    // Busiest-first was the rule here, on the argument that the tail is
+    // long. But the counts move with every other filter, so the options
+    // reshuffled on every click.
+    const { container } = render(
+      <ActivityFilterGroup
+        selected={[]}
+        counts={{ antiviral: 9, anticancer: 1, "anti-inflammatory": 5 }}
+        onToggle={() => {}}
+        onClear={() => {}}
+      />
+    );
+    const labels = Array.from(
+      container.querySelectorAll("button[aria-pressed]")
+    ).map((b) =>
+      (
+        Array.from(b.children).find(
+          (c) => c.tagName === "SPAN" && !c.hasAttribute("aria-hidden") && !c.className.includes("tabular-nums")
+        )?.textContent ?? ""
+      ).trim()
+    );
+    expect(labels).toEqual(["anti-inflammatory", "anticancer", "antiviral"]);
+  });
+
+  it("keeps a zero in place, disabled", () => {
+    const { container } = render(
+      <ActivityFilterGroup
+        selected={[]}
+        counts={{ anticancer: 0, antiviral: 2 }}
+        onToggle={() => {}}
+        onClear={() => {}}
+      />
+    );
+    const buttons = container.querySelectorAll<HTMLButtonElement>(
+      "button[aria-pressed]"
+    );
+    expect(buttons).toHaveLength(2);
+    expect(buttons[0]).toBeDisabled();
+    expect(buttons[1]).toBeEnabled();
   });
 });

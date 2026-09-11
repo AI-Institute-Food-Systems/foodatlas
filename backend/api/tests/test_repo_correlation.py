@@ -196,6 +196,57 @@ class TestPairGrouping:
         assert "MIN(" not in _sql(session, 0)
 
 
+class TestBuildOrder:
+    # The literature tables sort server-side, so the header click has to
+    # become an ORDER BY the query can actually take. Allowlisted: the key
+    # arrives on the query string.
+
+    def test_default_is_evidence_count_desc_with_name_tiebreak(self) -> None:
+        assert (
+            _correlation.build_order("evidence_count", "desc", "disease_name")
+            == "ORDER BY SUM(evidence_count) DESC, disease_name"
+        )
+
+    def test_name_sorts_by_the_peer_column_alone(self) -> None:
+        # The peer name IS the tiebreaker, so it is not repeated.
+        assert (
+            _correlation.build_order("name", "asc", "disease_name")
+            == "ORDER BY disease_name ASC"
+        )
+
+    def test_qualifies_evidence_count_like_the_peer(self) -> None:
+        # The disease page query aliases the view as `c`; both columns
+        # must carry it or Postgres reports an ambiguous reference.
+        assert (
+            _correlation.build_order("evidence_count", "asc", "c.chemical_name")
+            == "ORDER BY SUM(c.evidence_count) ASC, c.chemical_name"
+        )
+
+    @pytest.mark.parametrize("bad", ["", "drop table", "name; --", "EVIDENCE_COUNT"])
+    def test_unknown_key_falls_back_to_the_default(self, bad: str) -> None:
+        assert _correlation.build_order(bad, "asc", "disease_name") == (
+            "ORDER BY SUM(evidence_count) ASC, disease_name"
+        )
+
+    @pytest.mark.parametrize("bad", ["", "sideways", "DESC; --"])
+    def test_unknown_direction_is_desc(self, bad: str) -> None:
+        assert _correlation.build_order("name", bad, "disease_name").endswith(" DESC")
+
+    @pytest.mark.asyncio
+    async def test_reaches_the_chemical_page_query(self) -> None:
+        session = _session([], 0)
+        await chem_correlation(session, "caffeine", sort_by="name", sort_dir="asc")
+        assert "ORDER BY disease_name ASC" in _sql(session, 0)
+
+    @pytest.mark.asyncio
+    async def test_reaches_the_disease_page_query(self) -> None:
+        session = _session([], 0)
+        await disease_correlation(
+            session, "diabetes", sort_by="evidence_count", sort_dir="asc"
+        )
+        assert "ORDER BY SUM(c.evidence_count) ASC, c.chemical_name" in _sql(session, 0)
+
+
 class TestMergeEvidences:
     def test_unions_both_directions(self) -> None:
         merged = _correlation.merge_evidences(

@@ -273,8 +273,12 @@ describe("composition source filter", () => {
       .getAllByText(/Low-trust data points/i)[0]
       .closest("label");
     expect(toggle).toBeTruthy();
-    expect(toggle?.getAttribute("title") ?? "").toMatch(
-      /does not change how many chemicals are listed/i
-    );
+    // The explanation is the app's tooltip (InfoTip), not a native title —
+    // the same box every other "i" in the app opens.
+    const info = toggle!.querySelector('[role="img"][aria-label^="About"]');
+    expect(info, "no InfoTip beside the toggle").toBeTruthy();
+    fireEvent.mouseEnter(info!.parentElement!);
+    const tip = await screen.findByRole("tooltip");
+    expect(tip.textContent).toMatch(/does not change how many chemicals are listed/i);
   });
 });

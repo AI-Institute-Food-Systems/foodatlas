@@ -16,6 +16,7 @@ import {
   FilterDrawer,
   FilterPanelBody,
 } from "@/components/entities/shared/filters/FilterPanel";
+import { sortFacetOptions } from "@/components/entities/shared/filters/facetOptions";
 import { SOURCE_DISPLAY_NAMES } from "@/components/entities/food/compositionSources";
 import { FoodEvidence, FoodEvidenceExtraction } from "@/types/Evidence";
 
@@ -27,31 +28,20 @@ export type EvidenceFilter = "all" | "low-trust";
 // see the same radio-row shape on both modals. "All" leads as the no-filter
 // option; the rest are derived from the evidence actually present, because
 // this list used to be hardcoded to FoodAtlas + FDC and so could never offer
-// PTFI. Known sources keep a stable order; anything new sorts after them
-// rather than being dropped.
+// PTFI. Alphabetical after "All", like every facet.
 //
 // The option list comes from the UNFILTERED evidence set on purpose. Its
 // counts are faceted (see countExtractions), and deriving the list from those
 // counts would make a source vanish the moment another filter zeroed it —
 // leaving no way to click back to it. The row disables at zero instead.
-const SOURCE_ORDER = ["FDC", "FoodAtlas", "PTFI"];
-
 const buildSourceKinds = (
   keys: string[],
-): { key: string; label: string }[] => {
-  const present = [...keys].sort((a, b) => {
-    const ia = SOURCE_ORDER.indexOf(a);
-    const ib = SOURCE_ORDER.indexOf(b);
-    if (ia !== -1 && ib !== -1) return ia - ib;
-    if (ia !== -1) return -1;
-    if (ib !== -1) return 1;
-    return a.localeCompare(b);
-  });
-  return [
-    { key: "", label: "All" },
-    ...present.map((k) => ({ key: k, label: k })),
-  ];
-};
+): { key: string; label: string }[] =>
+  sortFacetOptions(
+    [{ key: "", label: "All" }, ...keys.map((k) => ({ key: k, label: k }))],
+    (o) => o.label,
+    { pinFirst: ["All"] }
+  );
 
 const matchesSource = (
   ev: FoodEvidence,
@@ -348,7 +338,6 @@ const FoodCompositionEvidenceModal = ({
 
       <EvidenceTable
         evidences={displayedEvidences}
-        chemicalName={chemicalName}
         dimmedSourceNames={dimmedSourceNames}
       />
 
@@ -426,10 +415,10 @@ const FiltersPanel = ({
             label={label}
             count={sourceCounts[key] ?? 0}
             selected={sourceKind === key}
-            disabled={
-              key !== "" &&
-              ((sourceCounts[key] ?? 0) === 0 || dimmedSourceNames.has(key))
-            }
+            resetOption={key === ""}
+            // A source the table's own Source filter has deselected is
+            // dimmed here too; the zero-count case is FilterOption's.
+            disabled={dimmedSourceNames.has(key)}
             onClick={() => onSourceKindChange(key)}
           />
         ))}
@@ -456,6 +445,7 @@ const FiltersPanel = ({
           label="All"
           count={totalCount}
           selected={filter === "all"}
+          resetOption
           onClick={() => onSetFilter("all")}
         />
         <FilterOption
@@ -463,7 +453,6 @@ const FiltersPanel = ({
           label="Low-trust only"
           count={lowTrustCount}
           selected={filter === "low-trust"}
-          disabled={lowTrustCount === 0 && filter !== "low-trust"}
           onClick={() => onSetFilter("low-trust")}
         />
       </FilterOptionList>

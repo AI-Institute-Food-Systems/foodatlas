@@ -7,16 +7,19 @@ import {
   MdCheck,
   MdClose,
   MdDescription,
-  MdErrorOutline,
-  MdInfoOutline,
-  MdKeyboardArrowDown,
-  MdKeyboardArrowUp,
   MdTune,
-  MdUnfoldMore,
 } from "react-icons/md";
 import { twMerge } from "tailwind-merge";
 
 import Card from "@/components/basic/Card";
+import { Tooltip } from "@/components/basic/Tooltip";
+import {
+  MobileSort,
+  nextSort,
+  Th,
+  type SortableColumn,
+  type SortDir,
+} from "@/components/entities/shared/EvidenceTable";
 import ResetFiltersButton from "@/components/basic/ResetFiltersButton";
 import Chip from "@/components/basic/Chip";
 import Link from "@/components/basic/Link";
@@ -26,7 +29,6 @@ import {
   TableSkeletonCards,
   TableSkeletonRows,
 } from "@/components/basic/TableSkeleton";
-import SortListbox from "@/components/basic/SortListbox";
 import { useReportRows } from "@/context/reportModeContext";
 import { AmbiguityBadge } from "@/components/basic/Ambiguity";
 import { TrustBadge } from "@/components/basic/TrustBadge";
@@ -34,7 +36,6 @@ import FoodCompositionEvidenceModal, {
   EvidenceFilter,
 } from "@/components/entities/food/FoodCompositionEvidenceModal";
 import {
-  ClearFiltersLink,
   FilterGroup,
   FilterOption,
   FilterOptionList,
@@ -56,6 +57,7 @@ import {
   SOURCE_OPTIONS,
 } from "@/components/entities/food/compositionSources";
 import { FoodCompositionData } from "@/types";
+import TableEmptyState from "@/components/entities/shared/TableEmptyState";
 
 // headers for table
 // One spec drives the <colgroup>, the <th>s and the loading skeleton, so
@@ -90,6 +92,8 @@ const TABLE_HEADERS = [
   },
 ];
 
+// Alphabetical, with the catch-all pinned last — the order every facet
+// uses, so an option stays where the eye left it.
 const CLASSIFICATION_OPTIONS = [
   "alkaloid",
   "amino acid",
@@ -157,7 +161,7 @@ const FoodCompositionSection = ({
   // keystroke was its own request.
   const debouncedSearch = useDebouncedValue(searchTerm);
   const [sourceFilters, setSourceFilters] = useState<string[]>(ALL_SOURCE_VALUES);
-  const [sort, setSort] = useState({
+  const [sort, setSort] = useState<{ column: string; direction: SortDir }>({
     column: "median_concentration",
     direction: "desc",
   });
@@ -196,48 +200,15 @@ const FoodCompositionSection = ({
   // Mobile card view sort options — mirror the sortable desktop
   // columns. Each option encodes column|direction as a single value so
   // the <select> can drive both dimensions in one interaction.
-  const MOBILE_SORT_OPTIONS: {
-    value: string;
-    label: string;
-    column: string;
-    direction: "asc" | "desc";
-  }[] = [
+  // The card list has no headers to click, so the sort is a listbox
+  // there. Phrases, not arrows: "Chemical ↓" is ambiguous for text.
+  const MOBILE_SORT_COLUMNS: SortableColumn[] = [
     {
-      value: "median_concentration|desc",
-      label: "Highest concentration",
-      column: "median_concentration",
-      direction: "desc",
+      key: "median_concentration",
+      labels: { desc: "Highest concentration", asc: "Lowest concentration" },
     },
-    {
-      value: "median_concentration|asc",
-      label: "Lowest concentration",
-      column: "median_concentration",
-      direction: "asc",
-    },
-    {
-      value: "evidence_count|desc",
-      label: "Most evidence",
-      column: "evidence_count",
-      direction: "desc",
-    },
-    {
-      value: "evidence_count|asc",
-      label: "Least evidence",
-      column: "evidence_count",
-      direction: "asc",
-    },
-    {
-      value: "common_name|asc",
-      label: "Chemical A–Z",
-      column: "common_name",
-      direction: "asc",
-    },
-    {
-      value: "common_name|desc",
-      label: "Chemical Z–A",
-      column: "common_name",
-      direction: "desc",
-    },
+    { key: "evidence_count", labels: { desc: "Most evidence", asc: "Least evidence" } },
+    { key: "common_name", labels: { asc: "Chemical A–Z", desc: "Chemical Z–A" } },
   ];
 
   // Faceted counts — refetched whenever any filter changes. Each
@@ -488,17 +459,16 @@ const FoodCompositionSection = ({
   // "clear filters" button so the reader doesn't confuse "your filters
   // returned nothing" with "this food has no composition data at all".
   const emptyStateBody = isFiltersDirty ? (
-    <div className="flex flex-col items-center gap-2 text-light-300">
-      <div className="flex items-center gap-2 text-sm">
-        <MdInfoOutline />
-        No associations match your filters
-      </div>
-      <ClearFiltersLink onClick={resetAllFilters} />
-    </div>
+    <TableEmptyState onClearFilters={resetAllFilters}>
+      No associations match your filters
+    </TableEmptyState>
   ) : (
-    <div className="flex items-center gap-2 text-light-300 text-sm">
-      <MdInfoOutline /> No associations found
-    </div>
+    <TableEmptyState>No associations found</TableEmptyState>
+  );
+  const errorStateBody = (
+    <TableEmptyState error>
+      An error occurred fetching data, please refresh the page
+    </TableEmptyState>
   );
 
   // handle evidence button click
@@ -577,16 +547,20 @@ const FoodCompositionSection = ({
     setTablePaginations("food-composition-table", 1, 20);
   };
 
-  // handle sort column click
+  // Header click: the shared rule (nextSort) — a new column starts
+  // largest-first for numbers and A→Z for the name, the same column
+  // flips. This table used to start every column ascending, so its
+  // first click on Concentration gave the LOWEST values while every
+  // other table's gave the highest.
   const handleSortClick = (sortName: string) => {
-    setSort((prevSort: { column: string; direction: string }) => {
-      setTablePaginations("food-composition-table", 1, 20);
-      const isSameColumn = prevSort.column === sortName;
-      return {
-        column: sortName,
-        direction:
-          isSameColumn && prevSort.direction === "asc" ? "desc" : "asc",
-      };
+    setTablePaginations("food-composition-table", 1, 20);
+    setSort((prev) => {
+      const next = nextSort(
+        { by: prev.column, dir: prev.direction },
+        sortName,
+        sortName === "common_name" ? "asc" : "desc"
+      );
+      return { column: next.by, direction: next.dir };
     });
   };
 
@@ -672,7 +646,7 @@ const FoodCompositionSection = ({
             // toggle reveals 7 hidden points across 5 chemicals and the
             // list stays at 271, which reads as a broken filter next to
             // Source and Class counts that do mean "rows you will get".
-            title={
+            help={
               "Counts chemicals that have at least one hidden low-trust " +
               "data point. Turning this on reveals those points inside " +
               "those chemicals' evidence — it does not change how many " +
@@ -687,25 +661,19 @@ const FoodCompositionSection = ({
       {/* source — checkbox list, one row per source */}
       <FilterGroup label="Source">
         <FilterOptionList>
-          {SOURCE_OPTIONS.map((opt) => {
-            const c = sourceCounts[opt.value];
-            const isSelected = sourceFilters.includes(opt.value);
-            return (
-              <FilterOption
-                key={opt.value}
-                label={opt.label}
-                count={c}
-                countsLoaded={countsLoaded}
-                selected={isSelected}
-                onClick={() => toggleSource(opt.value)}
-                // A count of 0 disables the option — but never while it's
-                // still selected, or the user is trapped. On pepper (raw)
-                // FDC is 0 and selected by default, so the one combination
-                // that works (PTFI alone) was unreachable by clicking.
-                disabled={countsLoaded && c === 0 && !isSelected}
-              />
-            );
-          })}
+          {/* Every source starts selected, and on pepper (raw) FDC is 0 —
+            * FilterOption keeps a selected zero clickable so it can be
+            * dropped; see the rule there. */}
+          {SOURCE_OPTIONS.map((opt) => (
+            <FilterOption
+              key={opt.value}
+              label={opt.label}
+              count={sourceCounts[opt.value]}
+              countsLoaded={countsLoaded}
+              selected={sourceFilters.includes(opt.value)}
+              onClick={() => toggleSource(opt.value)}
+            />
+          ))}
         </FilterOptionList>
       </FilterGroup>
 
@@ -736,7 +704,6 @@ const FoodCompositionSection = ({
                 countsLoaded={countsLoaded}
                 selected={classificationFilter.includes(cls)}
                 onClick={() => toggleClassification(cls)}
-                disabled={countsLoaded && c === 0}
               />
             );
           })}
@@ -763,23 +730,14 @@ const FoodCompositionSection = ({
            * reflects the filtered total via usePublishTabCount. Mobile
            * sort stays here (no column headers to click on card view). */}
           {!isLoading && numberOfRows > 0 && (
-            <div className="mb-1.5 mt-1 md:hidden flex justify-end items-center gap-2">
-              <span className="font-mono italic text-[11px] text-light-500">
-                sort
-              </span>
-              <SortListbox
-                value={`${sort.column}|${sort.direction}`}
-                options={MOBILE_SORT_OPTIONS}
-                onChange={(value) => {
-                  const opt = MOBILE_SORT_OPTIONS.find(
-                    (o) => o.value === value
-                  );
-                  if (!opt) return;
-                  setSort({ column: opt.column, direction: opt.direction });
-                  setTablePaginations("food-composition-table", 1, 20);
-                }}
-              />
-            </div>
+            <MobileSort
+              sort={{ by: sort.column, dir: sort.direction }}
+              columns={MOBILE_SORT_COLUMNS}
+              onChange={({ by, dir }) => {
+                setSort({ column: by, direction: dir });
+                setTablePaginations("food-composition-table", 1, 20);
+              }}
+            />
           )}
           {/* table — desktop only. Card list below covers mobile. */}
           <div
@@ -814,49 +772,30 @@ const FoodCompositionSection = ({
               </colgroup>
               <thead className="text-light-400 text-left">
                 <tr>
-                  {/* table headers */}
                   {TABLE_HEADERS.map((header, index) => (
-                    <th
-                      key={index}
-                      className={`h-9 border-b border-light-700 leading-none break-all md:break-normal py-1.5 ${
+                    <Th
+                      key={header.key}
+                      align={header.align === "right" ? "right" : undefined}
+                      className={twMerge(
+                        "break-all md:break-normal",
                         index === 0
-                          ? "pr-4"
+                          ? "pr-4 pl-0"
                           : index === TABLE_HEADERS.length - 1
-                          ? "pl-4"
+                          ? "pl-4 pr-0"
                           : "px-4"
-                      } ${header.align === "right" ? "text-right" : "text-left"}`}
+                      )}
+                      sort={
+                        header.sortName
+                          ? {
+                              active: header.sortName === sort.column,
+                              dir: sort.direction,
+                              onClick: () => handleSortClick(header.sortName),
+                            }
+                          : undefined
+                      }
                     >
-                      <div
-                        className={`group flex gap-1 items-center flex-nowrap w-full ${
-                          header.sortName
-                            ? "cursor-pointer"
-                            : "pointer-events-none"
-                        } ${header.align === "right" ? "justify-end" : "justify-between"}`}
-                        onClick={() =>
-                          header.sortName && handleSortClick(header.sortName)
-                        }
-                      >
-                        <span
-                          className={`select-none uppercase text-xs font-medium group-hover:text-light-100 transition duration-300 ease-in-out ${
-                            header.sortName === sort.column
-                              ? "text-light-100"
-                              : ""
-                          }`}
-                        >
-                          {header.label}
-                        </span>
-                        {header.sortName &&
-                          (header.sortName === sort.column ? (
-                            sort.direction === "asc" ? (
-                              <MdKeyboardArrowDown className="text-accent-600 group-hover:text-accent-300 transition duration-300 ease-in-out flex-shrink-0" />
-                            ) : (
-                              <MdKeyboardArrowUp className="text-accent-600 group-hover:text-accent-300 transition duration-300 ease-in-out flex-shrink-0" />
-                            )
-                          ) : (
-                            <MdUnfoldMore className="text-light-400 group-hover:text-light-100 transition duration-300 ease-in-out flex-shrink-0" />
-                          ))}
-                      </div>
-                    </th>
+                      {header.label}
+                    </Th>
                   ))}
                 </tr>
               </thead>
@@ -866,12 +805,7 @@ const FoodCompositionSection = ({
                 ) : isError ? (
                   // error message
                   <tr>
-                    <td colSpan={TABLE_HEADERS.length}>
-                      <div className="h-[10rem] flex items-center justify-center text-red-400 gap-2">
-                        <MdErrorOutline /> An error occurred fetching data,
-                        please refresh the page
-                      </div>
-                    </td>
+                    <td colSpan={TABLE_HEADERS.length}>{errorStateBody}</td>
                   </tr>
                 ) : data.length > 0 ? (
                   data.map((row) => {
@@ -961,15 +895,14 @@ const FoodCompositionSection = ({
                                   {formatConcentrationValueAlt(v)}
                                 </span>
                                 {fmtPct && (
-                                  <span
-                                    className="font-mono text-xs text-light-500 whitespace-nowrap tabular-nums text-right min-w-[3.5rem]"
-                                    title="Percentage of the food's mass"
-                                  >
-                                    {fmtPct}
-                                    <span className="ml-1 text-light-600">
-                                      by mass
+                                  <Tooltip content="Percentage of the food's mass">
+                                    <span className="font-mono text-xs text-light-500 whitespace-nowrap tabular-nums text-right min-w-[3.5rem]">
+                                      {fmtPct}
+                                      <span className="ml-1 text-light-600">
+                                        by mass
+                                      </span>
                                     </span>
-                                  </span>
+                                  </Tooltip>
                                 )}
                               </>
                             );
@@ -999,11 +932,7 @@ const FoodCompositionSection = ({
                 ) : (
                   // no rows
                   <tr>
-                    <td colSpan={TABLE_HEADERS.length}>
-                      <div className="h-[10rem] flex items-center justify-center">
-                        {emptyStateBody}
-                      </div>
-                    </td>
+                    <td colSpan={TABLE_HEADERS.length}>{emptyStateBody}</td>
                   </tr>
                 )}
                 {/* add empty rows to make up for the total of 20 rows */}
@@ -1039,10 +968,7 @@ const FoodCompositionSection = ({
               }
             >
               {isError ? (
-                <div className="w-full py-6 flex items-center justify-center text-red-400 gap-2">
-                  <MdErrorOutline /> An error occurred fetching data, please
-                  refresh the page
-                </div>
+                errorStateBody
               ) : data.length > 0 ? (
                 data.map((row) => {
                   const isHighlighted =
@@ -1135,12 +1061,11 @@ const FoodCompositionSection = ({
                             {fmtPct && (
                               <span className="text-light-500 text-xs">
                                 {fmtPct}
-                                <span
-                                  className="ml-1 not-italic text-light-600"
-                                  title="Percentage of the food's mass"
-                                >
-                                  by mass
-                                </span>
+                                <Tooltip content="Percentage of the food's mass">
+                                  <span className="ml-1 not-italic text-light-600">
+                                    by mass
+                                  </span>
+                                </Tooltip>
                               </span>
                             )}
                           </>
@@ -1166,9 +1091,7 @@ const FoodCompositionSection = ({
                   );
                 })
               ) : (
-                <div className="w-full py-6 flex items-center justify-center">
-                  {emptyStateBody}
-                </div>
+                emptyStateBody
               )}
             </div>
           </div>
