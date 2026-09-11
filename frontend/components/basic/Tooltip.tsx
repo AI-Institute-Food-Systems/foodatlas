@@ -169,8 +169,15 @@ export const Tooltip = ({
             {/* Wraps at a readable width rather than running to the edge
               * of the screen: the old bubble was nowrap, so a sentence-long
               * explanation was a 900px bar shoved sideways to fit. Short
-              * content is unaffected. */}
-            <div className="relative max-w-[min(22rem,calc(100vw-1rem))] rounded-md bg-light-800 p-2.5 text-[14px] text-left leading-relaxed tracking-wide text-light-300 shadow-sm [font-weight:400]">
+              * content is unaffected.
+              *
+              * The bubble owns its width; content cannot be wider than it.
+              * `[&_*]:max-w-full` caps every descendant at the bubble's
+              * inner width, so a content block that sets its own `w-[28rem]`
+              * (the Efficacy help did) wraps inside the background instead
+              * of running past it; `break-words` does the same for a token
+              * with no break in it (a URL, a long chemical name). */}
+            <div className="relative max-w-[min(22rem,calc(100vw-1rem))] rounded-md bg-light-800 p-2.5 text-[14px] text-left leading-relaxed tracking-wide text-light-300 shadow-sm [font-weight:400] break-words [&_*]:max-w-full">
               {content}
               {/* The pointer: a rotated square on whichever edge faces the
                 * trigger, centred under it. */}

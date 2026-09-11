@@ -71,6 +71,36 @@ describe("tooltip conventions", () => {
     expect(offenders).toEqual([]);
   });
 
+  it("never gives tooltip content a width of its own", () => {
+    // The bubble sets the width. A `w-…` on the content is either
+    // narrower than the bubble (pointless) or wider (runs past the
+    // background, which the Efficacy help did at w-[28rem]). Scans the
+    // value of every `content={…}` / `help={…}` prop.
+    const offenders: string[] = [];
+    for (const f of SOURCES) {
+      if (f === TOOLTIP) continue;
+      const src = code(f);
+      const re = /\b(content|help)=\{/g;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(src)) !== null) {
+        // The prop value: balance the braces from the opening one.
+        let depth = 0;
+        let i = m.index + m[0].length - 1;
+        for (; i < src.length; i += 1) {
+          if (src[i] === "{") depth += 1;
+          else if (src[i] === "}" && --depth === 0) break;
+        }
+        const value = src.slice(m.index, i + 1);
+        // The width class may be first in the list or after whitespace.
+        if (/className="(?:[^"]*\s)?(?:min-)?w-(?:\[|\d|px|full|screen)/.test(value)) {
+          const line = src.slice(0, m.index).split("\n").length;
+          offenders.push(`${rel(f)}:${line}`);
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
   it("uses InfoTip for the 'i', never a hand-assembled one", () => {
     // <Tooltip><MdInfoOutline …/></Tooltip> outside Tooltip.tsx is InfoTip
     // rebuilt by hand, and the copies drift (size, colour, aria-label).
