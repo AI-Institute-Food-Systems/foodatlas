@@ -3,6 +3,7 @@ import TaxonomyTree from "@/components/entities/TaxonomyTree";
 import { getTaxonomyData } from "@/utils/fetching";
 import { TaxonomyEdge, TaxonomyNode } from "@/types";
 import type { TreeNode } from "@/components/entities/TaxonomyTree";
+import Heading from "@/components/basic/Heading";
 
 interface TaxonomySectionProps {
   commonName: string;
@@ -103,9 +104,9 @@ const TaxonomySection = async ({
   // of apothecary sections rather than a mix of chip labels and
   // uppercase micro-headings.
   const heading = (
-    <span className="self-start -ml-3 bg-light-200 shadow-inner shadow-light-50 rounded-r-md px-2.5 py-0.5 font-mono italic font-medium text-light-900 text-[10px] tracking-[0.12em] uppercase">
+    <Heading type="h3" variant="chip" className="self-start">
       Taxonomy
-    </span>
+    </Heading>
   );
 
   const tree = (

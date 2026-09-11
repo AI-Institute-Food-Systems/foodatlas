@@ -11,6 +11,7 @@ import { Metadata } from "@/types";
 import type { EntityType } from "@/components/entities/EntityTabs";
 import type { ReportContext } from "@/types/Report";
 import { encodeSpace } from "@/utils/utils";
+import Heading from "@/components/basic/Heading";
 
 interface Props {
   entityType: EntityType;
@@ -68,9 +69,9 @@ const Section = ({
         : "flex flex-col gap-3 pt-5 border-t-2 border-double border-light-700/60"
     }
   >
-    <span className="self-start -ml-3 bg-light-200 shadow-inner shadow-light-50 rounded-r-md px-2.5 py-0.5 font-mono italic font-medium text-light-900 text-[10px] tracking-[0.12em] uppercase">
+    <Heading type="h3" variant="chip" className="self-start">
       {label}
-    </span>
+    </Heading>
     <div className="text-sm text-light-200 leading-relaxed">{children}</div>
   </section>
 );

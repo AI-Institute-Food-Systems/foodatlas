@@ -51,6 +51,7 @@ import {
 import { encodeSpace, formatConcentrationValueAlt } from "@/utils/utils";
 import type { BioactivityMeasurement } from "@/types";
 import TableEmptyState from "@/components/entities/shared/TableEmptyState";
+import Heading from "@/components/basic/Heading";
 
 // The card list has no headers to click, so the sort is a listbox there.
 const MOBILE_SORT_COLUMNS: SortableColumn[] = [
@@ -391,9 +392,9 @@ const FoodInferredBioactivitiesSection = ({
        * card-catalog sections. The italic line frames the data as
        * inferred, not directly observed in the food. */}
       <div className="flex flex-col gap-2">
-        <span className="self-start bg-light-200 shadow-inner shadow-light-50 rounded-r-md px-2.5 py-0.5 font-mono italic font-medium text-light-900 text-[10px] tracking-[0.12em] uppercase -ml-3">
+        <Heading type="h3" variant="chip" className="self-start">
           Inferred via composition
-        </span>
+        </Heading>
         <p className="font-serif italic text-light-400 text-sm">
           Bioactivities of chemicals found in {commonName}. The chemical
           was measured against the activity directly — {commonName} itself

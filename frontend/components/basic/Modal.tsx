@@ -97,9 +97,12 @@ const Modal = ({
                 {sidebar}
               </aside>
             )}
-            {/* modal header */}
+            {/* modal header — the same chip the entity pages label their
+              * sections with, so a modal opened from a table reads as part
+              * of it. -ml-3 hangs into the panel's padding (px-5 / p-7),
+              * the way the section chips hang past the content edge. */}
             <div className="flex justify-between items-center shrink-0">
-              <Heading className="capitalize" type="h3" variant="boxed">
+              <Heading type="h3" variant="chip">
                 {title}
               </Heading>
               <Button
