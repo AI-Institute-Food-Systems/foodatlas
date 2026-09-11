@@ -61,3 +61,15 @@ describe("FilterOption's zero-count rule", () => {
     expect(option({ count: 1 })).not.toHaveAttribute("aria-disabled");
   });
 });
+
+describe("FilterOption's label", () => {
+  it("is available in full on hover, since the sidebar truncates it", () => {
+    // "molecular-level" renders as "Molecular…" in the w-48 sidebar. The
+    // tooltip is on the row, so hovering the tick or the count shows it
+    // too — not only the clipped text itself.
+    expect(option({ label: "molecular-level", count: 3 })).toHaveAttribute(
+      "title",
+      "molecular-level"
+    );
+  });
+});

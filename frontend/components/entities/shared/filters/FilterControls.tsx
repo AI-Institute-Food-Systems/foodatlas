@@ -202,6 +202,7 @@ const FilterOption = ({
     type="button"
     onClick={onClick}
     disabled={isDisabled}
+    title={label}
     role={mode === "radio" ? "radio" : undefined}
     aria-checked={mode === "radio" ? selected : undefined}
     aria-pressed={mode === "check" ? selected : undefined}
@@ -233,6 +234,10 @@ const FilterOption = ({
           <MdCheck className="w-3 h-3" />
         ))}
     </span>
+    {/* `truncate` clips long labels to the w-48 sidebar ("molecular-level"
+      * becomes "Molecular…"), so the row carries the full text as its
+      * tooltip. On the button, not the span, so hovering anywhere on the
+      * row — the tick, the count — shows it. */}
     <span
       className={twMerge(
         "font-mono italic text-xs flex-1 min-w-0 truncate",
