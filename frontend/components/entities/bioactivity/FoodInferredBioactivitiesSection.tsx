@@ -471,7 +471,9 @@ const FoodInferredBioactivitiesSection = ({
                   onClick: () => handleSortClick("efficacy"),
                 }}
                 help={
-                  <div className="w-[28rem] max-w-[calc(100vw-3rem)]">
+                  // No width of its own: the tooltip bubble sets it, and a
+                  // wider block here ran the text past the background.
+                  <div>
                     <p className="mb-2 text-light-400">
                       <span className="font-medium text-amber-300">
                         Caveat

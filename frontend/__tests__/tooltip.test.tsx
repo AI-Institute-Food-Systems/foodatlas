@@ -154,6 +154,26 @@ describe("Tooltip", () => {
   });
 });
 
+describe("Tooltip content width", () => {
+  it("caps every descendant at the bubble's width", async () => {
+    // The Efficacy help set its own w-[28rem] inside a 22rem bubble and
+    // the text ran past the background. jsdom does no layout, so what is
+    // pinned here is the rule that makes it impossible: the bubble's
+    // content box caps all descendants and breaks unbreakable tokens.
+    layout(rect(400, 600, 16, 16), rect(0, 0, 120, 40));
+    render(
+      <Tooltip content={<div className="w-[100rem]">wide</div>}>
+        <span>trigger</span>
+      </Tooltip>
+    );
+    const tip = await open();
+    const box = tip.firstElementChild as HTMLElement;
+    expect(box.className).toContain("[&_*]:max-w-full");
+    expect(box.className).toContain("break-words");
+    expect(box.className).toMatch(/max-w-\[min\(22rem/);
+  });
+});
+
 describe("InfoTip", () => {
   it("is the one 'i' glyph, named for what it explains", () => {
     render(<InfoTip content="what it means" label="About the Efficacy column" />);
