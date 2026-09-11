@@ -38,16 +38,37 @@ describe("tooltip conventions", () => {
     expect(offenders.map(rel)).toEqual([]);
   });
 
-  it("never puts a native title on an icon", () => {
-    // An icon with `title=` is a hover explanation rendered by the
-    // browser — a different box, differently placed, from the one every
-    // other "i" in the app opens. Wrap it in <Tooltip> instead.
-    // (Native `title` on TEXT that truncates is fine and stays: revealing
-    // clipped text is what the browser's tooltip is for.)
-    const offenders = SOURCES.filter((f) =>
-      /<Md[A-Z]\w*\b(?:(?!\/>)[\s\S])*?\btitle=/.test(code(f))
+  it("uses a native title only to reveal clipped text", () => {
+    // Every `title=` in the tree is one of exactly three things:
+    //   - a <Modal title=…> — a heading prop, not a hover;
+    //   - on an element whose tag carries `truncate` — the browser's
+    //     tooltip revealing text the layout clipped, which is its job;
+    //   - FilterOption's row title in FilterControls.tsx — the same
+    //     reveal, on the row so the tick and count show it too.
+    // Anything else is an explanation rendered by the browser: a
+    // different box, differently placed, from the one every "i" in the
+    // app opens. Wrap it in <Tooltip> instead. Structural rather than a
+    // list of files, so a new `title="What this column means"` on a
+    // <th> or an icon fails here rather than shipping.
+    const FILTER_CONTROLS = join(
+      ROOT, "components", "entities", "shared", "filters", "FilterControls.tsx"
     );
-    expect(offenders.map(rel)).toEqual([]);
+    const offenders: string[] = [];
+    for (const f of SOURCES) {
+      if (f === TOOLTIP || f === FILTER_CONTROLS) continue;
+      const src = code(f);
+      const re = /\btitle=/g;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(src)) !== null) {
+        const tagStart = src.lastIndexOf("<", m.index);
+        const tag = src.slice(tagStart, m.index);
+        const name = /^<([A-Za-z][\w.]*)/.exec(tag)?.[1] ?? "";
+        if (name === "Modal" || /\btruncate\b/.test(tag)) continue;
+        const line = src.slice(0, m.index).split("\n").length;
+        offenders.push(`${rel(f)}:${line} <${name}>`);
+      }
+    }
+    expect(offenders).toEqual([]);
   });
 
   it("uses InfoTip for the 'i', never a hand-assembled one", () => {

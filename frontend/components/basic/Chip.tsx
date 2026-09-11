@@ -34,7 +34,6 @@ interface ChipProps {
   href?: string;
   target?: string;
   rel?: string;
-  title?: string;
   className?: string;
   disabled?: boolean;
   "aria-pressed"?: boolean;
@@ -75,7 +74,6 @@ const Chip = ({
   href,
   target,
   rel,
-  title,
   className,
   disabled,
   ...aria
@@ -109,7 +107,6 @@ const Chip = ({
         href={href}
         target={target}
         rel={rel}
-        title={title}
         className={commonClass}
         {...aria}
       >
@@ -122,7 +119,6 @@ const Chip = ({
       <button
         type="button"
         onClick={onClick}
-        title={title}
         disabled={disabled}
         className={commonClass}
         {...aria}
@@ -132,7 +128,7 @@ const Chip = ({
     );
   }
   return (
-    <span title={title} className={commonClass} {...aria}>
+    <span className={commonClass} {...aria}>
       {body}
     </span>
   );
