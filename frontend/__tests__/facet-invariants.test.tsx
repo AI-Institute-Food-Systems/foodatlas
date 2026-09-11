@@ -67,12 +67,21 @@ vi.mock("@/utils/fetching", () => ({
   getChemicalCompositionEvidence: vi.fn().mockResolvedValue([]),
   getFoodCompositionData: vi.fn(),
   getFoodCompositionCounts: vi.fn(),
+  getCorrelationDirectionCounts: vi
+    .fn()
+    .mockResolvedValue({ improves: 2, worsens: 1, both: 3 }),
+  getDiseaseData: vi.fn(),
+  getChemicalDiseaseAssociations: vi.fn(),
 }));
 
 import BioactivityMeasurementsModal from "@/components/entities/bioactivity/BioactivityMeasurementsModal";
+import ChemicalCompositionTable from "@/components/entities/chemical/ChemicalCompositionTable";
 import FoodCompositionEvidenceModal from "@/components/entities/food/FoodCompositionEvidenceModal";
 import FoodCompositionSection from "@/components/entities/food/FoodCompositionSection";
+import CorrelationEvidenceTab from "@/components/entities/shared/CorrelationEvidenceTab";
 import {
+  getChemicalDiseaseAssociations,
+  getDiseaseData,
   getFoodCompositionCounts,
   getFoodCompositionData,
 } from "@/utils/fetching";
@@ -271,7 +280,116 @@ const installCompositionServer = () => {
   }) as never);
 };
 
-const SURFACES: Record<string, FacetSurface> = {
+// What a filter panel promises, as two separable properties:
+//   counts — the number beside an option is the rows you get by picking it
+//   list   — the options offered and their order do not depend on the
+//            current filters; a zero is disabled in place, not hidden
+// Separable because a surface can legitimately sit out ONE of them: the
+// correlation tab's counts each govern a different table, so "count ==
+// rows on screen" is false by construction — but its option lists are
+// plain client wiring and must hold like everyone else's. The first
+// version of this registry excluded whole surfaces with a single reason,
+// and a reason that was true for the counts silently waived the list.
+type Property = "counts" | "list";
+const PROPERTIES: Property[] = ["counts", "list"];
+
+interface RegisteredSurface extends FacetSurface {
+  // Defaults to every property.
+  properties?: Property[];
+}
+
+const LITERATURE_ROWS = [
+  {
+    id: "d1",
+    name: "inflammation",
+    relationship_ids: ["r4"],
+    source_chemical_name: "caffeine",
+    source_chemical_foodatlas_id: "e1",
+    sources: [],
+    improves_evidences: [{ pmid: { id: "1", url: "https://example.test/1" } }],
+    worsens_evidences: null,
+    ambiguity_siblings: [],
+  },
+  {
+    id: "d2",
+    name: "diabetes",
+    relationship_ids: ["r3"],
+    source_chemical_name: "caffeine",
+    source_chemical_foodatlas_id: "e1",
+    sources: [],
+    improves_evidences: null,
+    worsens_evidences: [{ pmid: { id: "2", url: "https://example.test/2" } }],
+    ambiguity_siblings: [],
+  },
+];
+
+const assay = (
+  disease: string,
+  relationships: string[],
+  bioactivities: string[]
+) => ({
+  chemical_name: "caffeine",
+  chemical_foodatlas_id: "e1",
+  disease_name: disease,
+  disease_foodatlas_id: `d-${disease}`,
+  n_assays: 3,
+  n_active_measurements: 2,
+  relationships,
+  target_genes: [],
+  targets: [],
+  assays: [],
+  bioactivities,
+});
+
+const ASSAY_ROWS = [
+  assay("inflammation", ["therapeutic"], ["anticancer", "antiviral"]),
+  assay("diabetes", ["marker/mechanism"], ["antiviral"]),
+  assay("asthma", ["therapeutic", "marker/mechanism"], ["anti-inflammatory"]),
+];
+
+const COMPOSITION_FOODS = [
+  { id: "f1", name: "onion", median_concentration: { value: 1000, unit: "mg/100g" }, evidence_count: 12, fdc_count: 12 },
+  { id: "f2", name: "apple", median_concentration: { value: 250, unit: "mg/100g" }, evidence_count: 1, foodatlas_count: 1 },
+  { id: "f3", name: "parsley", median_concentration: { value: 1, unit: "mg/100g" }, evidence_count: 4, ptfi_count: 4 },
+];
+const COMPOSITION_UNMEASURED = [
+  { id: "f4", name: "kale", median_concentration: null, evidence_count: 7, fdc_count: 7 },
+];
+
+const SURFACES: Record<string, RegisteredSurface> = {
+  // Keyed by the file that renders the <FilterGroup — the toolbar — while
+  // mounting the table that owns its state.
+  "ChemicalCompositionToolbar": {
+    mount: async () => {
+      render(
+        <ChemicalCompositionTable
+          withConcentrations={COMPOSITION_FOODS as never}
+          withoutConcentrations={COMPOSITION_UNMEASURED as never}
+          commonName="quercetin"
+          chemicalId="c1"
+        />
+      );
+      await waitFor(() => expect(countTableRows()).toBeGreaterThan(0));
+    },
+    countRows: countTableRows,
+  },
+  "CorrelationEvidenceTab": {
+    mount: async () => {
+      vi.mocked(getDiseaseData).mockResolvedValue({
+        data: { associations: LITERATURE_ROWS },
+        metadata: { total_rows: LITERATURE_ROWS.length, total_pages: 1 },
+      } as never);
+      vi.mocked(getChemicalDiseaseAssociations).mockResolvedValue({
+        data: ASSAY_ROWS,
+        metadata: { row_count: ASSAY_ROWS.length },
+      } as never);
+      render(<CorrelationEvidenceTab commonName="caffeine" anchor="chemical" />);
+      await waitFor(() => expect(countTableRows()).toBeGreaterThan(0));
+    },
+    countRows: countTableRows,
+    // Counts sit out — see its EXCLUDED entry for why and where they live.
+    properties: ["list"],
+  },
   "BioactivityMeasurementsModal": {
     mount: async () => {
       render(
@@ -314,52 +432,102 @@ const SURFACES: Record<string, FacetSurface> = {
   },
 };
 
-// Surfaces not driven through this harness, each with a reason. The
-// registry test below fails if a filtering component is missing from BOTH
-// SURFACES and this list, so nothing drops out silently.
-const EXCLUDED: Record<string, string> = {
-  "components/entities/shared/filters/ActivityFilterGroup.tsx":
-    "a filter group rendered inside other surfaces; covered through them",
-  "components/entities/shared/filters/SignalFilterGroup.tsx":
-    "a filter group rendered inside other surfaces; covered through them",
-  "components/entities/bioactivity/BioactivityTable.tsx":
-    "server-driven, same reasoning; the facet endpoints are covered by " +
-    "backend TestBioactivityCountsAgreeWithRows.",
-  "components/entities/bioactivity/FoodBioactivitiesTab.tsx":
-    "hosts shared chrome for two BioactivityTables rather than owning its " +
-    "own counts; the tables' facets are server-side and covered above.",
-  "components/entities/chemical/ChemicalCompositionToolbar.tsx":
-    "toolbar over a fully client-side table whose counts are derived in " +
-    "chemical-composition-helpers.ts and unit-tested there.",
-  "components/entities/shared/CorrelationEvidenceTab.tsx":
-    "direction counts come from /correlation/direction-counts; covered by " +
-    "correlation-merge.test.tsx.",
+// A (surface, property) pair not driven through this harness, with the
+// reason and WHERE it is covered instead. `coveredBy` is checked, not
+// read: a test file that must exist, or `surface:<Name>` — a registered
+// surface that renders this component and carries the property. The
+// registry test fails if any filtering component lacks coverage for any
+// property, so nothing drops out silently and a reason for one property
+// cannot waive another.
+interface Exclusion {
+  why: string;
+  coveredBy: string;
+}
+const EXCLUDED: Record<string, Partial<Record<Property, Exclusion>>> = {
+  "components/entities/shared/filters/ActivityFilterGroup.tsx": {
+    counts: {
+      why: "counts are countActivities(), a pure function; the group only renders them",
+      coveredBy: "__tests__/activity-facet.test.tsx",
+    },
+    list: {
+      why: "rendered inside CorrelationEvidenceTab",
+      coveredBy: "surface:CorrelationEvidenceTab",
+    },
+  },
+  "components/entities/shared/filters/SignalFilterGroup.tsx": {
+    counts: {
+      why: "counts are countSignals(), a pure function; the group only renders them",
+      coveredBy: "__tests__/signal-filter.test.tsx",
+    },
+    list: {
+      why: "rendered inside CorrelationEvidenceTab",
+      coveredBy: "surface:CorrelationEvidenceTab",
+    },
+  },
+  "components/entities/shared/CorrelationEvidenceTab.tsx": {
+    counts: {
+      why:
+        "two tables under one panel — Direction filters the literature " +
+        "table, Signal/Activity the assay table — so no count is 'rows on " +
+        "screen'. Direction is pinned per table there; Signal and Activity " +
+        "by signal-filter.test.tsx / activity-facet.test.tsx.",
+      coveredBy: "__tests__/correlation-merge.test.tsx",
+    },
+  },
+  "components/entities/bioactivity/BioactivityTable.tsx": {
+    counts: {
+      why:
+        "server-driven; the facet predicates are executed against real " +
+        "Postgres by backend test_filter_predicates_pg.py",
+      coveredBy: "__tests__/bioactivity-facet-list.test.tsx",
+    },
+    list: {
+      why: "asserted against a GROUP-BY-shaped mock of the counts endpoints",
+      coveredBy: "__tests__/bioactivity-facet-list.test.tsx",
+    },
+  },
+  "components/entities/bioactivity/FoodBioactivitiesTab.tsx": {
+    counts: {
+      why: "sums two BioactivityTables' server-side counts; see BioactivityTable",
+      coveredBy: "__tests__/bioactivity-facet-list.test.tsx",
+    },
+    list: {
+      why: "asserted against a GROUP-BY-shaped mock of the counts endpoints",
+      coveredBy: "__tests__/bioactivity-facet-list.test.tsx",
+    },
+  },
 };
 
 // --- the invariants ---------------------------------------------------
 
+const carries = (surface: RegisteredSurface, p: Property): boolean =>
+  (surface.properties ?? PROPERTIES).includes(p);
+
 describe.each(Object.entries(SURFACES))("%s", (_name, surface) => {
-  it("advertises counts that equal the rows the option yields", async () => {
+  const counts = carries(surface, "counts") ? it : it.skip;
+  const list = carries(surface, "list") ? it : it.skip;
+
+  counts("advertises counts that equal the rows the option yields", async () => {
     await assertFacetCountsMatchRows(surface, cleanup);
   });
 
-  it("never promises rows over an empty table", async () => {
+  counts("never promises rows over an empty table", async () => {
     await assertNoEmptyTableUnderPositiveCount(surface, cleanup);
   });
 
-  it("recomputes its facets when another filter narrows the set", async () => {
+  counts("recomputes its facets when another filter narrows the set", async () => {
     await assertFacetsRespondToOtherFilters(surface, cleanup);
   });
 
-  it("keeps option counts truthful while a toggle switch is on", async () => {
+  counts("keeps option counts truthful while a toggle switch is on", async () => {
     await assertOptionCountsHoldUnderSwitches(surface, cleanup);
   });
 
-  it("lists every group's options alphabetically", async () => {
+  list("lists every group's options alphabetically", async () => {
     await assertOptionsAlphabetical(surface, cleanup);
   });
 
-  it("keeps the same options, in the same order, under any filter", async () => {
+  list("keeps the same options, in the same order, under any filter", async () => {
     await assertOptionSetStableAcrossFilters(surface, cleanup);
   });
 });
@@ -387,20 +555,58 @@ describe("filtering surface registry", () => {
     expect(filteringSurfaces().length).toBeGreaterThanOrEqual(5);
   });
 
-  it("covers or explicitly excludes every filtering surface", () => {
-    const registered = new Set(
-      Object.keys(SURFACES).map((n) => n.replace(/^.*\//, ""))
-    );
-    const unaccounted = filteringSurfaces().filter((rel) => {
-      if (rel in EXCLUDED) return false;
-      return !registered.has(path.basename(rel, ".tsx"));
-    });
+  const registeredFor = (name: string, p: Property): boolean => {
+    const surface = SURFACES[name];
+    return surface !== undefined && carries(surface, p);
+  };
+
+  it("covers every filtering surface for every property", () => {
+    const unaccounted: string[] = [];
+    for (const rel of filteringSurfaces()) {
+      const name = path.basename(rel, ".tsx");
+      for (const p of PROPERTIES) {
+        if (registeredFor(name, p)) continue;
+        if (EXCLUDED[rel]?.[p]) continue;
+        unaccounted.push(`${rel} [${p}]`);
+      }
+    }
     expect(unaccounted,
-      `these render <FilterGroup but are neither registered in SURFACES nor ` +
-        `listed in EXCLUDED with a reason: ${unaccounted.join(", ")}. A ` +
-        `filter panel with no invariant test is how both the composition and ` +
-        `assays-modal count bugs shipped.`
+      `these render <FilterGroup but are neither registered in SURFACES for ` +
+        `the property nor excluded from it with a reason: ` +
+        `${unaccounted.join(", ")}. A filter panel with no invariant test is ` +
+        `how the composition and assays-modal count bugs shipped; a surface ` +
+        `excluded for its COUNTS with nothing said about its LIST is how the ` +
+        `hidden-option and reshuffle bugs shipped past this file.`
     ).toEqual([]);
+  });
+
+  it("points every exclusion at coverage that exists", () => {
+    // A reason is prose; `coveredBy` is checked. Either a test file on
+    // disk, or a registered surface carrying that property.
+    const missing: string[] = [];
+    for (const [rel, byProperty] of Object.entries(EXCLUDED)) {
+      for (const [p, ex] of Object.entries(byProperty)) {
+        const ref = ex.coveredBy;
+        const ok = ref.startsWith("surface:")
+          ? registeredFor(ref.slice("surface:".length), p as Property)
+          : fs.existsSync(path.resolve(__dirname, "..", ref));
+        if (!ok) missing.push(`${rel} [${p}] → ${ref}`);
+      }
+    }
+    expect(missing, `exclusions pointing at coverage that does not exist: ${missing}`).toEqual([]);
+  });
+
+  it("does not exclude a property the surface is also registered for", () => {
+    // Belt and braces: an exclusion that duplicates a registration is
+    // stale the moment the registration changes.
+    const both: string[] = [];
+    for (const [rel, byProperty] of Object.entries(EXCLUDED)) {
+      const name = path.basename(rel, ".tsx");
+      for (const p of Object.keys(byProperty) as Property[]) {
+        if (registeredFor(name, p)) both.push(`${rel} [${p}]`);
+      }
+    }
+    expect(both).toEqual([]);
   });
 
   it("has no stale exclusions", () => {
