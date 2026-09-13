@@ -39,7 +39,7 @@ import {
   FoodEvidenceExtraction,
 } from "@/types/Evidence";
 import { formatConcentrationValueAlt, formatUnit } from "@/utils/utils";
-import { greekVariants, matchesWithGreek } from "@/utils/greekLetters";
+import { highlightPremise } from "@/components/entities/food/highlightPremise";
 
 // A flat "one row per extraction" view. Keeps a back-pointer to its
 // parent FoodEvidence so we can render the paper premise + reference
@@ -561,53 +561,4 @@ const ExpandedPremise = ({ row }: { row: EvidenceRow }) => {
       )}
     </div>
   );
-};
-
-// Splits the premise on any of the extraction's terms (with greek
-// variants) and colour-codes chemical / food / concentration matches.
-// Same routine the old FoodAtlasEvidence used, hoisted here so the
-// flat row's expanded view carries the same highlighting behaviour.
-const highlightPremise = (evidence: FoodEvidence): React.ReactNode => {
-  const terms = evidence.extraction.flatMap((e) =>
-    [
-      e.extracted_chemical_name,
-      e.extracted_food_name,
-      e.extracted_concentration,
-    ].flatMap((name) => greekVariants(name))
-  );
-  if (terms.length === 0) return evidence.premise;
-  // Safe to interpolate without escaping here: greekVariants() returns
-  // already-escaped strings. Escaping again would double the backslashes and
-  // stop matching anything.
-  const regex = new RegExp(`(${terms.join("|")})`, "gi");
-  return evidence.premise.split(regex).map((part, index) => {
-    const match = evidence.extraction.find(
-      (e) =>
-        matchesWithGreek(part, e.extracted_food_name) ||
-        matchesWithGreek(part, e.extracted_chemical_name) ||
-        matchesWithGreek(part, e.extracted_concentration)
-    );
-    if (matchesWithGreek(part, match?.extracted_food_name)) {
-      return (
-        <span key={index} className="text-amber-500 bg-amber-500/10">
-          {part}
-        </span>
-      );
-    }
-    if (matchesWithGreek(part, match?.extracted_chemical_name)) {
-      return (
-        <span key={index} className="text-cyan-400 bg-cyan-500/10">
-          {part}
-        </span>
-      );
-    }
-    if (matchesWithGreek(part, match?.extracted_concentration)) {
-      return (
-        <span key={index} className="text-teal-400 bg-teal-500/10">
-          {part}
-        </span>
-      );
-    }
-    return part;
-  });
 };
