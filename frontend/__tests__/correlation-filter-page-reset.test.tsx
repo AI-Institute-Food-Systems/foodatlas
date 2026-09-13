@@ -61,7 +61,7 @@ beforeEach(() => {
 describe("literature table page reset", () => {
   it.each([
     ["search", { search: "quercetin" }],
-    ["direction", { direction: "improves" as const }],
+    ["direction", { direction: "positive" as const }],
   ])("goes back to page 1 when the %s filter changes", async (_label, next) => {
     const { rerender } = render(
       <PaginationsProvider>
