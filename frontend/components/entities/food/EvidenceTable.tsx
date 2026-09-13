@@ -16,7 +16,6 @@
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 import {
-  MdChevronRight,
   MdKeyboardArrowLeft,
   MdKeyboardArrowRight,
   MdKeyboardDoubleArrowLeft,
@@ -29,15 +28,18 @@ import { twMerge } from "tailwind-merge";
 import { Tooltip } from "@/components/basic/Tooltip";
 
 import Button from "@/components/basic/Button";
-import Chip from "@/components/basic/Chip";
 import { AmbiguityIcon } from "@/components/basic/Ambiguity";
+import {
+  RowExpandChip,
+  RowExpandPanel,
+} from "@/components/entities/shared/EvidenceTable";
 import { useReportRows } from "@/context/reportModeContext";
 import {
   FoodEvidence,
   FoodEvidenceExtraction,
 } from "@/types/Evidence";
 import { formatConcentrationValueAlt, formatUnit } from "@/utils/utils";
-import { greekVariants, matchesWithGreek } from "@/utils/greekLetters";
+import { highlightPremise } from "@/components/entities/food/highlightPremise";
 
 // A flat "one row per extraction" view. Keeps a back-pointer to its
 // parent FoodEvidence so we can render the paper premise + reference
@@ -248,14 +250,9 @@ const EvidenceTable = ({ evidences, dimmedSourceNames }: Props) => {
                     </td>
                   </tr>
                   {isExpanded && (
-                    <tr>
-                      <td
-                        colSpan={5}
-                        className="py-3 px-3 bg-light-900/30 border-l-2 border-l-accent-600 border-b border-light-700/40"
-                      >
-                        <ExpandedPremise row={r} />
-                      </td>
-                    </tr>
+                    <RowExpandPanel colSpan={5}>
+                      <ExpandedPremise row={r} />
+                    </RowExpandPanel>
                   )}
                 </Fragment>
               );
@@ -318,9 +315,9 @@ const EvidenceTable = ({ evidences, dimmedSourceNames }: Props) => {
                 <MethodChip method={r.extraction.method} />
               </div>
               {isExpanded && (
-                <div className="w-full pt-2 border-t border-l-2 border-l-accent-600 border-light-700/40 pl-3 pr-2 pb-1">
+                <RowExpandPanel>
                   <ExpandedPremise row={r} />
-                </div>
+                </RowExpandPanel>
               )}
             </div>
           );
@@ -540,25 +537,7 @@ const RowActions = ({
         </Tooltip>
       )}
       {expandable && (
-        <Chip
-          icon={
-            <MdChevronRight
-              className={twMerge(
-                "size-3.5 transition-transform duration-150",
-                expanded && "rotate-90"
-              )}
-            />
-          }
-          label={expanded ? "Hide" : "Premise"}
-          tone={expanded ? "cream" : "outline"}
-          size="sm"
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggle();
-          }}
-          aria-label={expanded ? "Hide premise" : "Show premise"}
-          aria-pressed={expanded}
-        />
+        <RowExpandChip what="Premise" expanded={expanded} onToggle={onToggle} />
       )}
     </div>
   );
@@ -582,53 +561,4 @@ const ExpandedPremise = ({ row }: { row: EvidenceRow }) => {
       )}
     </div>
   );
-};
-
-// Splits the premise on any of the extraction's terms (with greek
-// variants) and colour-codes chemical / food / concentration matches.
-// Same routine the old FoodAtlasEvidence used, hoisted here so the
-// flat row's expanded view carries the same highlighting behaviour.
-const highlightPremise = (evidence: FoodEvidence): React.ReactNode => {
-  const terms = evidence.extraction.flatMap((e) =>
-    [
-      e.extracted_chemical_name,
-      e.extracted_food_name,
-      e.extracted_concentration,
-    ].flatMap((name) => greekVariants(name))
-  );
-  if (terms.length === 0) return evidence.premise;
-  // Safe to interpolate without escaping here: greekVariants() returns
-  // already-escaped strings. Escaping again would double the backslashes and
-  // stop matching anything.
-  const regex = new RegExp(`(${terms.join("|")})`, "gi");
-  return evidence.premise.split(regex).map((part, index) => {
-    const match = evidence.extraction.find(
-      (e) =>
-        matchesWithGreek(part, e.extracted_food_name) ||
-        matchesWithGreek(part, e.extracted_chemical_name) ||
-        matchesWithGreek(part, e.extracted_concentration)
-    );
-    if (matchesWithGreek(part, match?.extracted_food_name)) {
-      return (
-        <span key={index} className="text-amber-500 bg-amber-500/10">
-          {part}
-        </span>
-      );
-    }
-    if (matchesWithGreek(part, match?.extracted_chemical_name)) {
-      return (
-        <span key={index} className="text-cyan-400 bg-cyan-500/10">
-          {part}
-        </span>
-      );
-    }
-    if (matchesWithGreek(part, match?.extracted_concentration)) {
-      return (
-        <span key={index} className="text-teal-400 bg-teal-500/10">
-          {part}
-        </span>
-      );
-    }
-    return part;
-  });
 };

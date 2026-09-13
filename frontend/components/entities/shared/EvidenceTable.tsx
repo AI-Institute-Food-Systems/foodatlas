@@ -7,12 +7,14 @@
 
 import type { ReactNode } from "react";
 import {
+  MdChevronRight,
   MdKeyboardArrowDown,
   MdKeyboardArrowUp,
   MdUnfoldMore,
 } from "react-icons/md";
 import { twMerge } from "tailwind-merge";
 
+import Chip from "@/components/basic/Chip";
 import SortListbox from "@/components/basic/SortListbox";
 import { InfoTip } from "@/components/basic/Tooltip";
 
@@ -192,3 +194,69 @@ export const CountCell = ({
   value: number;
   tone?: string;
 }) => <span className={`tabular-nums ${tone}`}>{value.toLocaleString()}</span>;
+
+// THE row-expand affordance: the chevron chip that opens a detail panel
+// under its row. The two accordion tables — composition data points →
+// premise, assay measurements → Hill curve — each had their own copy,
+// and the copies had drifted: one was `sm` and said "Premise", the
+// other `md` and said "Show Hill Curve". One chip, one grammar: the
+// noun when closed, "Hide" when open, `md` like every table-cell
+// action.
+export const RowExpandChip = ({
+  what,
+  expanded,
+  onToggle,
+}: {
+  // What the row opens into — "Premise", "Hill curve". The label when
+  // collapsed, and the accessible name either way.
+  what: string;
+  expanded: boolean;
+  onToggle: () => void;
+}) => (
+  <Chip
+    icon={
+      <MdChevronRight
+        className={twMerge(
+          "size-3.5 transition-transform duration-150",
+          expanded && "rotate-90"
+        )}
+      />
+    }
+    label={expanded ? "Hide" : what}
+    tone={expanded ? "cream" : "outline"}
+    size="md"
+    onClick={(e) => {
+      // The row toggles on click too; one toggle per click.
+      e.stopPropagation();
+      onToggle();
+    }}
+    aria-label={`${expanded ? "Hide" : "Show"} ${what}`}
+    aria-pressed={expanded}
+  />
+);
+
+// The panel a row expands into: accent rule down the left, a tint,
+// tucked under the row it belongs to. With `colSpan` it is a table row
+// spanning the desktop <table>; without, a block at the foot of a
+// mobile card.
+export const RowExpandPanel = ({
+  colSpan,
+  children,
+}: {
+  colSpan?: number;
+  children: ReactNode;
+}) =>
+  colSpan ? (
+    <tr>
+      <td
+        colSpan={colSpan}
+        className="py-3 px-3 bg-light-900/30 border-l-2 border-l-accent-600 border-b border-light-700/40"
+      >
+        {children}
+      </td>
+    </tr>
+  ) : (
+    <div className="w-full mt-1 py-3 pl-3 pr-2 bg-light-900/30 border-l-2 border-l-accent-600 border-t border-light-700/40">
+      {children}
+    </div>
+  );
