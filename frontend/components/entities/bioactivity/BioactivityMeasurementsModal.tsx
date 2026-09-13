@@ -57,6 +57,7 @@ import {
   RowExpandPanel,
 } from "@/components/entities/shared/EvidenceTable";
 import { useReportRows } from "@/context/reportModeContext";
+import { logAC50InUnit } from "@/components/entities/bioactivity/format";
 import HillCurveSparkline, {
   formatConcentration,
 } from "@/components/entities/bioactivity/HillCurveSparkline";
@@ -930,12 +931,20 @@ const MeasurementsTable = ({
 // the curve's 720×320 aspect and swallow the modal.) Only rendered for
 // rows that pass `hasHillFit`, so all four numbers are finite here.
 const ExpandedHillFit = ({ m }: { m: ModalRow }) => {
-  const lac = m.efficacy_logac50_value;
   const fmtNum = (v: number | null | undefined, digits = 2): string =>
     v == null || !Number.isFinite(v) ? "—" : v.toFixed(digits);
   // "None" is the backend's null unit, not a label — the curve's
   // readout used to print "AC50 2e-5 None".
-  const unit = m.unit && m.unit !== "None" ? m.unit : undefined;
+  const rowUnit = m.unit && m.unit !== "None" ? m.unit : undefined;
+  // The fit's log AC50 is in molar; the row's value is in `rowUnit`.
+  // Shift once here so the stat, the curve's readout and its x-axis
+  // all speak the row's unit (or say "M" when they can't).
+  const fit =
+    m.efficacy_logac50_value == null
+      ? null
+      : logAC50InUnit(m.efficacy_logac50_value, rowUnit);
+  const lac = fit?.logAC50;
+  const unit = fit?.unit;
   return (
     <div className="flex flex-col md:flex-row gap-4 md:gap-6 w-full">
       <dl className="md:w-48 shrink-0 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 content-start">
@@ -944,7 +953,8 @@ const ExpandedHillFit = ({ m }: { m: ModalRow }) => {
           {lac == null ? "—" : formatConcentration(10 ** lac)}
           {unit && <span className="text-light-500"> {unit}</span>}
         </FitStat>
-        <FitStat label="log AC50">{fmtNum(lac, 3)}</FitStat>
+        {/* The raw fit parameter, as PubChem reports it (log10 molar). */}
+        <FitStat label="log AC50 (M)">{fmtNum(m.efficacy_logac50_value, 3)}</FitStat>
         <FitStat label="Hill slope">{fmtNum(m.efficacy_hillslope, 2)}</FitStat>
         <FitStat label="top">{fmtNum(m.efficacy_infiniteactivity, 1)}</FitStat>
         <FitStat label="bottom">{fmtNum(m.efficacy_zeroactivity, 1)}</FitStat>
@@ -961,7 +971,7 @@ const ExpandedHillFit = ({ m }: { m: ModalRow }) => {
         <HillCurveSparkline
           zero={m.efficacy_zeroactivity}
           infinite={m.efficacy_infiniteactivity}
-          logAC50={m.efficacy_logac50_value}
+          logAC50={lac}
           slope={m.efficacy_hillslope}
           unit={unit}
           width={720}
