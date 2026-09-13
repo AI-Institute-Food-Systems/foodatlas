@@ -20,7 +20,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import {
   MdCheck,
-  MdChevronRight,
   MdClose,
   MdInfoOutline,
   MdKeyboardArrowLeft,
@@ -33,7 +32,6 @@ import { twMerge } from "tailwind-merge";
 
 import Button from "@/components/basic/Button";
 import Card from "@/components/basic/Card";
-import Chip from "@/components/basic/Chip";
 import Link from "@/components/basic/Link";
 import Skeleton from "@/components/basic/Skeleton";
 import { TableSkeletonRows } from "@/components/basic/TableSkeleton";
@@ -54,8 +52,14 @@ import {
   facetUniverse,
   type FacetOption,
 } from "@/components/entities/shared/filters/facetOptions";
+import {
+  RowExpandChip,
+  RowExpandPanel,
+} from "@/components/entities/shared/EvidenceTable";
 import { useReportRows } from "@/context/reportModeContext";
-import HillCurveSparkline from "@/components/entities/bioactivity/HillCurveSparkline";
+import HillCurveSparkline, {
+  formatConcentration,
+} from "@/components/entities/bioactivity/HillCurveSparkline";
 import { getBioactivityMeasurements } from "@/utils/fetching";
 import { assayExternalUrl } from "@/utils/utils";
 import type {
@@ -750,7 +754,7 @@ const MeasurementsTable = ({
                 aria-expanded={canExpand ? isExpanded : undefined}
                 className={twMerge(
                   "transition-colors",
-                  canExpand && "cursor-pointer hover:bg-light-900/50",
+                  canExpand && "cursor-pointer hover:bg-light-900/40",
                   isExpanded && "bg-light-900/50",
                   rowReportProps.className as string | undefined,
                 )}
@@ -779,26 +783,10 @@ const MeasurementsTable = ({
                 <td className="py-1.5 pl-2 align-top">
                   <div className="flex items-center justify-between gap-3">
                     {canExpand ? (
-                      <Chip
-                        icon={
-                          <MdChevronRight
-                            className={twMerge(
-                              "size-3.5 transition-transform duration-150",
-                              isExpanded && "rotate-90",
-                            )}
-                          />
-                        }
-                        label={`${isExpanded ? "Hide" : "Show"} Hill Curve`}
-                        tone={isExpanded ? "cream" : "outline"}
-                        size="md"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onToggleExpand(key);
-                        }}
-                        aria-label={
-                          isExpanded ? "Hide Hill curve" : "Show Hill curve"
-                        }
-                        aria-pressed={isExpanded}
+                      <RowExpandChip
+                        what="Hill curve"
+                        expanded={isExpanded}
+                        onToggle={() => onToggleExpand(key)}
                       />
                     ) : (
                       <span aria-hidden />
@@ -819,14 +807,9 @@ const MeasurementsTable = ({
                 </td>
               </tr>
               {isExpanded && (
-                <tr>
-                  <td
-                    colSpan={6}
-                    className="py-3 px-3 bg-light-900/30 border-l-2 border-l-accent-600 border-b border-light-700/40"
-                  >
-                    <ExpandedHillFit m={m} />
-                  </td>
-                </tr>
+                <RowExpandPanel colSpan={6}>
+                  <ExpandedHillFit m={m} />
+                </RowExpandPanel>
               )}
             </Fragment>
           );
@@ -920,30 +903,17 @@ const MeasurementsTable = ({
                 </div>
                 {canExpand && (
                   <div className="w-full flex justify-end">
-                    <Chip
-                      icon={
-                        <MdChevronRight
-                          className={twMerge(
-                            "size-3.5 transition-transform duration-150",
-                            isExpanded && "rotate-90",
-                          )}
-                        />
-                      }
-                      label={`${isExpanded ? "Hide" : "Show"} Hill Curve`}
-                      tone={isExpanded ? "cream" : "outline"}
-                      size="md"
-                      onClick={() => onToggleExpand(key)}
-                      aria-label={
-                        isExpanded ? "Hide Hill curve" : "Show Hill curve"
-                      }
-                      aria-pressed={isExpanded}
+                    <RowExpandChip
+                      what="Hill curve"
+                      expanded={isExpanded}
+                      onToggle={() => onToggleExpand(key)}
                     />
                   </div>
                 )}
                 {isExpanded && (
-                  <div className="w-full pt-3 pb-3 pl-3 pr-2 border-t border-l-2 border-l-accent-600 border-light-700/40">
+                  <RowExpandPanel>
                     <ExpandedHillFit m={m} />
-                  </div>
+                  </RowExpandPanel>
                 )}
               </div>
             );
@@ -953,80 +923,74 @@ const MeasurementsTable = ({
   );
 };
 
-// Inline expanded view for one (assay × bioactivity) measurement —
-// shown below the row when its accordion is open. Large Hill curve on
-// the left, four-parameter fit metadata on the right. Only rendered
-// for rows that pass `hasHillFit`, so all four numbers are guaranteed
-// finite here.
+// What a measurement row opens into: the fit parameters down the left,
+// the curve beside them, the whole panel the height of the parameter
+// list so it reads as a row's detail — the premise panel across the
+// hall is a few lines of quote — not a page of its own. (It used to keep
+// the curve's 720×320 aspect and swallow the modal.) Only rendered for
+// rows that pass `hasHillFit`, so all four numbers are finite here.
 const ExpandedHillFit = ({ m }: { m: ModalRow }) => {
   const lac = m.efficacy_logac50_value;
-  const ac50 = lac != null ? 10 ** lac : null;
   const fmtNum = (v: number | null | undefined, digits = 2): string =>
     v == null || !Number.isFinite(v) ? "—" : v.toFixed(digits);
-  const fmtSig = (v: number | null | undefined): string =>
-    v == null || !Number.isFinite(v)
-      ? "—"
-      : v.toLocaleString(undefined, { maximumSignificantDigits: 3 });
-  const unitLabel = m.unit && m.unit !== "None" ? m.unit : "";
+  // "None" is the backend's null unit, not a label — the curve's
+  // readout used to print "AC50 2e-5 None".
+  const unit = m.unit && m.unit !== "None" ? m.unit : undefined;
   return (
-    <div className="flex flex-col md:flex-row gap-6 items-stretch w-full">
-      {/* Important values — left, fixed-width column for fast scan. */}
-      <dl className="md:w-48 flex-shrink-0 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs font-mono content-start">
-        <dt className="italic uppercase text-light-500">AC50</dt>
-        <dd className="text-light-100 tabular-nums">
-          {fmtSig(ac50)}
-          {unitLabel && <span className="text-light-500"> {unitLabel}</span>}
-        </dd>
-        <dt className="italic uppercase text-light-500">log AC50</dt>
-        <dd className="text-light-100 tabular-nums">{fmtNum(lac, 3)}</dd>
-        <dt className="italic uppercase text-light-500">Hill slope</dt>
-        <dd className="text-light-100 tabular-nums">
-          {fmtNum(m.efficacy_hillslope, 2)}
-        </dd>
-        <dt className="italic uppercase text-light-500">top</dt>
-        <dd className="text-light-100 tabular-nums">
-          {fmtNum(m.efficacy_infiniteactivity, 1)}
-        </dd>
-        <dt className="italic uppercase text-light-500">bottom</dt>
-        <dd className="text-light-100 tabular-nums">
-          {fmtNum(m.efficacy_zeroactivity, 1)}
-        </dd>
+    <div className="flex flex-col md:flex-row gap-4 md:gap-6 w-full">
+      <dl className="md:w-48 shrink-0 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 content-start">
+        <FitStat label="AC50">
+          {/* Same formatter as the curve's readout, so they agree. */}
+          {lac == null ? "—" : formatConcentration(10 ** lac)}
+          {unit && <span className="text-light-500"> {unit}</span>}
+        </FitStat>
+        <FitStat label="log AC50">{fmtNum(lac, 3)}</FitStat>
+        <FitStat label="Hill slope">{fmtNum(m.efficacy_hillslope, 2)}</FitStat>
+        <FitStat label="top">{fmtNum(m.efficacy_infiniteactivity, 1)}</FitStat>
+        <FitStat label="bottom">{fmtNum(m.efficacy_zeroactivity, 1)}</FitStat>
         {m.evidence_fit_r2 != null && (
-          <>
-            <dt className="italic uppercase text-light-500">R²</dt>
-            <dd className="text-light-100 tabular-nums">
-              {fmtNum(m.evidence_fit_r2, 3)}
-            </dd>
-          </>
+          <FitStat label="R²">{fmtNum(m.evidence_fit_r2, 3)}</FitStat>
         )}
         {m.evidence_fit_curveclass && (
-          <>
-            <dt className="italic uppercase text-light-500">curve class</dt>
-            <dd className="text-light-100">{m.evidence_fit_curveclass}</dd>
-          </>
+          <FitStat label="curve class">{m.evidence_fit_curveclass}</FitStat>
         )}
       </dl>
-      {/* Curve — right, fills remaining horizontal space. Wrapper has
-       * an explicit aspect ratio matching the viewBox so the
-       * preserveAspectRatio default (meet) doesn't letterbox. */}
-      <div
-        className="flex-1 min-w-0 text-light-300"
-        style={{ aspectRatio: "720 / 320" }}
-      >
+      {/* Fluid: the curve draws at whatever size this box is, so the
+       * box sets it — full remaining width, the list's height. */}
+      <div className="flex-1 min-w-0 h-36 md:h-44 text-light-300">
         <HillCurveSparkline
           zero={m.efficacy_zeroactivity}
           infinite={m.efficacy_infiniteactivity}
           logAC50={m.efficacy_logac50_value}
           slope={m.efficacy_hillslope}
-          unit={m.unit}
+          unit={unit}
           width={720}
-          height={320}
+          height={176}
           fluid
         />
       </div>
     </div>
   );
 };
+
+// One label/value pair of the fit list, in the label vocabulary the
+// mobile cards use for theirs.
+const FitStat = ({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) => (
+  <>
+    <dt className="font-mono italic text-[10px] uppercase tracking-wider text-light-500 leading-5">
+      {label}
+    </dt>
+    <dd className="font-mono text-xs tabular-nums text-light-200 leading-5">
+      {children}
+    </dd>
+  </>
+);
 
 // Assay id cell — a raw identifier ("AID: 364", "CHEMBL329341") that the
 // helper turns into a landing-page URL when we recognise the scheme.

@@ -16,7 +16,6 @@
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 import {
-  MdChevronRight,
   MdKeyboardArrowLeft,
   MdKeyboardArrowRight,
   MdKeyboardDoubleArrowLeft,
@@ -29,8 +28,11 @@ import { twMerge } from "tailwind-merge";
 import { Tooltip } from "@/components/basic/Tooltip";
 
 import Button from "@/components/basic/Button";
-import Chip from "@/components/basic/Chip";
 import { AmbiguityIcon } from "@/components/basic/Ambiguity";
+import {
+  RowExpandChip,
+  RowExpandPanel,
+} from "@/components/entities/shared/EvidenceTable";
 import { useReportRows } from "@/context/reportModeContext";
 import {
   FoodEvidence,
@@ -248,14 +250,9 @@ const EvidenceTable = ({ evidences, dimmedSourceNames }: Props) => {
                     </td>
                   </tr>
                   {isExpanded && (
-                    <tr>
-                      <td
-                        colSpan={5}
-                        className="py-3 px-3 bg-light-900/30 border-l-2 border-l-accent-600 border-b border-light-700/40"
-                      >
-                        <ExpandedPremise row={r} />
-                      </td>
-                    </tr>
+                    <RowExpandPanel colSpan={5}>
+                      <ExpandedPremise row={r} />
+                    </RowExpandPanel>
                   )}
                 </Fragment>
               );
@@ -318,9 +315,9 @@ const EvidenceTable = ({ evidences, dimmedSourceNames }: Props) => {
                 <MethodChip method={r.extraction.method} />
               </div>
               {isExpanded && (
-                <div className="w-full pt-2 border-t border-l-2 border-l-accent-600 border-light-700/40 pl-3 pr-2 pb-1">
+                <RowExpandPanel>
                   <ExpandedPremise row={r} />
-                </div>
+                </RowExpandPanel>
               )}
             </div>
           );
@@ -540,25 +537,7 @@ const RowActions = ({
         </Tooltip>
       )}
       {expandable && (
-        <Chip
-          icon={
-            <MdChevronRight
-              className={twMerge(
-                "size-3.5 transition-transform duration-150",
-                expanded && "rotate-90"
-              )}
-            />
-          }
-          label={expanded ? "Hide" : "Premise"}
-          tone={expanded ? "cream" : "outline"}
-          size="sm"
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggle();
-          }}
-          aria-label={expanded ? "Hide premise" : "Show premise"}
-          aria-pressed={expanded}
-        />
+        <RowExpandChip what="Premise" expanded={expanded} onToggle={onToggle} />
       )}
     </div>
   );

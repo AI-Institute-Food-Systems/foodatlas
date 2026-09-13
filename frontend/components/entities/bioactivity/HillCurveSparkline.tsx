@@ -51,13 +51,18 @@ const SAMPLES = 80;
 // shape for any sane slope (-3..+3 dose-effect range covers > 99% of fits).
 const DECADES = 3;
 
-const fmtConc = (logX: number): string => {
-  const v = 10 ** logX;
+// A concentration, to about three significant digits at every
+// magnitude. Exported so the fit list beside the curve prints AC50 the
+// same way and the two never disagree ("0.0000166" above "AC50 2e-5"
+// did).
+export const formatConcentration = (v: number): string => {
   if (v >= 100) return v.toFixed(0);
   if (v >= 1) return v.toFixed(1);
   if (v >= 0.01) return v.toFixed(2);
-  return v.toExponential(0);
+  return v.toExponential(2);
 };
+
+const fmtConc = (logX: number): string => formatConcentration(10 ** logX);
 
 const fmtY = (y: number): string => {
   if (Math.abs(y) >= 10) return y.toFixed(0);
@@ -404,77 +409,5 @@ const HillCurveSparkline = ({
 };
 
 HillCurveSparkline.displayName = "HillCurveSparkline";
-
-// Tiny line-only glyph for the accordion indicator column — just the
-// curve trace, no axes, labels, AC50 marker, or hover. Carries enough
-// information (slope direction + steepness) to telegraph at a glance
-// that the row has a fitted curve to expand. Defaults sized for a
-// table cell (~50×18). Returns null when the fit is incomplete so the
-// call site can render an em-dash instead.
-export const HillCurveGlyph = ({
-  zero,
-  infinite,
-  logAC50,
-  slope,
-  width = 50,
-  height = 18,
-}: {
-  zero: number | null | undefined;
-  infinite: number | null | undefined;
-  logAC50: number | null | undefined;
-  slope: number | null | undefined;
-  width?: number;
-  height?: number;
-}) => {
-  if (
-    zero == null ||
-    infinite == null ||
-    logAC50 == null ||
-    slope == null ||
-    !Number.isFinite(zero) ||
-    !Number.isFinite(infinite) ||
-    !Number.isFinite(logAC50) ||
-    !Number.isFinite(slope) ||
-    slope === 0 ||
-    zero === infinite
-  ) {
-    return null;
-  }
-  const logXMin = logAC50 - DECADES;
-  const logXMax = logAC50 + DECADES;
-  const yMin = Math.min(zero, infinite);
-  const yMax = Math.max(zero, infinite);
-  const yRange = yMax - yMin;
-  // Leave 1px gutter so the line doesn't touch the edge.
-  const points: string[] = [];
-  for (let i = 0; i < SAMPLES; i++) {
-    const t = i / (SAMPLES - 1);
-    const logX = logXMin + t * (logXMax - logXMin);
-    const y = zero + (infinite - zero) / (1 + 10 ** ((logAC50 - logX) * slope));
-    const px = 1 + t * (width - 2);
-    const py = 1 + ((yMax - y) / yRange) * (height - 2);
-    points.push(`${px.toFixed(1)},${py.toFixed(1)}`);
-  }
-  return (
-    <svg
-      width={width}
-      height={height}
-      viewBox={`0 0 ${width} ${height}`}
-      aria-hidden
-      className="block"
-    >
-      <polyline
-        points={points.join(" ")}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-};
-
-HillCurveGlyph.displayName = "HillCurveGlyph";
 
 export default HillCurveSparkline;
