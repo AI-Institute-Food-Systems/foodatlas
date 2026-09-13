@@ -17,21 +17,26 @@ from .pagination import offset as _offset
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
-_VALID_RELATIONSHIPS = {"r1", "r2", "r3", "r4", "r5"}
+_VALID_RELATIONSHIPS = {"r1", "r2", "r3", "r4", "r5", "r6"}
 _RELATIONSHIP_ALIASES = {
     "contains": "r1",
     "is_a": "r2",
     "worsens": "r3",
     "reduces": "r4",
+    "exhibits": "r5",
+    "measured": "r6",
 }
+RELATIONSHIP_CHOICES = "|".join(_RELATIONSHIP_ALIASES) + ", or r1..r6"
 
 
-def _resolve_relationship(value: str) -> str | None:
+def resolve_relationship(value: str) -> str | None:
+    """Map an alias or raw id to a relationship_id; None if unknown."""
     if not value:
         return None
-    if value in _VALID_RELATIONSHIPS:
-        return value
-    return _RELATIONSHIP_ALIASES.get(value.lower())
+    lowered = value.lower()
+    if lowered in _VALID_RELATIONSHIPS:
+        return lowered
+    return _RELATIONSHIP_ALIASES.get(lowered)
 
 
 async def list_triplets(
@@ -53,7 +58,7 @@ async def list_triplets(
     if tail_id:
         where.append("t.tail_id = :tail_id")
         params["tail_id"] = tail_id
-    rel_id = _resolve_relationship(relationship) if relationship else None
+    rel_id = resolve_relationship(relationship)
     if relationship and rel_id is None:
         return [], 0
     if rel_id:
