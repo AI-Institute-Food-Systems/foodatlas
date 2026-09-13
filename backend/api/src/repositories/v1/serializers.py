@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class Page(BaseModel):
@@ -35,8 +35,24 @@ class ExternalIds(BaseModel):
     model_config = {"extra": "allow"}
 
 
+def _stringify_ids(raw: object) -> dict[str, list[str]]:
+    """The MVs keep numeric ids (chebi, pubchem, fdc, …) as JSON ints; the
+    public contract says strings, and pydantic will not coerce int → str."""
+    if not isinstance(raw, dict):
+        return {}
+    return {
+        str(source): [str(i) for i in ids]
+        for source, ids in raw.items()
+        if isinstance(ids, list)
+    }
+
+
+# Shared by every entity model that carries ``external_ids``.
+stringify_external_ids = field_validator("external_ids", mode="before")(_stringify_ids)
+
+
 class FoodSummary(BaseModel):
-    id: str = Field(..., description="FoodAtlas id, e.g. FA:0001")
+    id: str = Field(..., description="FoodAtlas id, e.g. e1595")
     common_name: str
     scientific_name: str = ""
     food_classification: list[str] = Field(default_factory=list)
@@ -45,6 +61,7 @@ class FoodSummary(BaseModel):
 class Food(FoodSummary):
     synonyms: list[str] = Field(default_factory=list)
     external_ids: dict[str, list[str]] = Field(default_factory=dict)
+    _coerce_external_ids = stringify_external_ids
 
 
 class ChemicalSummary(BaseModel):
@@ -58,6 +75,7 @@ class Chemical(ChemicalSummary):
     synonyms: list[str] = Field(default_factory=list)
     flavor_descriptors: list[str] = Field(default_factory=list)
     external_ids: dict[str, list[str]] = Field(default_factory=dict)
+    _coerce_external_ids = stringify_external_ids
 
 
 class DiseaseSummary(BaseModel):
@@ -69,6 +87,7 @@ class DiseaseSummary(BaseModel):
 class Disease(DiseaseSummary):
     synonyms: list[str] = Field(default_factory=list)
     external_ids: dict[str, list[str]] = Field(default_factory=dict)
+    _coerce_external_ids = stringify_external_ids
 
 
 class BioactivityHierarchyNode(BaseModel):
@@ -89,6 +108,7 @@ class BioactivitySummary(BaseModel):
 class Bioactivity(BioactivitySummary):
     synonyms: list[str] = Field(default_factory=list)
     external_ids: dict[str, list[str]] = Field(default_factory=dict)
+    _coerce_external_ids = stringify_external_ids
     parents: list[BioactivityHierarchyNode] = Field(default_factory=list)
     children: list[BioactivityHierarchyNode] = Field(default_factory=list)
 
