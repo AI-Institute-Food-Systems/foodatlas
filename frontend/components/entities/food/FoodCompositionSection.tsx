@@ -640,17 +640,17 @@ const FoodCompositionSection = ({
           <ToggleSwitch
             label="Low-trust data points"
             count={lowTrustCount}
-            // The count here is chemicals-with-hidden-points, not rows the
-            // toggle adds — a row only disappears when EVERY one of its
-            // extractions is low-trust, which is rare. On strawberry the
-            // toggle reveals 7 hidden points across 5 chemicals and the
-            // list stays at 271, which reads as a broken filter next to
-            // Source and Class counts that do mean "rows you will get".
+            // The "i" says what low-trust MEANS, nothing else. (The count
+            // is chemicals with at least one hidden point, not rows the
+            // toggle adds — on strawberry it reveals 7 points across 5
+            // chemicals and the list stays at 271. The tooltip used to
+            // explain that instead; it now stays on the concept.)
             help={
-              "Counts chemicals that have at least one hidden low-trust " +
-              "data point. Turning this on reveals those points inside " +
-              "those chemicals' evidence — it does not change how many " +
-              "chemicals are listed."
+              "A data point is low-trust when an LLM judge rated its " +
+              "(food, chemical, concentration) claim as implausible " +
+              "against general world knowledge. These are hidden by " +
+              "default; turn this on to include them, flagged, in the " +
+              "evidence."
             }
             checked={showLowTrust}
             onChange={handleLowTrustSwitchChange}

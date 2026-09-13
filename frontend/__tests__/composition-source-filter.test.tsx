@@ -263,11 +263,11 @@ describe("composition source filter", () => {
     expect(emptyStateShown()).toBe(false);
   });
 
-  it("explains that the low-trust count is not a row count", async () => {
-    // Every other count in this panel means "rows you will get"; this one
-    // means "chemicals with at least one hidden data point". Without the
-    // hover text the toggle reads as broken — on strawberry it reveals 7
-    // points across 5 chemicals and the list stays at 271.
+  it("explains what low-trust means, and only that", async () => {
+    // The "i" is the one place the concept is defined for a reader who
+    // has never seen the term. It used to explain the count's unit instead
+    // (chemicals with a hidden point, not rows) — that is pinned out so
+    // the tooltip stays on the concept.
     await mount();
     const toggle = screen
       .getAllByText(/Low-trust data points/i)[0]
@@ -279,6 +279,8 @@ describe("composition source filter", () => {
     expect(info, "no InfoTip beside the toggle").toBeTruthy();
     fireEvent.mouseEnter(info!.parentElement!);
     const tip = await screen.findByRole("tooltip");
-    expect(tip.textContent).toMatch(/does not change how many chemicals are listed/i);
+    expect(tip.textContent).toMatch(/LLM judge/i);
+    expect(tip.textContent).toMatch(/hidden by default/i);
+    expect(tip.textContent).not.toMatch(/how many chemicals/i);
   });
 });
