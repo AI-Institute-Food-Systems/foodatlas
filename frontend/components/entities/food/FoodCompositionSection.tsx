@@ -256,8 +256,15 @@ const FoodCompositionSection = ({
     searchTerm,
   ]);
 
-  // data fetching
+  // data fetching. Same `cancelled` guard as the counts effect above:
+  // a filter toggled and untoggled inside one request's latency, or a
+  // search typed while not on page 1 (the page reset fires a fetch with
+  // the OLD debounced term, then the debounce fires another), had the
+  // two responses racing and the later-arriving one winning — the table
+  // and the tab badge then showed the undone filter's rows as fact,
+  // with nothing in the filter UI to say so.
   useEffect(() => {
+    let cancelled = false;
     const fetchData = async () => {
       // no sources selected, show empty state
       if (sourceFilters.length === 0) {
@@ -285,6 +292,7 @@ const FoodCompositionSection = ({
           showLowTrust ? "show_all" : "default",
           findChemical
         );
+        if (cancelled) return;
         // When find_chemical resolves, snap pagination to the served page
         // and stop forcing the find so the user can paginate freely after.
         const resolvedPage: number | null =
@@ -310,14 +318,20 @@ const FoodCompositionSection = ({
         setNumberOfPages(result.metadata.total_pages);
         setNumberOfRows(result.metadata.total_rows);
       } catch (error) {
+        if (cancelled) return;
         console.error("Error fetching food composition data:", error);
         setIsError(true);
       } finally {
-        setIsLoading(false);
+        // A superseded request must not end the loading state the
+        // newer one owns.
+        if (!cancelled) setIsLoading(false);
       }
     };
 
     fetchData();
+    return () => {
+      cancelled = true;
+    };
   }, [
     currentPage,
     commonName,
