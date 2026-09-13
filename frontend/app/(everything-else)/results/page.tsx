@@ -1,11 +1,10 @@
 "use client";
 
 import { useContext, useEffect } from "react";
-import { MdError, MdWarning } from "react-icons/md";
+import { MdError, MdSearch, MdWarning } from "react-icons/md";
 
 import ResultItem from "@/components/search/ResultItem";
 import useSearchAutocompleteOptions from "@/hooks/useSearchAutocompleteOptions";
-import { AutocompleteContext } from "@/context/autocompleteContext";
 import Card from "@/components/basic/Card";
 import Skeleton from "@/components/basic/Skeleton";
 import Pagination from "@/components/basic/Pagination";
@@ -14,8 +13,8 @@ import { SearchContext } from "@/context/searchContext";
 import { Suggestion } from "@/types";
 
 interface SearchParams {
-  query: string;
-  term: string;
+  query?: string;
+  term?: string;
 }
 
 const ResultsPage = ({ searchParams }: { searchParams: SearchParams }) => {
@@ -28,9 +27,12 @@ const ResultsPage = ({ searchParams }: { searchParams: SearchParams }) => {
     isError,
     errorMessage,
   } = useSearchAutocompleteOptions();
-  const { setOffsetTop, setIsVisible } = useContext(SearchContext);
-  const { setAutocompleteTerm } = useContext(AutocompleteContext);
+  const { setOffsetTop, setIsVisible, setSearchTerm } =
+    useContext(SearchContext);
   const { setTablePaginations, getTablePaginations } = usePaginations();
+  // Hand-typed /results has no term; treat it as an empty query rather
+  // than passing undefined down to the hook (which used to throw).
+  const term = searchParams.term ?? "";
 
   useEffect(() => {
     // Anchor with a half-navbar gap under the navbar bottom —
@@ -45,9 +47,17 @@ const ResultsPage = ({ searchParams }: { searchParams: SearchParams }) => {
     setIsVisible(true);
   }, [setIsVisible, setOffsetTop]);
 
+  // Seed the shared search term from the URL. SearchBar mirrors
+  // `searchTerm` into the autocomplete term (the SWR key), so this is
+  // the ONE way the term enters the system — setting the autocomplete
+  // term directly from here raced SearchBar's own mirror effect, which
+  // ran later with the still-empty input and nulled the key: every
+  // cold load, refresh or shared link rendered "No matches found".
+  // Going through `searchTerm` also puts the term in the input box, so
+  // the page reads as what it is.
   useEffect(() => {
-    setAutocompleteTerm(searchParams.term);
-  }, [searchParams.term, setAutocompleteTerm]);
+    setSearchTerm(term);
+  }, [term, setSearchTerm]);
 
   return (
     // Reserves vertical space under the portaled SearchBar (anchored
@@ -55,10 +65,15 @@ const ResultsPage = ({ searchParams }: { searchParams: SearchParams }) => {
     // ~24px breathing on phones; md:mt-44 matches on desktop.
     <div className="mt-36 md:mt-44">
       {/* error indicator */}
-      {isError ? (
+      {!term ? (
+        <div className="w-full mt-32 flex justify-center gap-1.5 items-center text-light-300">
+          <MdSearch />
+          <span>Type something above to search FoodAtlas</span>
+        </div>
+      ) : isError ? (
         <div className="w-full mt-32 flex justify-center gap-1.5 items-center">
           <MdError />
-          <span>Error fetching data for &apos;{searchParams.term}&apos;</span>
+          <span>Error fetching data for &apos;{term}&apos;</span>
         </div>
       ) : // loading indicator
       isLoading ? (
@@ -92,7 +107,7 @@ const ResultsPage = ({ searchParams }: { searchParams: SearchParams }) => {
           {/* results & page indicator */}
           <div className="flex justify-between">
             {/* # results indicator */}
-            <div className="mt-8 text-light-300">{`${totalRows} results for "${searchParams.term}"`}</div>
+            <div className="mt-8 text-light-300">{`${totalRows} results for "${term}"`}</div>
             {/* pagination */}
             <div className="mt-8 text-light-300">{`Page ${currentPage} of ${totalPages}`}</div>
           </div>
@@ -116,7 +131,7 @@ const ResultsPage = ({ searchParams }: { searchParams: SearchParams }) => {
         // no results container
         <div className="w-full mt-32 flex justify-center gap-1.5 items-center">
           <MdWarning />
-          <span>No matches found for &apos;{searchParams.term}&apos;</span>
+          <span>No matches found for &apos;{term}&apos;</span>
         </div>
       )}
     </div>
