@@ -8,6 +8,11 @@ import { twMerge } from "tailwind-merge";
 import Heading from "@/components/basic/Heading";
 import Button from "@/components/basic/Button";
 
+// Exported for the test that pins it: the ReportFab is fixed bottom-4
+// (1rem) + ~2.25rem tall; 3.75rem leaves a little air above it.
+export const FAB_CLEARANCE_PB =
+  "pb-[calc(3.75rem+env(safe-area-inset-bottom))] md:pb-7";
+
 interface ModalProps {
   children: React.ReactNode;
   title: string;
@@ -83,7 +88,15 @@ const Modal = ({
               "min-h-[100dvh] sm:min-h-0 sm:rounded-xl sm:border sm:border-light-50/5",
               "px-5 md:p-7",
               "pt-[max(1.25rem,env(safe-area-inset-top))] sm:pt-5",
-              "pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:pb-5",
+              // Bottom padding reserves the ReportFab's footprint (fixed
+              // bottom-4 right-4, z-60 — deliberately ABOVE this dialog
+              // so a report can start from inside a table modal). Below
+              // md the sheet reaches the viewport bottom and the pager's
+              // Next/Last buttons sat exactly under the FAB: pages 2+ of
+              // any evidence list were unreachable on a phone. From md
+              // the panel is capped at 85vh and clears the FAB on its
+              // own, so md:p-7 takes over.
+              FAB_CLEARANCE_PB,
               fullHeight &&
                 "flex flex-col h-[100dvh] sm:h-[calc(100dvh-3rem)] md:h-[min(85vh,800px)]"
             )}
