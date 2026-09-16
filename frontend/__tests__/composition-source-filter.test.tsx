@@ -284,3 +284,54 @@ describe("composition source filter", () => {
     expect(tip.textContent).not.toMatch(/how many chemicals/i);
   });
 });
+
+describe("composition stale-response race", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockServer();
+  });
+
+  it("ignores a superseded response that lands after the current one", async () => {
+    // Toggle FoodAtlas off, then back on, inside one request's latency.
+    // The narrowed request is slow and resolves LAST; the reverted one
+    // is fast. Without cancellation the late narrowed rows overwrite the
+    // table while every filter chip says "all sources".
+    const deferred: Array<{
+      sourceFilters: string[];
+      resolve: () => void;
+    }> = [];
+    const base = vi.mocked(getFoodCompositionData).getMockImplementation()!;
+    vi.mocked(getFoodCompositionData).mockImplementation(((
+      ...args: Parameters<typeof getFoodCompositionData>
+    ) =>
+      new Promise((resolve) => {
+        deferred.push({
+          sourceFilters: args[2],
+          resolve: () => resolve(base(...args)),
+        });
+      })) as never);
+
+    const { container } = render(
+      <FoodCompositionSection commonName="pepper (raw)" />,
+    );
+    await waitFor(() => expect(deferred.length).toBe(1));
+    deferred[0].resolve();
+    await waitFor(() => expect(desktopRowCount(container)).toBe(3));
+
+    fireEvent.click(sourceChip("FoodAtlas")); // narrow → request 2 (slow)
+    await waitFor(() => expect(deferred.length).toBe(2));
+    fireEvent.click(sourceChip("FoodAtlas")); // revert → request 3 (fast)
+    await waitFor(() => expect(deferred.length).toBe(3));
+    expect(deferred[1].sourceFilters).not.toContain("foodatlas");
+    expect(deferred[2].sourceFilters).toContain("foodatlas");
+
+    deferred[2].resolve(); // current request lands first
+    await waitFor(() => expect(desktopRowCount(container)).toBe(3));
+    deferred[1].resolve(); // superseded request lands last
+    // Give the stale promise every chance to apply itself.
+    await new Promise((r) => setTimeout(r, 20));
+
+    expect(desktopRowCount(container)).toBe(3);
+    expect(desktopRowNames(container).join(" ")).toContain("quercetin");
+  });
+});

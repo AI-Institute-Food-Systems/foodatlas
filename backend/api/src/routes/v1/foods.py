@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.dependencies import get_db
 from src.repositories import taxonomy as taxonomy_repo
 from src.repositories.v1 import entities, relationships
-from src.repositories.v1.pagination import build_page, clamp_page_size
+from src.repositories.v1.pagination import MAX_PAGE, build_page, clamp_page_size
 from src.repositories.v1.serializers import (
     BioactivityFoodRow,
     CompositionRow,
@@ -18,6 +18,7 @@ from src.repositories.v1.serializers import (
     ListResponse,
     Taxonomy,
 )
+from src.routes.v1._guards import require_entity
 
 router = APIRouter(prefix="/foods")
 
@@ -28,7 +29,7 @@ async def list_foods(
     classification: str = Query(
         "", description="Exact match against food_classification (e.g. 'fruit')"
     ),
-    page: int = Query(1, ge=1),
+    page: int = Query(1, ge=1, le=MAX_PAGE),
     page_size: int = Query(50, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ) -> ListResponse[FoodSummary]:
@@ -65,11 +66,12 @@ async def get_food(
 )
 async def food_chemicals(
     food_id: str,
-    page: int = Query(1, ge=1),
+    page: int = Query(1, ge=1, le=MAX_PAGE),
     page_size: int = Query(50, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ) -> ListResponse[CompositionRow]:
     """Flat composition rows: one chemical per row, evidence aggregated."""
+    await require_entity(db, "food", food_id)
     size = clamp_page_size(page_size)
     rows, total = await relationships.list_composition(
         db, food_id=food_id, page=page, page_size=size
@@ -87,10 +89,11 @@ async def food_chemicals(
 )
 async def food_bioactivities(
     food_id: str,
-    page: int = Query(1, ge=1),
+    page: int = Query(1, ge=1, le=MAX_PAGE),
     page_size: int = Query(50, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ) -> ListResponse[BioactivityFoodRow]:
+    await require_entity(db, "food", food_id)
     size = clamp_page_size(page_size)
     rows, total = await relationships.list_bioactivity_foods(
         db, food_id=food_id, page=page, page_size=size

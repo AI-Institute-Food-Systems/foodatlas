@@ -44,7 +44,9 @@ async def get_correlation(
     relation="all"      -> both, with the direction carried per row
 
     Mirror of :func:`chemical.get_correlation`; see it for why "all" is
-    the default.
+    the default. Unlike that side, rows are grouped by chemical alone:
+    a class chemical reached via several descendants is one row here,
+    its evidence merged, because this table has no attribution column.
     """
     # The page query aliases the view as `c`, the count query does not,
     # so the peer column has to be qualified per call site.
@@ -63,7 +65,7 @@ async def get_correlation(
                 WHERE disease_name = :name{where}
             )
             SELECT c.chemical_foodatlas_id AS id, c.chemical_name AS name,
-                   {_correlation.PAIR_AGGREGATES},
+                   {_correlation.MERGED_AGGREGATES},
                    -- Scalar subquery rather than a join + aggregate: this
                    -- depends only on chemical_foodatlas_id, which is a
                    -- grouping column, and jsonb has no MIN to collapse it
@@ -77,7 +79,7 @@ async def get_correlation(
                    ), '[]'::jsonb) AS ambiguity_siblings
             FROM {_correlation.VIEW} c
             WHERE c.disease_name = :name{where_c}
-            GROUP BY {_correlation.GROUP_BY_PAIR}
+            GROUP BY {_correlation.GROUP_BY_CHEMICAL}
             {order}
             OFFSET :offset ROWS FETCH FIRST :limit ROWS ONLY
         """),
@@ -88,14 +90,14 @@ async def get_correlation(
             **filter_params,
         },
     )
-    data = _correlation.shape_pair_rows([dict(r._mapping) for r in result])
+    data = _correlation.shape_merged_rows([dict(r._mapping) for r in result])
 
     count_result = await session.execute(
         text(f"""
             SELECT COUNT(*) FROM (
                 SELECT 1 FROM {_correlation.VIEW}
                 WHERE disease_name = :name{where}
-                GROUP BY {_correlation.GROUP_BY_PAIR}
+                GROUP BY {_correlation.GROUP_BY_CHEMICAL}
             ) pairs
         """),
         {"name": common_name, **filter_params},
@@ -126,5 +128,10 @@ async def get_correlation_direction_counts(
 ) -> dict[str, int]:
     """Improves/worsens counts for this disease, under the active search."""
     return await _correlation.get_direction_counts(
-        session, "disease_name", "chemical_name", common_name, search
+        session,
+        "disease_name",
+        "chemical_name",
+        common_name,
+        search,
+        group_by=_correlation.GROUP_BY_CHEMICAL,
     )
