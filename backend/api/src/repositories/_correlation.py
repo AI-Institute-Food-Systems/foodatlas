@@ -25,13 +25,21 @@ if TYPE_CHECKING:
 
 VIEW = "mv_chemical_disease_correlation"
 
-# What makes one rendered row. Both ends group by the same tuple: the
-# source chemical stays in the key because a class page shows one row per
-# descendant that contributes the connection.
+# What makes one rendered row on the chemical page: the source chemical
+# stays in the key because a class page shows one row per descendant
+# that contributes the connection ("Via Chemical").
 GROUP_BY_PAIR = (
     "disease_foodatlas_id, disease_name, "
     "source_chemical_name, source_chemical_foodatlas_id, "
     "chemical_foodatlas_id, chemical_name"
+)
+
+# What makes one rendered row on the disease page: the chemical alone.
+# That side never shows attribution, so keeping the source chemical in
+# the key rendered "aromatic compound" 64 times on inflammation — once
+# per descendant — as indistinguishable rows.
+GROUP_BY_CHEMICAL = (
+    "disease_foodatlas_id, disease_name, chemical_foodatlas_id, chemical_name"
 )
 
 # r4 helps reduce the disease, r3 worsens it. "all" maps to neither, which
@@ -57,6 +65,19 @@ PAIR_AGGREGATES = (
     f"(array_agg(evidences) FILTER (WHERE relationship_id = '{IMPROVES}'))[1] "
     "AS improves_evidences, "
     f"(array_agg(evidences) FILTER (WHERE relationship_id = '{WORSENS}'))[1] "
+    "AS worsens_evidences, "
+    "SUM(evidence_count) AS evidence_count"
+)
+
+# Same shape for GROUP_BY_CHEMICAL, where a direction can have one row per
+# source chemical. The per-direction result is then a list of lists that
+# ``shape_merged_rows`` flattens and dedupes, so a paper reported via two
+# descendants counts once.
+MERGED_AGGREGATES = (
+    "array_agg(DISTINCT relationship_id) AS relationship_ids, "
+    f"jsonb_agg(evidences) FILTER (WHERE relationship_id = '{IMPROVES}') "
+    "AS improves_evidences, "
+    f"jsonb_agg(evidences) FILTER (WHERE relationship_id = '{WORSENS}') "
     "AS worsens_evidences, "
     "SUM(evidence_count) AS evidence_count"
 )
@@ -95,6 +116,25 @@ def shape_pair_rows(rows: list[dict]) -> list[dict]:
             row.get("improves_evidences"), row.get("worsens_evidences")
         )
     return rows
+
+
+def _flatten(nested: list[list[dict]] | None) -> list[dict] | None:
+    """One direction's ``jsonb_agg`` of per-source arrays, as one deduped
+    list — or None when the direction has no rows, matching PAIR_AGGREGATES.
+    """
+    if not nested:
+        return None
+    return merge_evidences([e for chunk in nested for e in (chunk or [])], None)
+
+
+def shape_merged_rows(rows: list[dict]) -> list[dict]:
+    """Flatten MERGED_AGGREGATES rows to the PAIR_AGGREGATES shape, plus
+    the union. The frontend reads the per-direction lists for the modal
+    and the union for the count, so all three have to be deduped."""
+    for row in rows:
+        row["improves_evidences"] = _flatten(row.get("improves_evidences"))
+        row["worsens_evidences"] = _flatten(row.get("worsens_evidences"))
+    return shape_pair_rows(rows)
 
 
 # What the literature tables can sort by, and the SQL each key means.
@@ -173,6 +213,7 @@ async def get_direction_counts(
     peer_column: str,
     common_name: str,
     search: str = "",
+    group_by: str = GROUP_BY_PAIR,
 ) -> dict[str, int]:
     """Improves/worsens row counts for the merged tab's Direction facet.
 
@@ -180,10 +221,10 @@ async def get_direction_counts(
     a facet that only counted the direction already selected would read
     zero for the option the user is trying to switch to.
 
-    These count PAIRS, matching what the table renders after grouping, so
-    "All" is not improves + worsens: the ~4% of pairs reported both ways
-    are one row there and are counted once here. Summing the two would
-    overshoot the row count the user is about to see.
+    These count ROWS AS RENDERED — ``group_by`` must be the same key the
+    page query groups by — so "All" is not improves + worsens: the ~4% of
+    pairs reported both ways are one row there and are counted once here.
+    Summing the two would overshoot the row count the user is about to see.
     """
     where, params = build_filters("all", search, peer_column)
     result = await session.execute(
@@ -198,7 +239,7 @@ async def get_direction_counts(
                 bool_or(relationship_id = '{WORSENS}') AS has_worsens
               FROM {VIEW}
               WHERE {anchor_column} = :name{where}
-              GROUP BY {GROUP_BY_PAIR}
+              GROUP BY {group_by}
             ) pairs
         """),
         {"name": common_name, **params},

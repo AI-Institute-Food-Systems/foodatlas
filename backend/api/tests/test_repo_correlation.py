@@ -24,6 +24,9 @@ from src.repositories.chemical import (
 from src.repositories.disease import (
     get_correlation as disease_correlation,
 )
+from src.repositories.disease import (
+    get_correlation_direction_counts as disease_direction_counts,
+)
 
 
 def _session(rows: list[object], total: int) -> AsyncMock:
@@ -187,13 +190,41 @@ class TestPairGrouping:
         assert "ORDER BY SUM(evidence_count) DESC" in _sql(session, 0)
 
     @pytest.mark.asyncio
-    async def test_disease_side_groups_too(self) -> None:
+    async def test_disease_side_groups_by_chemical_alone(self) -> None:
+        # The disease table has no "Via Chemical" column, so a class
+        # reached through several descendants must be ONE row here, not
+        # one per source chemical (inflammation showed "aromatic
+        # compound" 64 times, page 1 alone had 12 duplicates of 25).
         session = _session([], 0)
         await disease_correlation(session, "diabetes")
-        assert f"GROUP BY {_correlation.GROUP_BY_PAIR}" in _sql(session, 0)
+        page_sql, count_sql = _sql(session, 0), _sql(session, 1)
+        assert f"GROUP BY {_correlation.GROUP_BY_CHEMICAL}" in page_sql
+        assert f"GROUP BY {_correlation.GROUP_BY_CHEMICAL}" in count_sql
+        assert "source_chemical" not in _correlation.GROUP_BY_CHEMICAL
+        # Several rows per direction now, so the [1] pick would drop
+        # evidence: the merged aggregate collects them all.
+        assert "jsonb_agg(evidences)" in page_sql
         # jsonb has no MIN, so ambiguity_siblings must come from a scalar
         # subquery on the grouped column rather than a join + aggregate.
-        assert "MIN(" not in _sql(session, 0)
+        assert "MIN(" not in page_sql
+
+    @pytest.mark.asyncio
+    async def test_disease_direction_counts_use_the_same_key(self) -> None:
+        # Facet counts must count what the table renders, or "All N"
+        # disagrees with the row-count caption.
+        session = AsyncMock()
+        row = MagicMock(improves=1, worsens=1, both=1)
+        session.execute.return_value = MagicMock(one=MagicMock(return_value=row))
+        await disease_direction_counts(session, "diabetes")
+        assert f"GROUP BY {_correlation.GROUP_BY_CHEMICAL}" in _sql(session, 0)
+
+    @pytest.mark.asyncio
+    async def test_chemical_side_keeps_the_source_in_the_key(self) -> None:
+        session = AsyncMock()
+        row = MagicMock(improves=1, worsens=1, both=1)
+        session.execute.return_value = MagicMock(one=MagicMock(return_value=row))
+        await chem_direction_counts(session, "caffeine")
+        assert f"GROUP BY {_correlation.GROUP_BY_PAIR}" in _sql(session, 0)
 
 
 class TestBuildOrder:
@@ -296,6 +327,46 @@ class TestMergeEvidences:
             }
         ]
         assert len(_correlation.shape_pair_rows(rows)[0]["evidences"]) == 2
+
+
+class TestShapeMergedRows:
+    """Disease-side rows arrive with one evidence array per source chemical."""
+
+    def test_flattens_and_dedupes_across_source_chemicals(self) -> None:
+        # "aromatic compound" reached via resveratrol and via curcumin,
+        # both citing paper 7: the row must list it once.
+        rows = [
+            {
+                "improves_evidences": [
+                    [{"pmid": {"id": "7"}}, {"pmid": {"id": "8"}}],
+                    [{"pmid": {"id": "7"}}, {"pmid": {"id": "9"}}],
+                ],
+                "worsens_evidences": [[{"pmid": {"id": "9"}}]],
+            }
+        ]
+        row = _correlation.shape_merged_rows(rows)[0]
+        assert [e["pmid"]["id"] for e in row["improves_evidences"]] == ["7", "8", "9"]
+        assert [e["pmid"]["id"] for e in row["worsens_evidences"]] == ["9"]
+        assert [e["pmid"]["id"] for e in row["evidences"]] == ["7", "8", "9"]
+
+    def test_missing_direction_stays_none_like_the_pair_shape(self) -> None:
+        # The frontend distinguishes "no rows in this direction" (None)
+        # from "rows with no evidence" ([]); keep that contract.
+        rows = [
+            {"improves_evidences": [[{"pmid": {"id": "1"}}]], "worsens_evidences": None}
+        ]
+        row = _correlation.shape_merged_rows(rows)[0]
+        assert row["worsens_evidences"] is None
+        assert len(row["evidences"]) == 1
+
+    def test_null_chunks_from_rows_without_evidence_are_skipped(self) -> None:
+        rows = [
+            {
+                "improves_evidences": [None, [{"pmid": {"id": "1"}}]],
+                "worsens_evidences": None,
+            }
+        ]
+        assert len(_correlation.shape_merged_rows(rows)[0]["evidences"]) == 1
 
 
 class TestDirectionCountsAfterGrouping:
