@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.dependencies import get_db
 from src.repositories.v1 import entities, relationships
-from src.repositories.v1.pagination import build_page, clamp_page_size
+from src.repositories.v1.pagination import MAX_PAGE, build_page, clamp_page_size
 from src.repositories.v1.serializers import (
     Bioactivity,
     BioactivityChemicalRow,
@@ -20,6 +20,7 @@ from src.repositories.v1.serializers import (
     ItemResponse,
     ListResponse,
 )
+from src.routes.v1._guards import require_entity
 
 router = APIRouter(prefix="/bioactivities")
 
@@ -31,7 +32,7 @@ router = APIRouter(prefix="/bioactivities")
 )
 async def list_bioactivities(
     q: str = Query("", description="Case-insensitive substring filter on common_name"),
-    page: int = Query(1, ge=1),
+    page: int = Query(1, ge=1, le=MAX_PAGE),
     page_size: int = Query(50, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ) -> ListResponse[BioactivitySummary]:
@@ -68,10 +69,11 @@ async def get_bioactivity(
 )
 async def bioactivity_chemicals(
     bioactivity_id: str,
-    page: int = Query(1, ge=1),
+    page: int = Query(1, ge=1, le=MAX_PAGE),
     page_size: int = Query(50, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ) -> ListResponse[BioactivityChemicalRow]:
+    await require_entity(db, "bioactivity", bioactivity_id)
     size = clamp_page_size(page_size)
     rows, total = await relationships.list_bioactivity_chemicals(
         db, bioactivity_id=bioactivity_id, page=page, page_size=size
@@ -89,10 +91,11 @@ async def bioactivity_chemicals(
 )
 async def bioactivity_foods(
     bioactivity_id: str,
-    page: int = Query(1, ge=1),
+    page: int = Query(1, ge=1, le=MAX_PAGE),
     page_size: int = Query(50, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ) -> ListResponse[BioactivityFoodRow]:
+    await require_entity(db, "bioactivity", bioactivity_id)
     size = clamp_page_size(page_size)
     rows, total = await relationships.list_bioactivity_foods(
         db, bioactivity_id=bioactivity_id, page=page, page_size=size

@@ -13,7 +13,7 @@
 // Row rendering lives in shared/CorrelationRow.tsx; this file owns
 // fetching, paging and the source-chemical decision.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   TableSkeletonCards,
@@ -92,6 +92,20 @@ const CorrelationTable = ({
   };
   const sortBy = (key: CorrelationSortKey) =>
     changeSort(nextSort(sort, key, key === "name" ? "asc" : "desc"));
+
+  // The direction and search filters live in the parent tab, but they
+  // invalidate the page index exactly like a sort change does: page 3
+  // of the unfiltered list is nowhere in the filtered one, and asking
+  // the server for it returned "No evidence found" with the matches
+  // sitting on page 1 and no pager to get there. Reset here, next to
+  // the fetch that depends on it, rather than in each parent handler.
+  const filterKey = `${direction}\u0000${search}`;
+  const lastFilterKey = useRef(filterKey);
+  useEffect(() => {
+    if (lastFilterKey.current === filterKey) return;
+    lastFilterKey.current = filterKey;
+    setTablePaginations(tableId, 1);
+  }, [filterKey, setTablePaginations, tableId]);
 
   useEffect(() => {
     if (onTotalRowsChange && totalRows !== null) onTotalRowsChange(totalRows);

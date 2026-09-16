@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.dependencies import get_db
 from src.repositories.v1 import search as search_repo
-from src.repositories.v1.pagination import build_page, clamp_page_size
+from src.repositories.v1.pagination import MAX_PAGE, build_page, clamp_page_size
 from src.repositories.v1.serializers import ListResponse, SearchHit
 
 router = APIRouter(prefix="/search")
@@ -23,7 +23,7 @@ async def search(
     entity_type: str = Query(
         "", description="Filter to food|chemical|disease|bioactivity"
     ),
-    page: int = Query(1, ge=1),
+    page: int = Query(1, ge=1, le=MAX_PAGE),
     page_size: int = Query(50, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ) -> ListResponse[SearchHit]:
