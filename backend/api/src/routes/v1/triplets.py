@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.dependencies import get_db
 from src.repositories.v1 import triplets as triplets_repo
-from src.repositories.v1.pagination import build_page, clamp_page_size
+from src.repositories.v1.pagination import MAX_PAGE, build_page, clamp_page_size
 from src.repositories.v1.serializers import ItemResponse, ListResponse, Triplet
 
 router = APIRouter(prefix="/triplets")
@@ -22,14 +22,26 @@ async def list_triplets(
     relationship: str = Query(
         "",
         description=(
-            "One of contains|is_a|worsens|reduces, or the raw relationship_id (r1..r5)"
+            "One of contains|is_a|worsens|reduces|exhibits|measured, "
+            "or the raw relationship_id (r1..r6)"
         ),
     ),
-    source: str = Query("", description="Filter by source string"),
-    page: int = Query(1, ge=1),
+    source: str = Query(
+        "",
+        description=(
+            "Exact match on the triplet's source string (e.g. ptfi, bioactivity); "
+            "an unknown source simply matches nothing"
+        ),
+    ),
+    page: int = Query(1, ge=1, le=MAX_PAGE),
     page_size: int = Query(50, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ) -> ListResponse[Triplet]:
+    if relationship and triplets_repo.resolve_relationship(relationship) is None:
+        raise HTTPException(
+            status_code=422,
+            detail=f"relationship must be one of {triplets_repo.RELATIONSHIP_CHOICES}",
+        )
     size = clamp_page_size(page_size)
     rows, total = await triplets_repo.list_triplets(
         db,

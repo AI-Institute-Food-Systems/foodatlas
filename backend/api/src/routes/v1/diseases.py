@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.dependencies import get_db
 from src.repositories import taxonomy as taxonomy_repo
 from src.repositories.v1 import entities, relationships
-from src.repositories.v1.pagination import build_page, clamp_page_size
+from src.repositories.v1.pagination import MAX_PAGE, build_page, clamp_page_size
 from src.repositories.v1.serializers import (
     CorrelationRow,
     Disease,
@@ -17,6 +17,7 @@ from src.repositories.v1.serializers import (
     ListResponse,
     Taxonomy,
 )
+from src.routes.v1._guards import require_entity
 
 router = APIRouter(prefix="/diseases")
 
@@ -24,7 +25,7 @@ router = APIRouter(prefix="/diseases")
 @router.get("", response_model=ListResponse[DiseaseSummary])
 async def list_diseases(
     q: str = Query(""),
-    page: int = Query(1, ge=1),
+    page: int = Query(1, ge=1, le=MAX_PAGE),
     page_size: int = Query(50, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ) -> ListResponse[DiseaseSummary]:
@@ -60,7 +61,7 @@ async def get_disease(
 async def disease_chemicals(
     disease_id: str,
     relation: str = Query("reduces"),
-    page: int = Query(1, ge=1),
+    page: int = Query(1, ge=1, le=MAX_PAGE),
     page_size: int = Query(50, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ) -> ListResponse[CorrelationRow]:
@@ -68,6 +69,7 @@ async def disease_chemicals(
         raise HTTPException(
             status_code=422, detail="relation must be reduces or worsens"
         )
+    await require_entity(db, "disease", disease_id)
     size = clamp_page_size(page_size)
     rows, total = await relationships.list_correlation(
         db, disease_id=disease_id, relation=relation, page=page, page_size=size
