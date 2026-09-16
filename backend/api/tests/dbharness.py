@@ -58,7 +58,8 @@ _CHEM_ENTITIES_DDL = """
 CREATE TABLE mv_chemical_entities (
     foodatlas_id            TEXT,
     common_name             TEXT,
-    chemical_classification TEXT[]
+    chemical_classification TEXT[],
+    ambiguity_siblings      JSONB DEFAULT '[]'
 )
 """
 
@@ -91,6 +92,26 @@ CREATE TABLE mv_food_chemical_composition (
 )
 """
 
+# What the two correlation directions read. `evidences` carries the
+# per-row citation list the grouping merges; `ambiguity_siblings` on the
+# chemical entities table above is what the disease page's scalar
+# subquery joins to.
+_CHEM_DISEASE_CORRELATION_DDL = """
+CREATE TABLE mv_chemical_disease_correlation (
+    id                           INTEGER,
+    chemical_name                TEXT,
+    chemical_foodatlas_id        TEXT,
+    relationship_id              TEXT,
+    disease_name                 TEXT,
+    disease_foodatlas_id         TEXT,
+    source_chemical_name         TEXT DEFAULT '',
+    source_chemical_foodatlas_id TEXT DEFAULT '',
+    sources                      TEXT[] DEFAULT '{}',
+    evidences                    JSONB DEFAULT '[]',
+    evidence_count               INTEGER DEFAULT 0
+)
+"""
+
 # The composition path resolves per-attestation trust scores before it
 # can decide which rows survive, so the table has to exist even when a
 # test has no low-trust data — an empty table means "nothing is
@@ -109,6 +130,7 @@ DDL: tuple[str, ...] = (
     _CHEM_ENTITIES_DDL,
     _FOOD_ENTITIES_DDL,
     _FOOD_COMPOSITION_DDL,
+    _CHEM_DISEASE_CORRELATION_DDL,
     _TRUST_SIGNALS_DDL,
 )
 
@@ -119,6 +141,7 @@ MIRRORED_TABLES: tuple[str, ...] = (
     "mv_chemical_entities",
     "mv_food_entities",
     "mv_food_chemical_composition",
+    "mv_chemical_disease_correlation",
 )
 
 

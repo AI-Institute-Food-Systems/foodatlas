@@ -586,3 +586,22 @@ class TestStatsRepo:
         session.execute.return_value = _iter_result(rows)
         out = await search.get_stats(session)
         assert out["foods"] == 0
+
+
+class TestResolveRelationship:
+    @pytest.mark.parametrize(
+        ("value", "expected"),
+        [
+            ("contains", "r1"),
+            ("exhibits", "r5"),
+            ("measured", "r6"),
+            ("r6", "r6"),
+            ("R6", "r6"),
+            ("MEASURED", "r6"),
+            ("", None),
+            ("bogus", None),
+            ("r7", None),
+        ],
+    )
+    def test_aliases_and_ids(self, value: str, expected: str | None) -> None:
+        assert triplets.resolve_relationship(value) == expected
