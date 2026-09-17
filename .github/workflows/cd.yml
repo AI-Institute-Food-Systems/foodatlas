@@ -111,5 +111,80 @@ jobs:
           fi
           uv run cdk deploy FoodAtlasApiStack "${args[@]}"
 
-      - name: Smoke test /health
-        run: curl --fail --show-error --retry 10 --retry-delay 10 --retry-all-errors --max-time 30 "https://api.foodatlas.ai/health"
+      - name: Smoke test production API
+        # Ported from cd-staging.yml (#279). Hits real data endpoints, not
+        # just /health. This job deploys new images but does NOT reload the
+        # database, so a promotion that changes the DB schema leaves new
+        # code querying an old materialized schema. /health stays 200
+        # through that; the data endpoints 500 (or return 200 with an
+        # empty MV). Either must fail the deploy.
+        #
+        # URL is the custom domain, not the ApiUrl CfnOutput: that output
+        # is the raw ALB DNS and the ACM cert only matches api.foodatlas.ai
+        # (see #124). The bearer token still comes from the stack so the
+        # check can't silently skip itself on a missing repo secret.
+        env:
+          STACK: FoodAtlasApiStack
+          API_URL: https://api.foodatlas.ai
+        run: |
+          set -euo pipefail
+
+          KEY_ARN=$(aws cloudformation describe-stacks \
+            --stack-name "$STACK" --region "$AWS_REGION" \
+            --query "Stacks[0].Outputs[?OutputKey=='ApiKeySecretArn'].OutputValue" \
+            --output text)
+          if [ -z "$KEY_ARN" ] || [ "$KEY_ARN" = "None" ]; then
+            echo "::error::Could not resolve ApiKeySecretArn from $STACK."
+            exit 1
+          fi
+          API_KEY=$(aws secretsmanager get-secret-value \
+            --secret-id "$KEY_ARN" --region "$AWS_REGION" \
+            --query SecretString --output text)
+          echo "Smoke-testing $API_URL"
+
+          # Liveness first -- retry while the new task set drains in.
+          curl --fail --show-error --retry 10 --retry-delay 10 \
+               --retry-all-errors --max-time 30 "$API_URL/health"
+          echo "  /health OK"
+
+          # Then one endpoint per materialized view that the promotion
+          # could have desynced. Each must return HTTP 200 AND non-empty
+          # data -- a 200 with `[]` means the MV is empty, which is the
+          # other half of this failure mode.
+          smoke() {
+            label="$1"
+            path="$2"
+            status=$(curl --silent --show-error --max-time 30 \
+                          -H "Authorization: Bearer $API_KEY" \
+                          -o /tmp/smoke-body.json -w '%{http_code}' \
+                          "$API_URL$path" || echo 000)
+            if [ "$status" != "200" ]; then
+              echo "::error::$label -- HTTP $status for $path"
+              head -c 400 /tmp/smoke-body.json || true
+              echo
+              return 1
+            fi
+            # `.data` is an array on list endpoints and an object on
+            # /metadata/statistics; `length > 0` covers both.
+            if ! jq -e '(.data // .) | length > 0' /tmp/smoke-body.json >/dev/null 2>&1; then
+              echo "::error::$label -- HTTP 200 but empty/unparseable data"
+              head -c 400 /tmp/smoke-body.json || true
+              echo
+              return 1
+            fi
+            echo "  $label OK"
+          }
+
+          failed=0
+          smoke "bioactivity/chemicals (mv_chemical_bioactivity)" \
+                "/bioactivity/chemicals?common_name=anticancer&page=1" || failed=1
+          smoke "food/composition (mv_food_chemical_composition)" \
+                "/food/composition?common_name=onion&page=1" || failed=1
+          smoke "metadata/statistics (mv_metadata_statistics)" \
+                "/metadata/statistics" || failed=1
+
+          if [ "$failed" -ne 0 ]; then
+            echo "::error::Production smoke test failed. If the API itself deployed cleanly, the database is probably stale -- this workflow does not run the ETL. Reload with: STACK=FoodAtlasJobsStack infra/aws/scripts/run-data-load.sh <version>  (omit <version> to load outputs/LATEST)"
+            exit 1
+          fi
+          echo "All production smoke tests passed."
