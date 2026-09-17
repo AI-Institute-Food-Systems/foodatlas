@@ -4,6 +4,7 @@ import type { Viewport } from "next";
 import Script from "next/script";
 
 import Providers from "@/app/providers";
+import MaintenanceNotice from "@/components/misc/MaintenanceNotice";
 import NavigationProgress from "@/components/navigation/NavigationProgress";
 import SearchBar from "@/components/search/SearchBar";
 import "@/styles/globals.css";
@@ -65,6 +66,7 @@ const Layout = ({ children }: ClientLayoutProps) => {
               <SearchBar />
             </Portal>
           </main>
+          <MaintenanceNotice />
         </Providers>
       </body>
     </html>
