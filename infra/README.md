@@ -344,6 +344,30 @@ cd infra/aws && uv run cdk deploy FoodAtlasJobsStack -c db_image_tag=$(git rev-p
 
 The reload must run **before** the API code that depends on the new column. Reverse order causes 500s. Since `load` drops and recreates tables, expect ~minutes of downtime.
 
+### Promote dev to main (schema + data change)
+
+Prod has no migrations: `db load` drops and recreates the schema, so a release that changes tables is a short outage no matter how it is sequenced. Announce the window first (measure it from the last staging reload's task log), then in one sitting:
+
+```
+# 0. main must already be an ancestor of dev, or the release PR conflicts
+git merge-tree --write-tree origin/main origin/dev    # must be clean; if not, merge main INTO dev first (merge commit, not squash)
+
+# 1. Release PR, merged with a merge commit. Vercel builds prod immediately; cd.yml starts.
+gh pr create --base main --head dev --title "release: promote dev to main"
+
+# 2. As soon as cd.yml's "Deploy non-API stacks" step is done (JobsStack has the new DB image),
+#    load prod. Don't wait for the API step — the schema has to land before the new API is healthy.
+cd infra/aws && ./scripts/run-data-load.sh <version>      # version is REQUIRED for a new dataset; no-arg = outputs/LATEST
+
+# 3. cd.yml's smoke step fails while the load is running (real-data endpoints are empty). Re-run it once the load exits 0:
+gh workflow run cd.yml --ref main
+
+# 4. Repoint LATEST so the no-arg reload keeps doing the right thing
+echo -n <version> | aws s3 cp - s3://<KgcBucketName>/outputs/LATEST
+```
+
+Then verify by hand (`/metadata/statistics` counts, one row from each data endpoint, `/v1/foods` with a public key, the landing page and one entity page of each type) before touching anything else. Rollback handles: `vercel promote <previous dpl_>`, `cdk deploy FoodAtlasApiStack -c api_image_tag=<old tag>`, `run-data-load.sh <old LATEST value>`.
+
 ### Roll back the data to a previous KGC run
 
 ```
