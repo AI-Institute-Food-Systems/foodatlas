@@ -11,8 +11,7 @@ if [[ -z "$REGION" ]]; then
 fi
 
 # Default to prod when caller hasn't overridden — both env var and
-# `STACK=... ./script.sh` prefix work. Callers like run-migration.sh
-# pre-export STACK=*-Staging so prod is never the accidental target.
+# `STACK=... ./script.sh` prefix work.
 STACK="${STACK:-FoodAtlasJobsStack}"
 CONTAINER_NAME="JobsContainer"
 

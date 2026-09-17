@@ -1,6 +1,6 @@
 # FoodAtlas Bioactivity — Full-Stack Developer Guide
 
-**Status:** ✅ Staging preview is **live** and serving real data.
+**Status:** 🗄️ **Historical.** The staging preview described below was retired on 2026-09-17 when the bioactivity dataset was promoted to production (`outputs/LATEST → staging-bioactivity`). Every `*-Staging` stack, `cd-staging.yml`, and the staging URL/key are gone; `dev.foodatlas.ai` and local dev now talk to the prod API. The frontend/API/data sections still describe how the subsystem works; ignore the deploy-to-staging instructions.
 **Audience:** the full-stack developer building the bioactivity feature (frontend **and** backend).
 **Last updated:** 2026-06-22
 
