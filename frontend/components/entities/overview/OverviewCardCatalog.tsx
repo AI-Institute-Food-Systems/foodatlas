@@ -5,18 +5,51 @@
 import { ReactNode } from "react";
 
 import Link from "@/components/basic/Link";
+import ReportableField from "@/components/basic/ReportableField";
 import Synonyms from "@/components/entities/food/Synonyms";
 import { Metadata } from "@/types";
 import type { EntityType } from "@/components/entities/EntityTabs";
+import type { ReportContext } from "@/types/Report";
+import { encodeSpace } from "@/utils/utils";
+import Heading from "@/components/basic/Heading";
 
 interface Props {
   entityType: EntityType;
   data: Metadata;
+  // The entity's common_name / slug — surfaced in ReportContext so ops
+  // can identify which entity a metadata report is about without
+  // re-parsing the URL.
+  entitySlug?: string;
   // When rendered inside a tab card we don't want a second card wrapper
   // around our own content (cards-in-cards). `naked` drops the outer
   // bg-light-950 / border / rounded shell and emits just the sections.
   naked?: boolean;
 }
+
+// The metadata surfaces on this panel share a discriminant type but
+// vary in `field` + `label` + `value`. This helper narrows the
+// discriminated union so call sites stay compact.
+const metadataReport = (
+  entityType: Props["entityType"],
+  entitySlug: string | undefined,
+  field:
+    | "external_id"
+    | "classification"
+    | "parent"
+    | "synonym"
+    | "flavor",
+  value: string,
+  label?: string,
+  source?: string,
+): ReportContext => ({
+  kind: "metadata-item",
+  entityType,
+  entitySlug,
+  field,
+  label,
+  value,
+  source,
+});
 
 type ExternalIdShape = Metadata["external_ids"][string];
 
@@ -36,9 +69,9 @@ const Section = ({
         : "flex flex-col gap-3 pt-5 border-t-2 border-double border-light-700/60"
     }
   >
-    <span className="self-start -ml-3 bg-light-200 shadow-inner shadow-light-50 rounded-r-md px-2.5 py-0.5 font-mono italic font-medium text-light-900 text-[10px] tracking-[0.12em] uppercase">
+    <Heading type="h3" variant="chip" className="self-start">
       {label}
-    </span>
+    </Heading>
     <div className="text-sm text-light-200 leading-relaxed">{children}</div>
   </section>
 );
@@ -74,7 +107,12 @@ const cleanExternalIdLabel = (raw: string): string => {
   return bare;
 };
 
-const OverviewCardCatalog = ({ entityType, data, naked }: Props) => {
+const OverviewCardCatalog = ({
+  entityType,
+  data,
+  entitySlug,
+  naked,
+}: Props) => {
   const externalEntries = Object.entries(
     (data.external_ids ?? {}) as Record<string, ExternalIdShape>
   ).filter(([, value]) => value?.ids?.length);
@@ -106,13 +144,24 @@ const OverviewCardCatalog = ({ entityType, data, naked }: Props) => {
                   return (
                     <span key={`${id.id}-${i}`}>
                       {i > 0 && ", "}
-                      {id.url ? (
-                        <Link href={id.url} isExternal>
+                      <ReportableField
+                        context={metadataReport(
+                          entityType,
+                          entitySlug,
+                          "external_id",
+                          label,
+                          ref.display_name,
+                          key,
+                        )}
+                      >
+                        {id.url ? (
+                          <Link href={id.url} isExternal>
+                            <span className="font-mono">{label}</span>
+                          </Link>
+                        ) : (
                           <span className="font-mono">{label}</span>
-                        </Link>
-                      ) : (
-                        <span className="font-mono">{label}</span>
-                      )}
+                        )}
+                      </ReportableField>
                     </span>
                   );
                 })}
@@ -123,9 +172,52 @@ const OverviewCardCatalog = ({ entityType, data, naked }: Props) => {
 
         {classification && classification.length > 0 && (
           <Section label="Classification">
-            <span className="capitalize">{classification.join(", ")}</span>
+            <ReportableField
+              context={metadataReport(
+                entityType,
+                entitySlug,
+                "classification",
+                classification.join(", "),
+                "Classification",
+              )}
+            >
+              <span className="capitalize">{classification.join(", ")}</span>
+            </ReportableField>
           </Section>
         )}
+
+        {entityType === "bioactivity" &&
+          data.parents &&
+          data.parents.length > 0 && (
+            <Section label="Parents">
+              <div className="flex flex-wrap gap-x-3 gap-y-1.5">
+                {data.parents.map((p) => (
+                  <ReportableField
+                    key={p.foodatlas_id}
+                    context={metadataReport(
+                      entityType,
+                      entitySlug,
+                      "parent",
+                      p.common_name,
+                      "Parent",
+                      p.foodatlas_id,
+                    )}
+                  >
+                    <Link
+                      href={`/bioactivity/${encodeURIComponent(
+                        encodeSpace(p.common_name)
+                      )}`}
+                    >
+                      <span className="capitalize">{p.common_name}</span>
+                      <span className="ml-1.5 font-mono text-[10px] text-light-500">
+                        {p.foodatlas_id}
+                      </span>
+                    </Link>
+                  </ReportableField>
+                ))}
+              </div>
+            </Section>
+          )}
 
         {data.flavor_descriptors && data.flavor_descriptors.length > 0 && (
           <Section label="Flavor">
@@ -137,7 +229,12 @@ const OverviewCardCatalog = ({ entityType, data, naked }: Props) => {
 
       {data.synonyms && data.synonyms.length > 0 && (
         <Section label="Synonyms">
-          <Synonyms synonyms={data.synonyms} naked />
+          <Synonyms
+            synonyms={data.synonyms}
+            naked
+            reportEntityType={entityType}
+            reportEntitySlug={entitySlug}
+          />
         </Section>
       )}
     </div>

@@ -166,3 +166,4 @@ _bmad_output/
 .zprofile
 .zshrc
 docs/staging.env
+.env*.local

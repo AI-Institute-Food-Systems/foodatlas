@@ -78,6 +78,9 @@ def load_kg(conn: Connection, parquet_dir: Path) -> None:
     attestations_df = parquet_reader.read_attestations(kg_dir)
     attestations_bioactivity_df = parquet_reader.read_attestations_bioactivity(kg_dir)
     bioassays_df = parquet_reader.read_bioassays(kg_dir)
+    efficacy_df = parquet_reader.read_food_chemical_efficacy(kg_dir)
+    disease_bridge_df = parquet_reader.read_bioactivity_disease(kg_dir)
+    disease_targets_df = parquet_reader.read_bioactivity_disease_targets(kg_dir)
 
     # 2. Recreate schema from ORM models
     _recreate_schema(conn)
@@ -213,6 +216,77 @@ def load_kg(conn: Connection, parquet_dir: Path) -> None:
                 "bioactivity_ids",
                 "last_modified",
             ],
+        )
+
+    # Food-chemical-bioactivity efficacy — present only alongside the bioactivity
+    # source. Resolved (cid→chemical, E300→concept) into mv at materialize time.
+    if efficacy_df is not None:
+        logger.info("Inserting food-chemical efficacy (%d rows)...", len(efficacy_df))
+        bulk_copy(
+            conn,
+            "base_food_chemical_efficacy",
+            efficacy_df,
+            [
+                "foodatlas_id",
+                "cid",
+                "bioactivity_id",
+                "food_name",
+                "food_conc_mg_per_100g",
+                "food_conc_mass_fraction_pct",
+                "conc_quality_flag",
+                "molecular_weight",
+                "food_conc_m",
+                "food_conc_logm",
+                "rep_source_assay_id",
+                "endpoint_type",
+                "endpoint_class",
+                "curve_method",
+                "logac50",
+                "hillslope",
+                "zeroactivity",
+                "infiniteactivity",
+                "n_curves",
+                "n_curves_4param",
+                "curve_agreement",
+                "ac50_spread_log",
+                "logac50_median",
+                "logac50_min",
+                "logac50_max",
+                "dose_over_ac50_log",
+                "conc_vs_ac50",
+                "efficacy_fraction",
+                "efficacy_response",
+                "saturated",
+            ],
+        )
+
+    # Bioactivity disease↔assay bridge + target genes — the input to the inferred
+    # chemical↔disease associations (mv_chemical_disease_bioactivity).
+    if disease_bridge_df is not None:
+        logger.info(
+            "Inserting bioactivity-disease bridge (%d rows)...", len(disease_bridge_df)
+        )
+        bulk_copy(
+            conn,
+            "base_bioactivity_disease",
+            disease_bridge_df,
+            [
+                "disease_mesh_id",
+                "source_assay_id",
+                "relationship",
+                "bioactivity_disease_metadata_id",
+            ],
+        )
+    if disease_targets_df is not None:
+        logger.info(
+            "Inserting bioactivity-disease targets (%d rows)...",
+            len(disease_targets_df),
+        )
+        bulk_copy(
+            conn,
+            "base_bioactivity_disease_targets",
+            disease_targets_df,
+            ["bioactivity_disease_metadata_id", "target_ids"],
         )
     conn.commit()
 

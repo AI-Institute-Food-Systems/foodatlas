@@ -1,0 +1,413 @@
+// 4-parameter Hill / log-logistic dose-response curve, drawn as a small
+// SVG plot with permanent axis labels and a hover crosshair that
+// reveals the modelled activity at any concentration. Renders null
+// unless ALL four fit parameters are present (most ChEMBL/PubChem rows
+// only carry a logAC50 + raw value — only ToxCast-style measurements
+// have zero/infinite/slope too).
+//
+// Hill equation (concentration-form):
+//   y(x) = bottom + (top − bottom) / (1 + 10^((logAC50 − log10(x)) * slope))
+//
+// Implementation notes:
+// - Readout text lives INSIDE the SVG (no floating tooltip / portal)
+//   so it works inside dense table cells without overflow/z-index hell.
+// - Permanent labels at the four corners: top/bottom of the y-axis on
+//   the left, log-concentration range on the bottom. Tabular-nums via
+//   the SVG `text` element's `font-family`.
+
+"use client";
+
+import { useLayoutEffect, useRef, useState } from "react";
+
+interface Props {
+  zero: number | null | undefined;
+  infinite: number | null | undefined;
+  logAC50: number | null | undefined;
+  slope: number | null | undefined;
+  // Concentration unit (e.g. "uM") — appended to readout values when
+  // present. Optional because most call sites have it adjacent already.
+  unit?: string | null;
+  width?: number;
+  height?: number;
+  // When true, the SVG fills its container and draws at the container's
+  // real pixel size — one viewBox unit is one screen pixel — so labels
+  // are the same size on every screen. Used for the accordion's expanded
+  // view so the curve takes whatever horizontal space the layout offers;
+  // `width`/`height` then only set the aspect ratio before the first
+  // measurement. The previous fluid mode kept the supplied 720×320 as the
+  // viewBox and let the browser scale it, which made the labels a few
+  // pixels on phones — and, once they were bumped to read on phones,
+  // twenty-odd pixels on a desktop.
+  fluid?: boolean;
+}
+
+// Label sizes in fluid mode, in screen pixels: the modal's own small-text
+// vocabulary (text-[11px] / text-[10px]).
+const FLUID_MAJOR_PX = 11;
+const FLUID_MINOR_PX = 10;
+
+const SAMPLES = 80;
+// Sweep 3 decades on each side of AC50 — captures the plateau-rise-plateau
+// shape for any sane slope (-3..+3 dose-effect range covers > 99% of fits).
+const DECADES = 3;
+
+// A concentration, to about three significant digits at every
+// magnitude. Exported so the fit list beside the curve prints AC50 the
+// same way and the two never disagree ("0.0000166" above "AC50 2e-5"
+// did).
+export const formatConcentration = (v: number): string => {
+  if (v >= 100) return v.toFixed(0);
+  if (v >= 1) return v.toFixed(1);
+  if (v >= 0.01) return v.toFixed(2);
+  return v.toExponential(2);
+};
+
+const fmtConc = (logX: number): string => formatConcentration(10 ** logX);
+
+const fmtY = (y: number): string => {
+  if (Math.abs(y) >= 10) return y.toFixed(0);
+  return y.toFixed(1);
+};
+
+const HillCurveSparkline = ({
+  zero,
+  infinite,
+  logAC50,
+  slope,
+  unit,
+  width = 160,
+  height = 64,
+  fluid = false,
+}: Props) => {
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const [hoverPx, setHoverPx] = useState<number | null>(null);
+  // The container's rendered size, in fluid mode. Measured before paint
+  // so the first frame already draws at 1:1; re-measured on resize.
+  const [measured, setMeasured] = useState<{ w: number; h: number } | null>(
+    null
+  );
+
+  const drawable =
+    zero != null &&
+    infinite != null &&
+    logAC50 != null &&
+    slope != null &&
+    Number.isFinite(zero) &&
+    Number.isFinite(infinite) &&
+    Number.isFinite(logAC50) &&
+    Number.isFinite(slope) &&
+    slope !== 0 &&
+    zero !== infinite;
+
+  useLayoutEffect(() => {
+    if (!fluid || !drawable) return;
+    const el = svgRef.current;
+    if (!el) return;
+    const update = () => {
+      const r = el.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) {
+        setMeasured({ w: Math.round(r.width), h: Math.round(r.height) });
+      }
+    };
+    update();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [fluid, drawable]);
+
+  if (!drawable) return null;
+
+  // Drawing size. Fluid: the measured pixels, so nothing scales. Fixed:
+  // the supplied size, drawn as-is.
+  const vw = fluid && measured ? measured.w : width;
+  const vh = fluid && measured ? measured.h : height;
+
+  // Label sizes. Fixed mode scales them with the width so the 160-wide
+  // sparkline keeps its 7/8-unit ticks; fluid mode draws at 1:1, so the
+  // sizes are screen pixels and stay put whatever the container is.
+  const majorFontSize = fluid ? FLUID_MAJOR_PX : Math.max(8, Math.round(vw / 36));
+  const minorFontSize = fluid ? FLUID_MINOR_PX : Math.max(7, Math.round(vw / 40));
+  // Reserved gutters for axis labels — scale with the minor font size
+  // (label height) and allow ~3 characters of horizontal room for y
+  // labels ("-44", "1000", etc.). Hardcoded 22/10/9 constants only
+  // worked for the 8pt default; at the modal's 18pt they overlap the
+  // plot and clip the axis labels.
+  const PAD_LEFT = Math.max(22, Math.round(minorFontSize * 3));
+  const PAD_BOTTOM = Math.max(10, minorFontSize + 6);
+  const PAD_TOP = Math.max(9, majorFontSize + 6);
+  const plotW = vw - PAD_LEFT;
+  const plotH = vh - PAD_TOP - PAD_BOTTOM;
+  const logXMin = logAC50 - DECADES;
+  const logXMax = logAC50 + DECADES;
+  const yMin = Math.min(zero, infinite);
+  const yMax = Math.max(zero, infinite);
+  const yRange = yMax - yMin;
+
+  const hillY = (logX: number): number =>
+    zero + (infinite - zero) / (1 + 10 ** ((logAC50 - logX) * slope));
+
+  const toPx = (logX: number): number =>
+    PAD_LEFT + ((logX - logXMin) / (logXMax - logXMin)) * plotW;
+  const toPy = (y: number): number =>
+    PAD_TOP + ((yMax - y) / yRange) * plotH;
+
+  const points: string[] = [];
+  for (let i = 0; i < SAMPLES; i++) {
+    const t = i / (SAMPLES - 1);
+    const logX = logXMin + t * (logXMax - logXMin);
+    const y = hillY(logX);
+    points.push(`${toPx(logX).toFixed(1)},${toPy(y).toFixed(1)}`);
+  }
+
+  const midPx = toPx(logAC50);
+  const midPy = toPy(hillY(logAC50));
+
+  // Clamp hover to the plot area so the crosshair never escapes the
+  // axis labels.
+  let hoverLogX: number | null = null;
+  let hoverY: number | null = null;
+  if (hoverPx != null) {
+    const clamped = Math.max(PAD_LEFT, Math.min(PAD_LEFT + plotW, hoverPx));
+    const t = (clamped - PAD_LEFT) / plotW;
+    hoverLogX = logXMin + t * (logXMax - logXMin);
+    hoverY = hillY(hoverLogX);
+  }
+
+  const handleMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    // Account for SVG viewBox vs displayed size scaling.
+    const scale = vw / rect.width;
+    setHoverPx((e.clientX - rect.left) * scale);
+  };
+
+  // Touch/pointer scrubbing on mobile — mirrors the mouse handler but
+  // reads from pointer/touch events. Prevent-default on the touch
+  // handler stops the page from scrolling while dragging on the curve.
+  const handlePointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const scale = vw / rect.width;
+    setHoverPx((e.clientX - rect.left) * scale);
+  };
+  const handleTouchMove = (e: React.TouchEvent<SVGSVGElement>) => {
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect || e.touches.length === 0) return;
+    e.preventDefault();
+    const scale = vw / rect.width;
+    setHoverPx((e.touches[0].clientX - rect.left) * scale);
+  };
+
+  const readout =
+    hoverLogX != null && hoverY != null
+      ? `${fmtConc(hoverLogX)}${unit ? ` ${unit}` : ""} → ${fmtY(hoverY)}`
+      : `AC50 ${fmtConc(logAC50)}${unit ? ` ${unit}` : ""}`;
+
+  const labelFont = "ui-monospace, SFMono-Regular, Menlo, monospace";
+
+  return (
+    <svg
+      ref={svgRef}
+      width={fluid ? "100%" : vw}
+      height={fluid ? "100%" : vh}
+      viewBox={`0 0 ${vw} ${vh}`}
+      role="img"
+      aria-label={`Hill curve fit, AC50 at 10^${logAC50.toFixed(2)}, slope ${slope.toFixed(2)}`}
+      // overflow:visible so text glyphs anchored at the right edge
+      // (x=width, textAnchor=end) don't get their trailing advance
+      // clipped by the SVG viewport — SVG defaults to overflow:hidden.
+      overflow="visible"
+      className="block cursor-crosshair touch-none select-none"
+      onMouseMove={handleMove}
+      onMouseLeave={() => setHoverPx(null)}
+      onPointerDown={handlePointerMove}
+      onPointerMove={(e) => {
+        if (e.buttons > 0 || e.pointerType === "touch") handlePointerMove(e);
+      }}
+      onPointerUp={() => setHoverPx(null)}
+      onPointerCancel={() => setHoverPx(null)}
+      onTouchStart={handleTouchMove}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={() => setHoverPx(null)}
+    >
+      {/* readout / AC50 label across the top — switches to live value on hover */}
+      <text
+        x={vw}
+        y={PAD_TOP - 2}
+        fontSize={majorFontSize}
+        fontFamily={labelFont}
+        fill="currentColor"
+        fillOpacity={hoverLogX != null ? "0.9" : "0.6"}
+        textAnchor="end"
+      >
+        {readout}
+      </text>
+
+      {/* y-axis labels — anchored to the left edge (start) so long
+       * values ("1000") never overflow off-screen when the SVG is
+       * displayed on a narrow phone. */}
+      <text
+        x={0}
+        y={PAD_TOP + 3}
+        fontSize={minorFontSize}
+        fontFamily={labelFont}
+        fill="currentColor"
+        fillOpacity="0.5"
+        textAnchor="start"
+      >
+        {fmtY(yMax)}
+      </text>
+      <text
+        x={0}
+        y={PAD_TOP + plotH}
+        fontSize={minorFontSize}
+        fontFamily={labelFont}
+        fill="currentColor"
+        fillOpacity="0.5"
+        textAnchor="start"
+      >
+        {fmtY(yMin)}
+      </text>
+
+      {/* x-axis labels (log concentration range) at the bottom corners */}
+      <text
+        x={PAD_LEFT}
+        y={vh - 2}
+        fontSize={minorFontSize}
+        fontFamily={labelFont}
+        fill="currentColor"
+        fillOpacity="0.5"
+      >
+        {fmtConc(logXMin)}
+      </text>
+      <text
+        x={vw}
+        y={vh - 2}
+        fontSize={minorFontSize}
+        fontFamily={labelFont}
+        fill="currentColor"
+        fillOpacity="0.5"
+        textAnchor="end"
+      >
+        {fmtConc(logXMax)}
+      </text>
+
+      {/* plot frame — left + bottom axes */}
+      <line
+        x1={PAD_LEFT}
+        x2={vw}
+        y1={PAD_TOP + plotH}
+        y2={PAD_TOP + plotH}
+        stroke="currentColor"
+        strokeOpacity="0.2"
+      />
+      <line
+        x1={PAD_LEFT}
+        x2={PAD_LEFT}
+        y1={PAD_TOP}
+        y2={PAD_TOP + plotH}
+        stroke="currentColor"
+        strokeOpacity="0.2"
+      />
+
+      {/* AC50 marker line (always visible — anchors the eye to the
+       * inflection point even when the user isn't hovering) */}
+      <line
+        x1={midPx}
+        x2={midPx}
+        y1={PAD_TOP}
+        y2={PAD_TOP + plotH}
+        stroke="currentColor"
+        strokeOpacity="0.2"
+        strokeDasharray="2 2"
+      />
+
+      {/* curve */}
+      <polyline
+        points={points.join(" ")}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+
+      {/* AC50 dot at midpoint */}
+      <circle cx={midPx} cy={midPy} r="2" fill="currentColor" />
+
+      {/* hover crosshair — vertical + horizontal lines through the
+       * cursor's curve intersection, dot on the curve, and axis ticks
+       * + value labels so the user can read the concentration / activity
+       * straight off the axes without going to the top-right readout. */}
+      {hoverLogX != null && hoverY != null && (
+        <>
+          <line
+            x1={toPx(hoverLogX)}
+            x2={toPx(hoverLogX)}
+            y1={PAD_TOP}
+            y2={PAD_TOP + plotH}
+            stroke="currentColor"
+            strokeOpacity="0.5"
+          />
+          <line
+            x1={PAD_LEFT}
+            x2={toPx(hoverLogX)}
+            y1={toPy(hoverY)}
+            y2={toPy(hoverY)}
+            stroke="currentColor"
+            strokeOpacity="0.5"
+            strokeDasharray="2 2"
+          />
+          <circle
+            cx={toPx(hoverLogX)}
+            cy={toPy(hoverY)}
+            r="2.5"
+            fill="currentColor"
+          />
+          {/* X-axis tick + concentration label at the cursor */}
+          <line
+            x1={toPx(hoverLogX)}
+            x2={toPx(hoverLogX)}
+            y1={PAD_TOP + plotH}
+            y2={PAD_TOP + plotH + 3}
+            stroke="currentColor"
+          />
+          <text
+            x={toPx(hoverLogX)}
+            y={vh - 1}
+            fontSize={majorFontSize}
+            fontFamily={labelFont}
+            fill="currentColor"
+            textAnchor="middle"
+          >
+            {fmtConc(hoverLogX)}
+            {unit ? ` ${unit}` : ""}
+          </text>
+          {/* Y-axis tick + activity label at the curve intersection */}
+          <line
+            x1={PAD_LEFT - 3}
+            x2={PAD_LEFT}
+            y1={toPy(hoverY)}
+            y2={toPy(hoverY)}
+            stroke="currentColor"
+          />
+          <text
+            x={PAD_LEFT - 4}
+            y={toPy(hoverY) + 3}
+            fontSize={majorFontSize}
+            fontFamily={labelFont}
+            fill="currentColor"
+            textAnchor="end"
+          >
+            {fmtY(hoverY)}
+          </text>
+        </>
+      )}
+    </svg>
+  );
+};
+
+HillCurveSparkline.displayName = "HillCurveSparkline";
+
+export default HillCurveSparkline;

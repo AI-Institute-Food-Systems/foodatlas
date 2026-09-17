@@ -3,6 +3,7 @@ import TaxonomyTree from "@/components/entities/TaxonomyTree";
 import { getTaxonomyData } from "@/utils/fetching";
 import { TaxonomyEdge, TaxonomyNode } from "@/types";
 import type { TreeNode } from "@/components/entities/TaxonomyTree";
+import Heading from "@/components/basic/Heading";
 
 interface TaxonomySectionProps {
   commonName: string;
@@ -98,16 +99,14 @@ const TaxonomySection = async ({
 
   const colorClass = ENTITY_COLOR[entityType] ?? "text-light-100";
 
+  // Cream-chip section label — mirrors the OverviewCardCatalog
+  // ("Identifiers", "Synonyms", etc.) so Overview reads as one panel
+  // of apothecary sections rather than a mix of chip labels and
+  // uppercase micro-headings.
   const heading = (
-    <h4
-      className={
-        naked
-          ? "font-mono uppercase text-[10px] tracking-[0.2em] text-light-400"
-          : "font-mono italic text-light-400 text-xs"
-      }
-    >
+    <Heading type="h3" variant="chip" className="self-start">
       Taxonomy
-    </h4>
+    </Heading>
   );
 
   const tree = (
@@ -116,6 +115,7 @@ const TaxonomySection = async ({
       entityId={data.entity_id}
       entityType={entityType}
       colorClass={colorClass}
+      entitySlug={commonName}
     />
   );
 

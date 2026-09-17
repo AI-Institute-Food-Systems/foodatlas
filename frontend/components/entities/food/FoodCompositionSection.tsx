@@ -2,58 +2,98 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import {
-  Listbox,
-  ListboxButton,
-  ListboxOption,
-  ListboxOptions,
-  Popover,
-  PopoverButton,
-  PopoverPanel,
-  Portal,
-  Switch,
-} from "@headlessui/react";
+import { Portal, Switch } from "@headlessui/react";
 import {
   MdCheck,
   MdClose,
   MdDescription,
-  MdErrorOutline,
-  MdKeyboardArrowDown,
-  MdKeyboardArrowUp,
-  MdSearch,
-  MdUnfoldMore,
+  MdTune,
 } from "react-icons/md";
 import { twMerge } from "tailwind-merge";
 
-import Button from "@/components/basic/Button";
+import Card from "@/components/basic/Card";
+import { Tooltip } from "@/components/basic/Tooltip";
+import {
+  MobileSort,
+  nextSort,
+  Th,
+  type SortableColumn,
+  type SortDir,
+} from "@/components/entities/shared/EvidenceTable";
+import ResetFiltersButton from "@/components/basic/ResetFiltersButton";
+import Chip from "@/components/basic/Chip";
 import Link from "@/components/basic/Link";
 import Pagination from "@/components/basic/Pagination";
-import LoadingCard from "@/components/basic/LoadingCard";
+import Skeleton from "@/components/basic/Skeleton";
+import {
+  TableSkeletonCards,
+  TableSkeletonRows,
+} from "@/components/basic/TableSkeleton";
+import { useReportRows } from "@/context/reportModeContext";
 import { AmbiguityBadge } from "@/components/basic/Ambiguity";
 import { TrustBadge } from "@/components/basic/TrustBadge";
 import FoodCompositionEvidenceModal, {
   EvidenceFilter,
 } from "@/components/entities/food/FoodCompositionEvidenceModal";
+import {
+  FilterGroup,
+  FilterOption,
+  FilterOptionList,
+  FilterRowLabel,
+  ToggleSwitch,
+  FilterSearchInput,
+} from "@/components/entities/shared/filters/FilterControls";
+import FilterPanel from "@/components/entities/shared/filters/FilterPanel";
 import { usePaginations } from "@/context/paginationsContext";
+import { usePublishTabCount } from "@/context/tabCountsContext";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { encodeSpace, formatConcentrationValueAlt } from "@/utils/utils";
 import {
   getFoodCompositionCounts,
   getFoodCompositionData,
 } from "@/utils/fetching";
+import {
+  ALL_SOURCE_VALUES,
+  SOURCE_OPTIONS,
+} from "@/components/entities/food/compositionSources";
 import { FoodCompositionData } from "@/types";
+import TableEmptyState from "@/components/entities/shared/TableEmptyState";
 
 // headers for table
+// One spec drives the <colgroup>, the <th>s and the loading skeleton, so
+// the placeholder grid can't drift from the real one.
 const TABLE_HEADERS = [
-  { label: "Chemical", sortName: "common_name", align: "left" as const },
-  { label: "Classification", align: "left" as const, filterable: true },
   {
+    key: "chemical",
+    label: "Chemical",
+    sortName: "common_name",
+    align: "left" as const,
+    width: "w-[30%]",
+  },
+  {
+    key: "classification",
+    label: "Classification",
+    align: "left" as const,
+    width: "w-[20%]",
+  },
+  {
+    key: "concentration",
     label: "Concentration (mg/100g)",
     sortName: "median_concentration",
     align: "right" as const,
+    width: "w-[25%]",
   },
-  { label: "Evidence", align: "right" as const },
+  {
+    key: "evidence",
+    label: "Evidence",
+    sortName: "evidence_count",
+    align: "right" as const,
+    width: "w-[25%]",
+  },
 ];
 
+// Alphabetical, with the catch-all pinned last — the order every facet
+// uses, so an option stays where the eye left it.
 const CLASSIFICATION_OPTIONS = [
   "alkaloid",
   "amino acid",
@@ -72,11 +112,6 @@ const CLASSIFICATION_OPTIONS = [
   "n/a",
 ];
 
-// mapping of source filters to their labels
-const SOURCE_OPTIONS = [
-  { value: "fdc", label: "FDC" },
-  { value: "foodatlas", label: "FoodAtlas" },
-];
 
 interface FoodCompositionSectionProps {
   commonName: string;
@@ -91,6 +126,12 @@ const FoodCompositionSection = ({
   const [data, setData] = useState<FoodCompositionData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
+  // A fetch with rows already on screen is a REFETCH (page, sort, filter,
+  // search), and blanking the table for it was the single most visible
+  // flash in this tab. Only show the skeleton when there is nothing to
+  // keep; otherwise dim what's there and let it be replaced in place.
+  const showSkeleton = isLoading && data.length === 0;
+  const isRefetching = isLoading && data.length > 0;
   const { getTablePaginations, setTablePaginations } = usePaginations();
   const { currentPage } = getTablePaginations("food-composition-table");
   // Highlight a single row when the user arrived from a chemical page link
@@ -109,53 +150,121 @@ const FoodCompositionSection = ({
   const tableWrapperRef = useRef<HTMLDivElement | null>(null);
   const [numberOfPages, setNumberOfPages] = useState(-1);
   const [numberOfRows, setNumberOfRows] = useState(-1);
+  // Publish the current filtered row count to the Composition tab
+  // badge. -1 = "unknown" (initial state) → the badge falls back to
+  // the server-prefetched static count until the first fetch resolves.
+  usePublishTabCount("composition", numberOfRows >= 0 ? numberOfRows : null);
   const [searchTerm, setSearchTerm] = useState(
     searchParams.get("search") ?? ""
   );
-  const [sourceFilters, setSourceFilters] = useState<string[]>([
-    "fdc",
-    "foodatlas",
-  ]);
-  const [sort, setSort] = useState({
+  // The input stays instant; only the fetch waits. Without this every
+  // keystroke was its own request.
+  const debouncedSearch = useDebouncedValue(searchTerm);
+  const [sourceFilters, setSourceFilters] = useState<string[]>(ALL_SOURCE_VALUES);
+  const [sort, setSort] = useState<{ column: string; direction: SortDir }>({
     column: "median_concentration",
     direction: "desc",
   });
   const [showAllConcentrations, setShowAllConcentrations] = useState(true);
   const [showLowTrust, setShowLowTrust] = useState(false);
+  const reporter = useReportRows();
   const [selectedEvidenceName, setSelectedEvidenceName] = useState("");
   const [evidenceFilter, setEvidenceFilter] =
     useState<EvidenceFilter>("all");
   const [sourceCounts, setSourceCounts] = useState<Record<string, number>>({});
-  const [classificationFilter, setClassificationFilter] = useState<
-    string[]
-  >([...CLASSIFICATION_OPTIONS]);
+  // Tracks whether the facet-count fetch has settled at all. `{}` alone
+  // can't tell "still loading" from "all zero", and treating the former
+  // as the latter disabled filter rows retroactively.
+  const [countsLoaded, setCountsLoaded] = useState(false);
+  // Empty selection means "no class filter" (show all rows). Users
+  // pre-2026-07 saw every checkbox pre-checked which inverted the mental
+  // model — clicking "flavonoid" REMOVED it, so rows returned were the
+  // complement. Start empty so click = include.
+  const [classificationFilter, setClassificationFilter] = useState<string[]>(
+    [],
+  );
   const [classificationCounts, setClassificationCounts] = useState<
     Record<string, number>
   >({});
+  // Counterfactual counts for the Options toggle switches. Undefined
+  // while loading OR when the API hasn't returned the field yet (round-2
+  // backend addition; frontend gracefully hides the count in that case).
+  const [noConcentrationCount, setNoConcentrationCount] = useState<
+    number | undefined
+  >(undefined);
+  const [lowTrustCount, setLowTrustCount] = useState<number | undefined>(
+    undefined,
+  );
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
-  // fetch source + classification counts in one call
+  // Mobile card view sort options — mirror the sortable desktop
+  // columns. Each option encodes column|direction as a single value so
+  // the <select> can drive both dimensions in one interaction.
+  // The card list has no headers to click, so the sort is a listbox
+  // there. Phrases, not arrows: "Chemical ↓" is ambiguous for text.
+  const MOBILE_SORT_COLUMNS: SortableColumn[] = [
+    {
+      key: "median_concentration",
+      labels: { desc: "Highest concentration", asc: "Lowest concentration" },
+    },
+    { key: "evidence_count", labels: { desc: "Most evidence", asc: "Least evidence" } },
+    { key: "common_name", labels: { asc: "Chemical A–Z", desc: "Chemical Z–A" } },
+  ];
+
+  // Faceted counts — refetched whenever any filter changes. Each
+  // dimension in the response reflects the other active filters, so
+  // the sidebar numbers update as the user narrows the view (e.g.
+  // deselecting Source drops the per-Class counts to just what's left).
   useEffect(() => {
+    let cancelled = false;
     const fetchCounts = async () => {
       try {
-        const counts = await getFoodCompositionCounts(commonName);
+        const counts = await getFoodCompositionCounts(commonName, {
+          sourceFilters,
+          classificationFilters: classificationFilter,
+          showAllConcentrations,
+          showLowTrust,
+          searchTerm,
+        });
+        if (cancelled) return;
         setSourceCounts(counts.source_counts);
         setClassificationCounts(counts.classification_counts);
-        // Initialize filter to only classes that have results
-        setClassificationFilter(
-          CLASSIFICATION_OPTIONS.filter(
-            (cls) => (counts.classification_counts[cls] ?? 0) > 0
-          )
-        );
+        setNoConcentrationCount(counts.no_concentration_count);
+        setLowTrustCount(counts.low_trust_count);
+        setCountsLoaded(true);
       } catch {
+        if (cancelled) return;
         setSourceCounts({});
         setClassificationCounts({});
+        setNoConcentrationCount(undefined);
+        setLowTrustCount(undefined);
+        // Settled either way — a failed count fetch shouldn't leave the
+        // filter rows showing placeholders forever.
+        setCountsLoaded(true);
       }
     };
     fetchCounts();
-  }, [commonName]);
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    commonName,
+    sourceFilters,
+    classificationFilter,
+    showAllConcentrations,
+    showLowTrust,
+    searchTerm,
+  ]);
 
-  // data fetching
+  // data fetching. Same `cancelled` guard as the counts effect above:
+  // a filter toggled and untoggled inside one request's latency, or a
+  // search typed while not on page 1 (the page reset fires a fetch with
+  // the OLD debounced term, then the debounce fires another), had the
+  // two responses racing and the later-arriving one winning — the table
+  // and the tab badge then showed the undone filter's rows as fact,
+  // with nothing in the filter UI to say so.
   useEffect(() => {
+    let cancelled = false;
     const fetchData = async () => {
       // no sources selected, show empty state
       if (sourceFilters.length === 0) {
@@ -169,24 +278,21 @@ const FoodCompositionSection = ({
       try {
         setIsError(false);
         setIsLoading(true);
-        const visibleCount = CLASSIFICATION_OPTIONS.filter(
-          (cls) => (classificationCounts[cls] ?? 0) > 0
-        ).length;
-        const activeClsFilter =
-          classificationFilter.length >= visibleCount
-            ? []
-            : classificationFilter;
+        // Empty = no filter (show all). Any selection narrows results to
+        // rows whose classification array overlaps the selection.
+        const activeClsFilter = classificationFilter;
         const result = await getFoodCompositionData(
           commonName,
           currentPage,
           sourceFilters,
-          searchTerm,
+          debouncedSearch,
           sort,
           showAllConcentrations,
           activeClsFilter,
           showLowTrust ? "show_all" : "default",
           findChemical
         );
+        if (cancelled) return;
         // When find_chemical resolves, snap pagination to the served page
         // and stop forcing the find so the user can paginate freely after.
         const resolvedPage: number | null =
@@ -201,40 +307,40 @@ const FoodCompositionSection = ({
         if (findChemical) {
           setFindChemical("");
         }
-        // client-side filter: only keep rows with evidence from selected sources
-        const filteredData = (
-          result.data as FoodCompositionData[]
-        ).filter((row) =>
-          sourceFilters.some((source) => {
-            const evidences =
-              row[
-                `${source}_evidences` as keyof FoodCompositionData
-              ];
-            return Array.isArray(evidences) && evidences.length > 0;
-          })
-        );
-        setData(filteredData);
+        // No client-side re-filter. The server's WHERE now restricts rows
+        // to the selected sources, so every row here already qualifies —
+        // and re-filtering a page that was already paginated and counted
+        // server-side is what produced "pager says 13 pages, table shows
+        // nothing": the filter dropped rows but total_rows/total_pages
+        // below still came from the unfiltered response. Dropping it makes
+        // that contradiction structurally impossible rather than fixed.
+        setData(result.data as FoodCompositionData[]);
         setNumberOfPages(result.metadata.total_pages);
         setNumberOfRows(result.metadata.total_rows);
       } catch (error) {
+        if (cancelled) return;
         console.error("Error fetching food composition data:", error);
         setIsError(true);
       } finally {
-        setIsLoading(false);
+        // A superseded request must not end the loading state the
+        // newer one owns.
+        if (!cancelled) setIsLoading(false);
       }
     };
 
     fetchData();
+    return () => {
+      cancelled = true;
+    };
   }, [
     currentPage,
     commonName,
     sourceFilters,
-    searchTerm,
+    debouncedSearch,
     sort,
     showAllConcentrations,
     showLowTrust,
     classificationFilter,
-    classificationCounts,
     findChemical,
     setTablePaginations,
   ]);
@@ -338,6 +444,47 @@ const FoodCompositionSection = ({
     setSourceFilters(sources);
   };
 
+  // Default state per the useState initializers above. `isFiltersDirty`
+  // is true when the current view differs from a fresh page load; the
+  // Reset button only renders in that case so it's not just visual noise.
+  const isFiltersDirty =
+    searchTerm !== "" ||
+    // Compare against the real default rather than a literal source list.
+    // This was hardcoded to fdc+foodatlas, so once PTFI joined the default
+    // the logic inverted: the untouched panel counted as dirty, and
+    // deselecting PTFI counted as clean.
+    sourceFilters.length !== ALL_SOURCE_VALUES.length ||
+    ALL_SOURCE_VALUES.some((v) => !sourceFilters.includes(v)) ||
+    classificationFilter.length > 0 ||
+    !showAllConcentrations ||
+    showLowTrust;
+
+  const resetAllFilters = () => {
+    setSearchTerm("");
+    setSourceFilters(ALL_SOURCE_VALUES);
+    setClassificationFilter([]);
+    setShowAllConcentrations(true);
+    setShowLowTrust(false);
+    setTablePaginations("food-composition-table", 1, 20);
+  };
+
+  // Empty-state body shared between desktop table + mobile card list.
+  // When filters are active, we surface a filter-aware message + inline
+  // "clear filters" button so the reader doesn't confuse "your filters
+  // returned nothing" with "this food has no composition data at all".
+  const emptyStateBody = isFiltersDirty ? (
+    <TableEmptyState onClearFilters={resetAllFilters}>
+      No associations match your filters
+    </TableEmptyState>
+  ) : (
+    <TableEmptyState>No associations found</TableEmptyState>
+  );
+  const errorStateBody = (
+    <TableEmptyState error>
+      An error occurred fetching data, please refresh the page
+    </TableEmptyState>
+  );
+
   // handle evidence button click
   const handleEvidenceButtonClick = (
     event: React.MouseEvent<HTMLButtonElement>,
@@ -349,14 +496,17 @@ const FoodCompositionSection = ({
     setSelectedEvidenceName(name);
   };
 
-  // handle ambiguity badge click (opens modal pre-filtered to ambiguous)
+  // The evidence modal no longer supports an ambiguity filter (per
+  // 2026-07-24 UX call — see FoodCompositionEvidenceModal), so this
+  // just opens the modal unfiltered. The badge still communicates
+  // "there's chemical ambiguity here" via its count.
   const handleAmbiguityBadgeClick = (
     event: React.MouseEvent<HTMLButtonElement>,
     name: string
   ) => {
     event.preventDefault();
     event.stopPropagation();
-    setEvidenceFilter("ambiguous");
+    setEvidenceFilter("all");
     setSelectedEvidenceName(name);
   };
 
@@ -378,6 +528,7 @@ const FoodCompositionSection = ({
     const all = [
       ...(row.foodatlas_evidences ?? []),
       ...(row.fdc_evidences ?? []),
+      ...(row.ptfi_evidences ?? []),
     ];
     return all.filter((ev) =>
       ev.extraction.some((ex) => (ex.chemical_candidates?.length ?? 0) > 1)
@@ -391,16 +542,17 @@ const FoodCompositionSection = ({
     const all = [
       ...(row.foodatlas_evidences ?? []),
       ...(row.fdc_evidences ?? []),
+      ...(row.ptfi_evidences ?? []),
     ];
     return all.filter((ev) => ev.extraction.some((ex) => ex.trust_low === true))
       .length;
   };
 
   // handle search
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSearch = (value: string) => {
     setSearchTerm(() => {
       setTablePaginations("food-composition-table", 1, 20);
-      return e.target.value.toLowerCase();
+      return value.toLowerCase();
     });
   };
 
@@ -409,16 +561,20 @@ const FoodCompositionSection = ({
     setTablePaginations("food-composition-table", 1, 20);
   };
 
-  // handle sort column click
+  // Header click: the shared rule (nextSort) — a new column starts
+  // largest-first for numbers and A→Z for the name, the same column
+  // flips. This table used to start every column ascending, so its
+  // first click on Concentration gave the LOWEST values while every
+  // other table's gave the highest.
   const handleSortClick = (sortName: string) => {
-    setSort((prevSort: { column: string; direction: string }) => {
-      setTablePaginations("food-composition-table", 1, 20);
-      const isSameColumn = prevSort.column === sortName;
-      return {
-        column: sortName,
-        direction:
-          isSameColumn && prevSort.direction === "asc" ? "desc" : "asc",
-      };
+    setTablePaginations("food-composition-table", 1, 20);
+    setSort((prev) => {
+      const next = nextSort(
+        { by: prev.column, dir: prev.direction },
+        sortName,
+        sortName === "common_name" ? "asc" : "desc"
+      );
+      return { column: next.by, direction: next.dir };
     });
   };
 
@@ -434,129 +590,179 @@ const FoodCompositionSection = ({
 
   const getRowEvidenceCount = (row: FoodCompositionData) =>
     (row.foodatlas_evidences?.length || 0) +
-    (row.fdc_evidences?.length || 0);
+    (row.fdc_evidences?.length || 0) +
+    (row.ptfi_evidences?.length || 0);
 
   // number of placeholder rows to make up for the total of 20 rows
   const placeholderRowsCount = data ? 20 - data?.length : 20;
 
 
+  const toggleClassification = (cls: string) => {
+    setTablePaginations("food-composition-table", 1, 20);
+    setClassificationFilter((prev) =>
+      prev.includes(cls) ? prev.filter((c) => c !== cls) : [...prev, cls]
+    );
+  };
+
+  const toggleSource = (source: string) => {
+    setTablePaginations("food-composition-table", 1, 20);
+    setSourceFilters((prev) =>
+      prev.includes(source)
+        ? prev.filter((s) => s !== source)
+        : [...prev, source]
+    );
+  };
+
+  // Render every classification option so the sidebar space is stable;
+  // rows with count=0 render disabled (see FilterListItem).
+  const visibleClassOptions = CLASSIFICATION_OPTIONS;
+
+  // Search field is used in three places: inside the sidebar (with
+  // filters), inside the mobile drawer's sidebar copy, and on its own
+  // as a standalone left-of-Filters affordance below 1440. Extract it
+  // so all three stay in sync.
+  const searchInput = (
+    <FilterSearchInput
+      value={searchTerm}
+      onChange={handleSearch}
+      onClear={handleSearchClear}
+      placeholder="Search…"
+    />
+  );
+
+  // Non-search filter controls — options + source + class. Drawer on
+  // small viewports uses this alone (search stays visible outside the
+  // drawer per user request).
+  const filtersOnlyPanel = (
+    <div className="flex flex-col gap-5">
+      {/* Binary switches, not a multi-select — each one ADDS its category
+       * of row to the table rather than selecting among a partition. The
+       * distinction matters: unlike Source, where every row has exactly
+       * one and deselecting all correctly yields nothing, a row can
+       * belong to neither of these categories. Turning both off is
+       * therefore not "show nothing", it's "show only rows that are
+       * neither" — which is exactly what it does. The labels lead with
+       * "Include" so that subtractive behaviour is legible. */}
+      <FilterGroup label="Include">
+        <div className="flex flex-col gap-2 pt-0.5">
+          <ToggleSwitch
+            label="Without concentration"
+            count={noConcentrationCount}
+            checked={showAllConcentrations}
+            onChange={handleConcentrationSwitchChange}
+          />
+          <ToggleSwitch
+            label="Low-trust data points"
+            count={lowTrustCount}
+            // The "i" says what low-trust MEANS, nothing else. (The count
+            // is chemicals with at least one hidden point, not rows the
+            // toggle adds — on strawberry it reveals 7 points across 5
+            // chemicals and the list stays at 271. The tooltip used to
+            // explain that instead; it now stays on the concept.)
+            help={
+              "A data point is low-trust when an LLM judge rated its " +
+              "(food, chemical, concentration) claim as implausible " +
+              "against general world knowledge. These are hidden by " +
+              "default; turn this on to include them, flagged, in the " +
+              "evidence."
+            }
+            checked={showLowTrust}
+            onChange={handleLowTrustSwitchChange}
+          />
+        </div>
+      </FilterGroup>
+
+      {/* source — checkbox list, one row per source */}
+      <FilterGroup label="Source">
+        <FilterOptionList>
+          {/* Every source starts selected, and on pepper (raw) FDC is 0 —
+            * FilterOption keeps a selected zero clickable so it can be
+            * dropped; see the rule there. */}
+          {SOURCE_OPTIONS.map((opt) => (
+            <FilterOption
+              key={opt.value}
+              label={opt.label}
+              count={sourceCounts[opt.value]}
+              countsLoaded={countsLoaded}
+              selected={sourceFilters.includes(opt.value)}
+              onClick={() => toggleSource(opt.value)}
+            />
+          ))}
+        </FilterOptionList>
+      </FilterGroup>
+
+      {/* nutrient classification — same checklist chrome; 15+ options
+       * scrolls internally if the list would push the sticky sidebar
+       * past the viewport. */}
+      <FilterGroup
+        label="Class"
+        onClear={
+          classificationFilter.length > 0
+            ? () => {
+                setTablePaginations("food-composition-table", 1, 20);
+                setClassificationFilter([]);
+              }
+            : undefined
+        }
+      >
+        <FilterOptionList maxHeightClass="max-h-72">
+          {visibleClassOptions.map((cls) => {
+            // Deliberately not `?? 0`: before the counts land every row
+            // would read as a real zero and disable itself.
+            const c = countsLoaded ? (classificationCounts[cls] ?? 0) : undefined;
+            return (
+              <FilterOption
+                key={cls}
+                label={cls === "n/a" ? "unclassified" : cls}
+                count={c}
+                countsLoaded={countsLoaded}
+                selected={classificationFilter.includes(cls)}
+                onClick={() => toggleClassification(cls)}
+              />
+            );
+          })}
+        </FilterOptionList>
+      </FilterGroup>
+    </div>
+  );
+
   return (
     <>
-      <div id="composition" className="flex flex-col gap-7 scroll-mt-8">
-          {/* table controls */}
-          <div className="w-full flex flex-col lg:flex-row justify-between">
-            {/* search */}
-            <div className="relative flex items-center">
-              <MdSearch className="absolute left-2.5 w-5 h-5 text-light-400" />
-              <input
-                className="pl-9 pr-9 w-full lg:w-72 h-9 text-sm rounded-lg border border-light-50/5 bg-light-900 focus:bg-light-400/20 hover:bg-light-400/20 text-light-100 placeholder-light-400 transition duration-100 ease-in-out outline-light-50/60"
-                type="text"
-                placeholder="Search for a chemical"
-                value={searchTerm}
-                onChange={handleSearch}
-              />
-              {searchTerm && (
-                <button
-                  type="button"
-                  aria-label="Clear search"
-                  onClick={handleSearchClear}
-                  className="absolute right-2 flex items-center justify-center w-5 h-5 rounded-full text-light-400 hover:text-light-100 hover:bg-light-700 transition-colors"
-                >
-                  <MdClose className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-            {/* switch and filters — compact track + shorter label copy */}
-            <div className="mt-4 lg:mt-0 flex gap-3 lg:gap-6 justify-between flex-col md:flex-row md:items-center">
-              {/* switch to remove n/a concentrations */}
-              <div className="flex gap-2 items-center justify-between">
-                <span className="uppercase text-[10px] tracking-wider text-light-400 md:max-w-[8rem] lg:text-right leading-tight">
-                  include without concentration
-                </span>
-                <Switch
-                  checked={showAllConcentrations}
-                  onChange={handleConcentrationSwitchChange}
-                  className="group inline-flex h-4 w-8 items-center rounded-full bg-light-700 data-[checked]:bg-accent-600 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 flex-shrink-0 transition-colors"
-                >
-                  <span className="size-3 translate-x-0.5 rounded-full bg-white transition group-data-[checked]:translate-x-[1.125rem]" />
-                </Switch>
-              </div>
-              {/* switch to surface low-trust data points */}
-              <div className="flex gap-2 items-center justify-between">
-                <span className="uppercase text-[10px] tracking-wider text-light-400 md:max-w-[8rem] lg:text-right leading-tight">
-                  include low-trust points
-                </span>
-                <Switch
-                  checked={showLowTrust}
-                  onChange={handleLowTrustSwitchChange}
-                  className="group inline-flex h-4 w-8 items-center rounded-full bg-light-700 data-[checked]:bg-accent-600 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 flex-shrink-0 transition-colors"
-                >
-                  <span className="size-3 translate-x-0.5 rounded-full bg-white transition group-data-[checked]:translate-x-[1.125rem]" />
-                </Switch>
-              </div>
-              {/* source filter */}
-              <div className="flex gap-3 items-center justify-between">
-                <span className="text-xs text-light-400 uppercase">Source</span>
-                <div className="w-52">
-                  <Listbox
-                    value={sourceFilters}
-                    onChange={handleFilterChange}
-                    multiple
-                  >
-                    <ListboxButton
-                      className={twMerge(
-                        "h-9 relative block w-full rounded-lg bg-light-900 py-1.5 pr-8 pl-4 text-left text-sm/6 text-white truncate",
-                        "focus:outline-none data-[focus]:outline-2 data-[focus]:-outline-offset-2 data-[focus]:outline-white/25"
-                      )}
-                    >
-                      {sourceFilters.length > 0
-                        ? sourceFilters
-                            .map(
-                              (filter) =>
-                                SOURCE_OPTIONS.find(
-                                  (opt) => opt.value === filter
-                                )?.label
-                            )
-                            .join(", ")
-                        : "None selected"}
-                      <MdKeyboardArrowDown
-                        className="group pointer-events-none absolute top-2.5 right-2.5 size-4 fill-white/60"
-                        aria-hidden="true"
-                      />
-                    </ListboxButton>
-                    <ListboxOptions
-                      anchor="bottom"
-                      transition
-                      className={twMerge(
-                        "w-[var(--button-width)] rounded-xl border border-white/5 bg-white/5 backdrop-blur-lg p-1 [--anchor-gap:var(--spacing-1)] focus:outline-none",
-                        "transition duration-100 ease-in data-[leave]:data-[closed]:opacity-0"
-                      )}
-                    >
-                      {SOURCE_OPTIONS.map((option, id) => (
-                        <ListboxOption
-                          key={id}
-                          value={option.value}
-                          className="group flex cursor-default items-center gap-2 rounded-lg py-1.5 px-4 select-none data-[focus]:bg-white/10"
-                        >
-                          <MdCheck className="invisible size-4 fill-white group-data-[selected]:visible flex-shrink-0" />
-                          <span className="flex-1">{option.label}</span>
-                          {sourceCounts[option.value] != null && (
-                            <span className="text-xs text-light-400">
-                              {sourceCounts[option.value]}
-                            </span>
-                          )}
-                        </ListboxOption>
-                      ))}
-                    </ListboxOptions>
-                  </Listbox>
-                </div>
-              </div>
-            </div>
-          </div>
-          {/* table */}
+      <FilterPanel
+        id="composition"
+        search={searchInput}
+        filters={filtersOnlyPanel}
+        isDirty={isFiltersDirty}
+        onReset={resetAllFilters}
+        open={mobileFiltersOpen}
+        onOpenChange={setMobileFiltersOpen}
+      >
+
+          <div className="flex flex-col gap-7">
+          <div>
+          {/* Row-count line dropped — the Composition tab badge now
+           * reflects the filtered total via usePublishTabCount. Mobile
+           * sort stays here (no column headers to click on card view). */}
+          {!isLoading && numberOfRows > 0 && (
+            <MobileSort
+              sort={{ by: sort.column, dir: sort.direction }}
+              columns={MOBILE_SORT_COLUMNS}
+              onChange={({ by, dir }) => {
+                setSort({ column: by, direction: dir });
+                setTablePaginations("food-composition-table", 1, 20);
+              }}
+            />
+          )}
+          {/* table — desktop only. Card list below covers mobile. */}
           <div
             ref={tableWrapperRef}
-            className="mt-3 overflow-x-auto relative"
+            aria-busy={isRefetching}
+            className={twMerge(
+              "hidden md:block overflow-x-auto relative",
+              // Keep the current rows readable but visibly stale, and
+              // inert so a click doesn't act on data about to be replaced.
+              isRefetching && "opacity-60 pointer-events-none transition-opacity"
+            )}
           >
             {highlightName && overlayRect && (
               <div
@@ -574,193 +780,46 @@ const FoodCompositionSection = ({
             )}
             <table className="w-full table-fixed">
               <colgroup>
-                <col className="w-[28%]" />
-                <col className="w-[15%]" />
-                <col className="w-[37%]" />
-                <col className="w-[20%]" />
+                {TABLE_HEADERS.map((h) => (
+                  <col key={h.key} className={h.width} />
+                ))}
               </colgroup>
               <thead className="text-light-400 text-left">
                 <tr>
-                  {/* table headers */}
                   {TABLE_HEADERS.map((header, index) => (
-                    <th
-                      key={index}
-                      className={`h-9 border-b border-light-700 leading-none break-all md:break-normal py-1.5 ${
+                    <Th
+                      key={header.key}
+                      align={header.align === "right" ? "right" : undefined}
+                      className={twMerge(
+                        "break-all md:break-normal",
                         index === 0
-                          ? "pr-4"
+                          ? "pr-4 pl-0"
                           : index === TABLE_HEADERS.length - 1
-                          ? "pl-4"
+                          ? "pl-4 pr-0"
                           : "px-4"
-                      } ${header.align === "right" ? "text-right" : "text-left"}`}
-                    >
-                      {header.filterable ? (
-                        <Popover className="relative">
-                          <PopoverButton className="group flex gap-1 items-center cursor-pointer focus:outline-none">
-                            {(() => {
-                              const visibleCls = CLASSIFICATION_OPTIONS.filter(
-                                (cls) => (classificationCounts[cls] ?? 0) > 0
-                              );
-                              const isFiltered =
-                                classificationFilter.length < visibleCls.length;
-                              return (
-                                <>
-                                  <span
-                                    className={`select-none uppercase text-xs font-medium transition duration-300 ease-in-out ${
-                                      isFiltered
-                                        ? "text-accent-600"
-                                        : "text-light-400 group-hover:text-light-100"
-                                    }`}
-                                  >
-                                    {header.label}
-                                    {isFiltered &&
-                                      ` (${classificationFilter.length})`}
-                                  </span>
-                                  <MdKeyboardArrowDown
-                                    className={`transition duration-300 ease-in-out flex-shrink-0 ${
-                                      isFiltered
-                                        ? "text-accent-600"
-                                        : "text-light-400 group-hover:text-light-100"
-                                    }`}
-                                  />
-                                </>
-                              );
-                            })()}
-                          </PopoverButton>
-                          <PopoverPanel
-                            anchor="bottom start"
-                            className="w-56 rounded-xl border border-white/5 bg-neutral-900 backdrop-blur-lg p-1 z-50 shadow-lg"
-                          >
-                            {/* select all / deselect all */}
-                            {(() => {
-                              const visibleOpts =
-                                CLASSIFICATION_OPTIONS.filter(
-                                  (cls) =>
-                                    (classificationCounts[cls] ?? 0) > 0
-                                );
-                              const allChecked =
-                                classificationFilter.length >=
-                                visibleOpts.length;
-                              return (
-                                <button
-                                  type="button"
-                                  className="w-full text-left text-xs text-light-400 hover:text-light-100 px-4 py-1.5"
-                                  onClick={() => {
-                                    setTablePaginations(
-                                      "food-composition-table",
-                                      1,
-                                      20
-                                    );
-                                    setClassificationFilter(
-                                      allChecked ? [] : [...visibleOpts]
-                                    );
-                                  }}
-                                >
-                                  {allChecked
-                                    ? "Deselect all"
-                                    : "Select all"}
-                                </button>
-                              );
-                            })()}
-                            <div className="border-b border-white/5 my-1" />
-                            {CLASSIFICATION_OPTIONS.filter(
-                              (cls) =>
-                                (classificationCounts[cls] ?? 0) > 0
-                            ).map((cls) => (
-                              <label
-                                key={cls}
-                                className="flex cursor-pointer items-center gap-2 rounded-lg py-1.5 px-4 hover:bg-white/10 capitalize"
-                              >
-                                <input
-                                  type="checkbox"
-                                  className="size-4 rounded border-white/20 bg-transparent accent-accent-600"
-                                  checked={classificationFilter.includes(
-                                    cls
-                                  )}
-                                  onChange={() => {
-                                    setTablePaginations(
-                                      "food-composition-table",
-                                      1,
-                                      20
-                                    );
-                                    setClassificationFilter((prev) =>
-                                      prev.includes(cls)
-                                        ? prev.filter((c) => c !== cls)
-                                        : [...prev, cls]
-                                    );
-                                  }}
-                                />
-                                <span className="flex-1 text-sm">
-                                  {cls === "n/a"
-                                    ? "Unclassified"
-                                    : cls}
-                                </span>
-                                <span className="text-xs text-light-400">
-                                  {classificationCounts[cls]}
-                                </span>
-                              </label>
-                            ))}
-                          </PopoverPanel>
-                        </Popover>
-                      ) : (
-                      <div
-                        className={`group flex gap-1 items-center flex-nowrap w-full ${
-                          header.sortName
-                            ? "cursor-pointer"
-                            : "pointer-events-none"
-                        } ${header.align === "right" ? "justify-end" : "justify-between"}`}
-                        onClick={() =>
-                          header.sortName && handleSortClick(header.sortName)
-                        }
-                      >
-                        <span
-                          className={`select-none uppercase text-xs font-medium group-hover:text-light-100 transition duration-300 ease-in-out ${
-                            header.sortName === sort.column
-                              ? "text-light-100"
-                              : ""
-                          }`}
-                        >
-                          {header.label}
-                        </span>
-                        {header.sortName &&
-                          (header.sortName === sort.column ? (
-                            sort.direction === "asc" ? (
-                              <MdKeyboardArrowDown className="text-accent-600 group-hover:text-accent-300 transition duration-300 ease-in-out flex-shrink-0" />
-                            ) : (
-                              <MdKeyboardArrowUp className="text-accent-600 group-hover:text-accent-300 transition duration-300 ease-in-out flex-shrink-0" />
-                            )
-                          ) : (
-                            <MdUnfoldMore className="text-light-400 group-hover:text-light-100 transition duration-300 ease-in-out flex-shrink-0" />
-                          ))}
-                      </div>
                       )}
-                    </th>
+                      sort={
+                        header.sortName
+                          ? {
+                              active: header.sortName === sort.column,
+                              dir: sort.direction,
+                              onClick: () => handleSortClick(header.sortName),
+                            }
+                          : undefined
+                      }
+                    >
+                      {header.label}
+                    </Th>
                   ))}
                 </tr>
               </thead>
               <tbody className="text-sm font-light">
-                {isLoading ? (
-                  // loading skeleton
-                  Array.from({ length: 20 }, (_, index) => (
-                    <tr key={index}>
-                      <td
-                        className="w-full py-1.5"
-                        colSpan={TABLE_HEADERS.length}
-                      >
-                        <div className="h-9 flex items-center">
-                          <LoadingCard className="h-5" />
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                {showSkeleton ? (
+                  <TableSkeletonRows columns={TABLE_HEADERS} />
                 ) : isError ? (
                   // error message
                   <tr>
-                    <td colSpan={TABLE_HEADERS.length}>
-                      <div className="h-[10rem] flex items-center justify-center text-red-400 gap-2">
-                        <MdErrorOutline /> An error occurred fetching data,
-                        please refresh the page
-                      </div>
-                    </td>
+                    <td colSpan={TABLE_HEADERS.length}>{errorStateBody}</td>
                   </tr>
                 ) : data.length > 0 ? (
                   data.map((row) => {
@@ -768,10 +827,19 @@ const FoodCompositionSection = ({
                       !!highlightName &&
                       (row.name.toLowerCase() === highlightName ||
                         (row.id ?? "").toLowerCase() === highlightName);
+                    const rowReportProps = reporter.getRowProps({
+                      kind: "food-composition-row",
+                      entityType: "food",
+                      entitySlug: commonName,
+                      chemicalId: row.id,
+                      chemicalName: row.name,
+                      dataPointCount: getRowEvidenceCount(row),
+                    });
                     return (
                     <tr
                       key={row.id}
                       ref={isHighlighted ? highlightRowRef : null}
+                      {...rowReportProps}
                     >
                       {/* name */}
                       <td className="py-1.5 pr-4">
@@ -808,8 +876,10 @@ const FoodCompositionSection = ({
                             : "—"}
                         </div>
                       </td>
-                      {/* median concentration — bar + value + % of 100g by
-                       * mass (mg/100g → divide by 1000). Mirrors nutrition. */}
+                      {/* median concentration — value + % of the food's mass
+                       * (mg/100g → divide by 1000). Inline bar chart was
+                       * removed; the column now holds only the numbers so
+                       * it can sit at the same 25% width as siblings. */}
                       <td className="py-1.5 px-4">
                         <div className="flex min-h-9 items-center justify-end gap-3">
                           {(() => {
@@ -825,10 +895,6 @@ const FoodCompositionSection = ({
                               unit.replace(/\s+/g, "").toLowerCase() ===
                                 "mg/100g";
                             const pct = isMgPer100g ? v / 1000 : null;
-                            const barPct =
-                              pct === null
-                                ? 0
-                                : Math.max(2, Math.min(100, pct));
                             const fmtPct =
                               pct === null
                                 ? ""
@@ -839,23 +905,19 @@ const FoodCompositionSection = ({
                                 : `${pct.toFixed(2)}%`;
                             return (
                               <>
-                                <span
-                                  aria-hidden
-                                  className="relative h-1.5 w-32 shrink-0 rounded-full bg-light-800/70 overflow-hidden"
-                                >
-                                  {pct !== null && (
-                                    <span
-                                      className="absolute inset-y-0 left-0 rounded-full bg-accent-600/80"
-                                      style={{ width: `${barPct}%` }}
-                                    />
-                                  )}
-                                </span>
                                 <span className="font-mono text-xs text-light-200 whitespace-nowrap tabular-nums text-right min-w-[5rem]">
                                   {formatConcentrationValueAlt(v)}
                                 </span>
-                                <span className="font-mono text-xs text-light-500 whitespace-nowrap tabular-nums text-right min-w-[3.5rem]">
-                                  {fmtPct}
-                                </span>
+                                {fmtPct && (
+                                  <Tooltip content="Percentage of the food's mass">
+                                    <span className="font-mono text-xs text-light-500 whitespace-nowrap tabular-nums text-right min-w-[3.5rem]">
+                                      {fmtPct}
+                                      <span className="ml-1 text-light-600">
+                                        by mass
+                                      </span>
+                                    </span>
+                                  </Tooltip>
+                                )}
                               </>
                             );
                           })()}
@@ -863,19 +925,19 @@ const FoodCompositionSection = ({
                       </td>
                       {/* evidence */}
                       <td className="py-1.5 pl-4">
-                        <div className="flex min-h-9 capitalize items-center justify-end">
-                          <Button
-                            className="border-light-500 text-light-500 w-36"
-                            variant="outlined"
-                            size="sm"
+                        <div className="flex min-h-9 items-center justify-end">
+                          <Chip
+                            icon={<MdDescription className="size-3" />}
+                            label={`${getRowEvidenceCount(row)} data point${
+                              getRowEvidenceCount(row) === 1 ? "" : "s"
+                            }`}
+                            tone="outline"
+                            size="md"
                             onClick={(event) =>
                               handleEvidenceButtonClick(event, row.name)
                             }
-                          >
-                            <MdDescription className="size-4" />{" "}
-                            {getRowEvidenceCount(row)} Data Point
-                            {getRowEvidenceCount(row) === 1 ? "" : "s"}
-                          </Button>
+                            className="min-w-[9rem] justify-center"
+                          />
                         </div>
                       </td>
                     </tr>
@@ -884,11 +946,7 @@ const FoodCompositionSection = ({
                 ) : (
                   // no rows
                   <tr>
-                    <td colSpan={TABLE_HEADERS.length}>
-                      <div className="h-[10rem] flex items-center justify-center text-light-300">
-                        <>No associations found</>
-                      </div>
-                    </td>
+                    <td colSpan={TABLE_HEADERS.length}>{emptyStateBody}</td>
                   </tr>
                 )}
                 {/* add empty rows to make up for the total of 20 rows */}
@@ -904,17 +962,168 @@ const FoodCompositionSection = ({
               </tbody>
             </table>
           </div>
+
+          {/* Mobile card list — replaces the table below md:. Sort
+           * control lives in the row-count header above (no column
+           * headers to click in card view). */}
+          <div
+            className={twMerge(
+              "md:hidden",
+              isRefetching && "opacity-60 pointer-events-none transition-opacity"
+            )}
+            aria-busy={isRefetching}
+          >
+            {showSkeleton && <TableSkeletonCards columns={TABLE_HEADERS} />}
+            <div
+              className={
+                showSkeleton
+                  ? "hidden"
+                  : "w-full flex flex-col divide-y divide-light-800"
+              }
+            >
+              {isError ? (
+                errorStateBody
+              ) : data.length > 0 ? (
+                data.map((row) => {
+                  const isHighlighted =
+                    !!highlightName &&
+                    (row.name.toLowerCase() === highlightName ||
+                      (row.id ?? "").toLowerCase() === highlightName);
+                  const v = row.median_concentration?.value;
+                  const unit = row.median_concentration?.unit;
+                  const isMgPer100g =
+                    !!unit &&
+                    unit.replace(/\s+/g, "").toLowerCase() === "mg/100g";
+                  const pct = v != null && isMgPer100g ? v / 1000 : null;
+                  const fmtPct =
+                    pct === null
+                      ? ""
+                      : pct >= 10
+                      ? `${pct.toFixed(0)}%`
+                      : pct >= 1
+                      ? `${pct.toFixed(1)}%`
+                      : `${pct.toFixed(2)}%`;
+                  const evidenceCount = getRowEvidenceCount(row);
+                  const classifications =
+                    row.chemical_classification.length > 0
+                      ? row.chemical_classification.join(", ")
+                      : "—";
+                  const rowReportProps = reporter.getRowProps({
+                    kind: "food-composition-row",
+                    entityType: "food",
+                    entitySlug: commonName,
+                    chemicalId: row.id,
+                    chemicalName: row.name,
+                    dataPointCount: evidenceCount,
+                  });
+                  return (
+                    <div
+                      key={row.id}
+                      {...rowReportProps}
+                      className={twMerge(
+                        `w-full py-3 flex flex-col gap-2 ${
+                          isHighlighted
+                            ? "bg-accent-500/5 -mx-2 px-2 rounded"
+                            : ""
+                        }`,
+                        rowReportProps.className,
+                      )}
+                    >
+                      {/* Name row — same on both variants */}
+                      <div className="flex items-center gap-2 flex-wrap capitalize">
+                        <Link
+                          href={`/chemical/${encodeURIComponent(
+                            encodeSpace(row.name)
+                          )}`}
+                          isExternal={false}
+                        >
+                          {row.name}
+                        </Link>
+                        <AmbiguityBadge
+                          ambiguousCount={getRowAmbiguousCount(row)}
+                          totalCount={evidenceCount}
+                          onClick={(e) =>
+                            handleAmbiguityBadgeClick(e, row.name)
+                          }
+                        />
+                        <TrustBadge
+                          lowTrustCount={getRowLowTrustCount(row)}
+                          totalCount={evidenceCount}
+                          onClick={(e) =>
+                            handleTrustBadgeClick(e, row.name)
+                          }
+                        />
+                      </div>
+
+                      {/* Concentration line + inline classification &
+                       * evidence row, both spanning full card width
+                       * via justify-between. The "by mass" tag on the
+                       * percentage matches the desktop table. */}
+                      <div className="w-full flex items-baseline justify-between gap-2 font-mono text-sm text-light-100 tabular-nums">
+                        {v == null ? (
+                          <span className="text-light-600">—</span>
+                        ) : (
+                          <>
+                            <span>
+                              {formatConcentrationValueAlt(v)}
+                              {unit && (
+                                <span className="text-light-500 text-xs ml-1">
+                                  {unit}
+                                </span>
+                              )}
+                            </span>
+                            {fmtPct && (
+                              <span className="text-light-500 text-xs">
+                                {fmtPct}
+                                <Tooltip content="Percentage of the food's mass">
+                                  <span className="ml-1 not-italic text-light-600">
+                                    by mass
+                                  </span>
+                                </Tooltip>
+                              </span>
+                            )}
+                          </>
+                        )}
+                      </div>
+                      <div className="w-full flex items-center justify-between gap-2 text-xs">
+                        <span className="text-light-400 capitalize">
+                          {classifications}
+                        </span>
+                        <Chip
+                          icon={<MdDescription className="size-3" />}
+                          label={`${evidenceCount} data point${
+                            evidenceCount === 1 ? "" : "s"
+                          }`}
+                          tone="outline"
+                          size="md"
+                          onClick={(event) =>
+                            handleEvidenceButtonClick(event, row.name)
+                          }
+                        />
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                emptyStateBody
+              )}
+            </div>
+          </div>
+          </div>
           {/* pagination */}
           {(numberOfPages > 1 || isLoading) && (
             <div className="mt-8 max-w-xl w-full mx-auto">
               <Pagination
                 tableId={"food-composition-table"}
                 numberOfPages={numberOfPages}
-                isLoading={isLoading}
+                isLoading={showSkeleton}
+                isBusy={isRefetching}
               />
             </div>
           )}
-      </div>
+          </div>
+
+      </FilterPanel>
       {/* evidence modal */}
       <Portal>
         <FoodCompositionEvidenceModal
@@ -928,11 +1137,13 @@ const FoodCompositionSection = ({
             return [
               ...(selectedRow.fdc_evidences ?? []),
               ...(selectedRow.foodatlas_evidences ?? []),
+              ...(selectedRow.ptfi_evidences ?? []),
             ];
           })()}
           isOpen={selectedEvidenceName !== ""}
           onClose={() => setSelectedEvidenceName("")}
           initialFilter={evidenceFilter}
+          selectedSources={sourceFilters}
         />
       </Portal>
     </>

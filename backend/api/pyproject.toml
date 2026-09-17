@@ -14,6 +14,7 @@ dependencies = [
     "httpx>=0.28",
     "boto3>=1.34",
     "click>=8.1",
+    "greenlet>=3.3.2",
 ]
 
 [tool.uv]
@@ -41,11 +42,15 @@ dev = [
     "bandit==1.8.3",
     "httpx>=0.28.1",
     "pytest-asyncio>=1.3.0",
+    "testcontainers[postgres]>=4.8",
 ]
 
 # PYTEST
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Put the project root on sys.path so tests can import the admin CLI under
+# scripts/ (only `src` is packaged into the wheel).
+pythonpath = ["."]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]

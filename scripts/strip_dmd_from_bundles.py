@@ -277,9 +277,16 @@ def main() -> int:
     print(f"Reading manifest from s3://{BUCKET}/{MANIFEST_KEY} ...")
     manifest_obj = s3.get_object(Bucket=BUCKET, Key=MANIFEST_KEY)
     manifest = json.loads(manifest_obj["Body"].read())
-    entries: list[dict[str, Any]] = manifest.get("bundles") or manifest
-    if not isinstance(entries, list):
+    entries: list[dict[str, Any]]
+    if isinstance(manifest, dict):
+        entries = manifest.get("bundles") or []
+    elif isinstance(manifest, list):
+        entries = manifest
+    else:
         print("Unexpected manifest shape.", file=sys.stderr)
+        return 2
+    if not entries:
+        print("Manifest is empty.", file=sys.stderr)
         return 2
     print(f"Found {len(entries)} bundles: {[e.get('version') for e in entries]}")
 

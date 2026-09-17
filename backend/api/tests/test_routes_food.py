@@ -138,6 +138,66 @@ class TestFoodComposition:
         assert resp.status_code == 422
 
 
+# -- /food/composition/counts ---------------------------------------------
+
+FOOD_COMP_COUNTS_SAMPLE = {
+    "data": {
+        "classification_counts": {"carbohydrate": 3, "lipid": 1},
+        "source_counts": {"fdc": 2, "foodatlas": 2},
+        "no_concentration_count": 1,
+        "low_trust_count": 0,
+    }
+}
+
+
+class TestFoodCompositionCounts:
+    def test_returns_faceted_counts(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        with patch(
+            "src.repositories.food.get_composition_counts",
+            return_value=FOOD_COMP_COUNTS_SAMPLE,
+        ):
+            resp = client.get(
+                "/food/composition/counts", params={"common_name": "apple"}
+            )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["data"]["classification_counts"]["carbohydrate"] == 3
+        assert body["data"]["source_counts"]["fdc"] == 2
+        assert body["data"]["no_concentration_count"] == 1
+        assert body["data"]["low_trust_count"] == 0
+
+    def test_query_params_forwarded(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        with patch(
+            "src.repositories.food.get_composition_counts",
+            return_value=FOOD_COMP_COUNTS_SAMPLE,
+        ) as mocked:
+            client.get(
+                "/food/composition/counts",
+                params={
+                    "common_name": "apple",
+                    "filter_source": "fdc",
+                    "filter_classification": "carbohydrate",
+                    "show_all_rows": "false",
+                    "trust": "show_all",
+                    "search": "gluc",
+                },
+            )
+            kwargs = mocked.call_args.kwargs
+            assert kwargs["filter_source"] == "fdc"
+            assert kwargs["filter_classification"] == "carbohydrate"
+            assert kwargs["show_all_rows"] is False
+            assert kwargs["trust"] == "show_all"
+            assert kwargs["search_term"] == "gluc"
+
+    def test_missing_common_name_returns_422(self, client: TestClient) -> None:
+        resp = client.get("/food/composition/counts")
+        assert resp.status_code == 422
+
+
 # -- /download -------------------------------------------------------------
 
 

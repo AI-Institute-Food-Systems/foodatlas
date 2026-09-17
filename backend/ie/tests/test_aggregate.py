@@ -24,6 +24,43 @@ def test_strip_pmc_mixed():
     assert list(result) == [789, 100]
 
 
+def test_strip_pmc_coerces_non_numeric_to_na():
+    series = pd.Series(["PMC123", "unknown", "PMC456"])
+    result = strip_pmc(series)
+    assert list(result.dropna()) == [123, 456]
+    assert int(result.isna().sum()) == 1
+
+
+def test_aggregate_skips_unknown_pmcid(tmp_path):
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
+    df = pd.DataFrame(
+        {
+            "pmcid": ["PMC1", "unknown"],
+            "section": ["ABSTRACT"] * 2,
+            "matched_query": ["q"] * 2,
+            "sentence": ["s1", "s2"],
+            "answer": [0.999, 0.999],
+        }
+    )
+    df.to_csv(input_dir / "chunk_0.tsv", sep="\t", index=False)
+    ref_dir = tmp_path / "ref"
+    ref_dir.mkdir()
+    ie_path = tmp_path / "ie.tsv"
+
+    aggregate_food_chem_sentences(
+        str(input_dir),
+        str(tmp_path / "agg.tsv"),
+        str(ie_path),
+        str(ref_dir),
+        0.99,
+    )
+
+    ie = pd.read_csv(ie_path, sep="\t")
+    assert len(ie) == 1
+    assert str(ie.iloc[0]["pmcid"]) == "PMC1"
+
+
 def test_aggregate_no_files(tmp_path):
     input_dir = tmp_path / "empty"
     input_dir.mkdir()

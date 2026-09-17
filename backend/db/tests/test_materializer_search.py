@@ -192,8 +192,10 @@ class TestLoadAssocCounts:
         conn = self._conn_with_results(
             {
                 "food_foodatlas_id AS fid,"
-                " COUNT(*) AS n FROM mv_food_chemical_composition":
-                    [("f1", 3), ("f2", 5)],
+                " COUNT(*) AS n FROM mv_food_chemical_composition": [
+                    ("f1", 3),
+                    ("f2", 5),
+                ],
             }
         )
         counts = _load_assoc_counts(conn)
@@ -205,8 +207,7 @@ class TestLoadAssocCounts:
             {
                 # Composition query — filtered by evidence WHERE clause.
                 "chemical_foodatlas_id AS fid,"
-                " COUNT(*) AS n FROM mv_food_chemical_composition":
-                    [("c1", 4)],
+                " COUNT(*) AS n FROM mv_food_chemical_composition": [("c1", 4)],
                 "chemical_foodatlas_id AS fid,"
                 " COUNT(*) AS n FROM mv_chemical_disease_correlation"
                 " GROUP BY chemical_foodatlas_id": [("c1", 10)],
@@ -225,6 +226,33 @@ class TestLoadAssocCounts:
         )
         counts = _load_assoc_counts(conn)
         assert counts["d1"] == 7
+
+    def test_food_sums_composition_direct_and_via_chemicals(self):
+        """A food's count spans all three edges it can reach a peer on.
+
+        Onion's real numbers: 254 composition + 2 directly-measured
+        bioactivities + 19 reached only through its chemicals.
+        """
+        conn = self._conn_with_results(
+            {
+                "food_foodatlas_id AS fid,"
+                " COUNT(*) AS n FROM mv_food_chemical_composition": [("f1", 254)],
+                "food_foodatlas_id AS fid, COUNT(*) AS n FROM mv_food_bioactivity": [
+                    ("f1", 2)
+                ],
+                "COUNT(DISTINCT cb.bioactivity_foodatlas_id)": [("f1", 19)],
+            }
+        )
+        counts = _load_assoc_counts(conn)
+        assert counts["f1"] == 275
+
+    def test_via_chemicals_query_excludes_direct_bioactivities(self):
+        """The via-chemicals query must not double-count the direct edge."""
+        conn = self._conn_with_results({})
+        _load_assoc_counts(conn)
+        sql = " ".join(str(c.args[0]) for c in conn.execute.call_args_list)
+        assert "NOT EXISTS" in sql
+        assert "mv_food_bioactivity fb" in sql
 
     def test_missing_entity_returns_nothing(self):
         conn = self._conn_with_results({})

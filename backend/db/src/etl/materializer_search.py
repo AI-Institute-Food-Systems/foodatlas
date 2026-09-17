@@ -111,33 +111,74 @@ def _materialize_search_auto_complete(conn: Connection) -> None:
 
 
 def _load_assoc_counts(conn: Connection) -> dict[str, int]:
-    """Sum entity row counts across composition and correlation MVs.
+    """Sum entity row counts across composition, correlation, and bioactivity MVs.
 
-    Each MV uses type-specific ID columns (food_/chemical_/disease_foodatlas_id)
-    so adding all four groupings never cross-contaminates entity types.
+    Each MV uses type-specific ID columns (food_/chemical_/disease_/
+    bioactivity_foodatlas_id) so adding all groupings never cross-contaminates
+    entity types.
 
     Composition groupings filter out DMD-only rows so the autocomplete
     `associations` count matches what the composition endpoint actually
     returns (DMD was stripped from the public API in the 2026-07-06
     DMD removal — see hotfix PR #249).
+
+    Previously foods and chemicals were missing their bioactivity-edge counts:
+    a food like tomato didn't get credit for the bioactivity measurements from
+    mv_food_bioactivity, and a chemical like quercetin didn't get credit for its
+    rows in mv_chemical_bioactivity. The two new queries at the bottom close
+    that gap so autocomplete association counts reflect the full graph.
+
+    A food also reaches bioactivities *through its chemicals*, which nothing
+    counted: onion showed 256 (254 composition + 2 directly measured) while its
+    chemicals span 21 bioactivities. The last query adds those, excluding any
+    bioactivity already counted on the direct edge so a food reached both ways
+    isn't credited twice.
     """
     queries = (
+        # Composition: food ↔ chemical
         "SELECT food_foodatlas_id AS fid, COUNT(*) AS n"
         " FROM mv_food_chemical_composition"
-        " WHERE fdc_evidences IS NOT NULL OR foodatlas_evidences IS NOT NULL"
+        " WHERE fdc_evidences IS NOT NULL"
+        " OR foodatlas_evidences IS NOT NULL"
+        " OR ptfi_evidences IS NOT NULL"
         " GROUP BY food_foodatlas_id",
         "SELECT chemical_foodatlas_id AS fid, COUNT(*) AS n"
         " FROM mv_food_chemical_composition"
-        " WHERE fdc_evidences IS NOT NULL OR foodatlas_evidences IS NOT NULL"
+        " WHERE fdc_evidences IS NOT NULL"
+        " OR foodatlas_evidences IS NOT NULL"
+        " OR ptfi_evidences IS NOT NULL"
         " GROUP BY chemical_foodatlas_id",
+        # Correlation: chemical ↔ disease
         "SELECT chemical_foodatlas_id AS fid, COUNT(*) AS n"
         " FROM mv_chemical_disease_correlation GROUP BY chemical_foodatlas_id",
         "SELECT disease_foodatlas_id AS fid, COUNT(*) AS n"
         " FROM mv_chemical_disease_correlation GROUP BY disease_foodatlas_id",
+        # Bioactivity — bioactivity entity side (was already present)
         "SELECT bioactivity_foodatlas_id AS fid, COUNT(*) AS n"
         " FROM mv_chemical_bioactivity GROUP BY bioactivity_foodatlas_id",
         "SELECT bioactivity_foodatlas_id AS fid, COUNT(*) AS n"
         " FROM mv_food_bioactivity GROUP BY bioactivity_foodatlas_id",
+        # Bioactivity — food and chemical sides (previously missing)
+        "SELECT food_foodatlas_id AS fid, COUNT(*) AS n"
+        " FROM mv_food_bioactivity GROUP BY food_foodatlas_id",
+        "SELECT chemical_foodatlas_id AS fid, COUNT(*) AS n"
+        " FROM mv_chemical_bioactivity GROUP BY chemical_foodatlas_id",
+        # Bioactivity — reached from a food via its chemicals. DISTINCT because
+        # dozens of a food's chemicals share one bioactivity; NOT EXISTS drops
+        # the ones mv_food_bioactivity already counted above.
+        "SELECT c.food_foodatlas_id AS fid,"
+        " COUNT(DISTINCT cb.bioactivity_foodatlas_id) AS n"
+        " FROM mv_food_chemical_composition c"
+        " JOIN mv_chemical_bioactivity cb"
+        " ON cb.chemical_foodatlas_id = c.chemical_foodatlas_id"
+        " WHERE (c.fdc_evidences IS NOT NULL"
+        " OR c.foodatlas_evidences IS NOT NULL"
+        " OR c.ptfi_evidences IS NOT NULL)"
+        " AND NOT EXISTS ("
+        " SELECT 1 FROM mv_food_bioactivity fb"
+        " WHERE fb.food_foodatlas_id = c.food_foodatlas_id"
+        " AND fb.bioactivity_foodatlas_id = cb.bioactivity_foodatlas_id)"
+        " GROUP BY c.food_foodatlas_id",
     )
     counts: dict[str, int] = {}
     for sql in queries:
@@ -204,6 +245,10 @@ def _materialize_statistics(conn: Connection) -> None:
     r1 = triplets[triplets["relationship_id"] == "r1"]
     r2 = triplets[triplets["relationship_id"] == "r2"]
     r3r4 = triplets[triplets["relationship_id"].isin(["r3", "r4"])]
+    # Bioactivity association edges: r5 (food EXHIBITS bioactivity),
+    # r6 (chemical MEASURED bioactivity). Each row is one entity pair.
+    r5 = triplets[triplets["relationship_id"] == "r5"]
+    r6 = triplets[triplets["relationship_id"] == "r6"]
 
     food_ids = set(r1["head_id"])
     chem_ids = set(r1["tail_id"])
@@ -216,7 +261,6 @@ def _materialize_statistics(conn: Connection) -> None:
         + _count_scoped_r2(r2, chem_ids, type_map.get("chemical", set()))
         + _count_scoped_r2(r2, disease_ids, type_map.get("disease", set()))
     )
-    associations = len(r1) + len(scoped_r3r4) + assoc_r2
 
     pubmed_pmcids = (
         conn.execute(
@@ -253,6 +297,14 @@ def _materialize_statistics(conn: Connection) -> None:
         ).scalar()
         or 0
     )
+
+    # Associations = distinct entity-pair relationships in the graph:
+    # r1 (food↔chem), scoped r3/r4 (chem↔disease), r2 IS_A ontology edges,
+    # r5 (food↔bioactivity), r6 (chemical↔bioactivity). Each row is one
+    # unique pair. Individual bioactivity measurements are evidence for
+    # r5/r6 edges — not associations themselves — and are reported
+    # separately as "number of bioactivity measurements".
+    associations = len(r1) + len(scoped_r3r4) + assoc_r2 + len(r5) + len(r6)
 
     rows = [
         {"field": "number of foods", "count": len(food_ids)},

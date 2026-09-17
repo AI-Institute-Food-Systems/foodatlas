@@ -1,11 +1,11 @@
 import { Metadata } from "next";
 
 import Card from "@/components/basic/Card";
+import Citation from "@/components/basic/Citation";
 import Code from "@/components/basic/Code";
-import Divider from "@/components/basic/Divider";
 import Heading from "@/components/basic/Heading";
 import Link from "@/components/basic/Link";
-import SubHeading from "@/components/basic/SubHeading";
+import { CANONICAL_PUBLICATION } from "@/utils/publications";
 
 export const metadata: Metadata = {
   title: "Developers | FoodAtlas Public API",
@@ -58,6 +58,36 @@ const ENDPOINTS: Array<{ method: string; path: string; summary: string }> = [
   },
   {
     method: "GET",
+    path: "/v1/bioactivities",
+    summary: "List bioactivities (paginated, filterable)",
+  },
+  {
+    method: "GET",
+    path: "/v1/bioactivities/{id}",
+    summary: "Get one bioactivity + parents/children hierarchy",
+  },
+  {
+    method: "GET",
+    path: "/v1/bioactivities/{id}/chemicals",
+    summary: "Chemicals measured for a bioactivity (r6)",
+  },
+  {
+    method: "GET",
+    path: "/v1/bioactivities/{id}/foods",
+    summary: "Foods that exhibit a bioactivity (r5)",
+  },
+  {
+    method: "GET",
+    path: "/v1/chemicals/{id}/bioactivities",
+    summary: "Bioactivities measured for a chemical",
+  },
+  {
+    method: "GET",
+    path: "/v1/foods/{id}/bioactivities",
+    summary: "Bioactivities exhibited by a food",
+  },
+  {
+    method: "GET",
     path: "/v1/triplets",
     summary: "Knowledge-graph edges (head, relationship, tail)",
   },
@@ -76,11 +106,10 @@ const Developers = () => {
   return (
     <div>
       <div>
-        <Heading type="h1">Developer API</Heading>
-        <SubHeading>
-          Programmatic access to the <i>FoodAtlas</i> knowledge graph
-        </SubHeading>
-        <p className="mt-10 text-base leading-relaxed text-light-200">
+        <Heading type="h1" variant="display">
+          Developer API
+        </Heading>
+        <p className="mt-6 text-base leading-relaxed text-light-200">
           The public API exposes the same food–chemical–disease graph that
           powers this site, with stable resource-shaped responses suited for
           research scripts. The interactive OpenAPI reference lives at{" "}
@@ -88,10 +117,8 @@ const Developers = () => {
         </p>
       </div>
 
-      <Divider />
-
-      <div>
-        <Heading type="h2" variant="boxed">
+      <div className="mt-16">
+        <Heading type="h2" variant="chip">
           Get an API key
         </Heading>
       </div>
@@ -114,8 +141,21 @@ const Developers = () => {
         </Card>
       </div>
 
-      <div className="mt-20">
-        <Heading type="h2" variant="boxed">
+      <div className="mt-16">
+        <Heading type="h2" variant="chip">
+          How to Cite
+        </Heading>
+      </div>
+      <div className="mt-8">
+        <Card>
+          <p className="leading-relaxed text-light-200">
+            <Citation publication={CANONICAL_PUBLICATION} />
+          </p>
+        </Card>
+      </div>
+
+      <div className="mt-16">
+        <Heading type="h2" variant="chip">
           Setup
         </Heading>
       </div>
@@ -147,8 +187,8 @@ const Developers = () => {
         </Card>
       </div>
 
-      <div className="mt-20">
-        <Heading type="h2" variant="boxed">
+      <div className="mt-16">
+        <Heading type="h2" variant="chip">
           Examples
         </Heading>
       </div>
@@ -163,8 +203,8 @@ const Developers = () => {
         </Card>
       </div>
 
-      <div className="mt-20">
-        <Heading type="h2" variant="boxed">
+      <div className="mt-16">
+        <Heading type="h2" variant="chip">
           Endpoints
         </Heading>
       </div>
@@ -176,7 +216,7 @@ const Developers = () => {
             is offset-based:{" "}
             <Code>?page=&page_size=</Code> (max 100).
           </p>
-          <div className="overflow-x-auto">
+          <div className="hidden md:block overflow-x-auto">
             {/* Same chrome as the entity-page tables: h-9 header / py-1.5
              * rows / text-sm body, mono cells for method+path. */}
             <table className="w-full table-fixed">
@@ -224,11 +264,32 @@ const Developers = () => {
               </tbody>
             </table>
           </div>
+
+          {/* card list — mobile. METHOD + path on top mono line,
+           * summary below. */}
+          <div className="md:hidden w-full flex flex-col divide-y divide-light-800">
+            {ENDPOINTS.map((e) => (
+              <div
+                key={`${e.method} ${e.path}`}
+                className="w-full py-3 flex flex-col gap-1.5"
+              >
+                <div className="w-full flex items-baseline gap-2 flex-wrap font-mono">
+                  <span className="text-light-100 text-sm">{e.method}</span>
+                  <span className="text-light-200 text-xs break-all">
+                    {e.path}
+                  </span>
+                </div>
+                <p className="w-full text-light-300 text-sm leading-snug">
+                  {e.summary}
+                </p>
+              </div>
+            ))}
+          </div>
         </Card>
       </div>
 
-      <div className="mt-20">
-        <Heading type="h2" variant="boxed">
+      <div className="mt-16">
+        <Heading type="h2" variant="chip">
           Versioning &amp; terms
         </Heading>
       </div>

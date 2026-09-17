@@ -7,6 +7,8 @@
  * to generate alternate name variants for regex matching.
  */
 
+import { escapeRegExp as escapeRegex } from "@/utils/regex";
+
 const GREEK_LETTER_MAP: readonly [string, string][] = [
   ["alpha", "α"],
   ["beta", "β"],
@@ -15,13 +17,6 @@ const GREEK_LETTER_MAP: readonly [string, string][] = [
   ["epsilon", "ε"],
   ["omega", "ω"],
 ];
-
-/**
- * Escape special regex characters in a string.
- */
-function escapeRegex(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
 
 /**
  * Return all Greek-letter variants of a name.

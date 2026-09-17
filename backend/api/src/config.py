@@ -34,3 +34,8 @@ class APISettings(BaseSettings):
     rate_limit_enabled: bool = True
     rate_limit_per_minute: int = 60
     rate_limit_burst: int = 10
+    # Structured per-request access log (see src/access_log.py). Scoped to the
+    # public API by default: the internal UI routes are far higher volume and
+    # are not what we attribute usage for. Off in debug, like the rate limiter.
+    access_log_enabled: bool = True
+    access_log_path_prefix: str = "/v1"

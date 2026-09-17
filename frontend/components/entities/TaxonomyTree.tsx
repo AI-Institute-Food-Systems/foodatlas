@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { MdAccountTree } from "react-icons/md";
 import { TaxonomyNode } from "@/types";
 import { encodeSpace } from "@/utils/utils";
-import Button from "@/components/basic/Button";
+import Chip from "@/components/basic/Chip";
 import Modal from "@/components/basic/Modal";
+import { useReportRows } from "@/context/reportModeContext";
 
 type TreeNode = {
   node: TaxonomyNode;
@@ -30,13 +32,36 @@ function NodeLabel({
   entityId,
   entityType,
   colorClass,
+  entitySlug,
 }: {
   node: TaxonomyNode;
   entityId: string;
   entityType: string;
   colorClass: string;
+  entitySlug?: string;
 }) {
+  const { getRowProps } = useReportRows();
   const isEntity = node.id === entityId;
+  // Only claim-nodes (ancestors + siblings that got assigned to this
+  // subtree) are reportable — the entity node itself is the page's own
+  // identity and isn't a taxonomy claim to flag.
+  const reportProps = isEntity
+    ? {}
+    : getRowProps({
+        kind: "metadata-item",
+        entityType: entityType as
+          | "food"
+          | "chemical"
+          | "bioactivity"
+          | "disease",
+        entitySlug,
+        field: "taxonomy_node",
+        label: "Taxonomy node",
+        value: node.name,
+        source: node.id,
+      });
+  const reportClass =
+    (reportProps as { className?: string }).className ?? "";
   if (isEntity) {
     return (
       <span className={`font-medium ${colorClass} capitalize`}>
@@ -47,14 +72,22 @@ function NodeLabel({
   if (node.has_page) {
     return (
       <a
+        {...reportProps}
         href={`/${entityType}/${encodeURIComponent(encodeSpace(node.name))}`}
-        className="text-light-300 capitalize underline decoration-1 underline-offset-4 hover:text-light-100 transition duration-300"
+        className={`text-light-300 capitalize underline decoration-1 underline-offset-4 hover:text-light-100 transition duration-300 ${reportClass}`.trim()}
       >
         {node.name}
       </a>
     );
   }
-  return <span className="text-light-500 capitalize">{node.name}</span>;
+  return (
+    <span
+      {...reportProps}
+      className={`text-light-500 capitalize ${reportClass}`.trim()}
+    >
+      {node.name}
+    </span>
+  );
 }
 
 function TreeBranch({
@@ -64,6 +97,7 @@ function TreeBranch({
   colorClass,
   depth,
   isLast,
+  entitySlug,
 }: {
   tree: TreeNode;
   entityId: string;
@@ -71,6 +105,7 @@ function TreeBranch({
   colorClass: string;
   depth: number;
   isLast: boolean;
+  entitySlug?: string;
 }) {
   return (
     <div
@@ -96,6 +131,7 @@ function TreeBranch({
           entityId={entityId}
           entityType={entityType}
           colorClass={colorClass}
+          entitySlug={entitySlug}
         />
       </div>
       {tree.children.map((child, i) => (
@@ -107,6 +143,7 @@ function TreeBranch({
           colorClass={colorClass}
           depth={depth + 1}
           isLast={i === tree.children.length - 1}
+          entitySlug={entitySlug}
         />
       ))}
     </div>
@@ -118,6 +155,9 @@ interface TaxonomyTreeProps {
   entityId: string;
   entityType: string;
   colorClass: string;
+  // Entity's common_name — surfaced in the taxonomy-node ReportContext
+  // so ops can identify which page a taxonomy report is about.
+  entitySlug?: string;
 }
 
 const TaxonomyTree = ({
@@ -125,6 +165,7 @@ const TaxonomyTree = ({
   entityId,
   entityType,
   colorClass,
+  entitySlug,
 }: TaxonomyTreeProps) => {
   const totalPaths = trees.reduce((sum, t) => sum + countPaths(t), 0);
   const collapsible = totalPaths > 1;
@@ -146,19 +187,22 @@ const TaxonomyTree = ({
             colorClass={colorClass}
             depth={0}
             isLast={i === previewTrees.length - 1}
+            entitySlug={entitySlug}
           />
         ))}
       </div>
       {collapsible && (
-        <div className="mt-2">
-          <Button
-            variant="outlined"
-            size="xs"
-            className="rounded-full"
+        <div className="mt-2 flex items-center gap-2 flex-wrap">
+          <span className="font-mono italic text-[11px] text-light-500">
+            Showing 1 of {totalPaths} branches
+          </span>
+          <Chip
+            icon={<MdAccountTree className="size-3" />}
+            label="Show full tree"
+            tone="outline"
+            size="md"
             onClick={() => setIsModalOpen(true)}
-          >
-            Show full tree
-          </Button>
+          />
         </div>
       )}
       {collapsible && (
@@ -177,6 +221,7 @@ const TaxonomyTree = ({
                 colorClass={colorClass}
                 depth={0}
                 isLast={i === trees.length - 1}
+                entitySlug={entitySlug}
               />
             ))}
           </div>

@@ -1,0 +1,9 @@
+{
+  "pipeline": {
+    "stages": {
+      "kg_init": {
+        "previous_kg_entities": "data/PreviousFAKG/20260727T100828Z/entities.parquet"
+      }
+    }
+  }
+}

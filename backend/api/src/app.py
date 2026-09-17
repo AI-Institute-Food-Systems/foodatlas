@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 
+from src.access_log import AccessLogMiddleware, configure_access_logger
 from src.config import APISettings
 from src.dependencies import init_session_factory
 from src.public_keys import get_store, init_store
@@ -81,6 +82,13 @@ def create_app(settings: APISettings | None = None) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    if settings.access_log_enabled and not settings.debug:
+        configure_access_logger()
+        app.add_middleware(
+            AccessLogMiddleware,
+            path_prefix=settings.access_log_path_prefix,
+        )
 
     if settings.rate_limit_enabled and not settings.debug:
         app.state.rate_limiter = TokenBucketLimiter(

@@ -1,12 +1,18 @@
 """Bioactivity adapter — faithful ingest of bioactivity concepts, edges, and
 per-measurement evidence.
 
-Emits the three standard ingest artifacts (nodes / edges / xrefs) plus three
+Emits the three standard ingest artifacts (nodes / edges / xrefs) plus several
 domain-specific passthrough files that downstream stages read by path:
 
 * ``bioactivity_measurements.parquet`` — one row per ``bm…`` assay measurement
   (potency / efficacy / outcome). Consumed by the triplets stage as the
   evidence layer for ``exhibits`` / ``measured`` edges.
+* ``bioactivity_food_chemical_efficacy.parquet`` — one row per
+  (food, chemical, bioactivity) with the food's dietary concentration of the
+  chemical placed against the chemical's dose-response curve for that
+  bioactivity (``dose_over_ac50_log`` / ``efficacy_response`` / …). Promoted to
+  ``food_chemical_efficacy.parquet``; food/chemical/bioactivity are all existing
+  KG entities, so no ids are minted here.
 * ``bioactivity_disease.parquet`` / ``bioactivity_disease_targets.parquet`` —
   disease↔assay bridge and target metadata. Inert until the Phase-2 enrichment
   stage exists; staged here so this adapter is the only reader of raw CSVs.
@@ -50,6 +56,14 @@ _MEASUREMENT_RENAME = {
     "evidence_value_efficacy_hillslope": "efficacy_hillslope",
 }
 
+# Efficacy source columns → clean lowercase snake_case (mixed-case cols become
+# case-sensitive quoted identifiers in Postgres COPY; normalize them up front).
+_EFFICACY_RENAME = {
+    "CID": "cid",
+    "food_conc_M": "food_conc_m",
+    "food_conc_logM": "food_conc_logm",
+}
+
 
 class BioactivityAdapter:
     """Parse the Bioactivity CSVs into standardized ingest parquet."""
@@ -83,11 +97,20 @@ class BioactivityAdapter:
 
         measurements = _build_measurements(bio_dir / "bioactivity_metadata.csv")
         bioassays = _build_bioassays(bio_dir / "bioassay_metadata.csv")
+        efficacy = _build_food_chemical_efficacy(bio_dir / "food_chemical_efficacy.csv")
         disease = _build_disease(bio_dir / "disease_bioactivity_triplets.csv")
         targets = _build_disease_targets(bio_dir / "bioactivity_disease_metadata.csv")
 
         files = _write_outputs(
-            output_dir, nodes, edges, xrefs, measurements, bioassays, disease, targets
+            output_dir,
+            nodes,
+            edges,
+            xrefs,
+            measurements,
+            bioassays,
+            efficacy,
+            disease,
+            targets,
         )
 
         manifest = SourceManifest(
@@ -226,6 +249,18 @@ def _build_bioassays(path: Path) -> pd.DataFrame:
     return df
 
 
+def _build_food_chemical_efficacy(path: Path) -> pd.DataFrame:
+    """Typed passthrough of the foodxchemicalxbioactivity efficacy table.
+
+    One row per (``foodatlas_id``, ``cid``, ``bioactivity_id``); ``bioactivity_id``
+    is kept verbatim (an ``E300…`` concept or the literal ``"UNCLASSIFIED"``).
+    Numeric NaNs are preserved (they become COPY NULLs at load time).
+    """
+    df = pd.read_csv(path).rename(columns=_EFFICACY_RENAME)
+    df["saturated"] = df["saturated"].astype(bool)
+    return df
+
+
 def _build_disease(path: Path) -> pd.DataFrame:
     """Disease↔assay bridge passthrough (Phase-2 input)."""
     df = pd.read_csv(path)
@@ -250,6 +285,7 @@ def _write_outputs(
     xrefs: pd.DataFrame,
     measurements: pd.DataFrame,
     bioassays: pd.DataFrame,
+    efficacy: pd.DataFrame,
     disease: pd.DataFrame,
     targets: pd.DataFrame,
 ) -> list[str]:
@@ -260,6 +296,7 @@ def _write_outputs(
         "xrefs": xrefs,
         "measurements": measurements,
         "bioassays": bioassays,
+        "food_chemical_efficacy": efficacy,
         "disease": disease,
         "disease_targets": targets,
     }
@@ -275,8 +312,7 @@ def _parse_json_list(cell: object) -> list[str]:
     """Parse a JSON-array CSV cell (e.g. Synonyms, bioactivity_metadata_ids)."""
     if not isinstance(cell, str) or not cell.strip():
         return []
-    parsed: list[str] = json.loads(cell)
-    return parsed
+    return list(json.loads(cell))
 
 
 def _parse_comma_list(cell: object) -> list[str]:

@@ -18,8 +18,13 @@ log = logging.getLogger(__name__)
 
 
 def strip_pmc(series: Any) -> Any:
-    """Normalise PMCIDs to bare integers (strip 'PMC' prefix)."""
-    return series.astype(str).str.removeprefix("PMC").astype(int)
+    """Normalise PMCIDs to bare integers (strip 'PMC' prefix).
+
+    PMCIDs that aren't numeric (e.g. ``'unknown'`` for papers with no PMC id)
+    become ``<NA>`` so callers can skip them instead of crashing.
+    """
+    stripped = series.astype(str).str.removeprefix("PMC")
+    return pd.to_numeric(stripped, errors="coerce").astype("Int64")
 
 
 def aggregate_food_chem_sentences(
@@ -47,6 +52,14 @@ def aggregate_food_chem_sentences(
     all_sentences = pd.concat(all_dataframes, ignore_index=True)
     passed = all_sentences[all_sentences["answer"] >= threshold]
 
+    # Skip sentences whose PMCID isn't a real number (e.g. 'unknown' for papers
+    # with no PMC id): they can't be attributed to a paper or deduplicated.
+    pmcid = strip_pmc(passed["pmcid"])
+    skipped = int(pmcid.isna().sum())
+    if skipped:
+        log.warning("Skipping %d sentence(s) with a non-numeric PMCID.", skipped)
+        passed = passed[pmcid.notna()]
+
     if passed.empty:
         log.info("No rows passed threshold %f", threshold)
     else:
@@ -66,7 +79,7 @@ def aggregate_food_chem_sentences(
     if ref_files:
         ref_frames = [pd.read_csv(f, sep="\t") for f in ref_files]
         reference_pmcids = set(
-            strip_pmc(pd.concat(ref_frames, ignore_index=True)["pmcid"])
+            strip_pmc(pd.concat(ref_frames, ignore_index=True)["pmcid"]).dropna()
         )
         log.info(
             "Loaded %d reference PMCIDs from %d file(s) in %s",

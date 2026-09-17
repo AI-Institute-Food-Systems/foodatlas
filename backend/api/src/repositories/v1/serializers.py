@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class Page(BaseModel):
@@ -35,8 +35,24 @@ class ExternalIds(BaseModel):
     model_config = {"extra": "allow"}
 
 
+def _stringify_ids(raw: object) -> dict[str, list[str]]:
+    """The MVs keep numeric ids (chebi, pubchem, fdc, …) as JSON ints; the
+    public contract says strings, and pydantic will not coerce int → str."""
+    if not isinstance(raw, dict):
+        return {}
+    return {
+        str(source): [str(i) for i in ids]
+        for source, ids in raw.items()
+        if isinstance(ids, list)
+    }
+
+
+# Shared by every entity model that carries ``external_ids``.
+stringify_external_ids = field_validator("external_ids", mode="before")(_stringify_ids)
+
+
 class FoodSummary(BaseModel):
-    id: str = Field(..., description="FoodAtlas id, e.g. FA:0001")
+    id: str = Field(..., description="FoodAtlas id, e.g. e1595")
     common_name: str
     scientific_name: str = ""
     food_classification: list[str] = Field(default_factory=list)
@@ -45,6 +61,7 @@ class FoodSummary(BaseModel):
 class Food(FoodSummary):
     synonyms: list[str] = Field(default_factory=list)
     external_ids: dict[str, list[str]] = Field(default_factory=dict)
+    _coerce_external_ids = stringify_external_ids
 
 
 class ChemicalSummary(BaseModel):
@@ -58,6 +75,7 @@ class Chemical(ChemicalSummary):
     synonyms: list[str] = Field(default_factory=list)
     flavor_descriptors: list[str] = Field(default_factory=list)
     external_ids: dict[str, list[str]] = Field(default_factory=dict)
+    _coerce_external_ids = stringify_external_ids
 
 
 class DiseaseSummary(BaseModel):
@@ -69,6 +87,66 @@ class DiseaseSummary(BaseModel):
 class Disease(DiseaseSummary):
     synonyms: list[str] = Field(default_factory=list)
     external_ids: dict[str, list[str]] = Field(default_factory=dict)
+    _coerce_external_ids = stringify_external_ids
+
+
+class BioactivityHierarchyNode(BaseModel):
+    """One entry in ``parents`` / ``children`` of a Bioactivity."""
+
+    foodatlas_id: str
+    common_name: str
+
+
+class BioactivitySummary(BaseModel):
+    id: str
+    common_name: str
+    description: str = ""
+    n_foods: int = 0
+    n_chemicals: int = 0
+
+
+class Bioactivity(BioactivitySummary):
+    synonyms: list[str] = Field(default_factory=list)
+    external_ids: dict[str, list[str]] = Field(default_factory=dict)
+    _coerce_external_ids = stringify_external_ids
+    parents: list[BioactivityHierarchyNode] = Field(default_factory=list)
+    children: list[BioactivityHierarchyNode] = Field(default_factory=list)
+
+
+class BioactivityMeasurement(BaseModel):
+    """Highest-value sample measurement for a bioactivity row."""
+
+    endpoint: str = ""
+    value: float | None = None
+    unit: str = ""
+
+
+class BioactivityChemicalRow(BaseModel):
+    """Flat row for /v1/bioactivities/{id}/chemicals and
+    /v1/chemicals/{id}/bioactivities.
+    """
+
+    bioactivity_id: str
+    bioactivity_name: str
+    chemical_id: str
+    chemical_name: str
+    measurement_count: int = 0
+    active_count: int = 0
+    inactive_count: int = 0
+    top_measurement: BioactivityMeasurement | None = None
+
+
+class BioactivityFoodRow(BaseModel):
+    """Flat row for /v1/bioactivities/{id}/foods and
+    /v1/foods/{id}/bioactivities.
+    """
+
+    bioactivity_id: str
+    bioactivity_name: str
+    food_id: str
+    food_name: str
+    measurement_count: int = 0
+    top_measurement: BioactivityMeasurement | None = None
 
 
 class Concentration(BaseModel):
@@ -165,7 +243,7 @@ class Taxonomy(BaseModel):
 class SearchHit(BaseModel):
     id: str
     common_name: str
-    entity_type: Literal["food", "chemical", "disease"]
+    entity_type: Literal["food", "chemical", "disease", "bioactivity"]
     scientific_name: str = ""
     associations: int = 0
 
@@ -174,6 +252,8 @@ class Stats(BaseModel):
     foods: int = 0
     chemicals: int = 0
     diseases: int = 0
+    bioactivities: int = 0
+    bioactivity_measurements: int = 0
     publications: int = 0
     connections: int = 0
 

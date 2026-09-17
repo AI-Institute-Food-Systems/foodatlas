@@ -45,7 +45,11 @@ export type FoodEvidence = {
   extraction: FoodEvidenceExtraction[];
   reference: {
     id: string;
-    source_name: "FoodAtlas" | "FDC";
+    // Every source /food/composition can return. PTFI was missing, so
+    // any code that switched on this union silently excluded PTFI
+    // evidence — and adding the greying in the data-points modal didn't
+    // typecheck until it was listed.
+    source_name: "FoodAtlas" | "FDC" | "PTFI";
     display_name: string;
     url: string;
   };

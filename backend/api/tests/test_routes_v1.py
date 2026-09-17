@@ -5,8 +5,26 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, patch
 
+import pytest
+
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from fastapi.testclient import TestClient
+
+
+@pytest.fixture()
+def parent_exists() -> Iterator[None]:
+    """Make every ``require_entity`` guard find a parent of the right type."""
+
+    async def _resolve(_db: object, entity_id: str) -> tuple[str, str]:
+        prefix = entity_id.split(":")[1][0] if ":" in entity_id else ""
+        by_prefix = {"C": "chemical", "D": "disease", "B": "bioactivity"}
+        return (by_prefix.get(prefix, "food"), "name")
+
+    with patch("src.repositories.v1.entities.resolve_id", side_effect=_resolve):
+        yield
+
 
 # -- /v1/foods --------------------------------------------------------------
 
@@ -74,6 +92,7 @@ class TestGetFood:
 
 
 class TestFoodChemicals:
+    @pytest.mark.usefixtures("parent_exists")
     def test_returns_composition_rows(self, client: TestClient) -> None:
         with patch(
             "src.repositories.v1.relationships.list_composition",
@@ -99,6 +118,180 @@ class TestFoodChemicals:
         assert resp.json()["data"][0]["chemical_id"] == "FA:C001"
 
 
+# -- /v1/bioactivities ------------------------------------------------------
+
+
+class TestListBioactivities:
+    def test_returns_paginated_envelope(self, client: TestClient) -> None:
+        with patch(
+            "src.repositories.v1.entities.list_entities",
+            return_value=(
+                [
+                    {
+                        "id": "FA:B001",
+                        "common_name": "antioxidant",
+                        "description": "",
+                        "n_foods": 3,
+                        "n_chemicals": 7,
+                    }
+                ],
+                1,
+            ),
+            new_callable=AsyncMock,
+        ):
+            resp = client.get("/v1/bioactivities?q=anti")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["data"][0]["id"] == "FA:B001"
+        assert body["data"][0]["n_chemicals"] == 7
+
+
+class TestGetBioactivity:
+    def test_returns_bioactivity(self, client: TestClient) -> None:
+        with patch(
+            "src.repositories.v1.entities.get_entity",
+            return_value={
+                "id": "FA:B001",
+                "common_name": "antioxidant",
+                "description": "Reduces oxidative stress.",
+                "n_foods": 3,
+                "n_chemicals": 7,
+                "synonyms": ["antioxidative"],
+                "external_ids": {},
+                "parents": [{"foodatlas_id": "FA:B000", "common_name": "bioactivity"}],
+                "children": [],
+            },
+            new_callable=AsyncMock,
+        ):
+            resp = client.get("/v1/bioactivities/FA:B001")
+        assert resp.status_code == 200
+        body = resp.json()["data"]
+        assert body["parents"][0]["common_name"] == "bioactivity"
+
+    def test_404_when_missing(self, client: TestClient) -> None:
+        with patch(
+            "src.repositories.v1.entities.get_entity",
+            return_value=None,
+            new_callable=AsyncMock,
+        ):
+            resp = client.get("/v1/bioactivities/FA:NOPE")
+        assert resp.status_code == 404
+
+
+class TestBioactivityChemicals:
+    @pytest.mark.usefixtures("parent_exists")
+    def test_returns_chemical_rows(self, client: TestClient) -> None:
+        with patch(
+            "src.repositories.v1.relationships.list_bioactivity_chemicals",
+            return_value=(
+                [
+                    {
+                        "bioactivity_id": "FA:B001",
+                        "bioactivity_name": "antioxidant",
+                        "chemical_id": "FA:C001",
+                        "chemical_name": "quercetin",
+                        "measurement_count": 755,
+                        "active_count": 83,
+                        "inactive_count": 261,
+                        "top_measurement": {
+                            "endpoint": "IC50",
+                            "value": 17.175,
+                            "unit": "MICROMOLAR",
+                        },
+                    }
+                ],
+                1,
+            ),
+            new_callable=AsyncMock,
+        ):
+            resp = client.get("/v1/bioactivities/FA:B001/chemicals")
+        assert resp.status_code == 200
+        row = resp.json()["data"][0]
+        assert row["chemical_name"] == "quercetin"
+        assert row["top_measurement"]["endpoint"] == "IC50"
+
+
+class TestBioactivityFoods:
+    @pytest.mark.usefixtures("parent_exists")
+    def test_returns_food_rows(self, client: TestClient) -> None:
+        with patch(
+            "src.repositories.v1.relationships.list_bioactivity_foods",
+            return_value=(
+                [
+                    {
+                        "bioactivity_id": "FA:B001",
+                        "bioactivity_name": "antioxidant",
+                        "food_id": "FA:0001",
+                        "food_name": "snail",
+                        "measurement_count": 1,
+                        "top_measurement": {
+                            "endpoint": "Activity",
+                            "value": 0.519,
+                            "unit": "mmol/100g",
+                        },
+                    }
+                ],
+                1,
+            ),
+            new_callable=AsyncMock,
+        ):
+            resp = client.get("/v1/bioactivities/FA:B001/foods")
+        assert resp.status_code == 200
+        assert resp.json()["data"][0]["food_name"] == "snail"
+
+
+class TestFoodBioactivities:
+    @pytest.mark.usefixtures("parent_exists")
+    def test_returns_food_bioactivity_rows(self, client: TestClient) -> None:
+        with patch(
+            "src.repositories.v1.relationships.list_bioactivity_foods",
+            return_value=(
+                [
+                    {
+                        "bioactivity_id": "FA:B001",
+                        "bioactivity_name": "antioxidant",
+                        "food_id": "FA:0001",
+                        "food_name": "snail",
+                        "measurement_count": 1,
+                        "top_measurement": None,
+                    }
+                ],
+                1,
+            ),
+            new_callable=AsyncMock,
+        ):
+            resp = client.get("/v1/foods/FA:0001/bioactivities")
+        assert resp.status_code == 200
+        assert resp.json()["data"][0]["bioactivity_id"] == "FA:B001"
+
+
+class TestChemicalBioactivities:
+    @pytest.mark.usefixtures("parent_exists")
+    def test_returns_chemical_bioactivity_rows(self, client: TestClient) -> None:
+        with patch(
+            "src.repositories.v1.relationships.list_bioactivity_chemicals",
+            return_value=(
+                [
+                    {
+                        "bioactivity_id": "FA:B001",
+                        "bioactivity_name": "antioxidant",
+                        "chemical_id": "FA:C001",
+                        "chemical_name": "quercetin",
+                        "measurement_count": 12,
+                        "active_count": 2,
+                        "inactive_count": 3,
+                        "top_measurement": None,
+                    }
+                ],
+                1,
+            ),
+            new_callable=AsyncMock,
+        ):
+            resp = client.get("/v1/chemicals/FA:C001/bioactivities")
+        assert resp.status_code == 200
+        assert resp.json()["data"][0]["bioactivity_id"] == "FA:B001"
+
+
 # -- /v1/chemicals ----------------------------------------------------------
 
 
@@ -107,6 +300,7 @@ class TestChemicalDiseases:
         resp = client.get("/v1/chemicals/FA:C001/diseases?relation=bogus")
         assert resp.status_code == 422
 
+    @pytest.mark.usefixtures("parent_exists")
     def test_returns_correlation_rows(self, client: TestClient) -> None:
         with patch(
             "src.repositories.v1.relationships.list_correlation",
@@ -342,3 +536,133 @@ class TestOpenAPISchema:
             for op in schema["paths"][path].values():
                 if isinstance(op, dict):
                     assert op.get("security") == [{"bearerAuth": []}]
+
+
+# -- release-scenario regressions (2026-09-13) ------------------------------
+
+
+class TestExternalIdsAreStrings:
+    """The MVs hold numeric external ids; the contract says strings (#1)."""
+
+    @pytest.mark.parametrize(
+        ("path", "etype", "extra"),
+        [
+            ("/v1/foods/e5324", "food", {"food_classification": []}),
+            ("/v1/chemicals/e60502", "chemical", {"chemical_classification": []}),
+            ("/v1/diseases/e30", "disease", {}),
+            ("/v1/bioactivities/e1", "bioactivity", {"description": ""}),
+        ],
+    )
+    def test_numeric_ids_serialize(
+        self, client: TestClient, path: str, etype: str, extra: dict
+    ) -> None:
+        row = {
+            "id": path.rsplit("/", 1)[1],
+            "common_name": "x",
+            "scientific_name": "",
+            "synonyms": [],
+            "external_ids": {"chebi": [16243], "fdc": [1104647], "mesh": ["D011794"]},
+            **extra,
+        }
+        with patch(
+            "src.repositories.v1.entities.get_entity",
+            return_value=row,
+            new_callable=AsyncMock,
+        ):
+            resp = client.get(path)
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["data"]["external_ids"] == {
+            "chebi": ["16243"],
+            "fdc": ["1104647"],
+            "mesh": ["D011794"],
+        }
+
+
+class TestPageUpperBound:
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "/v1/foods",
+            "/v1/chemicals",
+            "/v1/diseases",
+            "/v1/bioactivities",
+            "/v1/triplets",
+            "/v1/search?q=a",
+            "/v1/foods/e1/chemicals",
+            "/v1/foods/e1/bioactivities",
+            "/v1/chemicals/e1/foods",
+            "/v1/chemicals/e1/diseases",
+            "/v1/chemicals/e1/bioactivities",
+            "/v1/diseases/e1/chemicals",
+            "/v1/bioactivities/e1/chemicals",
+            "/v1/bioactivities/e1/foods",
+        ],
+    )
+    def test_huge_page_is_422_not_500(self, client: TestClient, path: str) -> None:
+        sep = "&" if "?" in path else "?"
+        resp = client.get(f"{path}{sep}page=99999999999999999999")
+        assert resp.status_code == 422
+
+
+class TestSubResourceOfUnknownParent:
+    @pytest.mark.parametrize(
+        ("path", "detail"),
+        [
+            ("/v1/foods/e999/chemicals", "Food not found"),
+            ("/v1/foods/e999/bioactivities", "Food not found"),
+            ("/v1/chemicals/e999/foods", "Chemical not found"),
+            ("/v1/chemicals/e999/diseases", "Chemical not found"),
+            ("/v1/chemicals/e999/bioactivities", "Chemical not found"),
+            ("/v1/diseases/e999/chemicals", "Disease not found"),
+            ("/v1/bioactivities/e999/chemicals", "Bioactivity not found"),
+            ("/v1/bioactivities/e999/foods", "Bioactivity not found"),
+        ],
+    )
+    def test_404(self, client: TestClient, path: str, detail: str) -> None:
+        with (
+            patch(
+                "src.repositories.v1.entities.resolve_id",
+                return_value=None,
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "src.repositories.v1.relationships.list_composition",
+                new_callable=AsyncMock,
+            ) as list_mock,
+        ):
+            resp = client.get(path)
+        assert resp.status_code == 404
+        assert resp.json()["detail"] == detail
+        list_mock.assert_not_called()
+
+    def test_wrong_entity_type_is_404(self, client: TestClient) -> None:
+        with patch(
+            "src.repositories.v1.entities.resolve_id",
+            return_value=("chemical", "quercetin"),
+            new_callable=AsyncMock,
+        ):
+            resp = client.get("/v1/foods/e60502/chemicals")
+        assert resp.status_code == 404
+
+
+class TestTripletRelationshipValidation:
+    def test_unknown_relationship_is_422(self, client: TestClient) -> None:
+        with patch(
+            "src.repositories.v1.triplets.list_triplets",
+            new_callable=AsyncMock,
+        ) as list_mock:
+            resp = client.get("/v1/triplets?relationship=bogus")
+        assert resp.status_code == 422
+        assert "r1..r6" in resp.json()["detail"]
+        list_mock.assert_not_called()
+
+    @pytest.mark.parametrize("value", ["r6", "measured", "R6", "exhibits", "r5"])
+    def test_r5_r6_and_aliases_accepted(self, client: TestClient, value: str) -> None:
+        with patch(
+            "src.repositories.v1.triplets.list_triplets",
+            return_value=([], 0),
+            new_callable=AsyncMock,
+        ) as list_mock:
+            resp = client.get(f"/v1/triplets?relationship={value}")
+        assert resp.status_code == 200
+        assert list_mock.call_args.kwargs["relationship"] == value

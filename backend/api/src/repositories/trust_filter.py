@@ -1,7 +1,8 @@
 """Per-attestation trust-score filtering applied to composition responses.
 
 Each evidence dict in the materialised composition view (``fdc_evidences``,
-``foodatlas_evidences``) carries a list of ``extraction`` objects, each
+``foodatlas_evidences``, ``ptfi_evidences``) carries a list of
+``extraction`` objects, each
 annotated with an ``attestation_id``. Trust signals live in
 ``base_trust_signals`` and are joined at request time by attestation_id. The
 threshold is configurable via :class:`APISettings.trust_low_threshold`.
@@ -36,7 +37,11 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
 TrustMode = Literal["default", "show_all", "low_only"]
-_EVIDENCE_KEYS = ("fdc_evidences", "foodatlas_evidences")
+# Every evidence column the composition view exposes. A source missing
+# from this tuple has its evidence ignored, so its rows look
+# evidence-less and get dropped by the default trust filter — that is
+# what happened to all 11k PTFI rows before ptfi_evidences was added.
+_EVIDENCE_KEYS = ("fdc_evidences", "foodatlas_evidences", "ptfi_evidences")
 _NO_SIGNAL_DEFAULT_SCORE = 1.0
 
 
@@ -50,7 +55,8 @@ async def apply_trust_filter(
     """Filter or annotate ``rows`` according to ``mode``; returns new list.
 
     ``rows`` is a list of MV-shaped dicts (each may contain
-    ``fdc_evidences`` / ``foodatlas_evidences`` keys with list-or-None
+    ``fdc_evidences`` / ``foodatlas_evidences`` / ``ptfi_evidences`` keys
+    with list-or-None
     values). Every extraction must already carry ``attestation_id`` (added
     in the materializer).
     """

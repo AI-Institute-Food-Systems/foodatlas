@@ -13,8 +13,8 @@ interface ErrorProps {
 const Error = ({ error, reset }: ErrorProps) => {
   console.error("error :>> ", error);
   return (
-    <div className="px-3 md:px-12 h-screen justify-center flex flex-col text-light-100">
-      <div className="w-full max-w-6xl mx-auto">
+    <div className="px-4 md:px-24 h-screen justify-center flex flex-col text-light-100">
+      <div className="w-full max-w-5xl mx-auto">
         <h2 className="text-4xl font-semibold">Runtime Error</h2>
         <p className="mt-4 mb-8 text-lg">
           Something went wrong. If this issue persists, we appreciate you{" "}

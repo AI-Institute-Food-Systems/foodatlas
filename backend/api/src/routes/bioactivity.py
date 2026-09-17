@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.dependencies import get_db, verify_api_key
-from src.repositories import bioactivity
+from src.repositories import bioactivity, disease_bioactivity
 
 router = APIRouter(
     prefix="/bioactivity",
@@ -21,6 +21,14 @@ async def bioactivity_metadata(
     return await bioactivity.get_metadata(db, common_name)
 
 
+@router.get("/diseases")
+async def bioactivity_diseases(
+    common_name: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+):
+    return await disease_bioactivity.get_bioactivity_diseases(db, common_name)
+
+
 @router.get("/chemicals")
 async def bioactivity_chemicals(
     common_name: str = Query(...),
@@ -28,6 +36,11 @@ async def bioactivity_chemicals(
     search: str = Query(""),
     sort_by: str = Query("measurement_count"),
     sort_dir: str = Query("desc"),
+    filter_endpoint: str = Query(""),
+    filter_unit: str = Query(""),
+    filter_evidence_type: str = Query(""),
+    filter_source_kind: str = Query(""),
+    filter_category: str = Query(""),
     db: AsyncSession = Depends(get_db),
 ):
     return await bioactivity.get_chemicals(
@@ -37,6 +50,11 @@ async def bioactivity_chemicals(
         search=search,
         sort_by=sort_by,
         sort_dir=sort_dir,
+        filter_endpoint=filter_endpoint,
+        filter_unit=filter_unit,
+        filter_evidence_type=filter_evidence_type,
+        filter_source_kind=filter_source_kind,
+        filter_category=filter_category,
     )
 
 
@@ -47,6 +65,10 @@ async def bioactivity_foods(
     search: str = Query(""),
     sort_by: str = Query("measurement_count"),
     sort_dir: str = Query("desc"),
+    filter_endpoint: str = Query(""),
+    filter_unit: str = Query(""),
+    filter_evidence_type: str = Query(""),
+    filter_source_kind: str = Query(""),
     db: AsyncSession = Depends(get_db),
 ):
     return await bioactivity.get_foods(
@@ -56,6 +78,124 @@ async def bioactivity_foods(
         search=search,
         sort_by=sort_by,
         sort_dir=sort_dir,
+        filter_endpoint=filter_endpoint,
+        filter_unit=filter_unit,
+        filter_evidence_type=filter_evidence_type,
+        filter_source_kind=filter_source_kind,
+    )
+
+
+@router.get("/endpoints")
+async def bioactivity_endpoint_options(
+    common_name: str = Query(...),
+    direction: str = Query(
+        ...,
+        description=(
+            "Pivot+relationship combo. One of: bioactivity-chemicals, "
+            "bioactivity-foods, chemical-bioactivities, food-bioactivities."
+        ),
+    ),
+    filter_evidence_type: str = Query(""),
+    filter_source_kind: str = Query(""),
+    search: str = Query(""),
+    db: AsyncSession = Depends(get_db),
+):
+    """Distinct (endpoint, unit, count) tuples for the table's filter UI.
+
+    Faceted on every OTHER sidebar dimension, matching
+    /food/composition/counts.
+    """
+    return await bioactivity.get_endpoint_options(
+        db,
+        common_name,
+        direction,
+        filter_evidence_type=filter_evidence_type,
+        filter_source_kind=filter_source_kind,
+        search=search,
+    )
+
+
+@router.get("/categories")
+async def bioactivity_category_options(
+    common_name: str = Query(..., description="Bioactivity common_name"),
+    filter_unit: str = Query(""),
+    filter_source_kind: str = Query(""),
+    search: str = Query(""),
+    db: AsyncSession = Depends(get_db),
+):
+    """Faceted (category, count) counts for the bioactivity's chemicals.
+
+    Every other active filter (unit, source kind, search) is applied so
+    the counts reflect what the table would render under each category
+    selection.
+    """
+    return await bioactivity.get_category_options(
+        db,
+        common_name,
+        filter_unit=filter_unit,
+        filter_source_kind=filter_source_kind,
+        search=search,
+    )
+
+
+@router.get("/source_kinds")
+async def bioactivity_source_kind_counts(
+    common_name: str = Query(...),
+    direction: str = Query(
+        ...,
+        description=(
+            "Pivot+relationship combo. Same set as /bioactivity/endpoints: "
+            "bioactivity-chemicals, bioactivity-foods, chemical-bioactivities, "
+            "food-bioactivities."
+        ),
+    ),
+    filter_unit: str = Query(""),
+    filter_category: str = Query(""),
+    filter_evidence_type: str = Query(""),
+    search: str = Query(""),
+    db: AsyncSession = Depends(get_db),
+):
+    """Faceted per-source-kind row counts for the sidebar Assay Source filter."""
+    return await bioactivity.get_source_kind_counts(
+        db,
+        common_name,
+        direction,
+        filter_unit=filter_unit,
+        filter_category=filter_category,
+        filter_evidence_type=filter_evidence_type,
+        search=search,
+    )
+
+
+@router.get("/evidence_types")
+async def bioactivity_evidence_type_counts(
+    common_name: str = Query(...),
+    direction: str = Query(
+        ...,
+        description=(
+            "Pivot+relationship combo. Same set as /bioactivity/source_kinds: "
+            "bioactivity-chemicals, bioactivity-foods, chemical-bioactivities, "
+            "food-bioactivities, food-inferred-bioactivities."
+        ),
+    ),
+    filter_unit: str = Query(""),
+    filter_source_kind: str = Query(""),
+    search: str = Query(""),
+    db: AsyncSession = Depends(get_db),
+):
+    """Per-evidence_type row counts for the sidebar Evidence filter.
+
+    Faceted: every OTHER active filter is applied, so each count answers
+    "how many rows would this bucket have if I picked it right now?" —
+    matching /food/composition/counts.
+    """
+    return await bioactivity.get_evidence_type_counts(
+        db,
+        common_name,
+        direction,
+        filter_unit=filter_unit,
+        filter_source_kind=filter_source_kind,
+        search=search,
     )
 
 

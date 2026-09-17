@@ -72,6 +72,54 @@ export const EXTERNAL_REFERENCE_LOOKUP = {
   },
 };
 
+// Turn a raw assay identifier (as stored in `source_assay_id` /
+// measurement rows) into an external landing-page URL.  Same
+// substitution pattern as EXTERNAL_REFERENCE_LOOKUP — one prefix,
+// one URL template. Returns null when we don't recognise the id
+// scheme so callers can render plain text as a fallback.
+//
+// Recognised schemes (both bare + upstream "prefix: id" formats, since
+// the KGC parquet stores the display label — e.g. "ChEMBL: CHEMBL...",
+// "AID: 364" — not the bare id):
+// - PubChem BioAssay: "AID 364", "AID: 364", "AID:364"
+// - ChEMBL assay:     "CHEMBL329341", "ChEMBL: CHEMBL329341",
+//                     "ChEMBL:CHEMBL329341", "ChEMBL CHEMBL329341"
+export const assayExternalUrl = (
+  raw: string | null | undefined
+): { url: string; source: "PubChem" | "ChEMBL" } | null => {
+  if (!raw) return null;
+  const id = raw.trim();
+  const pubchem = id.match(/^AID[\s:]*(\d+)$/i);
+  if (pubchem) {
+    return {
+      url: `https://pubchem.ncbi.nlm.nih.gov/bioassay/${pubchem[1]}`,
+      source: "PubChem",
+    };
+  }
+  const chembl = id.match(/^(?:ChEMBL[\s:]*)?(CHEMBL\d+)$/i);
+  if (chembl) {
+    return {
+      url: `https://www.ebi.ac.uk/chembl/explore/assay/${chembl[1].toUpperCase()}`,
+      source: "ChEMBL",
+    };
+  }
+  return null;
+};
+
+// UniProt entry URL — used for assay-meta target links.
+export const uniprotUrl = (accession: string | null | undefined): string | null =>
+  accession && accession.trim()
+    ? `https://www.uniprot.org/uniprotkb/${accession.trim()}/entry`
+    : null;
+
+// NCBI Gene URL from an Entrez Gene ID.
+export const entrezGeneUrl = (
+  geneId: string | null | undefined
+): string | null =>
+  geneId && geneId.trim()
+    ? `https://www.ncbi.nlm.nih.gov/gene/${geneId.trim()}`
+    : null;
+
 export const calculateProbabilityString = (citation: any[]) => {
   // extract probabilities from each citation
   const probabilities = citation.map((item) => item.probability.mean);
@@ -154,12 +202,21 @@ export const formatConcentrationValueAlt = (value: number | undefined) => {
     return numValue.toExponential(2);
   }
 
-  // otherwise format with up to 2 decimal places
-  const formatted = numValue.toFixed(2);
-
-  // remove trailing zeros after decimal
-  return formatted.replace(/\.?0+$/, "");
+  // Up to 2 decimals, grouped. PTFI's relative_abundance values run into
+  // the tens of thousands, where an ungrouped 21116.56 is hard to scan.
+  // maximumFractionDigits drops trailing zeros on its own, so 12 stays
+  // "12" rather than becoming "12.00".
+  return numValue.toLocaleString(undefined, { maximumFractionDigits: 2 });
 };
+
+// Units arrive as raw tokens from the source data. Only display is
+// affected — filters and comparisons keep using the underlying value.
+const UNIT_LABELS: Record<string, string> = {
+  relative_abundance: "rel. abundance",
+};
+
+export const formatUnit = (unit: string | null | undefined): string =>
+  unit ? (UNIT_LABELS[unit] ?? unit) : "";
 
 // format concentration to table field
 export const formatConcentration = (concentrationData: any) => {

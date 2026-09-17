@@ -3,13 +3,27 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from src.repositories.food import get_composition, get_metadata, get_profile
+from src.repositories.food import (
+    _resort_after_filter,
+    get_composition,
+    get_composition_counts,
+    get_metadata,
+    get_profile,
+)
 
 
 def _make_row(**kwargs: object) -> MagicMock:
     """Create a mock row with _mapping attribute."""
     row = MagicMock()
     row._mapping = kwargs
+    return row
+
+
+def _make_score(attestation_id: str, score: float) -> MagicMock:
+    """A row as _fetch_trust_scores reads it — by attribute, not _mapping."""
+    row = MagicMock()
+    row.attestation_id = attestation_id
+    row.score = score
     return row
 
 
@@ -141,13 +155,246 @@ class TestFoodGetComposition:
         assert result["metadata"]["current_page"] == 2
 
     @pytest.mark.asyncio
-    async def test_multiple_sources(self) -> None:
+    async def test_multi_source_filter_reaches_the_query(self) -> None:
+        """A two-of-three selection must still restrict the rows.
+
+        This assertion replaces one that checked `total_pages == 0`
+        against an empty mock — true no matter what SQL was generated,
+        which is why the missing predicate for {fdc, ptfi} shipped. The
+        row-level proof lives in test_composition_sources.py; this keeps
+        the endpoint-level path honest about what it sends to the DB.
+        """
         session = AsyncMock()
         data_result = MagicMock()
         data_result.__iter__ = lambda self: iter([])
-        count_result = MagicMock()
-        count_result.scalar.return_value = 0
-        session.execute.side_effect = [data_result, count_result]
+        session.execute.side_effect = [data_result]
 
-        result = await get_composition(session, "apple", filter_source="fdc+dmd")
-        assert result["metadata"]["total_pages"] == 0
+        await get_composition(session, "apple", filter_source="fdc+ptfi")
+
+        sql = str(session.execute.call_args_list[0].args[0])
+        assert "(fdc_evidences IS NOT NULL OR ptfi_evidences IS NOT NULL)" in sql
+        # ...and the unselected source is not what's being filtered on.
+        assert "AND (foodatlas_evidences IS NOT NULL)" not in sql
+
+    @pytest.mark.asyncio
+    async def test_retired_source_is_dropped_from_a_mixed_filter(self) -> None:
+        session = AsyncMock()
+        data_result = MagicMock()
+        data_result.__iter__ = lambda self: iter([])
+        session.execute.side_effect = [data_result]
+
+        await get_composition(session, "apple", filter_source="fdc+dmd")
+
+        sql = str(session.execute.call_args_list[0].args[0])
+        # dmd is retired from the public surface — it must not become a
+        # filterable source by way of being named in the query string.
+        assert "AND (fdc_evidences IS NOT NULL)" in sql
+        assert "dmd_evidences IS NOT NULL" not in sql
+
+
+class TestResortAfterFilter:
+    def test_evidence_count_desc(self) -> None:
+        rows = [
+            {"name": "a", "fdc_evidences": [1, 2], "foodatlas_evidences": [3]},
+            {
+                "name": "b",
+                "fdc_evidences": [1],
+                "foodatlas_evidences": [2, 3],
+                "dmd_evidences": [4],
+            },
+            {"name": "c", "fdc_evidences": []},
+        ]
+        out = _resort_after_filter(rows, "evidence_count", "DESC")
+        assert [r["name"] for r in out] == ["b", "a", "c"]
+
+    def test_evidence_count_asc(self) -> None:
+        rows = [
+            {"name": "a", "fdc_evidences": [1, 2]},
+            {"name": "b", "fdc_evidences": [1]},
+        ]
+        out = _resort_after_filter(rows, "evidence_count", "ASC")
+        assert [r["name"] for r in out] == ["b", "a"]
+
+    def test_null_evidences_treated_as_empty(self) -> None:
+        rows = [
+            {"name": "a", "fdc_evidences": None, "foodatlas_evidences": None},
+            {"name": "b", "fdc_evidences": [1]},
+        ]
+        out = _resort_after_filter(rows, "evidence_count", "DESC")
+        assert [r["name"] for r in out] == ["b", "a"]
+
+
+def _mock_session_sequence(*result_rows: list[MagicMock]) -> AsyncMock:
+    """Session where each execute() returns the next batch of rows.
+
+    Used by get_composition_counts which fetches composition rows first
+    then the trust scores in a second query.
+    """
+    session = AsyncMock()
+    results = []
+    for rows in result_rows:
+        r = MagicMock()
+        r.__iter__ = lambda self, _rows=rows: iter(_rows)
+        # `for row in result` iterates; `_fetch_trust_scores` uses that too.
+        results.append(r)
+    session.execute.side_effect = results
+    return session
+
+
+class TestFoodGetCompositionCounts:
+    @pytest.mark.asyncio
+    async def test_faceted_counts_shape(self) -> None:
+        rows = [
+            _make_row(
+                id=1,
+                chemical_name="glucose",
+                chemical_classification=["carbohydrate"],
+                median_concentration={"value": 5.0},
+                fdc_evidences=[{"extraction": [{"attestation_id": "a1"}]}],
+                foodatlas_evidences=None,
+            ),
+            _make_row(
+                id=2,
+                chemical_name="quercetin",
+                chemical_classification=["flavonoid"],
+                median_concentration=None,  # no-concentration row
+                fdc_evidences=None,
+                foodatlas_evidences=[{"extraction": [{"attestation_id": "a2"}]}],
+            ),
+        ]
+        # Second execute() (via _fetch_trust_scores) returns no scores →
+        # neither row is fully-low-trust.
+        session = _mock_session_sequence(rows, [])
+        out = await get_composition_counts(session, "apple")
+        data = out["data"]
+        # Composition rows: 1 carbohydrate + 1 flavonoid + 2 total sources.
+        assert data["classification_counts"] == {
+            "carbohydrate": 1,
+            "flavonoid": 1,
+        }
+        assert data["source_counts"] == {"fdc": 1, "foodatlas": 1, "ptfi": 0}
+        assert data["no_concentration_count"] == 1
+        assert data["low_trust_count"] == 0
+
+    @pytest.mark.asyncio
+    async def test_low_trust_count_includes_partially_low_rows(self) -> None:
+        """A row that merely LOSES an extraction counts, not just one that
+        disappears.
+
+        The count drives the "Include low-trust data points" badge, and the
+        filter works per extraction: a row with one bad point among good ones
+        stays in the table and silently drops that point. Counting only
+        fully-low rows reported such a row as nothing hidden — on staging,
+        onion had a hidden point and the badge read 0.
+        """
+        rows = [
+            # Partially low: keeps a2, loses a1. Old logic missed this row.
+            _make_row(
+                id=1,
+                chemical_name="glucose",
+                chemical_classification=["carbohydrate"],
+                median_concentration={"value": 5.0},
+                fdc_evidences=[
+                    {
+                        "extraction": [
+                            {"attestation_id": "a1"},
+                            {"attestation_id": "a2"},
+                        ]
+                    }
+                ],
+                foodatlas_evidences=None,
+            ),
+            # Fully low: the row disappears entirely. Counted either way.
+            _make_row(
+                id=2,
+                chemical_name="quercetin",
+                chemical_classification=["flavonoid"],
+                median_concentration={"value": 1.0},
+                fdc_evidences=None,
+                foodatlas_evidences=[{"extraction": [{"attestation_id": "a3"}]}],
+            ),
+            # No low-trust extraction at all.
+            _make_row(
+                id=3,
+                chemical_name="fructose",
+                chemical_classification=["carbohydrate"],
+                median_concentration={"value": 2.0},
+                fdc_evidences=[{"extraction": [{"attestation_id": "a4"}]}],
+                foodatlas_evidences=None,
+            ),
+        ]
+        # Default threshold is 0.4; a4 is deliberately absent, since an
+        # unscored attestation counts as trusted rather than as low.
+        scores = [
+            _make_score("a1", 0.2),
+            _make_score("a2", 0.9),
+            _make_score("a3", 0.1),
+        ]
+        session = _mock_session_sequence(rows, scores)
+        data = (await get_composition_counts(session, "apple"))["data"]
+        assert data["low_trust_count"] == 2
+
+    @pytest.mark.asyncio
+    async def test_filters_narrow_counts(self) -> None:
+        """Selecting a classification narrows the source_counts + no-conc
+        + low-trust counts to only rows in that class (facet-excluding-self
+        semantics for the other dimensions)."""
+        rows = [
+            _make_row(
+                id=1,
+                chemical_name="glucose",
+                chemical_classification=["carbohydrate"],
+                median_concentration={"value": 5.0},
+                fdc_evidences=[{"extraction": [{"attestation_id": "a1"}]}],
+                foodatlas_evidences=None,
+            ),
+            _make_row(
+                id=2,
+                chemical_name="quercetin",
+                chemical_classification=["flavonoid"],
+                median_concentration=None,
+                fdc_evidences=None,
+                foodatlas_evidences=[{"extraction": [{"attestation_id": "a2"}]}],
+            ),
+        ]
+        session = _mock_session_sequence(rows, [])
+        out = await get_composition_counts(
+            session, "apple", filter_classification="carbohydrate"
+        )
+        data = out["data"]
+        # source + no-conc excludes flavonoid rows once class filter is on.
+        assert data["source_counts"] == {"fdc": 1, "foodatlas": 0, "ptfi": 0}
+        assert data["no_concentration_count"] == 0
+        # classification_counts is faceted (excludes class dim) — still
+        # shows both classifications.
+        assert data["classification_counts"] == {
+            "carbohydrate": 1,
+            "flavonoid": 1,
+        }
+
+    @pytest.mark.asyncio
+    async def test_search_narrows_all(self) -> None:
+        rows = [
+            _make_row(
+                id=1,
+                chemical_name="glucose",
+                chemical_classification=["carbohydrate"],
+                median_concentration={"value": 5.0},
+                fdc_evidences=[{"extraction": []}],
+                foodatlas_evidences=None,
+            ),
+            _make_row(
+                id=2,
+                chemical_name="quercetin",
+                chemical_classification=["flavonoid"],
+                median_concentration=None,
+                fdc_evidences=None,
+                foodatlas_evidences=[{"extraction": []}],
+            ),
+        ]
+        session = _mock_session_sequence(rows, [])
+        out = await get_composition_counts(session, "apple", search_term="quer")
+        data = out["data"]
+        # Only quercetin passes search → no carbohydrate, one flavonoid.
+        assert data["classification_counts"] == {"flavonoid": 1}
+        assert data["source_counts"] == {"fdc": 0, "foodatlas": 1, "ptfi": 0}

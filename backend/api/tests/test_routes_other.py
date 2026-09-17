@@ -2,6 +2,7 @@
 
 from unittest.mock import AsyncMock, patch
 
+import pytest
 from fastapi.testclient import TestClient
 
 # -- /chemical/metadata -----------------------------------------------------
@@ -123,6 +124,38 @@ class TestChemicalCorrelation:
             )
         assert resp.status_code == 200
 
+    @pytest.mark.parametrize("path", ["/chemical/correlation", "/disease/correlation"])
+    def test_sort_params_are_forwarded(
+        self, client: TestClient, mock_db: AsyncMock, path: str
+    ) -> None:
+        # The literature tables sort server-side; a header click is only
+        # a sort if these reach the repository.
+        module = path.split("/")[1]
+        with patch(
+            f"src.repositories.{module}.get_correlation",
+            return_value=CHEM_CORR_SAMPLE,
+        ) as mocked:
+            resp = client.get(
+                path,
+                params={"common_name": "glucose", "sort_by": "name", "sort_dir": "asc"},
+            )
+        assert resp.status_code == 200
+        assert mocked.call_args.kwargs["sort_by"] == "name"
+        assert mocked.call_args.kwargs["sort_dir"] == "asc"
+
+    @pytest.mark.parametrize("path", ["/chemical/correlation", "/disease/correlation"])
+    def test_sort_defaults_to_most_evidence_first(
+        self, client: TestClient, mock_db: AsyncMock, path: str
+    ) -> None:
+        module = path.split("/")[1]
+        with patch(
+            f"src.repositories.{module}.get_correlation",
+            return_value=CHEM_CORR_SAMPLE,
+        ) as mocked:
+            client.get(path, params={"common_name": "glucose"})
+        assert mocked.call_args.kwargs["sort_by"] == "evidence_count"
+        assert mocked.call_args.kwargs["sort_dir"] == "desc"
+
 
 # -- /disease/metadata ------------------------------------------------------
 
@@ -242,6 +275,32 @@ class TestMetadataSearch:
         ):
             resp = client.get("/metadata/search")
         assert resp.status_code == 200
+
+    def test_rows_per_page_forwarded_to_repo(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        """Caller-controlled page size lands at the repository."""
+        with patch(
+            "src.repositories.search.search",
+            return_value=SEARCH_SAMPLE,
+        ) as mock_search:
+            resp = client.get(
+                "/metadata/search",
+                params={"term": "apple", "rows_per_page": 40},
+            )
+        assert resp.status_code == 200
+        # search(db, term, page, rows_per_page) — positional args in the route.
+        assert mock_search.call_args.args[-1] == 40
+
+    def test_rows_per_page_capped_at_100(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        """FastAPI's `le=100` guards the MV scan from a DoS-shaped request."""
+        resp = client.get(
+            "/metadata/search",
+            params={"term": "apple", "rows_per_page": 500},
+        )
+        assert resp.status_code == 422
 
 
 # -- /metadata/statistics ---------------------------------------------------

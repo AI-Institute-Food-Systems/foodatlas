@@ -15,6 +15,41 @@ html {
   color: #fff;
   padding: 0 !important;
   overflow-y: scroll !important;
+  /* Sub-320px viewports produce overflow / clipping in components
+   * that assume "at least a phone width" (chips, hero, tables). Pin
+   * html at 320 so the browser shows a horizontal scroll below that,
+   * instead of trying to render at, say, 200px. Only affects extreme
+   * edge cases (feature phones, split-screen modes). */
+  min-width: 320px;
+}
+
+/* Toggled by Modal.tsx to lock page scroll while a dialog is open.
+ * Higher specificity than `html` so it wins regardless of the
+ * !important on the base rule. `scrollbar-gutter: stable` on <html>
+ * keeps layout from shifting when the scrollbar disappears. */
+html.modal-open,
+html.modal-open body {
+  overflow: hidden !important;
+}
+
+/* Honour the OS "reduce motion" setting across every animation and
+ * transition — the tab-panel fadeSlide, pillSlideIn, rowHighlightAppear
+ * and the skeleton pulse all run unprompted, so none of them should
+ * animate for users who have asked them not to. Scoped deliberately to
+ * animation/transition only: overriding scroll-behavior here would break
+ * the highlighted row's scroll-into-view on cross-entity links.
+ *
+ * Skeletons additionally swap to a lighter resting fill under this
+ * setting (see skeletonTokens.ts) — with no pulse to carry the signal,
+ * the fill has to. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 @keyframes fadeSlide {

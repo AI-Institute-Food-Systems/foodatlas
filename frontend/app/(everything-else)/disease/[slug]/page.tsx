@@ -2,10 +2,13 @@ import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
-import DiseaseCorrelationsSection from "@/components/entities/disease/DiseaseCorrelationsSection";
+import CorrelationEvidenceTab from "@/components/entities/shared/CorrelationEvidenceTab";
 import HeaderSection from "@/components/entities/HeaderSection";
 import EntityDetailLayout from "@/components/entities/EntityDetailLayout";
 import EntityOverviewPanel from "@/components/entities/EntityOverviewPanel";
+import { buildTabs } from "@/components/entities/buildTabs";
+import { correlationEvidenceCount } from "@/utils/tabCounts";
+import { DEFAULT_TAB_ID } from "@/components/entities/entityTabs.config";
 import EntityOverviewPanelSuspense from "@/components/entities/EntityOverviewPanelSuspense";
 import HeaderSectionSuspense from "@/components/entities/HeaderSectionSuspense";
 import { getMetaData } from "@/utils/fetching";
@@ -37,23 +40,30 @@ const DiseasePage = async ({ params }: DiseasePageProps) => {
   const commonName = decodeSpace(decodeURIComponent(slug));
   const entityType = "disease" as const;
 
+  // The one counted tab. A tab mounts only when opened, so an unfetched
+  // count leaves its badge placeholder pulsing for the life of the page.
+  // Count only; the tab still loads lazily.
+  const healthCount = await correlationEvidenceCount(commonName, "disease");
+
   return (
-    <div>
+    <>
       <Suspense fallback={<HeaderSectionSuspense entityType={entityType} />}>
         <HeaderSection commonName={commonName} entityType={entityType} />
       </Suspense>
       <EntityDetailLayout
         entityType={entityType}
-        defaultTabId="health"
-        tabs={[
-          {
-            id: "health",
-            label: "Health Impacts",
-            content: <DiseaseCorrelationsSection commonName={commonName} />,
+        defaultTabId={DEFAULT_TAB_ID[entityType]}
+        tabs={buildTabs(entityType, {
+          health: {
+            count: healthCount,
+            content: (
+              <CorrelationEvidenceTab
+                commonName={commonName}
+                anchor="disease"
+              />
+            ),
           },
-          {
-            id: "overview",
-            label: "IDs & Metadata",
+          overview: {
             content: (
               <Suspense
                 fallback={
@@ -67,9 +77,9 @@ const DiseasePage = async ({ params }: DiseasePageProps) => {
               </Suspense>
             ),
           },
-        ]}
+        })}
       />
-    </div>
+    </>
   );
 };
 

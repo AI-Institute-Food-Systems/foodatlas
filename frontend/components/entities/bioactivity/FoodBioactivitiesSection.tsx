@@ -4,8 +4,10 @@ import { useCallback, useMemo } from "react";
 
 import { getFoodBioactivities } from "@/utils/fetching";
 import type { BioactivityListParams } from "@/utils/fetching";
+import Heading from "@/components/basic/Heading";
 import BioactivityTable, {
   NameLinkCell,
+  TOP_MEASUREMENT_SORT_KEY,
   TopMeasurementCell,
   ViewAssaysCell,
   type SortableColumn,
@@ -13,9 +15,37 @@ import BioactivityTable, {
 
 interface Props {
   commonName: string;
+  anchorId?: string | null;
+  // Optional external control: forwarded to BioactivityTable so a
+  // parent (FoodBioactivitiesTab) can drive search + source-kind
+  // filtering + chrome-suppression for BOTH direct + inferred tables
+  // from one shared sidebar.
+  externalSearch?: string;
+  externalSourceKind?: string;
+  externalUnit?: string;
+  externalEvidenceType?: string;
+  hideChrome?: boolean;
+  // Passthrough to the underlying BioactivityTable so a parent can
+  // aggregate direct + inferred totals for the tab badge.
+  onTotalRowsChange?: (total: number) => void;
+  tabIdForCount?: string;
+  // When externally driven, this callback lets the table's empty-state
+  // "clear filters" affordance reset the parent's sidebar too.
+  onResetFilters?: () => void;
 }
 
-const FoodBioactivitiesSection = ({ commonName }: Props) => {
+const FoodBioactivitiesSection = ({
+  commonName,
+  anchorId,
+  externalSearch,
+  externalSourceKind,
+  externalUnit,
+  externalEvidenceType,
+  hideChrome,
+  onTotalRowsChange,
+  tabIdForCount,
+  onResetFilters,
+}: Props) => {
   const fetcher = useCallback(
     (params: BioactivityListParams) => getFoodBioactivities(commonName, params),
     [commonName]
@@ -29,20 +59,23 @@ const FoodBioactivitiesSection = ({ commonName }: Props) => {
         align: "left",
         width: "w-[40%]",
         sortable: true,
+        sortLabels: { asc: "Bioactivity A–Z", desc: "Bioactivity Z–A" },
         render: (row) => <NameLinkCell row={row} hrefPrefix="/bioactivity/" />,
       },
       {
-        key: "top",
+        key: TOP_MEASUREMENT_SORT_KEY,
         label: "Top measurement",
         align: "right",
         width: "w-[35%]",
         render: (row) => <TopMeasurementCell row={row} />,
       },
       {
-        key: "assays",
+        key: "measurement_count",
         label: "Assays",
         align: "right",
         width: "w-[25%]",
+        sortable: true,
+        sortLabels: { asc: "Fewest assays", desc: "Most assays" },
         render: (row, ctx) => <ViewAssaysCell row={row} ctx={ctx} />,
       },
     ],
@@ -50,18 +83,44 @@ const FoodBioactivitiesSection = ({ commonName }: Props) => {
   );
 
   return (
-    <BioactivityTable
-      tableId={`food-bioactivities-${commonName}`}
-      fetcher={fetcher}
-      columns={columns}
-      searchPlaceholder="Search bioactivities"
-      emptyMessage="No bioactivities recorded for this food yet"
-      modalConfig={{
-        anchorLabel: commonName,
-        headIsRow: false,
-        relationship: "r5",
-      }}
-    />
+    <div className="flex flex-col gap-6">
+      {/* Header — mirrors the chip+blurb pattern on the inferred section
+       * so the two are visually parallel and the diff is obvious. */}
+      <div className="flex flex-col gap-2">
+        <Heading type="h3" variant="chip" className="self-start">
+          Directly measured
+        </Heading>
+        <p className="font-serif italic text-light-400 text-sm">
+          Bioactivities {commonName} (or an extract of it) was tested for in
+          an assay. These are direct food-level measurements — the food
+          itself was the test material.
+        </p>
+      </div>
+      <BioactivityTable
+        tableId={`food-bioactivities-${commonName}`}
+        direction="food-bioactivities"
+        pivotName={commonName}
+        fetcher={fetcher}
+        columns={columns}
+        searchPlaceholder="Search bioactivities"
+        emptyMessage="No bioactivities recorded for this food yet"
+        emptyMessageFiltered="No directly-measured bioactivities match your filters"
+        onResetFilters={onResetFilters}
+        externalSearch={externalSearch}
+        externalSourceKind={externalSourceKind}
+        externalUnit={externalUnit}
+        externalEvidenceType={externalEvidenceType}
+        hideChrome={hideChrome}
+        modalConfig={{
+          anchorLabel: commonName,
+          headIsRow: false,
+          relationship: "r5",
+          anchorId,
+        }}
+        onTotalRowsChange={onTotalRowsChange}
+        tabIdForCount={tabIdForCount}
+      />
+    </div>
   );
 };
 

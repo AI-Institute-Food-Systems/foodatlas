@@ -28,7 +28,12 @@ const EntityOverviewPanel = async ({ commonName, entityType }: Props) => {
           : "grid grid-cols-1 gap-6"
       }
     >
-      <OverviewCardCatalog entityType={entityType} data={data} naked />
+      <OverviewCardCatalog
+        entityType={entityType}
+        data={data}
+        entitySlug={commonName}
+        naked
+      />
       {hasTaxonomy && (
         <TaxonomySection
           commonName={commonName}

@@ -3,6 +3,7 @@ import useSWR from "swr";
 
 import { AutocompleteContext } from "@/context/autocompleteContext";
 import { usePaginations } from "@/context/paginationsContext";
+import { apiBase } from "@/utils/fetching";
 
 const fetcher = async (url: string) => {
   const response = await fetch(url, {
@@ -14,13 +15,16 @@ const fetcher = async (url: string) => {
   return json;
 };
 
-const useSearchAutocompleteOptions = () => {
+// Default 20 keeps the results page's UX unchanged; callers that need
+// a bigger batch (e.g. the dropdown, which is scrollable and gets a
+// single fetch — no pagination) pass a larger value up to 100.
+const useSearchAutocompleteOptions = (rowsPerPage: number = 20) => {
   const { autocompleteTerm } = useContext(AutocompleteContext);
   const { getTablePaginations } = usePaginations();
   const { currentPage } = getTablePaginations("results-page");
 
   // base url
-  const baseUrl = `${process.env.NEXT_PUBLIC_API_URL}/metadata/search?`;
+  const baseUrl = `${apiBase()}/metadata/search?`;
 
   // full url
   const url =
@@ -28,7 +32,9 @@ const useSearchAutocompleteOptions = () => {
     "term=" +
     encodeURIComponent(autocompleteTerm) +
     "&page=" +
-    currentPage;
+    currentPage +
+    "&rows_per_page=" +
+    rowsPerPage;
 
   const { data, error, isLoading } = useSWR(
     autocompleteTerm.length > 0 ? url : null,

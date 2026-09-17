@@ -1,19 +1,124 @@
 // Modal that shows the per-(head, bioactivity) measurement list.
 //
-// Today the modal reads from `initialMeasurements` — the row's nested
-// measurements array as returned by the list endpoints (currently capped
-// at 25 by the materialized view). When /bioactivity/measurements is
-// deployed, we can switch to lazy-fetching the full unbounded set via
-// getBioactivityMeasurements.
+// Lazy-fetches the FULL measurement set from /bioactivity/measurements
+// when both the anchor entity id and the selected row id are known —
+// that endpoint returns Hill-fit fields (zero/infinite/logAC50/slope)
+// the MV-nested sample doesn't carry, so we can render a curve sparkline.
+// Falls back to `initialMeasurements` (the row's MV-capped sample) when
+// the fetch fails or anchor/row ids aren't both provided.
+//
+// Layout is fixed-height (Modal fullHeight) with three stable zones:
+// header (title + toolbar), scrollable rows area, pinned footer
+// (pagination). Toolbar / pagination / row slots are ALWAYS rendered —
+// when loading, the same shell holds skeleton rows; when on the last
+// page or after filtering, placeholder rows pad up to PAGE_SIZE so the
+// table doesn't shrink. Net result: the modal opens at its final size
+// and stays there — buttons don't migrate, dialog doesn't recenter.
 
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { MdInfoOutline } from "react-icons/md";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  MdCheck,
+  MdClose,
+  MdInfoOutline,
+  MdKeyboardArrowLeft,
+  MdKeyboardArrowRight,
+  MdKeyboardDoubleArrowLeft,
+  MdKeyboardDoubleArrowRight,
+  MdTune,
+} from "react-icons/md";
+import { twMerge } from "tailwind-merge";
 
-import LoadingCard from "@/components/basic/LoadingCard";
+import Button from "@/components/basic/Button";
+import Card from "@/components/basic/Card";
+import Link from "@/components/basic/Link";
+import Skeleton from "@/components/basic/Skeleton";
+import { TableSkeletonRows } from "@/components/basic/TableSkeleton";
+import type { SkeletonColumn } from "@/components/basic/skeletonTokens";
 import Modal from "@/components/basic/Modal";
-import type { BioactivityMeasurement } from "@/types";
+import {
+  FilterGroup,
+  FilterOption,
+  FilterOptionList,
+  FilterSearchInput,
+} from "@/components/entities/shared/filters/FilterControls";
+import {
+  FilterDrawer,
+  FilterPanelBody,
+} from "@/components/entities/shared/filters/FilterPanel";
+import {
+  facetOptions,
+  facetUniverse,
+  type FacetOption,
+} from "@/components/entities/shared/filters/facetOptions";
+import {
+  RowExpandChip,
+  RowExpandPanel,
+} from "@/components/entities/shared/EvidenceTable";
+import { useReportRows } from "@/context/reportModeContext";
+import { logAC50InUnit } from "@/components/entities/bioactivity/format";
+import HillCurveSparkline, {
+  formatConcentration,
+} from "@/components/entities/bioactivity/HillCurveSparkline";
+import { getBioactivityMeasurements } from "@/utils/fetching";
+import { assayExternalUrl } from "@/utils/utils";
+import type {
+  BioactivityMeasurement,
+  BioactivityMeasurementFull,
+} from "@/types";
+
+type ModalRow = Partial<BioactivityMeasurementFull> & BioactivityMeasurement;
+
+// A row qualifies for the accordion expand only when all four 4PL Hill
+// parameters are present. ChEMBL / PubChem rows usually carry just a
+// logAC50 + raw value; only ToxCast-style measurements have zero /
+// infinite / slope too.
+const hasHillFit = (m: ModalRow): boolean => {
+  const { efficacy_zeroactivity: z, efficacy_infiniteactivity: inf } = m;
+  const { efficacy_logac50_value: lac, efficacy_hillslope: s } = m;
+  return [z, inf, lac, s].every(
+    (v) => v != null && Number.isFinite(v),
+  ) && z !== inf && s !== 0;
+};
+
+const rowKey = (m: ModalRow, i: number): string =>
+  m.bioactivity_metadata_id ?? `row-${i}`;
+
+const PAGE_SIZE = 20;
+
+// Mirrors the <colgroup> and the "Value" column's right alignment below.
+const MODAL_COLUMNS: SkeletonColumn[] = [
+  { key: "assay", width: "w-[24%]" },
+  { key: "endpoint", width: "w-[14%]" },
+  { key: "outcome", width: "w-[10%]" },
+  { key: "source", width: "w-[12%]" },
+  { key: "evidence", width: "w-[14%]" },
+  { key: "value", width: "w-[26%]", align: "right" },
+];
+// Reset first, then alphabetical — the order every facet uses.
+const OUTCOME_OPTIONS = ["all", "active", "inactive", "inconclusive", "unspecified"] as const;
+type OutcomeFilter = (typeof OUTCOME_OPTIONS)[number];
+
+// Mirrors the big-table sidebar so users see the same three source
+// buckets everywhere. Client-side match against measurement.evidence_source
+// prefix (backend classifies rows the same way).
+const SOURCE_KINDS: { key: string; label: string }[] = [
+  { key: "", label: "All" },
+  { key: "experimental", label: "Experimental" },
+  { key: "predicted", label: "Predicted" },
+];
+
+const matchesSourceKind = (
+  source: string | null | undefined,
+  kind: string,
+): boolean => {
+  if (!kind) return true;
+  const s = (source ?? "").toLowerCase();
+  if (kind === "experimental") return s.startsWith("exp");
+  if (kind === "predicted") return s.startsWith("pred") || s.startsWith("comp");
+  return true;
+};
 
 interface Props {
   isOpen: boolean;
@@ -22,6 +127,16 @@ interface Props {
   tailLabel: string;
   initialMeasurements?: BioactivityMeasurement[] | null;
   expectedCount?: number;
+  // When rendered from the food-inferred-bioactivities table, this is
+  // /food/efficacy's n_curves (records with a fittable AC50 — the ones
+  // that contributed to the row's efficacy metric). Not every assay in
+  // `rows` contributed (MIC-only rows have no logac50), so we surface
+  // the delta so users aren't misled. Undefined for other call sites.
+  contributedCount?: number;
+  anchorId?: string | null;
+  selectedId?: string | null;
+  relationship?: "r5" | "r6";
+  headIsRow?: boolean;
 }
 
 const formatNumberShort = (n: number): string =>
@@ -34,18 +149,194 @@ const BioactivityMeasurementsModal = ({
   tailLabel,
   initialMeasurements,
   expectedCount,
+  contributedCount,
+  anchorId,
+  selectedId,
+  relationship,
+  headIsRow,
 }: Props) => {
-  const rows = useMemo<BioactivityMeasurement[]>(
-    () => initialMeasurements ?? [],
-    [initialMeasurements]
-  );
-  const totalKnown = expectedCount ?? rows.length;
-  const showingFewerThanTotal = expectedCount != null && rows.length < expectedCount;
+  const [fullRows, setFullRows] = useState<ModalRow[] | null>(null);
+  const [isFetching, setIsFetching] = useState(false);
+  const reporter = useReportRows();
 
-  // Defer rendering the (potentially long) measurements table by one paint
-  // so the modal animation opens snappily and the user sees a skeleton in
-  // place of a frozen UI while React commits the rows. Resets when closed
-  // so the next open also gets the spinner.
+  // Lazy-fetch full measurements on open. Resets on close so a subsequent
+  // open re-fetches if the selection changed.
+  useEffect(() => {
+    if (!isOpen) {
+      setFullRows(null);
+      setIsFetching(false);
+      return;
+    }
+    if (!anchorId || !selectedId || !relationship) return;
+    let cancelled = false;
+    setIsFetching(true);
+    const headId = headIsRow ? selectedId : anchorId;
+    const tailId = headIsRow ? anchorId : selectedId;
+    (async () => {
+      const payload = await getBioactivityMeasurements(headId, tailId, relationship);
+      if (cancelled) return;
+      const data = (payload?.data as BioactivityMeasurementFull[] | undefined) ?? null;
+      setFullRows(data && data.length ? data : null);
+      setIsFetching(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, anchorId, selectedId, relationship, headIsRow]);
+
+  const rows = useMemo<ModalRow[]>(
+    () => fullRows ?? initialMeasurements ?? [],
+    [fullRows, initialMeasurements]
+  );
+
+  const [searchTerm, setSearchTerm] = useState("");
+  const [outcomeFilter, setOutcomeFilter] = useState<OutcomeFilter>("all");
+  const [sourceFilter, setSourceFilter] = useState<string>("");
+  // Multi-select evidence-type filter. Values are whatever the backend
+  // labels rows with (NPASS-style: molecular-level / in vitro / in vivo
+  // / adme-tox). Empty array = no filter (show all).
+  const [evidenceTypeFilter, setEvidenceTypeFilter] = useState<string[]>([]);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  // Accordion expansion — at most one row open at a time. Stored by
+  // stable row key so re-renders + page changes don't desync it.
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
+
+  // Every filter dimension back to its open-the-modal default. Shared by
+  // the "Clear filters" control and the close/reselect effect below, so
+  // the two cannot drift apart as dimensions are added.
+  const resetAllFilters = useCallback(() => {
+    setSearchTerm("");
+    setOutcomeFilter("all");
+    setSourceFilter("");
+    setEvidenceTypeFilter([]);
+    setCurrentPage(1);
+  }, []);
+
+  const isFiltersDirty =
+    searchTerm !== "" ||
+    outcomeFilter !== "all" ||
+    sourceFilter !== "" ||
+    evidenceTypeFilter.length > 0;
+
+  // Reset filters/page/expand when the modal closes or the underlying
+  // selection changes (different chemical/food clicked).
+  useEffect(() => {
+    resetAllFilters();
+    setMobileFiltersOpen(false);
+    setExpandedKey(null);
+  }, [isOpen, selectedId, resetAllFilters]);
+
+  // Faceted counts — each dimension applies every OTHER active filter
+  // (excluding its own) so the numbers stay in sync with what the modal
+  // would render under each selection.
+  //
+  // One predicate, parameterised by which dimension to skip, rather than
+  // a hand-written copy per facet. There were four copies and they had
+  // drifted: Evidence was added after the others and never wired into
+  // them, so Outcome and Source counted as if no Evidence filter existed,
+  // and Evidence itself counted the raw rows and never recomputed at all
+  // — picking Outcome "inconclusive" shrank the table while every
+  // Evidence number sat frozen. Adding a fifth dimension now means one
+  // new branch here instead of four edits nobody remembers to make.
+  const rowMatches = useCallback(
+    (r: ModalRow, skip: "outcome" | "source" | "evidence" | null): boolean => {
+      if (skip !== "outcome" && outcomeFilter !== "all") {
+        const o = r.outcome?.toLowerCase().trim() ?? "";
+        if (o !== outcomeFilter) return false;
+      }
+      if (
+        skip !== "source" &&
+        sourceFilter &&
+        !matchesSourceKind(r.evidence_source, sourceFilter)
+      ) {
+        return false;
+      }
+      if (skip !== "evidence" && evidenceTypeFilter.length > 0) {
+        const et = (r.evidence_type ?? "").trim();
+        if (!evidenceTypeFilter.includes(et)) return false;
+      }
+      const q = searchTerm.trim().toLowerCase();
+      if (q) {
+        const haystack = `${r.assay ?? ""} ${r.endpoint ?? ""}`.toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+      return true;
+    },
+    [outcomeFilter, sourceFilter, evidenceTypeFilter, searchTerm]
+  );
+
+  const outcomeCounts = useMemo<Record<OutcomeFilter, number>>(() => {
+    const counts: Record<OutcomeFilter, number> = {
+      all: 0,
+      active: 0,
+      inactive: 0,
+      unspecified: 0,
+      inconclusive: 0,
+    };
+    rows.forEach((r) => {
+      if (!rowMatches(r, "outcome")) return;
+      counts.all += 1;
+      const o = r.outcome?.toLowerCase().trim() as OutcomeFilter | undefined;
+      if (o && o in counts && o !== "all") counts[o] += 1;
+    });
+    return counts;
+  }, [rows, rowMatches]);
+
+  const sourceKindCounts = useMemo<Record<string, number>>(() => {
+    const counts: Record<string, number> = {
+      "": 0,
+      experimental: 0,
+      predicted: 0,
+    };
+    rows.forEach((r) => {
+      if (!rowMatches(r, "source")) return;
+      counts[""] += 1;
+      if (matchesSourceKind(r.evidence_source, "experimental")) {
+        counts.experimental += 1;
+      }
+      if (matchesSourceKind(r.evidence_source, "predicted")) {
+        counts.predicted += 1;
+      }
+    });
+    return counts;
+  }, [rows, rowMatches]);
+
+  // Key list comes from the UNFILTERED rows so an option never vanishes
+  // mid-interaction; only the counts are faceted, and a zero renders
+  // disabled. Alphabetical, not busiest-first: the counts move with every
+  // Outcome click, and sorting by them moved the options under the cursor.
+  const evidenceTypeOptions = useMemo<FacetOption[]>(() => {
+    const counts = new Map<string, number>();
+    rows.forEach((r) => {
+      if (!rowMatches(r, "evidence")) return;
+      const et = (r.evidence_type ?? "").trim();
+      if (et) counts.set(et, (counts.get(et) ?? 0) + 1);
+    });
+    return facetOptions(
+      facetUniverse(rows, (r) => r.evidence_type),
+      counts
+    );
+  }, [rows, rowMatches]);
+
+  const filtered = useMemo(
+    () => rows.filter((r) => rowMatches(r, null)),
+    [rows, rowMatches]
+  );
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  // Snap to page 1 when filters shrink the result set below the current page.
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(1);
+  }, [currentPage, totalPages]);
+
+  const visible = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return filtered.slice(start, start + PAGE_SIZE);
+  }, [filtered, currentPage]);
+
+  // Defer the table commit by one paint so the modal animation opens
+  // snappily even when the row count is large.
   const [isContentReady, setIsContentReady] = useState(false);
   useEffect(() => {
     if (!isOpen) {
@@ -56,15 +347,98 @@ const BioactivityMeasurementsModal = ({
     return () => cancelAnimationFrame(raf);
   }, [isOpen]);
 
+  const showSkeleton = !isContentReady || (isFetching && rows.length === 0);
+
+  // Total uses the full row count if available, falls back to the
+  // upstream-supplied expectedCount (which itself is the per-pair
+  // measurement_count from the list endpoint).
+  const totalKnown = fullRows?.length ?? expectedCount ?? rows.length;
+  const showingFewerThanTotal =
+    fullRows == null && expectedCount != null && rows.length < expectedCount;
+
+  const placeholderCount = Math.max(0, PAGE_SIZE - visible.length);
+  const showEmptyState = !showSkeleton && filtered.length === 0;
+
+  // Sidebar chrome mirrors BioactivityTable — cream Card hanging off the
+  // modal's left edge at min-[1440px]. Below that the sidebar is hidden
+  // and the modal body renders a "search + Filters" top bar + drawer.
+  const searchInput = (
+    <SearchInput
+      value={searchTerm}
+      disabled={showSkeleton}
+      onChange={(v) => {
+        setSearchTerm(v);
+        setCurrentPage(1);
+      }}
+      onClear={() => {
+        setSearchTerm("");
+        setCurrentPage(1);
+      }}
+    />
+  );
+  const toggleEvidenceType = (etype: string) => {
+    setEvidenceTypeFilter((prev) =>
+      prev.includes(etype) ? prev.filter((e) => e !== etype) : [...prev, etype]
+    );
+    setCurrentPage(1);
+  };
+  const clearEvidenceTypes = () => {
+    setEvidenceTypeFilter([]);
+    setCurrentPage(1);
+  };
+  // Rendered in both the outside sidebar and the sub-1440px drawer, so
+  // the reset control lives here rather than at either call site — one
+  // definition, and neither surface can be the one that lacks it.
+  const filtersOnlyPanel = (
+    <FilterPanelBody isDirty={isFiltersDirty} onReset={resetAllFilters}>
+      <FiltersOnlyPanel
+        outcomeFilter={outcomeFilter}
+        outcomeCounts={outcomeCounts}
+        sourceKindCounts={sourceKindCounts}
+        onOutcomeChange={(o) => {
+          setOutcomeFilter(o);
+          setCurrentPage(1);
+        }}
+        sourceFilter={sourceFilter}
+        onSourceChange={(s) => {
+          setSourceFilter(s);
+          setCurrentPage(1);
+        }}
+        evidenceTypeOptions={evidenceTypeOptions}
+        selectedEvidenceTypes={evidenceTypeFilter}
+        onToggleEvidenceType={toggleEvidenceType}
+        onClearEvidenceTypes={clearEvidenceTypes}
+        showSkeleton={showSkeleton}
+      />
+    </FilterPanelBody>
+  );
+
   return (
     <Modal
-      title={`${headLabel} × ${tailLabel}`}
+      title={`Assay measurements · ${headLabel} × ${tailLabel}`}
       isOpen={isOpen}
       onClose={onClose}
+      fullHeight
+      sidebar={
+        <Card className="px-4 py-4 gap-5">
+          {searchInput}
+          {filtersOnlyPanel}
+        </Card>
+      }
       description={
         <span className="font-mono italic text-xs text-light-400 capitalize">
           {totalKnown.toLocaleString()} measurement
           {totalKnown === 1 ? "" : "s"}
+          {contributedCount != null && contributedCount < totalKnown && (
+            <span className="ml-2 not-italic normal-case text-light-600">
+              · {contributedCount.toLocaleString()} contributed to efficacy
+            </span>
+          )}
+          {filtered.length !== rows.length && (
+            <span className="ml-2 not-italic normal-case text-light-600">
+              · {filtered.length.toLocaleString()} after filters
+            </span>
+          )}
           {showingFewerThanTotal && (
             <span className="ml-2 not-italic normal-case text-light-600">
               (showing first {rows.length})
@@ -72,105 +446,615 @@ const BioactivityMeasurementsModal = ({
           )}
         </span>
       }
+      footer={
+        <div
+          className={twMerge(
+            "max-w-xl w-full mx-auto flex items-center justify-between transition-opacity",
+            totalPages > 1 ? "opacity-100" : "opacity-0 pointer-events-none"
+          )}
+          aria-hidden={totalPages <= 1}
+        >
+          <Button
+            isIconOnly
+            isSquared
+            isDisabled={showSkeleton || currentPage === 1}
+            onClick={() => setCurrentPage(1)}
+            aria-label="First page"
+          >
+            <MdKeyboardDoubleArrowLeft />
+          </Button>
+          <Button
+            isIconOnly
+            isSquared
+            isDisabled={showSkeleton || currentPage === 1}
+            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            aria-label="Previous page"
+          >
+            <MdKeyboardArrowLeft />
+          </Button>
+          <span className="w-40 text-center text-sm text-light-300">
+            Page {currentPage} of {totalPages}
+          </span>
+          <Button
+            isIconOnly
+            isSquared
+            isDisabled={showSkeleton || currentPage === totalPages}
+            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+            aria-label="Next page"
+          >
+            <MdKeyboardArrowRight />
+          </Button>
+          <Button
+            isIconOnly
+            isSquared
+            isDisabled={showSkeleton || currentPage === totalPages}
+            onClick={() => setCurrentPage(totalPages)}
+            aria-label="Last page"
+          >
+            <MdKeyboardDoubleArrowRight />
+          </Button>
+        </div>
+      }
     >
-      <div className="mt-4 max-h-[70vh] overflow-y-auto">
-        {!isContentReady ? (
-          <MeasurementsSkeleton rowCount={Math.min(rows.length || 6, 8)} />
-        ) : rows.length === 0 ? (
-          <div className="h-32 flex items-center justify-center text-light-300 gap-2 text-sm">
-            <MdInfoOutline /> No measurements recorded for this pair
+      {/* Sub-1440px top bar: search + Filters button — hidden at
+       * min-[1440px] where the sidebar (outside the panel) carries
+       * these controls instead. */}
+      <div className="min-[1440px]:hidden mb-4 shrink-0 flex items-center gap-3">
+        <div className="flex-1 min-w-0 max-w-xs">{searchInput}</div>
+        <button
+          type="button"
+          onClick={() => setMobileFiltersOpen(true)}
+          className="inline-flex items-center gap-2 rounded-md border border-light-700/60 bg-light-900/60 px-3 py-1.5 text-xs font-mono italic text-light-300 hover:text-light-100 hover:border-light-500 transition-colors"
+        >
+          <MdTune className="w-4 h-4" />
+          Filters
+        </button>
+      </div>
+
+      {/* Scroll area — the row scaffolding pads out to PAGE_SIZE so
+       * last-page + filtered-empty cases don't shrink the table. */}
+      <div className="flex-1 min-h-0 overflow-y-auto relative">
+        <MeasurementsTable
+          rows={visible}
+          placeholderCount={placeholderCount}
+          skeleton={showSkeleton}
+          expandedKey={expandedKey}
+          onToggleExpand={(k) =>
+            setExpandedKey((prev) => (prev === k ? null : k))
+          }
+          getRowReportProps={(m) =>
+            reporter.getRowProps({
+              kind: "bioactivity-measurement",
+              entityType: "bioactivity",
+              bioactivityId: m.bioactivity_metadata_id,
+              bioactivityName: headIsRow ? headLabel : tailLabel,
+              assay: m.assay ?? undefined,
+              endpoint: m.endpoint ?? undefined,
+              outcome: m.outcome ?? undefined,
+              value:
+                typeof m.value === "number" ? String(m.value) : undefined,
+              unit: m.unit ?? undefined,
+            })
+          }
+        />
+        {showEmptyState && (
+          <div className="absolute inset-0 flex items-center justify-center bg-light-950/80 text-light-300 gap-2 text-sm pointer-events-none">
+            <MdInfoOutline />
+            {rows.length === 0
+              ? "No measurements recorded for this pair"
+              : "No measurements match the current filters"}
           </div>
-        ) : (
-          <MeasurementsTable rows={rows} />
         )}
       </div>
+
+      {/* Sub-1440px filter drawer — same component the in-page tables use.
+       * Modal can't use FilterPanel's sidebar (Modal owns its own slot
+       * outside the DialogPanel), but the drawer is identical. */}
+      <FilterDrawer
+        open={mobileFiltersOpen}
+        onClose={() => setMobileFiltersOpen(false)}
+      >
+        {filtersOnlyPanel}
+      </FilterDrawer>
     </Modal>
   );
 };
 
-const MeasurementsSkeleton = ({ rowCount }: { rowCount: number }) => (
-  <table className="w-full table-fixed">
-    <colgroup>
-      <col className="w-[34%]" />
-      <col className="w-[20%]" />
-      <col className="w-[14%]" />
-      <col className="w-[32%]" />
-    </colgroup>
-    <thead className="text-light-400 text-left">
-      <tr>
-        {["Assay", "Endpoint", "Outcome", "Value"].map((h) => (
-          <th
-            key={h}
-            className="h-9 border-b border-light-700 leading-none py-1.5 px-2 first:pl-0 last:pr-0"
-          >
-            <span className="select-none uppercase text-xs font-medium">{h}</span>
-          </th>
-        ))}
-      </tr>
-    </thead>
-    <tbody>
-      {Array.from({ length: rowCount }).map((_, i) => (
-        <tr key={i}>
-          <td className="py-1.5 pr-2" colSpan={4}>
-            <LoadingCard className="h-5" />
-          </td>
-        </tr>
-      ))}
-    </tbody>
-  </table>
+// Reused inside the modal's outside sidebar, the sub-1440px top bar,
+// and the drawer.
+const SearchInput = ({
+  value,
+  disabled,
+  onChange,
+  onClear,
+}: {
+  value: string;
+  disabled?: boolean;
+  onChange: (v: string) => void;
+  onClear: () => void;
+}) => (
+  <FilterSearchInput
+      value={value}
+      onChange={(v) => onChange(v)}
+      onClear={onClear}
+      placeholder="Search assay or endpoint"
+      ariaLabel="Search assay or endpoint"
+      disabled={disabled}
+    />
 );
 
-const MeasurementsTable = ({ rows }: { rows: BioactivityMeasurement[] }) => (
-  <table className="w-full table-fixed">
-    <colgroup>
-      <col className="w-[34%]" />
-      <col className="w-[20%]" />
-      <col className="w-[14%]" />
-      <col className="w-[32%]" />
-    </colgroup>
-    <thead className="text-light-400 text-left">
-      <tr>
-        {["Assay", "Endpoint", "Outcome", "Value"].map((h) => (
-          <th
-            key={h}
-            className="h-9 border-b border-light-700 leading-none py-1.5 px-2 first:pl-0 last:pr-0"
-          >
-            <span className="select-none uppercase text-xs font-medium">{h}</span>
-          </th>
+// Non-search filters — Outcome + Evidence + Assay Source. Renders
+// every option (including zero-count ones) so the filter chrome stays
+// stable; each row's count reflects the FULL row set. Rendered inside
+// the sidebar (min-[1440px]) and inside the drawer (sub-1440px).
+const FiltersOnlyPanel = ({
+  outcomeFilter,
+  outcomeCounts,
+  sourceKindCounts,
+  onOutcomeChange,
+  sourceFilter,
+  onSourceChange,
+  evidenceTypeOptions,
+  selectedEvidenceTypes,
+  onToggleEvidenceType,
+  onClearEvidenceTypes,
+  showSkeleton,
+}: {
+  outcomeFilter: OutcomeFilter;
+  outcomeCounts: Record<OutcomeFilter, number>;
+  sourceKindCounts: Record<string, number>;
+  onOutcomeChange: (o: OutcomeFilter) => void;
+  sourceFilter: string;
+  onSourceChange: (s: string) => void;
+  evidenceTypeOptions: FacetOption[];
+  selectedEvidenceTypes: string[];
+  onToggleEvidenceType: (etype: string) => void;
+  onClearEvidenceTypes: () => void;
+  showSkeleton: boolean;
+}) => (
+  <div className="flex flex-col gap-5">
+    <FilterGroup label="Outcome">
+      <FilterOptionList mode="radio" ariaLabel="Outcome">
+        {OUTCOME_OPTIONS.map((opt) => (
+          <FilterOption
+            key={opt}
+            mode="radio"
+            label={opt}
+            count={outcomeCounts[opt]}
+            selected={outcomeFilter === opt}
+            resetOption={opt === "all"}
+            disabled={showSkeleton}
+            onClick={() => onOutcomeChange(opt)}
+          />
         ))}
-      </tr>
-    </thead>
-    <tbody className="text-sm font-light">
-      {rows.map((m, i) => (
-        <tr key={`${m.assay ?? "row"}-${i}`}>
-          <td className="py-1.5 pr-2 align-top">
-            <div className="font-mono text-xs text-light-200 truncate" title={m.assay ?? undefined}>
-              {m.assay ?? "—"}
+      </FilterOptionList>
+    </FilterGroup>
+    {evidenceTypeOptions.length > 0 && (
+      <FilterGroup
+        label="Evidence"
+        onClear={
+          selectedEvidenceTypes.length > 0 ? onClearEvidenceTypes : undefined
+        }
+      >
+        <FilterOptionList>
+          {evidenceTypeOptions.map(({ value, count }) => (
+            <FilterOption
+              key={value}
+              label={value}
+              count={count}
+              selected={selectedEvidenceTypes.includes(value)}
+              disabled={showSkeleton}
+              onClick={() => onToggleEvidenceType(value)}
+            />
+          ))}
+        </FilterOptionList>
+      </FilterGroup>
+    )}
+    <FilterGroup label="Assay Source">
+      <FilterOptionList mode="radio" ariaLabel="Assay Source">
+        {/* Counts derived client-side from the modal's row set via
+         * `matchesSourceKind` so they match the filter behaviour exactly. */}
+        {SOURCE_KINDS.map(({ key, label }) => (
+          <FilterOption
+            key={label}
+            mode="radio"
+            label={label}
+            count={sourceKindCounts[key] ?? 0}
+            selected={sourceFilter === key}
+            resetOption={key === ""}
+            disabled={showSkeleton}
+            onClick={() => onSourceChange(key)}
+          />
+        ))}
+      </FilterOptionList>
+    </FilterGroup>
+  </div>
+);
+
+const MeasurementsTable = ({
+  rows,
+  placeholderCount,
+  skeleton,
+  expandedKey,
+  onToggleExpand,
+  getRowReportProps,
+}: {
+  rows: ModalRow[];
+  placeholderCount: number;
+  skeleton: boolean;
+  expandedKey: string | null;
+  onToggleExpand: (key: string) => void;
+  // Callback that returns the report-select props for a given
+  // measurement row. Returns {} when the reporter is not in select
+  // mode so applying it is a no-op.
+  getRowReportProps: (m: ModalRow) => Record<string, unknown>;
+}) => {
+  // When in skeleton mode we draw PAGE_SIZE shimmer rows; otherwise we
+  // draw the real rows and pad up to PAGE_SIZE with empty <tr>s so the
+  // last-page case doesn't shrink the table height.
+  const dataRows = skeleton ? [] : rows;
+  // Each expanded row takes one extra slot — reduce pads to keep the
+  // total slot count visually stable.
+  const expandedInView = skeleton
+    ? 0
+    : dataRows.some((m, i) => rowKey(m, i) === expandedKey)
+      ? 1
+      : 0;
+  const padCount = skeleton
+    ? PAGE_SIZE
+    : Math.max(0, placeholderCount - expandedInView);
+  return (
+    <>
+    {/* Desktop table */}
+    <table className="hidden md:table w-full table-fixed">
+      <colgroup>
+        <col className="w-[24%]" />
+        <col className="w-[14%]" />
+        <col className="w-[10%]" />
+        <col className="w-[12%]" />
+        <col className="w-[14%]" />
+        <col className="w-[26%]" />
+      </colgroup>
+      <thead className="text-light-400 text-left sticky top-0 z-10 bg-light-950">
+        <tr>
+          {["Assay", "Endpoint", "Outcome", "Source", "Evidence", "Value"].map(
+            (h, idx, arr) => (
+              <th
+                key={h}
+                className={twMerge(
+                  "h-9 border-b border-light-700 leading-none py-1.5 px-2 first:pl-0 last:pr-0 bg-light-950",
+                  idx === arr.length - 1 && "text-right",
+                )}
+              >
+                <span className="select-none uppercase text-xs font-medium">
+                  {h}
+                </span>
+              </th>
+            )
+          )}
+        </tr>
+      </thead>
+      <tbody className="text-sm font-light">
+        {dataRows.map((m, i) => {
+          const key = rowKey(m, i);
+          const canExpand = hasHillFit(m);
+          const isExpanded = expandedKey === key;
+          const rowReportProps = getRowReportProps(m);
+          const inSelectMode = Boolean(rowReportProps.onClick);
+          return (
+            <Fragment key={key}>
+              <tr
+                {...rowReportProps}
+                onClick={
+                  inSelectMode
+                    ? (rowReportProps.onClick as React.MouseEventHandler)
+                    : canExpand
+                    ? () => onToggleExpand(key)
+                    : undefined
+                }
+                aria-expanded={canExpand ? isExpanded : undefined}
+                className={twMerge(
+                  "transition-colors",
+                  canExpand && "cursor-pointer hover:bg-light-900/40",
+                  isExpanded && "bg-light-900/50",
+                  rowReportProps.className as string | undefined,
+                )}
+              >
+                <td className="py-1.5 pr-2 align-top">
+                  <AssayCell assay={m.assay} />
+                </td>
+                <td className="py-1.5 px-2 align-top text-light-200">
+                  {m.endpoint || "—"}
+                </td>
+                <td className="py-1.5 px-2 align-top">
+                  <OutcomeBadge outcome={m.outcome} />
+                </td>
+                <td className="py-1.5 px-2 align-top">
+                  <SourceBadge source={m.evidence_source} />
+                </td>
+                <td className="py-1.5 px-2 align-top text-light-200">
+                  {m.evidence_type ? (
+                    <span className="font-mono text-xs capitalize">
+                      {m.evidence_type}
+                    </span>
+                  ) : (
+                    <span className="text-light-600">—</span>
+                  )}
+                </td>
+                <td className="py-1.5 pl-2 align-top">
+                  <div className="flex items-center justify-between gap-3">
+                    {canExpand ? (
+                      <RowExpandChip
+                        what="Hill curve"
+                        expanded={isExpanded}
+                        onToggle={() => onToggleExpand(key)}
+                      />
+                    ) : (
+                      <span aria-hidden />
+                    )}
+                    <span className="font-mono text-xs text-light-200 tabular-nums text-right">
+                      {m.value === null || m.value === undefined ? (
+                        <span className="text-light-600">—</span>
+                      ) : (
+                        <>
+                          {formatNumberShort(m.value)}{" "}
+                          <span className="text-light-500">
+                            {m.unit && m.unit !== "None" ? m.unit : ""}
+                          </span>
+                        </>
+                      )}
+                    </span>
+                  </div>
+                </td>
+              </tr>
+              {isExpanded && (
+                <RowExpandPanel colSpan={6}>
+                  <ExpandedHillFit m={m} />
+                </RowExpandPanel>
+              )}
+            </Fragment>
+          );
+        })}
+        {skeleton ? (
+          <TableSkeletonRows
+            columns={MODAL_COLUMNS}
+            rows={padCount}
+            cellClassName="px-2 first:pl-0 last:pr-0"
+          />
+        ) : (
+          // Not a skeleton — blank rows that hold the table's height
+          // steady on a short last page.
+          Array.from({ length: padCount }).map((_, i) => (
+            <tr key={`pad-${i}`}>
+              <td className="py-1.5 pr-2" colSpan={6}>
+                <div className="h-5" />
+              </td>
+            </tr>
+          ))
+        )}
+      </tbody>
+    </table>
+
+    {/* Card list — mobile. Primary line: Assay + Value. Endpoint /
+     * Outcome / Source stack below as label:value rows. Hill Curve
+     * button + expanded fit view live at the bottom of the card. */}
+    <div className="md:hidden w-full flex flex-col divide-y divide-light-800">
+      {skeleton
+        ? Array.from({ length: PAGE_SIZE }).map((_, i) => (
+            <div key={`sk-${i}`} className="w-full py-3">
+              <Skeleton className="h-5" />
             </div>
-          </td>
-          <td className="py-1.5 px-2 align-top text-light-200">
-            {m.endpoint || "—"}
-          </td>
-          <td className="py-1.5 px-2 align-top">
-            <OutcomeBadge outcome={m.outcome} />
-          </td>
-          <td className="py-1.5 pl-2 align-top font-mono text-xs text-light-200 tabular-nums text-right">
-            {m.value === null ? (
-              <span className="text-light-600">—</span>
-            ) : (
-              <>
-                {formatNumberShort(m.value)}{" "}
-                <span className="text-light-500">{m.unit || ""}</span>
-              </>
-            )}
-          </td>
-        </tr>
-      ))}
-    </tbody>
-  </table>
+          ))
+        : dataRows.map((m, i) => {
+            const key = rowKey(m, i);
+            const canExpand = hasHillFit(m);
+            const isExpanded = expandedKey === key;
+            const rowReportProps = getRowReportProps(m);
+            return (
+              <div
+                key={key}
+                {...rowReportProps}
+                className={twMerge(
+                  "w-full py-3 flex flex-col gap-2 text-sm",
+                  rowReportProps.className as string | undefined,
+                )}
+              >
+                <div className="w-full flex items-center justify-between gap-2 flex-wrap">
+                  <AssayCell assay={m.assay} />
+                  <span className="font-mono text-xs text-light-200 tabular-nums text-right">
+                    {m.value === null || m.value === undefined ? (
+                      <span className="text-light-600">—</span>
+                    ) : (
+                      <>
+                        {formatNumberShort(m.value)}{" "}
+                        <span className="text-light-500">
+                          {m.unit && m.unit !== "None" ? m.unit : ""}
+                        </span>
+                      </>
+                    )}
+                  </span>
+                </div>
+                <div className="w-full flex items-baseline justify-between gap-2">
+                  <span className="font-mono italic text-[10px] uppercase tracking-wider text-light-500">
+                    Endpoint
+                  </span>
+                  <span className="text-light-200 text-right">
+                    {m.endpoint || "—"}
+                  </span>
+                </div>
+                <div className="w-full flex items-center justify-between gap-2">
+                  <span className="font-mono italic text-[10px] uppercase tracking-wider text-light-500">
+                    Outcome
+                  </span>
+                  <OutcomeBadge outcome={m.outcome} />
+                </div>
+                <div className="w-full flex items-center justify-between gap-2">
+                  <span className="font-mono italic text-[10px] uppercase tracking-wider text-light-500">
+                    Source
+                  </span>
+                  <SourceBadge source={m.evidence_source} />
+                </div>
+                <div className="w-full flex items-baseline justify-between gap-2">
+                  <span className="font-mono italic text-[10px] uppercase tracking-wider text-light-500">
+                    Evidence
+                  </span>
+                  <span className="text-light-200 text-right font-mono text-xs capitalize">
+                    {m.evidence_type || "—"}
+                  </span>
+                </div>
+                {canExpand && (
+                  <div className="w-full flex justify-end">
+                    <RowExpandChip
+                      what="Hill curve"
+                      expanded={isExpanded}
+                      onToggle={() => onToggleExpand(key)}
+                    />
+                  </div>
+                )}
+                {isExpanded && (
+                  <RowExpandPanel>
+                    <ExpandedHillFit m={m} />
+                  </RowExpandPanel>
+                )}
+              </div>
+            );
+          })}
+    </div>
+    </>
+  );
+};
+
+// What a measurement row opens into: the fit parameters down the left,
+// the curve beside them, the whole panel the height of the parameter
+// list so it reads as a row's detail — the premise panel across the
+// hall is a few lines of quote — not a page of its own. (It used to keep
+// the curve's 720×320 aspect and swallow the modal.) Only rendered for
+// rows that pass `hasHillFit`, so all four numbers are finite here.
+const ExpandedHillFit = ({ m }: { m: ModalRow }) => {
+  const fmtNum = (v: number | null | undefined, digits = 2): string =>
+    v == null || !Number.isFinite(v) ? "—" : v.toFixed(digits);
+  // "None" is the backend's null unit, not a label — the curve's
+  // readout used to print "AC50 2e-5 None".
+  const rowUnit = m.unit && m.unit !== "None" ? m.unit : undefined;
+  // The fit's log AC50 is in molar; the row's value is in `rowUnit`.
+  // Shift once here so the stat, the curve's readout and its x-axis
+  // all speak the row's unit (or say "M" when they can't).
+  const fit =
+    m.efficacy_logac50_value == null
+      ? null
+      : logAC50InUnit(m.efficacy_logac50_value, rowUnit);
+  const lac = fit?.logAC50;
+  const unit = fit?.unit;
+  return (
+    <div className="flex flex-col md:flex-row gap-4 md:gap-6 w-full">
+      <dl className="md:w-48 shrink-0 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 content-start">
+        <FitStat label="AC50">
+          {/* Same formatter as the curve's readout, so they agree. */}
+          {lac == null ? "—" : formatConcentration(10 ** lac)}
+          {unit && <span className="text-light-500"> {unit}</span>}
+        </FitStat>
+        {/* The raw fit parameter, as PubChem reports it (log10 molar). */}
+        <FitStat label="log AC50 (M)">{fmtNum(m.efficacy_logac50_value, 3)}</FitStat>
+        <FitStat label="Hill slope">{fmtNum(m.efficacy_hillslope, 2)}</FitStat>
+        <FitStat label="top">{fmtNum(m.efficacy_infiniteactivity, 1)}</FitStat>
+        <FitStat label="bottom">{fmtNum(m.efficacy_zeroactivity, 1)}</FitStat>
+        {m.evidence_fit_r2 != null && (
+          <FitStat label="R²">{fmtNum(m.evidence_fit_r2, 3)}</FitStat>
+        )}
+        {m.evidence_fit_curveclass && (
+          <FitStat label="curve class">{m.evidence_fit_curveclass}</FitStat>
+        )}
+      </dl>
+      {/* Fluid: the curve draws at whatever size this box is, so the
+       * box sets it — full remaining width, the list's height. */}
+      <div className="flex-1 min-w-0 h-36 md:h-44 text-light-300">
+        <HillCurveSparkline
+          zero={m.efficacy_zeroactivity}
+          infinite={m.efficacy_infiniteactivity}
+          logAC50={lac}
+          slope={m.efficacy_hillslope}
+          unit={unit}
+          width={720}
+          height={176}
+          fluid
+        />
+      </div>
+    </div>
+  );
+};
+
+// One label/value pair of the fit list, in the label vocabulary the
+// mobile cards use for theirs.
+const FitStat = ({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) => (
+  <>
+    <dt className="font-mono italic text-[10px] uppercase tracking-wider text-light-500 leading-5">
+      {label}
+    </dt>
+    <dd className="font-mono text-xs tabular-nums text-light-200 leading-5">
+      {children}
+    </dd>
+  </>
 );
 
-const OutcomeBadge = ({ outcome }: { outcome: string | null }) => {
+// Assay id cell — a raw identifier ("AID: 364", "CHEMBL329341") that the
+// helper turns into a landing-page URL when we recognise the scheme.
+// External-link rendering matches the OverviewCardCatalog convention
+// (font-mono label wrapped in <Link isExternal>) so entities feel
+// consistent across the site. Unknown schemes render as plain text.
+const AssayCell = ({ assay }: { assay: string | null | undefined }) => {
+  if (!assay) return <span className="text-light-600">—</span>;
+  const ext = assayExternalUrl(assay);
+  if (!ext) {
+    return (
+      <div
+        className="font-mono text-xs text-light-200 truncate"
+        title={assay}
+      >
+        {assay}
+      </div>
+    );
+  }
+  return (
+    <div className="truncate" title={`${assay} — open on ${ext.source}`}>
+      <Link href={ext.url} isExternal>
+        <span className="font-mono text-xs">{assay}</span>
+      </Link>
+    </div>
+  );
+};
+
+// Distinguishes Experimental measurements from Predicted / computational
+// ones — the staging snapshot is all Experimental today but the field is
+// in base_attestations_bioactivity and will populate once Predicted rows
+// land. Stays mute (em-dash) for blank/unknown values.
+const SourceBadge = ({
+  source,
+}: {
+  source: string | null | undefined;
+}) => {
+  if (!source) return <span className="text-light-600">—</span>;
+  const lc = source.toLowerCase();
+  const tone = lc.startsWith("exp")
+    ? "border-light-700/60 bg-light-900/40 text-light-300"
+    : lc.startsWith("pred") || lc.startsWith("comp")
+      ? "border-amber-500/40 bg-amber-500/10 text-amber-200"
+      : "border-light-700/60 bg-light-900/40 text-light-400";
+  return (
+    <span
+      className={`inline-block capitalize text-[10px] leading-tight px-2 py-0.5 rounded-full border ${tone}`}
+    >
+      {source}
+    </span>
+  );
+};
+
+const OutcomeBadge = ({ outcome }: { outcome: string | null | undefined }) => {
   if (!outcome) return <span className="text-light-600">—</span>;
   const lc = outcome.toLowerCase();
   const tone =

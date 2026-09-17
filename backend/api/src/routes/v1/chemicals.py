@@ -8,8 +8,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.dependencies import get_db
 from src.repositories import taxonomy as taxonomy_repo
 from src.repositories.v1 import entities, relationships
-from src.repositories.v1.pagination import build_page, clamp_page_size
+from src.repositories.v1.pagination import MAX_PAGE, build_page, clamp_page_size
 from src.repositories.v1.serializers import (
+    BioactivityChemicalRow,
     Chemical,
     ChemicalSummary,
     CompositionRow,
@@ -18,6 +19,7 @@ from src.repositories.v1.serializers import (
     ListResponse,
     Taxonomy,
 )
+from src.routes.v1._guards import require_entity
 
 router = APIRouter(prefix="/chemicals")
 
@@ -30,7 +32,7 @@ router = APIRouter(prefix="/chemicals")
 async def list_chemicals(
     q: str = Query(""),
     classification: str = Query(""),
-    page: int = Query(1, ge=1),
+    page: int = Query(1, ge=1, le=MAX_PAGE),
     page_size: int = Query(50, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ) -> ListResponse[ChemicalSummary]:
@@ -65,10 +67,11 @@ async def get_chemical(
 )
 async def chemical_foods(
     chemical_id: str,
-    page: int = Query(1, ge=1),
+    page: int = Query(1, ge=1, le=MAX_PAGE),
     page_size: int = Query(50, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ) -> ListResponse[CompositionRow]:
+    await require_entity(db, "chemical", chemical_id)
     size = clamp_page_size(page_size)
     rows, total = await relationships.list_composition(
         db, chemical_id=chemical_id, page=page, page_size=size
@@ -90,7 +93,7 @@ async def chemical_diseases(
         "reduces",
         description="'reduces' (r4) or 'worsens' (r3)",
     ),
-    page: int = Query(1, ge=1),
+    page: int = Query(1, ge=1, le=MAX_PAGE),
     page_size: int = Query(50, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ) -> ListResponse[CorrelationRow]:
@@ -98,6 +101,7 @@ async def chemical_diseases(
         raise HTTPException(
             status_code=422, detail="relation must be reduces or worsens"
         )
+    await require_entity(db, "chemical", chemical_id)
     size = clamp_page_size(page_size)
     rows, total = await relationships.list_correlation(
         db,
@@ -108,6 +112,28 @@ async def chemical_diseases(
     )
     return ListResponse[CorrelationRow](
         data=[CorrelationRow(**r) for r in rows],
+        page=build_page(page, size, total),
+    )
+
+
+@router.get(
+    "/{chemical_id}/bioactivities",
+    response_model=ListResponse[BioactivityChemicalRow],
+    summary="Bioactivities this chemical has been measured for",
+)
+async def chemical_bioactivities(
+    chemical_id: str,
+    page: int = Query(1, ge=1, le=MAX_PAGE),
+    page_size: int = Query(50, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+) -> ListResponse[BioactivityChemicalRow]:
+    await require_entity(db, "chemical", chemical_id)
+    size = clamp_page_size(page_size)
+    rows, total = await relationships.list_bioactivity_chemicals(
+        db, chemical_id=chemical_id, page=page, page_size=size
+    )
+    return ListResponse[BioactivityChemicalRow](
+        data=[BioactivityChemicalRow(**r) for r in rows],
         page=build_page(page, size, total),
     )
 

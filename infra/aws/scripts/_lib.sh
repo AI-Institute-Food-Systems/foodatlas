@@ -10,7 +10,10 @@ if [[ -z "$REGION" ]]; then
     exit 1
 fi
 
-STACK="FoodAtlasJobsStack"
+# Default to prod when caller hasn't overridden — both env var and
+# `STACK=... ./script.sh` prefix work. Callers like run-migration.sh
+# pre-export STACK=*-Staging so prod is never the accidental target.
+STACK="${STACK:-FoodAtlasJobsStack}"
 CONTAINER_NAME="JobsContainer"
 
 _output() {

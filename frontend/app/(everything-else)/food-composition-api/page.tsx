@@ -4,9 +4,7 @@ import ApiDisclosure from "@/components/api/ApiDisclosure";
 import Link from "@/components/basic/Link";
 import Code from "@/components/basic/Code";
 import Card from "@/components/basic/Card";
-import Divider from "@/components/basic/Divider";
 import Heading from "@/components/basic/Heading";
-import SubHeading from "@/components/basic/SubHeading";
 
 export const metadata: Metadata = {
   title: "FoodAtlas API | Connect to Data for Research or Industry",
@@ -19,11 +17,8 @@ const FoodCompositionApi = () => {
     <div>
       {/* heading & caption */}
       <div>
-        <Heading type="h1">API Documentation</Heading>
-        <SubHeading>
-          Connect to <i>FoodAtlas</i> using our publicly accessible API
-        </SubHeading>
-        <p className="mt-10 text-lg leading-loose text-light-200 ">
+        <Heading type="h1" variant="display">API Documentation</Heading>
+        <p className="mt-6 text-lg leading-loose text-light-200 ">
           Our extensive food composition database contains only evidence-based
           data that can be traced back to its source. FoodAtlas is a
           USDA-NSF-funded research project that provides its data as a free
@@ -34,10 +29,9 @@ const FoodCompositionApi = () => {
           license.
         </p>
       </div>
-      <Divider />
       {/* setup */}
       <div>
-        <Heading type="h2" variant="boxed">
+        <Heading type="h2" variant="chip">
           Setup
         </Heading>
       </div>
@@ -77,8 +71,8 @@ const FoodCompositionApi = () => {
         </Card>
       </div>
       {/* endpoints */}
-      <div className="mt-20">
-        <Heading type="h2" variant="boxed">
+      <div className="mt-16">
+        <Heading type="h2" variant="chip">
           Endpoints
         </Heading>
       </div>

@@ -1,4 +1,6 @@
+import { AssayInferredAssociation, AssayTarget } from "@/types/AssayInferred";
 import { TeamMember } from "@/types/TeamMember";
+import { Publication } from "@/types/Publication";
 import { Suggestion } from "@/types/Suggestion";
 import { SearchOptions } from "@/types/SearchOptions";
 import { DownloadEntry } from "@/types/DownloadEntry";
@@ -22,10 +24,16 @@ import {
   BioactivityMeasurementFull,
   BioactivityPotencySummary,
   BioactivityTopMeasurement,
+  FoodEfficacyRow,
 } from "./Bioactivity";
+import { BioactivityDisease } from "./DiseaseBioactivity";
 
 export type {
+  AssayInferredAssociation,
+  AssayTarget,
+  BioactivityDisease,
   TeamMember,
+  Publication,
   Suggestion,
   SearchOptions,
   DownloadEntry,
@@ -50,4 +58,5 @@ export type {
   BioactivityMeasurementFull,
   BioactivityPotencySummary,
   BioactivityTopMeasurement,
+  FoodEfficacyRow,
 };

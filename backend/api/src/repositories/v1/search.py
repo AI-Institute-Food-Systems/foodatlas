@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import text
 
+from .._search_util import escape_like, foodatlas_id_pattern
 from .pagination import offset as _offset
 
 if TYPE_CHECKING:
@@ -29,8 +30,26 @@ async def search(
     if not word:
         return [], 0
 
-    where = ["substr_auto LIKE :pattern"]
-    params: dict[str, object] = {"pattern": f"%{word}%", "word": word}
+    # `%` and `_` are LIKE metacharacters and users type both — see
+    # ``repositories/search.py`` for the full rationale. `word` stays raw: it
+    # feeds array containment and similarity(), neither of which is a pattern.
+    escaped = escape_like(word)
+    params: dict[str, object] = {
+        "pattern": f"%{escaped}%",
+        "prefix": f"{escaped}%",
+        "word": word,
+    }
+
+    # FoodAtlas IDs aren't tokenized into `substr_auto` — see
+    # ``repositories/search.py``. OR'd into the match clause (not appended to
+    # `where`, which joins with AND) so an `entity_type` filter still narrows it.
+    match_sql = "substr_auto LIKE :pattern"
+    id_pattern = foodatlas_id_pattern(word)
+    if id_pattern:
+        match_sql = f"({match_sql} OR foodatlas_id LIKE :id_pattern)"
+        params["id_pattern"] = id_pattern
+
+    where = [match_sql]
     if entity_type:
         where.append("entity_type = :etype")
         params["etype"] = entity_type
@@ -44,6 +63,9 @@ async def search(
 
     params["limit"] = page_size
     params["offset"] = _offset(page, page_size)
+    # Bucketed ranking: exact ID → exact token → prefix token → substring. See
+    # ``repositories/search.py`` for the rationale — kept identical here so
+    # /search and /v1/search rank results the same way.
     sql = f"""
         SELECT
             foodatlas_id AS id,
@@ -54,7 +76,14 @@ async def search(
         FROM mv_search_auto_complete
         WHERE {where_sql}
         ORDER BY
-            CASE WHEN exact_auto @> ARRAY[:word] THEN 1 ELSE 2 END,
+            CASE
+                WHEN foodatlas_id = :word THEN 0
+                WHEN exact_auto @> ARRAY[:word] THEN 1
+                WHEN EXISTS (
+                    SELECT 1 FROM unnest(exact_auto) AS t WHERE t LIKE :prefix
+                ) THEN 2
+                ELSE 3
+            END,
             associations DESC,
             similarity(substr_auto, :word) DESC
         OFFSET :offset ROWS FETCH FIRST :limit ROWS ONLY
@@ -67,6 +96,8 @@ _STAT_KEY_MAP = {
     "number of foods": "foods",
     "number of chemicals": "chemicals",
     "number of diseases": "diseases",
+    "number of bioactivities": "bioactivities",
+    "number of bioactivity measurements": "bioactivity_measurements",
     "number of publications": "publications",
     "number of associations": "connections",
 }

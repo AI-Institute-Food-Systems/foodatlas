@@ -2,17 +2,19 @@ import { Suspense } from "react";
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import FoodCompositionTab from "@/components/entities/food/FoodCompositionTab";
-import FoodBioactivitiesSection from "@/components/entities/bioactivity/FoodBioactivitiesSection";
+import FoodCompositionSection from "@/components/entities/food/FoodCompositionSection";
+import FoodBioactivitiesTab from "@/components/entities/bioactivity/FoodBioactivitiesTab";
 import HeaderSection from "@/components/entities/HeaderSection";
 import HeaderSectionSuspense from "@/components/entities/HeaderSectionSuspense";
 import EntityDetailLayout from "@/components/entities/EntityDetailLayout";
+import { buildTabs } from "@/components/entities/buildTabs";
+import { DEFAULT_TAB_ID } from "@/components/entities/entityTabs.config";
 import EntityOverviewPanel from "@/components/entities/EntityOverviewPanel";
 import EntityOverviewPanelSuspense from "@/components/entities/EntityOverviewPanelSuspense";
 import {
   getFoodBioactivities,
   getFoodCompositionData,
-  getFoodMacroAndMicroData,
+  getFoodInferredBioactivities,
   getMetaData,
 } from "@/utils/fetching";
 import { decodeSpace, toTitleCase } from "@/utils/utils";
@@ -47,65 +49,63 @@ const FoodPage = async ({ params }: FoodPageProps) => {
   // back to null so the badge silently hides instead of breaking the page.
   // Composition uses the same call as the table (default filters: all sources,
   // include unmeasured, no search) so the badge matches "Found N chemicals".
-  // Counts from /food/composition/counts double-count multi-class chemicals.
-  const [compPayload, nutritionData, bioPayload] = await Promise.all([
-    getFoodCompositionData(
-      commonName,
-      1,
-      ["fdc", "foodatlas"],
-      "",
-      { column: "median_concentration", direction: "desc" },
-      true,
-      [],
-      "default"
-    ).catch(() => null),
-    getFoodMacroAndMicroData(commonName).catch(() => null),
-    getFoodBioactivities(commonName).catch(() => null),
-  ]);
+  // Bioactivities badge sums the direct (food→bioactivity) and inferred
+  // (via chemicals-in-food) totals — same shape as the two tables rendered
+  // in the tab, so the badge matches what the user actually sees.
+  const [compPayload, bioPayload, inferredBioPayload, metaPayload] =
+    await Promise.all([
+      getFoodCompositionData(
+        commonName,
+        1,
+        ["fdc", "foodatlas"],
+        "",
+        { column: "median_concentration", direction: "desc" },
+        true,
+        [],
+        "default"
+      ).catch(() => null),
+      getFoodBioactivities(commonName).catch(() => null),
+      getFoodInferredBioactivities(commonName).catch(() => null),
+      getMetaData(commonName, entityType).catch(() => null),
+    ]);
+  const anchorId = metaPayload?.id ?? null;
   const compositionCount =
     (compPayload?.metadata?.total_rows as number | undefined) ?? null;
-  const nutritionCount = nutritionData
-    ? Object.values(nutritionData).reduce((a, arr) => a + arr.length, 0)
-    : null;
-  const nutritionCategories = nutritionData
-    ? Object.entries(nutritionData)
-        .filter(([, items]) => items.length > 0)
-        .map(([key, items]) => ({ key, count: items.length }))
-    : [];
+  const directBio =
+    (bioPayload?.metadata?.total_rows as number | undefined) ?? null;
+  // Must come from the same endpoint the inferred table renders, or the tab
+  // badge disagrees with the row count underneath it — /food/efficacy counts
+  // only pairs with a fittable Hill curve, which is a strict subset.
+  const inferredBio =
+    (inferredBioPayload?.metadata?.total_rows as number | undefined) ?? null;
   const bioactivitiesCount =
-    (bioPayload?.metadata?.row_count as number | undefined) ?? null;
+    directBio === null && inferredBio === null
+      ? null
+      : (directBio ?? 0) + (inferredBio ?? 0);
 
   return (
-    <div>
+    <>
       <Suspense fallback={<HeaderSectionSuspense entityType={entityType} />}>
         <HeaderSection commonName={commonName} entityType={entityType} />
       </Suspense>
       <EntityDetailLayout
         entityType={entityType}
-        defaultTabId="composition"
-        tabs={[
-          {
-            id: "composition",
-            label: "Composition",
+        defaultTabId={DEFAULT_TAB_ID[entityType]}
+        tabs={buildTabs(entityType, {
+          composition: {
             count: compositionCount,
+            content: <FoodCompositionSection commonName={commonName} />,
+          },
+          bioactivities: {
+            count: bioactivitiesCount,
             content: (
-              <FoodCompositionTab
+              <FoodBioactivitiesTab
                 commonName={commonName}
-                chemicalsCount={compositionCount}
-                nutrientsCount={nutritionCount}
-                nutritionCategories={nutritionCategories}
+                anchorId={anchorId}
               />
             ),
           },
-          {
-            id: "bioactivities",
-            label: "Bioactivities",
-            count: bioactivitiesCount,
-            content: <FoodBioactivitiesSection commonName={commonName} />,
-          },
-          {
-            id: "overview",
-            label: "IDs & Metadata",
+          overview: {
             content: (
               <Suspense
                 fallback={
@@ -119,9 +119,9 @@ const FoodPage = async ({ params }: FoodPageProps) => {
               </Suspense>
             ),
           },
-        ]}
+        })}
       />
-    </div>
+    </>
   );
 };
 

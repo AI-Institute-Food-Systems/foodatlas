@@ -44,8 +44,8 @@ const RESOURCES: Resource[] = [
 const AIFSResourcesSection = () => {
   return (
     <section className="bg-light-1000 w-full">
-      <div className="px-3 md:px-12">
-        <div className="max-w-6xl mx-auto py-20 md:py-24">
+      <div className="px-4 md:px-24">
+        <div className="max-w-5xl mx-auto py-20 md:py-24">
           {/* masthead */}
           <div className="flex flex-col gap-3 mb-12 md:mb-16 max-w-2xl">
             <span className="font-mono italic uppercase text-light-500 text-[11px] tracking-[0.22em]">
