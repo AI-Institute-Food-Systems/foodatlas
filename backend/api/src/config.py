@@ -39,3 +39,12 @@ class APISettings(BaseSettings):
     # are not what we attribute usage for. Off in debug, like the rate limiter.
     access_log_enabled: bool = True
     access_log_path_prefix: str = "/v1"
+    # Mirror of the access log into the FoodAtlas umami website (see
+    # src/umami_sink.py): one ``api_request`` event per external /v1 call.
+    # Empty website id disables it. Deliberately NOT gated on ``debug`` so a
+    # local run against a fake receiver can verify the payload.
+    umami_website_id: str = ""
+    umami_host_url: str = "https://umami.aifs.ucdavis.edu"
+    umami_hostname: str = "api.foodatlas.ai"
+    umami_sample_rate: float = 1.0
+    umami_queue_size: int = 1000

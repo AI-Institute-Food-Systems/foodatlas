@@ -94,9 +94,10 @@ async def verify_v1_key(
     Accept order: debug bypass → internal ``settings.key`` (the frontend) →
     sha256 hash matches a record in :class:`PublicKeyStore`. Misses 401.
 
-    The matched public key's email and non-secret prefix are stashed on
-    ``request.state`` so :mod:`src.access_log` can attribute the request
-    without re-reading (or ever logging) the Authorization header.
+    The matched public key's email, non-secret prefix and org are stashed on
+    ``request.state`` so :mod:`src.access_log` (and the umami sink it feeds)
+    can attribute the request without re-reading (or ever logging) the
+    Authorization header.
     """
     if settings.debug:
         return
@@ -107,6 +108,7 @@ async def verify_v1_key(
     if settings.key and token == settings.key:
         request.state.api_key_email = "internal"
         request.state.api_key_prefix = ""
+        request.state.api_key_org = "internal"
         return
     store = get_store()
     record = store.verify(token) if store is not None else None
@@ -114,3 +116,4 @@ async def verify_v1_key(
         raise HTTPException(status_code=401, detail="Invalid API key")
     request.state.api_key_email = record.email
     request.state.api_key_prefix = record.prefix
+    request.state.api_key_org = record.org

@@ -15,6 +15,13 @@ Never logged: the ``Authorization`` header, and any query parameter whose name
 looks like a credential. A rejected request logs only the first
 :data:`~src.public_keys.PREFIX_LEN` characters of whatever was presented, so
 repeated bad-key traffic stays attributable without recording a usable secret.
+
+The middleware also takes an optional ``sink``: a synchronous callable that
+receives the same entry plus the ASGI scope after every logged request. It is
+how :mod:`src.umami_sink` mirrors external-key traffic into umami without a
+second middleware re-deriving the record. With ``sink=None`` behaviour is
+unchanged; the sink must never raise or block, since it runs on the request
+path after the response has been sent.
 """
 
 from __future__ import annotations
@@ -74,10 +81,12 @@ class AccessLogMiddleware:
         *,
         path_prefix: str = "/v1",
         emit: Callable[[dict[str, Any]], None] | None = None,
+        sink: Callable[[dict[str, Any], MutableMapping[str, Any]], None] | None = None,
     ) -> None:
         self.app = app
         self.path_prefix = path_prefix
         self._emit = emit or _emit
+        self._sink = sink
 
     async def __call__(
         self, scope: MutableMapping[str, Any], receive: Any, send: Any
@@ -101,7 +110,10 @@ class AccessLogMiddleware:
             await self.app(scope, receive, send_wrapper)
         finally:
             duration_ms = round((time.perf_counter() - started) * 1000, 2)
-            self._emit(build_entry(scope, status=status, duration_ms=duration_ms))
+            entry = build_entry(scope, status=status, duration_ms=duration_ms)
+            self._emit(entry)
+            if self._sink is not None:
+                self._sink(entry, scope)
 
 
 def build_entry(
@@ -129,6 +141,7 @@ def build_entry(
         "ts": dt.datetime.now(dt.UTC).isoformat(timespec="milliseconds"),
         "email": email,
         "key_prefix": prefix,
+        "org": str(state.get("api_key_org") or ""),
         "method": scope.get("method", ""),
         "route": route_template(path, scope.get("path_params") or {}),
         "path": path,

@@ -27,6 +27,7 @@
     "@aws-cdk/aws-route53-patters:useCertificate": true,
     "@aws-cdk/customresources:installLatestAwsSdkDefault": false,
     "@aws-cdk/aws-rds:databaseProxyUniqueResourceName": true,
-    "@aws-cdk/aws-ec2:restrictDefaultSecurityGroup": true
+    "@aws-cdk/aws-ec2:restrictDefaultSecurityGroup": true,
+    "api_umami_website_id": "a63b88b0-aa17-4ca1-a3c6-62a568fe0757"
   }
 }
