@@ -19,6 +19,8 @@ _REL_LABELS: dict[str, str] = {
     "r2": "IS_A",
     "r3": "POS_CORRELATES",
     "r4": "NEG_CORRELATES",
+    "r5": "EXHIBITS",
+    "r6": "MEASURED",
 }
 
 _MAX_SAMPLE = 20
