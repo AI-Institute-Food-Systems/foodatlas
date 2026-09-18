@@ -399,6 +399,22 @@ echo -n $VERSION | aws s3 cp - s3://<KgcBucketName>/outputs/LATEST
 
 Verify with `/metadata/statistics`: `bioactivities` (21) and `bioactivity_measurements` (1,557,037) must be unchanged from before the load; `connections` grows by the new run's r1 pairs plus the r2/r3/r4 edges of any chemicals those pairs connect for the first time. Rollback is `run-data-load.sh <previous LATEST value>`.
 
+**Public download bundle (decided 2026-09-18: bundles carry bioactivity + PTFI, same graph as the site).** The merge copies `base`'s `CHANGELOG.md`, which only describes the injection run's own delta — regenerate it against the previous *published* run before bundling, then publish from the merged version, never from the raw run:
+
+```
+# 5. Regenerate CHANGELOG.md for the merged dataset vs the run behind the last bundle (`kgc_run` in bundles/index.json)
+mkdir -p /tmp/report-data/PreviousFAKG && cp -r data/PreviousFAKG/<previous published run> /tmp/report-data/PreviousFAKG/
+uv run python -c "
+from src.pipeline.report.load_old import load_old_kg; from src.pipeline.report.runner import run_diff; from src.pipeline.report.format import format_changelog
+open('outputs/kg-merged/CHANGELOG.md','w').write(format_changelog(run_diff(load_old_kg('/tmp/report-data'), 'outputs/kg-merged')))"
+aws s3 cp outputs/kg-merged/CHANGELOG.md s3://<KgcBucketName>/outputs/$VERSION/kg/CHANGELOG.md
+
+# 6. Publish (release_notes/SUMMARY-<v>.md = two-line blurb the site shows)
+./scripts/publish-bundle.sh v<next> release_notes/SUMMARY-v<next>.md --kgc-run $VERSION --release-date $(date -u +%F)
+```
+
+`publish-bundle.sh` without `--kgc-run` reads `outputs/LATEST`, which after step 4 is the merged version — fine, but pass it explicitly so the bundle's `kgc_run` is unambiguous. (`main.py report` can't be used directly: it picks the lexically-last `PreviousFAKG/` dir, and `staging-bioactivity` sorts after every timestamp.)
+
 **Constraints on the injection runs while this merge is in use** (the script refuses to run if either breaks — tell the platform team before changing them):
 
 - Runs stay additive vs `20260727T100828Z`: no entities removed or renamed, no attestations rewritten; existing triplets may only gain `attestation_ids`.
