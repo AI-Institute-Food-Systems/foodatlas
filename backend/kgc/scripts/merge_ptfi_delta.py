@@ -21,12 +21,12 @@ on first run and always read from there, so re-running re-derives the same resul
 
 from __future__ import annotations
 
-import ast
 import json
 import shutil
 from pathlib import Path
 
 import pandas as pd
+from _merge_common import _max_id, _parse_list
 
 _KGC = Path(__file__).resolve().parent.parent  # backend/kgc
 KG = _KGC / "outputs" / "kg"
@@ -240,23 +240,6 @@ def _remapper(id_map):
     return lambda x: id_map.get(str(x), str(x))
 
 
-def _parse_list(cell) -> list[str]:
-    if isinstance(cell, (list, tuple)):
-        return [str(x) for x in cell]
-    if hasattr(cell, "tolist"):
-        return [str(x) for x in cell.tolist()]
-    if isinstance(cell, str) and cell.strip():
-        try:
-            v = ast.literal_eval(cell)
-        except (ValueError, SyntaxError):
-            try:
-                v = json.loads(cell)
-            except json.JSONDecodeError:
-                v = [cell]
-        return [str(x) for x in (v if isinstance(v, (list, tuple)) else [v])]
-    return []
-
-
 def _as_dict(cell) -> dict:
     if isinstance(cell, dict):
         return cell
@@ -272,10 +255,6 @@ def _to_bool(v) -> bool:
     if isinstance(v, str):
         return v.strip().lower() in ("true", "1", "t", "yes")
     return bool(v)
-
-
-def _max_id(series) -> int:
-    return max(int(s[1:]) for s in series if isinstance(s, str) and s[1:].isdigit())
 
 
 def _report(kg, out, id_map, kept, dropped, stats) -> None:  # noqa: ARG001
