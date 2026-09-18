@@ -6,6 +6,10 @@
 #            With no argument, reads s3://<bucket>/outputs/LATEST and loads
 #            whichever version it points at. Pass an explicit version to
 #            roll back to or pin a specific KGC run.
+#   --allow-no-bioactivity: load a version whose kg/ lacks the bioactivity
+#            parquet. Refused by default — prod must always carry
+#            bioactivity, and raw KGC injection runs don't (see
+#            infra/README.md "Load a new KGC run onto prod").
 
 set -euo pipefail
 
@@ -14,7 +18,15 @@ cd "$(dirname "$0")"
 source ./_lib.sh
 
 DRY_RUN=""
-if [[ "${1:-}" == "--dry-run" ]]; then DRY_RUN=1; shift; fi
+ALLOW_NO_BIOACTIVITY=""
+while [[ "${1:-}" == --* ]]; do
+    case "$1" in
+        --dry-run) DRY_RUN=1 ;;
+        --allow-no-bioactivity) ALLOW_NO_BIOACTIVITY=1 ;;
+        *) echo "Unknown option: $1" >&2; exit 1 ;;
+    esac
+    shift
+done
 REQUESTED_VERSION="${1:-}"
 
 BUCKET=$(aws cloudformation describe-stacks \
@@ -48,6 +60,23 @@ PARQUET_DIR="s3://$BUCKET/outputs/$VERSION/kg/"
 if ! aws s3 ls "$PARQUET_DIR" --region "$REGION" >/dev/null 2>&1; then
     echo "Error: $PARQUET_DIR does not exist or is empty." >&2
     exit 1
+fi
+
+# Raw KGC injection runs lack the bioactivity parquet and the loader treats
+# it as optional, so loading one silently drops bioactivity from prod.
+# Merge first (backend/kgc/scripts/merge_bioactivity_delta.py), then load.
+if ! aws s3 ls "${PARQUET_DIR}attestations_bioactivity.parquet" --region "$REGION" >/dev/null 2>&1; then
+    if [[ -z "$ALLOW_NO_BIOACTIVITY" ]]; then
+        cat >&2 <<NOBIO
+Error: $PARQUET_DIR has no attestations_bioactivity.parquet.
+
+Loading it would drop bioactivity from prod. Merge the bioactivity delta
+onto this run first (infra/README.md → "Load a new KGC run onto prod") and
+load the merged version. To load anyway: --allow-no-bioactivity
+NOBIO
+        exit 1
+    fi
+    echo "WARNING: no bioactivity parquet in $PARQUET_DIR — loading anyway (--allow-no-bioactivity)." >&2
 fi
 
 COMMAND_JSON="[\"python\",\"main.py\",\"load\",\"--parquet-dir\",\"$PARQUET_DIR\"]"

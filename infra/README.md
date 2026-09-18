@@ -301,7 +301,7 @@ Two categories: **artifact publishing** (lives next to the artifact being publis
 
 | Script | Action |
 | --- | --- |
-| `infra/aws/scripts/run-data-load.sh [version]` | Invoke the ETL loader against `s3://<bucket>/outputs/<latest>/kg/` (or `[version]`). Drops and recreates the schema, then loads. Tails logs |
+| `infra/aws/scripts/run-data-load.sh [--allow-no-bioactivity] [version]` | Invoke the ETL loader against `s3://<bucket>/outputs/<latest>/kg/` (or `[version]`). Drops and recreates the schema, then loads. Tails logs. Refuses a version without `attestations_bioactivity.parquet` (a raw injection run) unless `--allow-no-bioactivity` |
 | `infra/aws/scripts/_lib.sh` | Shared bash helpers: read CFN outputs, build network config, invoke + wait + tail |
 
 ---
@@ -373,7 +373,7 @@ Then verify by hand (`/metadata/statistics` counts, one row from each data endpo
 
 **Background (2026-09-18).** Prod ran Kaichi's lit2kg injection runs (`outputs/<ts>`) until 2026-09-17, when it was rebuilt from `outputs/20260731T082453Z` (originally published under the name `staging-bioactivity`; copied to a timestamp 2026-09-18) — bioactivity + PTFI, cut 2026-07-31 from run `20260727T100828Z`. That swap dropped the Aug 21 / Aug 28 / Sep 15 injections. The two lineages never contained each other: `kgc-production` writes the six core parquet files but not the bioactivity ones (`attestations_bioactivity`, `bioassays`, `bioactivity_disease`, `bioactivity_disease_targets`, `food_chemical_efficacy`, r5/r6 in `relationships`), and `backend/db` treats those files as optional — so loading a raw injection run silently drops bioactivity from prod. Both deltas vs `20260727T100828Z` are purely additive and disjoint (the only shared-record change is appending `attestation_ids`), so they merge without conflict. Prod has served the merged dataset `20260918T100923Z` (= `20260915T081827Z` + bioactivity delta) since 2026-09-18.
 
-**Every new run until KGC emits bioactivity itself:** merge, then load. `backend/kgc/scripts/merge_bioactivity_delta.py` applies the bioactivity delta (`20260731T082453Z` − `20260727T100828Z`) onto the new run and exits non-zero on any shared-row mismatch, entity-id collision with the reserved range `e227381+`, dangling reference, or row count ≠ base + delta − ancestor. Never `run-data-load.sh <raw run>` and never point `outputs/LATEST` at a raw run.
+**Every new run until KGC emits bioactivity itself:** merge, then load. `backend/kgc/scripts/merge_bioactivity_delta.py` applies the bioactivity delta (`20260731T082453Z` − `20260727T100828Z`) onto the new run and exits non-zero on any shared-row mismatch, entity-id collision with the reserved range `e227381+`, dangling reference, or row count ≠ base + delta − ancestor. `run-data-load.sh` refuses a version without `attestations_bioactivity.parquet` (override: `--allow-no-bioactivity`, for rollbacks to a pre-bioactivity run only); never point `outputs/LATEST` at a raw run.
 
 ```
 # 1. Pull the new run next to the two fixed inputs (ancestor + delta pull once and stay)
