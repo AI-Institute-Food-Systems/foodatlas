@@ -107,7 +107,7 @@ flowchart TB
 ### The seven stacks
 
 | Stack | Responsibility | Resources |
-|---|---|---|
+| --- | --- | --- |
 | `FoodAtlasNetworkStack` | VPC, subnets, security groups | 1 VPC, 2 AZs, public + isolated subnets, no NAT |
 | `FoodAtlasStorageStack` | Private S3 bucket for KGC source data + pipeline artifacts | 1 versioned encrypted bucket with lifecycle rules |
 | `FoodAtlasDownloadsStack` | Public-read S3 bucket for released data bundles + `bundles/index.json` manifest | 1 bucket, `s3:GetObject` granted to anonymous principals (listing not granted) |
@@ -286,21 +286,21 @@ Two categories: **artifact publishing** (lives next to the artifact being publis
 ### Artifact publishing
 
 | Script | Action |
-|---|---|
+| --- | --- |
 | `backend/api/scripts/push-to-ecr.sh [tag]` | Build the API Docker image, tag with `[tag]` (default `latest`), push to `foodatlas-api` ECR repo |
 | `backend/db/scripts/push-to-ecr.sh [tag]` | Same for the db jobs image (`foodatlas-db`) |
 | `backend/kgc/scripts/sync-data-to-s3.sh` | Upload `backend/kgc/data/` to `s3://<bucket>/data/<ts>/`, bump `data/LATEST`. Excludes `PreviousFAKG/`, `Lit2KG/`, repo housekeeping |
 | `backend/kgc/scripts/sync-outputs-to-s3.sh` | Upload `backend/kgc/outputs/` to `s3://<bucket>/outputs/<ts>/`, write `manifest.json`, bump `outputs/LATEST` |
 | `backend/kgc/scripts/pull-data-from-s3.sh [version]` | Download `data/<latest>/` (or explicit `[version]`) into `backend/kgc/data/` |
 | `backend/kgc/scripts/pull-from-s3.sh [version]` | Download `outputs/<latest>/kg/` into `backend/kgc/data/PreviousFAKG/<ts>/` (the baseline for the next KGC run) |
-| `backend/kgc/scripts/merge_bioactivity_delta.py --base <run dir> --out <dir>` | Three-way merge of the bioactivity delta (`staging-bioactivity` − `20260727T100828Z`) onto a newer KGC run; hard-fails on conflicts. See [Load a new biweekly KGC run](#load-a-new-biweekly-kgc-run-onto-prod-until-kgc-emits-bioactivity) |
+| `backend/kgc/scripts/merge_bioactivity_delta.py --base <run dir> --out <dir>` | Three-way merge of the bioactivity delta (`staging-bioactivity` − `20260727T100828Z`) onto a newer KGC run; hard-fails on conflicts. See [Load a new KGC run](#load-a-new-kgc-run-onto-prod-until-kgc-emits-bioactivity) |
 | `backend/kgc/scripts/publish-bundle.sh <version> <summary-file> [--kgc-run <id>] [--release-date <YYYY-MM-DD>]` | Package a private KGC run as a public release bundle, upload to `s3://<downloads>/bundles/foodatlas-<version>/`, refresh `bundles/index.json` |
 | `backend/kgc/scripts/_lib.sh` | Shared bash helpers (CFN-output lookup, version pointer handling) used by the four sync/pull/publish scripts |
 
 ### Cloud orchestration
 
 | Script | Action |
-|---|---|
+| --- | --- |
 | `infra/aws/scripts/run-data-load.sh [version]` | Invoke the ETL loader against `s3://<bucket>/outputs/<latest>/kg/` (or `[version]`). Drops and recreates the schema, then loads. Tails logs |
 | `infra/aws/scripts/_lib.sh` | Shared bash helpers: read CFN outputs, build network config, invoke + wait + tail |
 
@@ -369,9 +369,11 @@ echo -n <version> | aws s3 cp - s3://<KgcBucketName>/outputs/LATEST
 
 Then verify by hand (`/metadata/statistics` counts, one row from each data endpoint, `/v1/foods` with a public key, the landing page and one entity page of each type) before touching anything else. Rollback handles: `vercel promote <previous dpl_>`, `cdk deploy FoodAtlasApiStack -c api_image_tag=<old tag>`, `run-data-load.sh <old LATEST value>`.
 
-### Load a new biweekly KGC run onto prod (until KGC emits bioactivity)
+### Load a new KGC run onto prod (until KGC emits bioactivity)
 
-The biweekly run on `kgc-production` writes the six core parquet files but not the bioactivity ones (`attestations_bioactivity`, `bioassays`, `bioactivity_disease*`, `food_chemical_efficacy`, r5/r6 in `relationships`). The loader treats those as optional, so loading a raw biweekly run silently drops bioactivity from prod. Merge first — `backend/kgc/scripts/merge_bioactivity_delta.py` applies the bioactivity delta (`staging-bioactivity` minus its ancestor `20260727T100828Z`) onto the new run and hard-fails on any conflict:
+**Background (2026-09-18).** Prod ran Kaichi's lit2kg injection runs (`outputs/<ts>`) until 2026-09-17, when it was rebuilt from `outputs/staging-bioactivity` — bioactivity + PTFI, cut 2026-07-31 from run `20260727T100828Z`. That swap dropped the Aug 21 / Aug 28 / Sep 15 injections. The two lineages never contained each other: `kgc-production` writes the six core parquet files but not the bioactivity ones (`attestations_bioactivity`, `bioassays`, `bioactivity_disease`, `bioactivity_disease_targets`, `food_chemical_efficacy`, r5/r6 in `relationships`), and `backend/db` treats those files as optional — so loading a raw injection run silently drops bioactivity from prod. Both deltas vs `20260727T100828Z` are purely additive and disjoint (the only shared-record change is appending `attestation_ids`), so they merge without conflict. Prod has served the merged dataset `20260918T100923Z` (= `20260915T081827Z` + bioactivity delta) since 2026-09-18.
+
+**Every new run until KGC emits bioactivity itself:** merge, then load. `backend/kgc/scripts/merge_bioactivity_delta.py` applies the bioactivity delta (`staging-bioactivity` − `20260727T100828Z`) onto the new run and exits non-zero on any shared-row mismatch, entity-id collision with the reserved range `e227381+`, dangling reference, or row count ≠ base + delta − ancestor. Never `run-data-load.sh <raw run>` and never point `outputs/LATEST` at a raw run.
 
 ```
 # 1. Pull the new run next to the two fixed inputs (ancestor + delta pull once and stay)
@@ -395,9 +397,22 @@ cd ../../infra/aws && ./scripts/run-data-load.sh $VERSION
 echo -n $VERSION | aws s3 cp - s3://<KgcBucketName>/outputs/LATEST
 ```
 
-Verify with `/metadata/statistics`: `bioactivities` and `bioactivity_measurements` must be unchanged from before the load, and `connections` must have grown by the new run's delta. Rollback is `run-data-load.sh <previous LATEST value>`.
+Verify with `/metadata/statistics`: `bioactivities` (21) and `bioactivity_measurements` (1,557,037) must be unchanged from before the load; `connections` grows by the new run's r1 pairs plus the r2/r3/r4 edges of any chemicals those pairs connect for the first time. Rollback is `run-data-load.sh <previous LATEST value>`.
 
-Retire the script (and this section) once the KGC pipeline emits the bioactivity parquet itself.
+**Constraints on the injection runs while this merge is in use** (the script refuses to run if either breaks — tell the platform team before changing them):
+
+- Runs stay additive vs `20260727T100828Z`: no entities removed or renamed, no attestations rewritten; existing triplets may only gain `attestation_ids`.
+- Entity ids minted by the run stay below `e227381`. The run is at `e227380`; `e227381–e228466` hold the 21 bioactivity concepts and the re-based PTFI foods/chemicals.
+
+**Retiring the merge — what the KGC run has to produce (Kaichi).** The pipeline code that emits the bioactivity parquet already exists on `dev` (PR #278, `570d1f2`: `backend/kgc/src/pipeline/ingest/adapters/bioactivity.py` + `src/pipeline/triplets/bioactivity/`); it is not on `main` until the next dev→main promotion. What's missing on `kgc-production` is the input and the wiring:
+
+1. Run the pipeline from code that includes PR #278 (`dev` now, `main` after promotion).
+2. Put the raw inputs at `backend/kgc/data/Bioactivity/` — the 8 CSVs from Pranav: `bioactivity_entities.csv`, `food_bioactivity_triplets.csv`, `chemical_bioactivity_triplets.csv`, `bioactivity_metadata.csv`, `bioassay_metadata.csv`, `food_chemical_efficacy.csv`, `disease_bioactivity_triplets.csv`, `bioactivity_disease_metadata.csv`. They are not in the S3 `data/` snapshot (`data/LATEST` = `20260414T020022Z` has no `Bioactivity/`); run `sync-data-to-s3.sh` once they're in place so the snapshot carries them.
+3. Apply PTFI after the build with `backend/kgc/scripts/merge_ptfi_delta.py` (reads `/mnt/share/kaichixie/FA_monorepo/new_datasets/DataForKG/ptfi`), or fold it into the pipeline as an adapter. A run is complete only with both.
+4. Diff `outputs/kg/` against `outputs/staging-bioactivity/kg/`: the six bioactivity files must be present, `relationships.parquet` must carry r5/r6, and `attestations_bioactivity` must be referenced from r5/r6 `attestation_ids`.
+5. Upload with `sync-outputs-to-s3.sh` as usual. Once such a run loads with `run-data-load.sh <ts>` and `/metadata/statistics` reports `bioactivities: 21` and the measurement count, delete `merge_bioactivity_delta.py`, its test, and this section (`_merge_common.py` stays — `merge_ptfi_delta.py` uses it).
+
+Entity ids minted by that native run will differ from today's `e227381+` — that's fine; it replaces the merged dataset wholesale and the reserved-range constraint above no longer applies.
 
 ### Roll back the data to a previous KGC run
 
@@ -491,4 +506,4 @@ Fix by either reverting the manual change in the AWS console, or `cdk destroy` +
 - CDK Python API docs: https://docs.aws.amazon.com/cdk/api/v2/python/
 - CDK construct library: https://constructs.dev/
 - AWS CLI command reference: https://docs.aws.amazon.com/cli/latest/reference/
-- For CDK CLI commands (synth, diff, deploy, destroy): see [`aws/README.md`](aws/README.md)
+- For CDK CLI commands (synth, diff, deploy, destroy): see `aws/README.md`

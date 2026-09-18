@@ -1,7 +1,7 @@
 """Three-way merge of the bioactivity delta onto a newer KGC run.
 
 The KGC pipeline on ``kgc-production`` does not emit the bioactivity parquet, so
-every biweekly run (``base``) lacks what ``staging-bioactivity`` (``delta``) added
+every injection run (``base``) lacks what ``staging-bioactivity`` (``delta``) added
 on top of the run it was cut from (``ancestor``). This script applies
 ``delta - ancestor`` onto ``base``:
 
