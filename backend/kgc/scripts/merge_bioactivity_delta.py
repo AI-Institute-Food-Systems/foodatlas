@@ -1,7 +1,7 @@
 """Three-way merge of the bioactivity delta onto a newer KGC run.
 
 The KGC pipeline on ``kgc-production`` does not emit the bioactivity parquet, so
-every injection run (``base``) lacks what ``staging-bioactivity`` (``delta``) added
+every injection run (``base``) lacks what ``20260731T082453Z`` (``delta``) added
 on top of the run it was cut from (``ancestor``). This script applies
 ``delta - ancestor`` onto ``base``:
 
@@ -33,7 +33,7 @@ from _merge_common import _max_id, _parse_list
 _KGC = Path(__file__).resolve().parent.parent  # backend/kgc
 PREVIOUS = _KGC / "data" / "PreviousFAKG"
 DEFAULT_ANCESTOR = PREVIOUS / "20260727T100828Z"
-DEFAULT_DELTA = PREVIOUS / "staging-bioactivity"
+DEFAULT_DELTA = PREVIOUS / "20260731T082453Z"
 
 KEYED: dict[str, list[str]] = {
     "entities": ["foodatlas_id"],

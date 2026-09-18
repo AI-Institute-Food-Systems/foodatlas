@@ -25,7 +25,7 @@ def _make_result() -> KGDiffResult:
         ),
         triplet_summary=TripletSummary(
             old_counts={"r1": 100, "r2": 50},
-            new_counts={"r1": 150, "r2": 60, "r3": 10},
+            new_counts={"r1": 150, "r2": 60, "r3": 10, "r5": 5, "r6": 7},
             new_count=70,
             removed_count=10,
             stable_count=130,
@@ -62,6 +62,8 @@ class TestFormatReport:
         report = format_report(_make_result())
         assert "CONTAINS" in report
         assert "IS_A" in report
+        assert "EXHIBITS" in report
+        assert "MEASURED" in report
 
     def test_name_change_sample(self) -> None:
         report = format_report(_make_result())
