@@ -1,13 +1,17 @@
 "use client";
 
+import { useContext } from "react";
 import { useRouter } from "next/navigation";
 
 import BioactivityIcon from "@/components/icons/BioactivityIcon";
 import ChemicalIcon from "@/components/icons/ChemicalIcon";
 import DiseaseIcon from "@/components/icons/DiseaseIcon";
 import FoodIcon from "@/components/icons/FoodIcon";
+import { AutocompleteContext } from "@/context/autocompleteContext";
 import { useNavigationSignal } from "@/context/navigationContext";
 import { Suggestion } from "@/types/Suggestion";
+import { normaliseQuery } from "@/utils/searchEvents";
+import { track } from "@/utils/umami";
 import { encodeSpace } from "@/utils/utils";
 
 // Same icon colours as HeaderSection so the type marker in the search
@@ -32,9 +36,15 @@ const SuggestionItem = ({
 }: SuggestionItemProps) => {
   const router = useRouter();
   const { startNav } = useNavigationSignal();
+  const { autocompleteTerm } = useContext(AutocompleteContext);
   const icon = entityIcon[suggestion.entity_type] ?? null;
 
   const navigate = () => {
+    track("search_select", {
+      query: normaliseQuery(autocompleteTerm),
+      entity_type: suggestion.entity_type,
+      id: suggestion.foodatlas_id,
+    });
     // Let SearchBar's route-change effect handle isVisible teardown —
     // doing it here fires before navigation and causes the bar to
     // morph back to its compact position mid-fade.

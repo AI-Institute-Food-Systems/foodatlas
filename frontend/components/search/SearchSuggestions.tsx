@@ -9,6 +9,8 @@ import SuggestionItem from "@/components/search/SuggestionItem";
 import { AutocompleteContext } from "@/context/autocompleteContext";
 import { SearchContext } from "@/context/searchContext";
 import { Suggestion } from "@/types/Suggestion";
+import { NO_RESULTS_SETTLE_MS, normaliseQuery } from "@/utils/searchEvents";
+import { track } from "@/utils/umami";
 
 // Safe bottom gap so the dropdown never kisses the viewport edge or
 // gets clipped by mobile browser chrome.
@@ -71,6 +73,22 @@ const SearchSuggestions = () => {
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [maxHeight, setMaxHeight] = useState<number | null>(null);
+
+  // Count a miss once the query has settled, not per keystroke: the hook
+  // fetches on every character, so "tomatoe" empties several times on the
+  // way to being typed. Wait for the term to hold still with an empty
+  // result, and never report the same normalised query twice in a session.
+  const lastNoResultsRef = useRef<string>("");
+  useEffect(() => {
+    if (!Array.isArray(suggestions) || suggestions.length > 0) return;
+    const query = normaliseQuery(autocompleteTerm);
+    if (!query || query === lastNoResultsRef.current) return;
+    const timer = window.setTimeout(() => {
+      lastNoResultsRef.current = query;
+      track("search_no_results", { query });
+    }, NO_RESULTS_SETTLE_MS);
+    return () => window.clearTimeout(timer);
+  }, [suggestions, autocompleteTerm]);
 
   // TODO: we could clear the cache every time the searchbar is cleared completely; e.g. user types "toma", deletes it all and starts search for "chi"
   // update cache

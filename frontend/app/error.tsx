@@ -4,6 +4,7 @@ import { MdRefresh } from "react-icons/md";
 
 import Button from "@/components/basic/Button";
 import Link from "@/components/basic/Link";
+import ErrorPageBeacon from "@/components/misc/ErrorPageBeacon";
 
 interface ErrorProps {
   error: Error & { digest?: string };
@@ -14,6 +15,7 @@ const Error = ({ error, reset }: ErrorProps) => {
   console.error("error :>> ", error);
   return (
     <div className="px-4 md:px-24 h-screen justify-center flex flex-col text-light-100">
+      <ErrorPageBeacon kind="error" />
       <div className="w-full max-w-5xl mx-auto">
         <h2 className="text-4xl font-semibold">Runtime Error</h2>
         <p className="mt-4 mb-8 text-lg">

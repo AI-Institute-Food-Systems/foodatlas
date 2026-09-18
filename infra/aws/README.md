@@ -52,6 +52,8 @@ uv run cdk deploy FoodAtlasJobsStack -c db_image_tag=abc1234
 
 `api_image_tag` and `db_image_tag` default to `latest`. Use immutable git SHAs in production deploys for predictable rollbacks.
 
+`api_umami_website_id` (persisted in `cdk.json` for prod; `api_umami_website_id-staging` for the staging stack, unset) turns on the API's umami `api_request` sink by setting `API_UMAMI_WEBSITE_ID` on the task. `api_umami_host_url` optionally overrides the umami base URL. Neither adds anything to the task definition when the id is unset.
+
 ## Tests
 
 ```
