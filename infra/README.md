@@ -293,6 +293,7 @@ Two categories: **artifact publishing** (lives next to the artifact being publis
 | `backend/kgc/scripts/sync-outputs-to-s3.sh` | Upload `backend/kgc/outputs/` to `s3://<bucket>/outputs/<ts>/`, write `manifest.json`, bump `outputs/LATEST` |
 | `backend/kgc/scripts/pull-data-from-s3.sh [version]` | Download `data/<latest>/` (or explicit `[version]`) into `backend/kgc/data/` |
 | `backend/kgc/scripts/pull-from-s3.sh [version]` | Download `outputs/<latest>/kg/` into `backend/kgc/data/PreviousFAKG/<ts>/` (the baseline for the next KGC run) |
+| `backend/kgc/scripts/merge_bioactivity_delta.py --base <run dir> --out <dir>` | Three-way merge of the bioactivity delta (`staging-bioactivity` − `20260727T100828Z`) onto a newer KGC run; hard-fails on conflicts. See [Load a new biweekly KGC run](#load-a-new-biweekly-kgc-run-onto-prod-until-kgc-emits-bioactivity) |
 | `backend/kgc/scripts/publish-bundle.sh <version> <summary-file> [--kgc-run <id>] [--release-date <YYYY-MM-DD>]` | Package a private KGC run as a public release bundle, upload to `s3://<downloads>/bundles/foodatlas-<version>/`, refresh `bundles/index.json` |
 | `backend/kgc/scripts/_lib.sh` | Shared bash helpers (CFN-output lookup, version pointer handling) used by the four sync/pull/publish scripts |
 
@@ -367,6 +368,36 @@ echo -n <version> | aws s3 cp - s3://<KgcBucketName>/outputs/LATEST
 ```
 
 Then verify by hand (`/metadata/statistics` counts, one row from each data endpoint, `/v1/foods` with a public key, the landing page and one entity page of each type) before touching anything else. Rollback handles: `vercel promote <previous dpl_>`, `cdk deploy FoodAtlasApiStack -c api_image_tag=<old tag>`, `run-data-load.sh <old LATEST value>`.
+
+### Load a new biweekly KGC run onto prod (until KGC emits bioactivity)
+
+The biweekly run on `kgc-production` writes the six core parquet files but not the bioactivity ones (`attestations_bioactivity`, `bioassays`, `bioactivity_disease*`, `food_chemical_efficacy`, r5/r6 in `relationships`). The loader treats those as optional, so loading a raw biweekly run silently drops bioactivity from prod. Merge first — `backend/kgc/scripts/merge_bioactivity_delta.py` applies the bioactivity delta (`staging-bioactivity` minus its ancestor `20260727T100828Z`) onto the new run and hard-fails on any conflict:
+
+```
+# 1. Pull the new run next to the two fixed inputs (ancestor + delta pull once and stay)
+cd backend/kgc
+./scripts/pull-from-s3.sh <new run>              # → data/PreviousFAKG/<new run>/
+./scripts/pull-from-s3.sh 20260727T100828Z       # ancestor (once)
+./scripts/pull-from-s3.sh staging-bioactivity    # delta    (once)
+
+# 2. Merge. Report must show every table as base + delta − ancestor; verify() exits non-zero otherwise.
+uv run python scripts/merge_bioactivity_delta.py --base data/PreviousFAKG/<new run> --out outputs/kg-merged
+
+# 3. Upload as a new version. sync-outputs-to-s3.sh only uploads outputs/kg, so either point it at
+#    the merge (--out outputs/kg) or upload by hand and write the manifest yourself:
+VERSION=$(date -u +%Y%m%dT%H%M%SZ)
+aws s3 sync outputs/kg-merged/ s3://<KgcBucketName>/outputs/$VERSION/kg/
+printf '{"version":"%s","merged_from":["<new run>","staging-bioactivity"],"ancestor":"20260727T100828Z","git_sha":"%s","host":"%s","user":"%s"}' \
+  "$VERSION" "$(git rev-parse --short HEAD)" "$(hostname)" "$USER" | aws s3 cp - s3://<KgcBucketName>/outputs/$VERSION/manifest.json
+
+# 4. Load it (~15 min outage) and repoint LATEST
+cd ../../infra/aws && ./scripts/run-data-load.sh $VERSION
+echo -n $VERSION | aws s3 cp - s3://<KgcBucketName>/outputs/LATEST
+```
+
+Verify with `/metadata/statistics`: `bioactivities` and `bioactivity_measurements` must be unchanged from before the load, and `connections` must have grown by the new run's delta. Rollback is `run-data-load.sh <previous LATEST value>`.
+
+Retire the script (and this section) once the KGC pipeline emits the bioactivity parquet itself.
 
 ### Roll back the data to a previous KGC run
 
