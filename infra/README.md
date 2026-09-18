@@ -293,7 +293,7 @@ Two categories: **artifact publishing** (lives next to the artifact being publis
 | `backend/kgc/scripts/sync-outputs-to-s3.sh` | Upload `backend/kgc/outputs/` to `s3://<bucket>/outputs/<ts>/`, write `manifest.json`, bump `outputs/LATEST` |
 | `backend/kgc/scripts/pull-data-from-s3.sh [version]` | Download `data/<latest>/` (or explicit `[version]`) into `backend/kgc/data/` |
 | `backend/kgc/scripts/pull-from-s3.sh [version]` | Download `outputs/<latest>/kg/` into `backend/kgc/data/PreviousFAKG/<ts>/` (the baseline for the next KGC run) |
-| `backend/kgc/scripts/merge_bioactivity_delta.py --base <run dir> --out <dir>` | Three-way merge of the bioactivity delta (`staging-bioactivity` − `20260727T100828Z`) onto a newer KGC run; hard-fails on conflicts. See [Load a new KGC run](#load-a-new-kgc-run-onto-prod-until-kgc-emits-bioactivity) |
+| `backend/kgc/scripts/merge_bioactivity_delta.py --base <run dir> --out <dir>` | Three-way merge of the bioactivity delta (`20260731T082453Z` − `20260727T100828Z`) onto a newer KGC run; hard-fails on conflicts. See [Load a new KGC run](#load-a-new-kgc-run-onto-prod-until-kgc-emits-bioactivity) |
 | `backend/kgc/scripts/publish-bundle.sh <version> <summary-file> [--kgc-run <id>] [--release-date <YYYY-MM-DD>]` | Package a private KGC run as a public release bundle, upload to `s3://<downloads>/bundles/foodatlas-<version>/`, refresh `bundles/index.json` |
 | `backend/kgc/scripts/_lib.sh` | Shared bash helpers (CFN-output lookup, version pointer handling) used by the four sync/pull/publish scripts |
 
@@ -371,16 +371,16 @@ Then verify by hand (`/metadata/statistics` counts, one row from each data endpo
 
 ### Load a new KGC run onto prod (until KGC emits bioactivity)
 
-**Background (2026-09-18).** Prod ran Kaichi's lit2kg injection runs (`outputs/<ts>`) until 2026-09-17, when it was rebuilt from `outputs/staging-bioactivity` — bioactivity + PTFI, cut 2026-07-31 from run `20260727T100828Z`. That swap dropped the Aug 21 / Aug 28 / Sep 15 injections. The two lineages never contained each other: `kgc-production` writes the six core parquet files but not the bioactivity ones (`attestations_bioactivity`, `bioassays`, `bioactivity_disease`, `bioactivity_disease_targets`, `food_chemical_efficacy`, r5/r6 in `relationships`), and `backend/db` treats those files as optional — so loading a raw injection run silently drops bioactivity from prod. Both deltas vs `20260727T100828Z` are purely additive and disjoint (the only shared-record change is appending `attestation_ids`), so they merge without conflict. Prod has served the merged dataset `20260918T100923Z` (= `20260915T081827Z` + bioactivity delta) since 2026-09-18.
+**Background (2026-09-18).** Prod ran Kaichi's lit2kg injection runs (`outputs/<ts>`) until 2026-09-17, when it was rebuilt from `outputs/20260731T082453Z` (originally published under the name `staging-bioactivity`; copied to a timestamp 2026-09-18) — bioactivity + PTFI, cut 2026-07-31 from run `20260727T100828Z`. That swap dropped the Aug 21 / Aug 28 / Sep 15 injections. The two lineages never contained each other: `kgc-production` writes the six core parquet files but not the bioactivity ones (`attestations_bioactivity`, `bioassays`, `bioactivity_disease`, `bioactivity_disease_targets`, `food_chemical_efficacy`, r5/r6 in `relationships`), and `backend/db` treats those files as optional — so loading a raw injection run silently drops bioactivity from prod. Both deltas vs `20260727T100828Z` are purely additive and disjoint (the only shared-record change is appending `attestation_ids`), so they merge without conflict. Prod has served the merged dataset `20260918T100923Z` (= `20260915T081827Z` + bioactivity delta) since 2026-09-18.
 
-**Every new run until KGC emits bioactivity itself:** merge, then load. `backend/kgc/scripts/merge_bioactivity_delta.py` applies the bioactivity delta (`staging-bioactivity` − `20260727T100828Z`) onto the new run and exits non-zero on any shared-row mismatch, entity-id collision with the reserved range `e227381+`, dangling reference, or row count ≠ base + delta − ancestor. Never `run-data-load.sh <raw run>` and never point `outputs/LATEST` at a raw run.
+**Every new run until KGC emits bioactivity itself:** merge, then load. `backend/kgc/scripts/merge_bioactivity_delta.py` applies the bioactivity delta (`20260731T082453Z` − `20260727T100828Z`) onto the new run and exits non-zero on any shared-row mismatch, entity-id collision with the reserved range `e227381+`, dangling reference, or row count ≠ base + delta − ancestor. Never `run-data-load.sh <raw run>` and never point `outputs/LATEST` at a raw run.
 
 ```
 # 1. Pull the new run next to the two fixed inputs (ancestor + delta pull once and stay)
 cd backend/kgc
 ./scripts/pull-from-s3.sh <new run>              # → data/PreviousFAKG/<new run>/
 ./scripts/pull-from-s3.sh 20260727T100828Z       # ancestor (once)
-./scripts/pull-from-s3.sh staging-bioactivity    # delta    (once)
+./scripts/pull-from-s3.sh 20260731T082453Z    # delta    (once)
 
 # 2. Merge. Report must show every table as base + delta − ancestor; verify() exits non-zero otherwise.
 uv run python scripts/merge_bioactivity_delta.py --base data/PreviousFAKG/<new run> --out outputs/kg-merged
@@ -389,7 +389,7 @@ uv run python scripts/merge_bioactivity_delta.py --base data/PreviousFAKG/<new r
 #    the merge (--out outputs/kg) or upload by hand and write the manifest yourself:
 VERSION=$(date -u +%Y%m%dT%H%M%SZ)
 aws s3 sync outputs/kg-merged/ s3://<KgcBucketName>/outputs/$VERSION/kg/
-printf '{"version":"%s","merged_from":["<new run>","staging-bioactivity"],"ancestor":"20260727T100828Z","git_sha":"%s","host":"%s","user":"%s"}' \
+printf '{"version":"%s","merged_from":["<new run>","20260731T082453Z"],"ancestor":"20260727T100828Z","git_sha":"%s","host":"%s","user":"%s"}' \
   "$VERSION" "$(git rev-parse --short HEAD)" "$(hostname)" "$USER" | aws s3 cp - s3://<KgcBucketName>/outputs/$VERSION/manifest.json
 
 # 4. Load it (~15 min outage) and repoint LATEST
@@ -413,7 +413,7 @@ aws s3 cp outputs/kg-merged/CHANGELOG.md s3://<KgcBucketName>/outputs/$VERSION/k
 ./scripts/publish-bundle.sh v<next> release_notes/SUMMARY-v<next>.md --kgc-run $VERSION --release-date $(date -u +%F)
 ```
 
-`publish-bundle.sh` without `--kgc-run` reads `outputs/LATEST`, which after step 4 is the merged version — fine, but pass it explicitly so the bundle's `kgc_run` is unambiguous. (`main.py report` can't be used directly: it picks the lexically-last `PreviousFAKG/` dir, and `staging-bioactivity` sorts after every timestamp.)
+`publish-bundle.sh` without `--kgc-run` reads `outputs/LATEST`, which after step 4 is the merged version — fine, but pass it explicitly so the bundle's `kgc_run` is unambiguous. (`main.py report` diffs against the lexically-last `PreviousFAKG/` dir — keep only timestamped dirs there, never a named one.)
 
 **Constraints on the injection runs while this merge is in use** (the script refuses to run if either breaks — tell the platform team before changing them):
 
@@ -425,7 +425,7 @@ aws s3 cp outputs/kg-merged/CHANGELOG.md s3://<KgcBucketName>/outputs/$VERSION/k
 1. Run the pipeline from code that includes PR #278 (`dev` now, `main` after promotion).
 2. Put the raw inputs at `backend/kgc/data/Bioactivity/` — the 8 CSVs from Pranav: `bioactivity_entities.csv`, `food_bioactivity_triplets.csv`, `chemical_bioactivity_triplets.csv`, `bioactivity_metadata.csv`, `bioassay_metadata.csv`, `food_chemical_efficacy.csv`, `disease_bioactivity_triplets.csv`, `bioactivity_disease_metadata.csv`. They are not in the S3 `data/` snapshot (`data/LATEST` = `20260414T020022Z` has no `Bioactivity/`); run `sync-data-to-s3.sh` once they're in place so the snapshot carries them.
 3. Apply PTFI after the build with `backend/kgc/scripts/merge_ptfi_delta.py` (reads `/mnt/share/kaichixie/FA_monorepo/new_datasets/DataForKG/ptfi`), or fold it into the pipeline as an adapter. A run is complete only with both.
-4. Diff `outputs/kg/` against `outputs/staging-bioactivity/kg/`: the six bioactivity files must be present, `relationships.parquet` must carry r5/r6, and `attestations_bioactivity` must be referenced from r5/r6 `attestation_ids`.
+4. Diff `outputs/kg/` against `outputs/20260731T082453Z/kg/`: the six bioactivity files must be present, `relationships.parquet` must carry r5/r6, and `attestations_bioactivity` must be referenced from r5/r6 `attestation_ids`.
 5. Upload with `sync-outputs-to-s3.sh` as usual. Once such a run loads with `run-data-load.sh <ts>` and `/metadata/statistics` reports `bioactivities: 21` and the measurement count, delete `merge_bioactivity_delta.py`, its test, and this section (`_merge_common.py` stays — `merge_ptfi_delta.py` uses it).
 
 Entity ids minted by that native run will differ from today's `e227381+` — that's fine; it replaces the merged dataset wholesale and the reserved-range constraint above no longer applies.
