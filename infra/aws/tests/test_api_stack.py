@@ -18,9 +18,13 @@ _FAKE_CERT_ARN = (
 )
 
 
-def _synth(*, cert_arn: str | None = None) -> Template:
-    context = {"api_cert_arn": cert_arn} if cert_arn else None
-    app = cdk.App(context=context)
+def _synth(
+    *, cert_arn: str | None = None, context: dict[str, str] | None = None
+) -> Template:
+    merged = dict(context or {})
+    if cert_arn:
+        merged["api_cert_arn"] = cert_arn
+    app = cdk.App(context=merged or None)
     network = NetworkStack(app, "TestNetworkStack")
     storage = StorageStack(app, "TestStorageStack")
     downloads = DownloadsStack(app, "TestDownloadsStack")
@@ -230,3 +234,35 @@ def test_https_mode_redirects_port_80_to_443() -> None:
             },
         ),
     )
+
+
+def _container_env(template: Template) -> dict[str, str]:
+    task_defs = template.find_resources("AWS::ECS::TaskDefinition")
+    (props,) = (r["Properties"] for r in task_defs.values())
+    (container,) = props["ContainerDefinitions"]
+    return {e["Name"]: e["Value"] for e in container["Environment"]}
+
+
+def test_umami_env_absent_by_default() -> None:
+    env = _container_env(_synth())
+    assert not any(k.startswith("API_UMAMI_") for k in env)
+
+
+def test_umami_env_from_context() -> None:
+    env = _container_env(
+        _synth(
+            context={
+                "api_umami_website_id": "11111111-2222-3333-4444-555555555555",
+                "api_umami_host_url": "https://umami.example.org",
+            }
+        )
+    )
+    assert env["API_UMAMI_WEBSITE_ID"] == "11111111-2222-3333-4444-555555555555"
+    assert env["API_UMAMI_HOST_URL"] == "https://umami.example.org"
+
+
+def test_umami_host_url_alone_is_ignored() -> None:
+    env = _container_env(
+        _synth(context={"api_umami_host_url": "https://umami.example.org"})
+    )
+    assert "API_UMAMI_HOST_URL" not in env

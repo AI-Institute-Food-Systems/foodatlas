@@ -17,6 +17,7 @@ import { twMerge } from "tailwind-merge";
 
 import Button from "@/components/basic/Button";
 import Card from "@/components/basic/Card";
+import { track } from "@/utils/umami";
 
 interface ContactFormProps {
   isApiAccessRequest: boolean;
@@ -59,8 +60,14 @@ const ContactForm = ({ isApiAccessRequest }: ContactFormProps) => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, email, affiliation, topic, message }),
       });
+      // Topic + outcome only — never the name, email or message.
+      track("contact_submit", {
+        topic,
+        outcome: response.ok ? "sent" : "error",
+      });
       setStatus(response.ok ? "sent" : "error");
     } catch {
+      track("contact_submit", { topic, outcome: "error" });
       setStatus("error");
     }
   };

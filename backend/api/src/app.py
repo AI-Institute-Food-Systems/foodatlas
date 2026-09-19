@@ -21,6 +21,7 @@ from src.routes import (
     resolve,
 )
 from src.routes import v1 as v1_routes
+from src.umami_sink import build_sink
 
 PUBLIC_API_DESCRIPTION = """
 FoodAtlas exposes its food-chemical-disease knowledge graph through a
@@ -50,6 +51,7 @@ def create_app(settings: APISettings | None = None) -> FastAPI:
     """Create and configure the FastAPI application."""
     settings = settings or APISettings()
     init_store(settings)
+    sink = build_sink(settings)
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
@@ -57,9 +59,13 @@ def create_app(settings: APISettings | None = None) -> FastAPI:
         store = get_store()
         if store is not None and not settings.debug:
             await store.start()
+        if sink is not None:
+            await sink.start()
         try:
             yield
         finally:
+            if sink is not None:
+                await sink.stop()
             if store is not None:
                 await store.stop()
 
@@ -83,11 +89,21 @@ def create_app(settings: APISettings | None = None) -> FastAPI:
         allow_headers=["*"],
     )
 
-    if settings.access_log_enabled and not settings.debug:
-        configure_access_logger()
+    # Exposed for tests to swap in a mock transport before the lifespan runs.
+    app.state.umami_sink = sink
+
+    # The umami sink rides on the access-log middleware. The CloudWatch line
+    # stays off in debug; the sink is only gated on its website id, so a local
+    # run can post to a fake receiver without also disabling the middleware.
+    log_enabled = settings.access_log_enabled and not settings.debug
+    if log_enabled or sink is not None:
+        if log_enabled:
+            configure_access_logger()
         app.add_middleware(
             AccessLogMiddleware,
             path_prefix=settings.access_log_path_prefix,
+            emit=None if log_enabled else _discard,
+            sink=sink.enqueue if sink is not None else None,
         )
 
     if settings.rate_limit_enabled and not settings.debug:
@@ -115,6 +131,10 @@ def create_app(settings: APISettings | None = None) -> FastAPI:
 
     app.openapi = _build_openapi(app)  # type: ignore[method-assign]
     return app
+
+
+def _discard(_entry: dict[str, object]) -> None:
+    """``emit`` stand-in when only the umami sink is on (log disabled/debug)."""
 
 
 def _build_openapi(app: FastAPI):

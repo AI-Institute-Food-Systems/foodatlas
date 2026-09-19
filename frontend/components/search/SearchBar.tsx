@@ -14,6 +14,8 @@ import { useNavigationSignal } from "@/context/navigationContext";
 import { SearchContext } from "@/context/searchContext";
 import useSearchAutocompleteOptions from "@/hooks/useSearchAutocompleteOptions";
 import { usePaginations } from "@/context/paginationsContext";
+import { normaliseQuery } from "@/utils/searchEvents";
+import { track } from "@/utils/umami";
 import { encodeSpace } from "@/utils/utils";
 
 // Static placeholder — replaces the previous typewriter-cycler effect.
@@ -230,13 +232,17 @@ const SearchBar = () => {
     if (event.key === "Enter") {
       event.currentTarget.blur();
       if (selectedSuggestion !== -1) {
+        const picked = cachedSuggestions[selectedSuggestion];
+        track("search_select", {
+          query: normaliseQuery(searchTerm),
+          entity_type: picked.entity_type,
+          id: picked.foodatlas_id,
+        });
         setIsVisible(false);
         startNav();
         router.push(
-          `/${
-            cachedSuggestions[selectedSuggestion].entity_type
-          }/${encodeURIComponent(
-            encodeSpace(cachedSuggestions[selectedSuggestion].common_name)
+          `/${picked.entity_type}/${encodeURIComponent(
+            encodeSpace(picked.common_name)
           )}`
         );
       } else {

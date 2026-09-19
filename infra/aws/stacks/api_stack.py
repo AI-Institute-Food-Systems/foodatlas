@@ -24,6 +24,12 @@ Context variables:
 - ``api_image_tag`` (default ``latest``): image tag in ECR to deploy.
 - ``api_cert_arn`` (optional): ACM certificate ARN in the same region as
   the ALB. When set, enables HTTPS termination on port 443.
+- ``api_umami_website_id`` (optional; ``api_umami_website_id-staging`` for
+  the staging stack): umami website id the API mirrors external ``/v1``
+  usage into (``src/umami_sink.py``). Unset → no ``API_UMAMI_*`` env vars
+  and the sink stays off.
+- ``api_umami_host_url`` (optional): umami base URL; only used when the
+  website id is set. Defaults to the API's own setting.
 """
 
 from __future__ import annotations
@@ -73,6 +79,10 @@ class ApiStack(cdk.Stack):
         super().__init__(scope, construct_id, **kwargs)
 
         image_tag = self.node.try_get_context("api_image_tag") or "latest"
+        umami_website_id = self.node.try_get_context(
+            f"api_umami_website_id{name_suffix}"
+        )
+        umami_host_url = self.node.try_get_context("api_umami_host_url")
 
         self.cluster = ecs.Cluster(
             self,
@@ -134,6 +144,35 @@ class ApiStack(cdk.Stack):
             ),
         )
 
+        container_env: dict[str, str] = {
+            # API_HOST is set via the Dockerfile ENV to bind all
+            # interfaces inside the container; no need to duplicate here.
+            "API_DEBUG": "False",
+            "API_CORS_ORIGINS": ",".join(
+                [
+                    "https://foodatlas.ai",
+                    "https://www.foodatlas.ai",
+                    "https://dev.foodatlas.ai",
+                    "http://localhost:3000",
+                    "http://localhost:3001",
+                ],
+            ),
+            "DB_HOST": db_instance.db_instance_endpoint_address,
+            "DB_PORT": db_instance.db_instance_endpoint_port,
+            "DB_NAME": "foodatlas",
+            "KGC_BUCKET": kgc_bucket.bucket_name,
+            "API_DOWNLOADS_BUCKET": downloads_bucket.bucket_name,
+            "API_DOWNLOADS_REGION": cdk.Stack.of(self).region,
+            "API_PUBLIC_KEYS_SECRET_NAME": public_keys_secret.secret_name,
+            "API_AWS_REGION": cdk.Stack.of(self).region,
+        }
+        # Only when configured, so a synth without the context (staging, CI
+        # snapshots) is byte-for-byte what it was before umami existed.
+        if umami_website_id:
+            container_env["API_UMAMI_WEBSITE_ID"] = str(umami_website_id)
+            if umami_host_url:
+                container_env["API_UMAMI_HOST_URL"] = str(umami_host_url)
+
         task_definition.add_container(
             "ApiContainer",
             image=ecs.ContainerImage.from_ecr_repository(
@@ -144,28 +183,7 @@ class ApiStack(cdk.Stack):
                 stream_prefix="foodatlas-api",
                 log_group=log_group,
             ),
-            environment={
-                # API_HOST is set via the Dockerfile ENV to bind all
-                # interfaces inside the container; no need to duplicate here.
-                "API_DEBUG": "False",
-                "API_CORS_ORIGINS": ",".join(
-                    [
-                        "https://foodatlas.ai",
-                        "https://www.foodatlas.ai",
-                        "https://dev.foodatlas.ai",
-                        "http://localhost:3000",
-                        "http://localhost:3001",
-                    ],
-                ),
-                "DB_HOST": db_instance.db_instance_endpoint_address,
-                "DB_PORT": db_instance.db_instance_endpoint_port,
-                "DB_NAME": "foodatlas",
-                "KGC_BUCKET": kgc_bucket.bucket_name,
-                "API_DOWNLOADS_BUCKET": downloads_bucket.bucket_name,
-                "API_DOWNLOADS_REGION": cdk.Stack.of(self).region,
-                "API_PUBLIC_KEYS_SECRET_NAME": public_keys_secret.secret_name,
-                "API_AWS_REGION": cdk.Stack.of(self).region,
-            },
+            environment=container_env,
             secrets={
                 "DB_USER": ecs.Secret.from_secrets_manager(db_secret, "username"),
                 "DB_PASSWORD": ecs.Secret.from_secrets_manager(db_secret, "password"),

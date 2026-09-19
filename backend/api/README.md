@@ -32,6 +32,11 @@ Settings are read from `API_*` and `DB_*` environment variables (or a `.env` fil
 | `API_DEBUG` | `true` | `False` | Skip API key verification when true |
 | `API_DOWNLOADS_BUCKET` | (empty) | downloads bucket name from `FoodAtlasDownloadsStack` | Public-read S3 bucket the `/download` endpoint reads `bundles/index.json` from |
 | `API_DOWNLOADS_REGION` | `us-west-1` | env var on the task | AWS region for the downloads bucket |
+| `API_UMAMI_WEBSITE_ID` | (empty = off) | CDK context `api_umami_website_id` | umami website that receives one `api_request` event per external `/v1` call (`src/umami_sink.py`). Not gated on `API_DEBUG`, so a local run can post to a fake receiver. |
+| `API_UMAMI_HOST_URL` | `https://umami.aifs.ucdavis.edu` | CDK context `api_umami_host_url` (optional) | umami base URL; events go to `<host>/api/send` |
+| `API_UMAMI_HOSTNAME` | `api.foodatlas.ai` | default | `hostname` field on each event |
+| `API_UMAMI_SAMPLE_RATE` | `1.0` | default (edit the task def to throttle) | Fraction of events sent; the knob if umami's VM struggles |
+| `API_UMAMI_QUEUE_SIZE` | `1000` | default | Bounded send queue; events beyond it are dropped, never awaited |
 | `DB_HOST` | `localhost` | RDS endpoint | PostgreSQL host |
 | `DB_PORT` | `5432` | RDS endpoint port | PostgreSQL port |
 | `DB_NAME` | `foodatlas` | `foodatlas` | Database name |

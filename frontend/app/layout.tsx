@@ -9,6 +9,7 @@ import NavigationProgress from "@/components/navigation/NavigationProgress";
 import SearchBar from "@/components/search/SearchBar";
 import "@/styles/globals.css";
 import { fontMono, fontSans, fontSerif } from "@/styles/fonts";
+import { UMAMI_ENABLED, UMAMI_WEBSITE_ID } from "@/utils/umami";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -50,11 +51,11 @@ const Layout = ({ children }: ClientLayoutProps) => {
         <GoogleAnalytics
           gaId={process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ?? ""}
         />
-        {process.env.VERCEL_ENV === "production" && (
+        {UMAMI_ENABLED && (
           <Script
             defer
             src="/_a/script.js"
-            data-website-id="a63b88b0-aa17-4ca1-a3c6-62a568fe0757"
+            data-website-id={UMAMI_WEBSITE_ID}
             data-host-url="/_a"
           />
         )}

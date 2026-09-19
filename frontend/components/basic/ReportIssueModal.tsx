@@ -17,6 +17,7 @@ import { twMerge } from "tailwind-merge";
 
 import Button from "@/components/basic/Button";
 import Modal from "@/components/basic/Modal";
+import { track } from "@/utils/umami";
 import {
   REPORT_CATEGORIES,
   type ReportCategory,
@@ -103,8 +104,12 @@ const ReportIssueModal = ({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
+      track("issue_report_submit", {
+        outcome: response.ok ? "sent" : "error",
+      });
       setStatus(response.ok ? "sent" : "error");
     } catch {
+      track("issue_report_submit", { outcome: "error" });
       setStatus("error");
     }
   };
