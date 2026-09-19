@@ -1,10 +1,12 @@
 import { MdErrorOutline } from "react-icons/md";
 
 import Button from "@/components/basic/Button";
+import ErrorPageBeacon from "@/components/misc/ErrorPageBeacon";
 
 const NotFound = () => {
   return (
     <div className="h-screen px-4 md:px-24 mt-64">
+      <ErrorPageBeacon kind="not_found" />
       <div className="max-w-5xl mx-auto flex flex-col gap-6">
         <div className="text-6xl flex gap-5">
           <MdErrorOutline />

@@ -135,3 +135,18 @@ fields @timestamp, client_ip, key_prefix
 | stats count(*) as attempts by client_ip, key_prefix
 | sort attempts desc
 ```
+
+### The same thing as a dashboard (umami)
+
+The API mirrors every external-key `/v1` request into the FoodAtlas umami website as an
+`api_request` event (`backend/api/src/umami_sink.py`), so the glanceable view lives next to the
+site's own traffic:
+
+- **Events → `api_request`** — total calls over the selected range.
+- **Properties → `key_prefix` / `route` / `status` / `org`** — who, what, and how it went.
+- **Insights → Tag = `<key_prefix>`** — one key's time series.
+
+Not in umami, on purpose: emails (identity is prefix + org), internal frontend traffic, 401s,
+and client IPs (every API call shares one synthetic session so it never inflates site Visitors).
+umami is sampled (`API_UMAMI_SAMPLE_RATE`) and drop-on-full; CloudWatch stays the authoritative
+count and the only place a key is attributed to an email.

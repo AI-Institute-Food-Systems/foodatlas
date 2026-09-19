@@ -1,5 +1,7 @@
 import { ReactNode } from "react";
 
+import { outboundLinkAttrs } from "@/utils/outboundLink";
+
 interface ExternalLinkProps {
   className?: string;
   children: string | number | ReactNode;
@@ -19,6 +21,7 @@ const Link = ({
       href={href}
       target={isExternal ? "_blank" : ""}
       rel={isExternal ? "noopener noreferrer" : ""}
+      {...(isExternal ? outboundLinkAttrs(href) : {})}
     >
       {children}
       {isExternal && <span aria-hidden="true"> ↗︎</span>}

@@ -3,6 +3,7 @@ import { FaLinkedin } from "react-icons/fa6";
 import { MdLanguage } from "react-icons/md";
 
 import { TeamMember } from "@/types";
+import { outboundLinkAttrs } from "@/utils/outboundLink";
 
 interface PersonProps {
   member: TeamMember;
@@ -30,6 +31,7 @@ const Person = ({ member }: PersonProps) => {
           <a
             href={member.linkToWebsite}
             target="_blank"
+            {...outboundLinkAttrs(member.linkToWebsite)}
             tabIndex={0}
             aria-label={`${member.name}'s personal website`}
           >
@@ -40,6 +42,7 @@ const Person = ({ member }: PersonProps) => {
           <a
             href={member.linkToLinkedIn}
             target="_blank"
+            {...outboundLinkAttrs(member.linkToLinkedIn)}
             tabIndex={0}
             aria-label={`${member.name} on LinkedIn`}
           >

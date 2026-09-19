@@ -38,6 +38,7 @@ import {
   FoodEvidence,
   FoodEvidenceExtraction,
 } from "@/types/Evidence";
+import { outboundLinkAttrs } from "@/utils/outboundLink";
 import { formatConcentrationValueAlt, formatUnit } from "@/utils/utils";
 import { highlightPremise } from "@/components/entities/food/highlightPremise";
 
@@ -519,6 +520,7 @@ const RowActions = ({
             href={url}
             target="_blank"
             rel="noopener noreferrer"
+            {...outboundLinkAttrs(url)}
             className="inline-flex items-center gap-1 text-xs font-mono italic text-light-300 hover:text-light-100 underline-offset-4 hover:underline transition-colors"
             onClick={(e) => e.stopPropagation()}
             aria-label={linkLabel}

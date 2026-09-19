@@ -13,6 +13,8 @@
 //
 // The cache lives in module memory only, so a reload always gets fresh data.
 
+import { track } from "@/utils/umami";
+
 // Matches the shape of the platform `Response` members that callers use, so
 // call sites read the same whether they're served from cache or the network.
 // `json()` mirrors Response.json()'s own `Promise<any>` signature.
@@ -36,6 +38,16 @@ export const clearApiCache = (): void => {
   cache.clear();
   inFlight.clear();
 };
+
+// Path with ids collapsed, so the api_fetch_error property has one value per
+// endpoint rather than one per entity. Query string dropped for the same
+// reason.
+const stripIds = (url: string): string =>
+  url
+    .split("?")[0]
+    .replace(/^https?:\/\/[^/]+/, "")
+    .replace(/\/e\d+(?=\/|$)/g, "/{id}")
+    .replace(/\/\d+(?=\/|$)/g, "/{id}");
 
 const authHeaders = () => ({
   Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
@@ -83,8 +95,15 @@ export async function apiFetch(
   if (pending) return pending;
 
   const request = (async (): Promise<ApiResponse> => {
-    const res = await fetch(url, { headers: authHeaders() });
+    let res: Response;
+    try {
+      res = await fetch(url, { headers: authHeaders() });
+    } catch (err) {
+      track("api_fetch_error", { path: stripIds(url), status: "network" });
+      throw err;
+    }
     if (!res.ok) {
+      track("api_fetch_error", { path: stripIds(url), status: res.status });
       // Never cache a failure: the getX wrappers degrade to null/throw on
       // error, and a cached miss would pin that empty state for the session.
       return { ok: false, status: res.status, json: () => res.json() };

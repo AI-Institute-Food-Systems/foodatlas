@@ -103,7 +103,7 @@ const DownloadsTable = ({ data }: DownloadsTableProps) => {
                     label="Download"
                     tone="outline"
                     size="md"
-                    href={row.download_link}
+                    href={`/food-composition-downloads/${row.version}`}
                   />
                 </div>
               </td>
@@ -141,7 +141,7 @@ const DownloadsTable = ({ data }: DownloadsTableProps) => {
               label="Download"
               tone="outline"
               size="md"
-              href={row.download_link}
+              href={`/food-composition-downloads/${row.version}`}
             />
           </div>
         </div>

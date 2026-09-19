@@ -37,6 +37,7 @@ class TestVerifyV1Key:
         request.state = MagicMock()
         await verify_v1_key(request, _settings())
         assert request.state.api_key_email == "internal"
+        assert request.state.api_key_org == "internal"
 
     @pytest.mark.asyncio
     async def test_public_key_accepted(self) -> None:
@@ -98,7 +99,9 @@ class TestVerifyV1KeyLedger:
     async def test_prefix_stashed_for_access_log(self) -> None:
         store = PublicKeyStore(secret_name="s", region="us-west-1")
         store._keys = {
-            _hash("pub-key"): KeyRecord(email="alice@u.edu", prefix="pub-key1")
+            _hash("pub-key"): KeyRecord(
+                email="alice@u.edu", prefix="pub-key1", org="UC Davis"
+            )
         }
         set_store_for_tests(store)
         try:
@@ -107,6 +110,7 @@ class TestVerifyV1KeyLedger:
             request.state = MagicMock()
             await verify_v1_key(request, _settings())
             assert request.state.api_key_prefix == "pub-key1"
+            assert request.state.api_key_org == "UC Davis"
         finally:
             set_store_for_tests(None)
 
