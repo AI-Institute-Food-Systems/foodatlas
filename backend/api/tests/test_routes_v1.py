@@ -495,6 +495,65 @@ class TestBundles:
         assert resp.status_code == 200
         body = resp.json()
         assert body["data"][0]["version"] == "v1.0"
+        # The raw object URL never leaves the API; the gated hop does.
+        assert (
+            body["data"][0]["download_link"]
+            == "https://api.foodatlas.ai/v1/bundles/v1.0/download"
+        )
+        assert "example/foodatlas" not in resp.text
+
+
+MANIFEST = [
+    {
+        "version": "v4.12",
+        "release_date": "2026-09-18",
+        "file_size": "1 GB",
+        "kgc_run": "x",
+        "download_link": "https://b.s3.us-west-1.amazonaws.com/bundles/v4.12/f.zip",
+        "summary_link": "",
+    }
+]
+
+
+class TestBundleDownload:
+    def test_redirects_to_a_presigned_url(
+        self, client_with_downloads_bucket: TestClient
+    ) -> None:
+        with (
+            patch(
+                "src.repositories.downloads.fetch_manifest",
+                return_value=MANIFEST,
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "src.repositories.downloads.presign_bundle",
+                return_value="https://b.s3.amazonaws.com/signed?X-Amz-Signature=1",
+            ) as presign,
+        ):
+            resp = client_with_downloads_bucket.get(
+                "/v1/bundles/4.12/download", follow_redirects=False
+            )
+        assert resp.status_code == 302
+        assert resp.headers["location"].startswith("https://b.s3.amazonaws.com/signed")
+        assert presign.call_args.args[0]["version"] == "v4.12"
+        assert presign.call_args.kwargs["expires_seconds"] == 600
+
+    def test_unknown_version_is_404(
+        self, client_with_downloads_bucket: TestClient
+    ) -> None:
+        with patch(
+            "src.repositories.downloads.fetch_manifest",
+            return_value=MANIFEST,
+            new_callable=AsyncMock,
+        ):
+            resp = client_with_downloads_bucket.get(
+                "/v1/bundles/v0.0/download", follow_redirects=False
+            )
+        assert resp.status_code == 404
+
+    def test_no_bucket_is_404(self, client: TestClient) -> None:
+        resp = client.get("/v1/bundles/v4.12/download", follow_redirects=False)
+        assert resp.status_code == 404
 
 
 # -- /v1/diseases -----------------------------------------------------------

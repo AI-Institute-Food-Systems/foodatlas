@@ -1,12 +1,14 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { MdDownload } from "react-icons/md";
 
 import Chip from "@/components/basic/Chip";
+import Link from "@/components/basic/Link";
 import Pagination from "@/components/basic/Pagination";
 import { usePaginations } from "@/context/paginationsContext";
 import { DownloadEntry } from "@/types";
+import { DOWNLOADS_PATH } from "@/utils/site";
 
 export type DownloadRow = DownloadEntry & { summary: string };
 
@@ -26,11 +28,50 @@ const COLUMNS: { label: string; widthClass: string; align: Alignment }[] = [
   { label: "", widthClass: "md:w-32", align: "right" },
 ];
 
+// What the download handler sends us back with when it can't hand out a
+// bundle. Keyed by the `error` query param it sets.
+const ERROR_MESSAGES: Record<string, string> = {
+  missing_key: "Enter your API key to download a bundle.",
+  invalid_key: "That API key was not accepted. Check it, or request a new one.",
+  rate_limited: "Too many requests for this key — wait a minute and retry.",
+  unavailable: "Downloads are temporarily unavailable. Please try again shortly.",
+};
+
 interface DownloadsTableProps {
   data: DownloadRow[];
+  // `error` query param from a bounced download attempt, if any.
+  error?: string;
 }
 
-const DownloadsTable = ({ data }: DownloadsTableProps) => {
+// Downloads are gated like the API: the same key, POSTed with each
+// Download click to /food-composition-downloads/<version>, which forwards
+// it to the API and follows the redirect to a short-lived signed URL. The
+// key lives in component state only — never in a URL, never persisted.
+const DownloadButton = ({
+  version,
+  apiKey,
+}: {
+  version: string;
+  apiKey: string;
+}) => (
+  <form method="post" action={`${DOWNLOADS_PATH}/${version}`}>
+    <input type="hidden" name="key" value={apiKey} />
+    <Chip
+      icon={<MdDownload className="size-3" />}
+      label="Download"
+      tone="outline"
+      size="md"
+      disabled={!apiKey}
+      aria-label={
+        apiKey ? `Download ${version}` : "Enter your API key to download"
+      }
+      onClick={(e) => e.currentTarget.form?.requestSubmit()}
+    />
+  </form>
+);
+
+const DownloadsTable = ({ data, error }: DownloadsTableProps) => {
+  const [apiKey, setApiKey] = useState("");
   const { getTablePaginations } = usePaginations();
   const { currentPage } = getTablePaginations(TABLE_ID);
   const totalRows = data.length;
@@ -49,6 +90,36 @@ const DownloadsTable = ({ data }: DownloadsTableProps) => {
 
   return (
     <>
+    <div className="mb-6 flex flex-col gap-2">
+      <label
+        htmlFor="downloads-api-key"
+        className="text-sm/6 font-medium text-white"
+      >
+        API key
+      </label>
+      <input
+        id="downloads-api-key"
+        type="password"
+        autoComplete="off"
+        spellCheck={false}
+        value={apiKey}
+        onChange={(e) => setApiKey(e.target.value.trim())}
+        placeholder="Paste the key from your access email"
+        className="block w-full max-w-md rounded-lg bg-light-800 border-light-700/50 border py-2 px-3 text-sm/6 text-light-50 placeholder-light-500 focus:outline-none focus:outline-2 focus:-outline-offset-2 focus:outline-white/25"
+      />
+      <p className="text-sm text-light-400">
+        Downloads use the same key as the API. Don&apos;t have one?{" "}
+        <Link href="/contact?api-access" isExternal={false}>
+          Request access
+        </Link>{" "}
+        — it&apos;s free.
+      </p>
+      {error && ERROR_MESSAGES[error] && (
+        <p role="alert" className="text-sm text-amber-400">
+          {ERROR_MESSAGES[error]}
+        </p>
+      )}
+    </div>
     <div className="hidden md:block overflow-x-auto">
       <table className="w-full md:table-fixed">
         <thead className="text-light-400">
@@ -98,13 +169,7 @@ const DownloadsTable = ({ data }: DownloadsTableProps) => {
               </td>
               <td className="py-2 pl-3">
                 <div className="flex min-h-12 justify-end items-center">
-                  <Chip
-                    icon={<MdDownload className="size-3" />}
-                    label="Download"
-                    tone="outline"
-                    size="md"
-                    href={`/food-composition-downloads/${row.version}`}
-                  />
+                  <DownloadButton version={row.version} apiKey={apiKey} />
                 </div>
               </td>
             </tr>
@@ -136,13 +201,7 @@ const DownloadsTable = ({ data }: DownloadsTableProps) => {
             <span className="font-mono italic text-[10px] uppercase tracking-wider text-light-500">
               {row.file_size}
             </span>
-            <Chip
-              icon={<MdDownload className="size-3" />}
-              label="Download"
-              tone="outline"
-              size="md"
-              href={`/food-composition-downloads/${row.version}`}
-            />
+            <DownloadButton version={row.version} apiKey={apiKey} />
           </div>
         </div>
       ))}

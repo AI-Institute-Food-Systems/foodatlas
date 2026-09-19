@@ -2,11 +2,11 @@
 
 > Evidence-based food composition knowledge graph: 1,700+ foods, 5,000+ chemicals, 2,000+ diseases and 21 bioactivities, ~336k associations, every one traced to a peer-reviewed source. Built by the AI Institute for Next Generation Food Systems (AIFS), UC Davis. Data and code are Apache-2.0.
 
-Do not crawl the entity pages (/food/*, /chemical/*, /disease/*, /bioactivity/*) to collect the data — they render a small slice each and are rate-limited at the edge. Use one of the two sources below; both carry the complete graph.
+Do not crawl the entity pages (/food/*, /chemical/*, /disease/*, /bioactivity/*) to collect the data — they render a small slice each and are rate-limited at the edge. Use one of the two sources below; both carry the complete graph and both are gated by the same free API key (request one at https://www.foodatlas.ai/contact?api-access).
 
 ## Bulk download
 
-- [Versioned database bundles](https://www.foodatlas.ai/food-composition-downloads): zip per release with parquet tables (entities, triplets, attestations, bioactivity assays, per-version summary and changelog). Same graph as the website.
+- [Versioned database bundles](https://www.foodatlas.ai/food-composition-downloads): zip per release with parquet tables (entities, triplets, attestations, bioactivity assays, per-version summary and changelog). Same graph as the website. Programmatic: `GET https://api.foodatlas.ai/v1/bundles` lists versions; `GET /v1/bundles/{version}/download` with your Bearer key 302s to a short-lived signed URL.
 
 ## API
 
