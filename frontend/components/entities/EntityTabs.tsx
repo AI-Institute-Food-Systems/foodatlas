@@ -19,7 +19,6 @@ import { twMerge } from "tailwind-merge";
 import Card from "@/components/basic/Card";
 import Skeleton from "@/components/basic/Skeleton";
 import { useTabCounts } from "@/context/tabCountsContext";
-import { track } from "@/utils/umami";
 
 // Owned by the (React-free, server-readable) config so `loading.tsx` can
 // import it without pulling this client component across the boundary.
@@ -148,9 +147,6 @@ const EntityTabs = ({ entityType, tabs: rawTabs, defaultTabId }: Props) => {
     const id = tabs[next]?.id;
     if (!id) return;
     setSelectedIndex(next);
-    // Type + tab only: with the entity id the property would have one value
-    // per page and tell us nothing about which tabs get used.
-    track("tab_switch", { entity_type: entityType, tab: id });
     // The `tab` param is bookkeeping for deep links and sharing — no page
     // reads it during render, so going through the router would only buy a
     // wasted RSC round-trip (and re-run the server-side badge-count
