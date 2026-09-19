@@ -201,6 +201,10 @@ class ApiStack(cdk.Stack):
         # via boto3 so we cannot inject the value once at task start.
         public_keys_secret.grant_read(task_definition.task_role)
 
+        # Bundle zips are private; /v1/bundles/{version}/download pre-signs
+        # them with this role, so it needs GetObject on the downloads bucket.
+        downloads_bucket.grant_read(task_definition.task_role)
+
         cert_arn = self.node.try_get_context("api_cert_arn")
         service_kwargs: dict[str, Any] = {
             "cluster": self.cluster,

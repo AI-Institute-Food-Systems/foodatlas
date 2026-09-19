@@ -51,14 +51,17 @@ describe("structured data", () => {
     expect(d.license).toBe("https://www.apache.org/licenses/LICENSE-2.0");
     expect(d.isAccessibleForFree).toBe(true);
     expect(d.version).toBe("v4.12");
+    expect(d.conditionsOfAccess).toMatch(/API key required/);
     expect(d.distribution).toEqual([
       expect.objectContaining({
         "@type": "DataDownload",
-        contentUrl: entry.download_link,
+        // Gated hop, never the raw object URL.
+        contentUrl: "https://api.foodatlas.ai/v1/bundles/v4.12/download",
         encodingFormat: "application/zip",
         datePublished: "2026-09-18",
       }),
     ]);
+    expect(JSON.stringify(d)).not.toContain("downloads.example");
     expect(d.citation).toMatch(/^https:\/\/doi\.org\//);
   });
 

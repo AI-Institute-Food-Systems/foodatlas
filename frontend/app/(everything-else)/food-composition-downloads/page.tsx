@@ -31,7 +31,11 @@ async function fetchSummary(url: string): Promise<string> {
   }
 }
 
-const Downloads = async () => {
+interface DownloadsPageProps {
+  searchParams?: { error?: string };
+}
+
+const Downloads = async ({ searchParams }: DownloadsPageProps) => {
   const entries: DownloadEntry[] = await getDownloadEntries();
   const summaries = await Promise.all(
     entries.map((e) => fetchSummary(e.summary_link)),
@@ -55,7 +59,16 @@ const Downloads = async () => {
           <Link href="https://www.apache.org/licenses/LICENSE-2.0">
             Apache-2.0
           </Link>{" "}
-          license.
+          license. Downloads are gated the same way as the API: request a free
+          key through the{" "}
+          <Link href="/contact?api-access" isExternal={false}>
+            contact form
+          </Link>{" "}
+          and use it below, or fetch bundles programmatically via{" "}
+          <Link href="/developers" isExternal={false}>
+            /v1/bundles
+          </Link>
+          .
         </p>
       </div>
       <div className="mt-16">
@@ -78,7 +91,7 @@ const Downloads = async () => {
       </div>
       <div className="mt-8">
         <Card>
-          <DownloadsTable data={data} />
+          <DownloadsTable data={data} error={searchParams?.error} />
         </Card>
         <p className="mt-4 text-sm text-light-400">
           Versions prior to v4.0 are retired and no longer available for

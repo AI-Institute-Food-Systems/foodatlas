@@ -266,3 +266,17 @@ def test_umami_host_url_alone_is_ignored() -> None:
         _synth(context={"api_umami_host_url": "https://umami.example.org"})
     )
     assert "API_UMAMI_HOST_URL" not in env
+
+
+def test_task_role_can_read_downloads_bucket() -> None:
+    # Needed to pre-sign bundle zips for /v1/bundles/{version}/download.
+    template = _synth()
+    policies = template.find_resources("AWS::IAM::Policy")
+    downloads_reads = [
+        stmt
+        for policy in policies.values()
+        for stmt in policy["Properties"]["PolicyDocument"]["Statement"]
+        if "s3:GetObject*" in stmt.get("Action", [])
+        and "TestDownloadsStack" in str(stmt.get("Resource"))
+    ]
+    assert downloads_reads, "no GetObject grant on the downloads bucket"

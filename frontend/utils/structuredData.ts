@@ -4,6 +4,10 @@ import type { DownloadEntry } from "@/types";
 import { CANONICAL_PUBLICATION, doiUrl } from "@/utils/publications";
 import { API_URL, DOWNLOADS_PATH, SITE_URL } from "@/utils/site";
 
+// Downloads are gated like the API: free, but behind a key. Schema.org has
+// a field for exactly that distinction, so crawlers don't try the link raw.
+const ACCESS_CONDITIONS = `Free API key required; request one at ${SITE_URL}/contact?api-access`;
+
 const ORGANIZATION = {
   "@type": "Organization",
   name: "AI Institute for Next Generation Food Systems (AIFS), UC Davis",
@@ -21,6 +25,7 @@ export const datasetJsonLd = (entries: DownloadEntry[]) => ({
   url: `${SITE_URL}${DOWNLOADS_PATH}`,
   license: LICENSE,
   isAccessibleForFree: true,
+  conditionsOfAccess: ACCESS_CONDITIONS,
   creator: ORGANIZATION,
   citation: doiUrl(CANONICAL_PUBLICATION.doi),
   keywords: [
@@ -34,7 +39,9 @@ export const datasetJsonLd = (entries: DownloadEntry[]) => ({
   distribution: entries.map((e) => ({
     "@type": "DataDownload",
     name: `FoodAtlas ${e.version}`,
-    contentUrl: e.download_link,
+    // The gated hop, not the object: GET with a Bearer key → 302 to a
+    // signed URL. Raw object URLs are private.
+    contentUrl: `${API_URL}/v1/bundles/${e.version}/download`,
     encodingFormat: "application/zip",
     datePublished: e.release_date,
     contentSize: e.file_size,
@@ -50,6 +57,7 @@ export const webApiJsonLd = () => ({
   url: `${API_URL}/v1`,
   documentation: `${API_URL}/docs`,
   termsOfService: `${SITE_URL}/developers`,
+  conditionsOfAccess: ACCESS_CONDITIONS,
   provider: ORGANIZATION,
   license: LICENSE,
 });

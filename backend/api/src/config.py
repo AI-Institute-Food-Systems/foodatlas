@@ -15,6 +15,14 @@ class APISettings(BaseSettings):
     debug: bool = True
     downloads_bucket: str = ""
     downloads_region: str = "us-west-1"
+    # Bundle zips are private; /v1/bundles/{version}/download hands out a
+    # pre-signed S3 URL that lives this long. Short on purpose: the URL is
+    # the only thing that bypasses the key check.
+    downloads_presign_seconds: int = 600
+    # Absolute base for URLs the API hands back about itself (the gated
+    # bundle download link). The ALB terminates TLS, so request.url would
+    # say http://.
+    public_url: str = "https://api.foodatlas.ai"
     # Per-attestation LLM-plausibility score at-or-below this is "low trust"
     # (the comparison is inclusive — score <= threshold counts as low).
     # The composition / data-points endpoints filter on this when the

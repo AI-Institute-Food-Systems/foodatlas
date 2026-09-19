@@ -71,3 +71,55 @@ async def test_fetch_manifest_returns_empty_when_payload_is_not_array() -> None:
         httpx, "AsyncClient", _mock_async_client(json_payload={"oops": 1})
     ):
         assert await downloads.fetch_manifest("bucket", "us-west-1") == []
+
+
+# -- Gated download: key parsing + pre-signing ------------------------------
+
+
+class TestObjectKeyFromUrl:
+    def test_virtual_hosted_style(self) -> None:
+        url = "https://b.s3.us-west-1.amazonaws.com/bundles/v4.12/foodatlas-v4.12.zip"
+        assert downloads.object_key_from_url(url) == "bundles/v4.12/foodatlas-v4.12.zip"
+
+    def test_path_style(self) -> None:
+        url = "https://s3.us-west-1.amazonaws.com/b/bundles/v4.12/x.zip"
+        assert downloads.object_key_from_url(url) == "bundles/v4.12/x.zip"
+
+    def test_percent_encoding_is_undone(self) -> None:
+        url = "https://b.s3.us-west-1.amazonaws.com/bundles/v4.12/food%20atlas.zip"
+        assert downloads.object_key_from_url(url) == "bundles/v4.12/food atlas.zip"
+
+
+ENTRIES = [{"version": "v4.12"}, {"version": "v4.11"}]
+
+
+class TestFindBundle:
+    def test_leading_v_is_optional(self) -> None:
+        assert downloads.find_bundle(ENTRIES, "4.12") == {"version": "v4.12"}
+        assert downloads.find_bundle(ENTRIES, "v4.11") == {"version": "v4.11"}
+
+    def test_unknown_is_none(self) -> None:
+        assert downloads.find_bundle(ENTRIES, "v0.0") is None
+
+
+class TestPresignBundle:
+    def test_signs_the_manifest_objects_key_with_the_configured_ttl(self) -> None:
+        client = MagicMock()
+        client.generate_presigned_url.return_value = "https://signed"
+        entry = {
+            "version": "v4.12",
+            "download_link": "https://b.s3.us-west-1.amazonaws.com/bundles/v4.12/f.zip",
+        }
+        url = downloads.presign_bundle(
+            entry,
+            bucket="b",
+            region="us-west-1",
+            expires_seconds=600,
+            client_factory=lambda: client,
+        )
+        assert url == "https://signed"
+        client.generate_presigned_url.assert_called_once_with(
+            "get_object",
+            Params={"Bucket": "b", "Key": "bundles/v4.12/f.zip"},
+            ExpiresIn=600,
+        )
