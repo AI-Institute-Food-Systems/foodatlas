@@ -229,6 +229,27 @@ class TestDiseaseCorrelation:
         assert body["metadata"]["total_pages"] == 1
 
 
+# -- /metadata/entities -----------------------------------------------------
+
+
+class TestMetadataEntities:
+    def test_returns_flat_entity_index(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        rows = [
+            {
+                "foodatlas_id": "e1",
+                "entity_type": "chemical",
+                "common_name": "quercetin",
+            },
+            {"foodatlas_id": "e2", "entity_type": "food", "common_name": "tomato"},
+        ]
+        with patch("src.repositories.search.list_entities", return_value=rows):
+            resp = client.get("/metadata/entities")
+        assert resp.status_code == 200
+        assert resp.json() == {"data": rows}
+
+
 # -- /metadata/search -------------------------------------------------------
 
 SEARCH_SAMPLE = {

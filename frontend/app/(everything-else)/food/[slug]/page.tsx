@@ -17,6 +17,7 @@ import {
   getFoodInferredBioactivities,
   getMetaData,
 } from "@/utils/fetching";
+import { apiEntityUrl } from "@/utils/site";
 import { decodeSpace, toTitleCase } from "@/utils/utils";
 
 interface FoodPageProps {
@@ -37,6 +38,10 @@ export async function generateMetadata({
     description: `Nutritional value of ${toTitleCase(
       metaData.common_name
     )}. Use evidence based molecular composition to help inform your food choices.`,
+    // The same entity as JSON, for anyone who wants the data not the page.
+    alternates: {
+      types: { "application/json": apiEntityUrl("food", metaData.id) },
+    },
   };
 }
 

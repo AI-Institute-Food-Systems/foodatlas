@@ -4,8 +4,10 @@ import Card from "@/components/basic/Card";
 import Citation from "@/components/basic/Citation";
 import Code from "@/components/basic/Code";
 import Heading from "@/components/basic/Heading";
+import JsonLd from "@/components/misc/JsonLd";
 import Link from "@/components/basic/Link";
 import { CANONICAL_PUBLICATION } from "@/utils/publications";
+import { webApiJsonLd } from "@/utils/structuredData";
 
 export const metadata: Metadata = {
   title: "Developers | FoodAtlas Public API",
@@ -105,6 +107,7 @@ const ENDPOINTS: Array<{ method: string; path: string; summary: string }> = [
 const Developers = () => {
   return (
     <div>
+      <JsonLd data={webApiJsonLd()} />
       <div>
         <Heading type="h1" variant="display">
           Developer API
