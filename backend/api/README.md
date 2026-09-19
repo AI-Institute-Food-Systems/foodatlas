@@ -30,8 +30,10 @@ Settings are read from `API_*` and `DB_*` environment variables (or a `.env` fil
 | `API_KEY` | (empty) | env var on the task | Bearer token for authentication |
 | `API_CORS_ORIGINS` | `http://localhost:3000` | env var on the task | Comma-separated allowed origins. Set to `http://localhost:3001` to call from the local Next.js dev server. |
 | `API_DEBUG` | `true` | `False` | Skip API key verification when true |
-| `API_DOWNLOADS_BUCKET` | (empty) | downloads bucket name from `FoodAtlasDownloadsStack` | Public-read S3 bucket the `/download` endpoint reads `bundles/index.json` from |
+| `API_DOWNLOADS_BUCKET` | (empty) | downloads bucket name from `FoodAtlasDownloadsStack` | S3 bucket holding `bundles/index.json` (public) and the bundle zips (private; the task role pre-signs them) |
 | `API_DOWNLOADS_REGION` | `us-west-1` | env var on the task | AWS region for the downloads bucket |
+| `API_DOWNLOADS_PRESIGN_SECONDS` | `600` | default | Lifetime of the pre-signed S3 URL that `/v1/bundles/{version}/download` redirects to. Bundle zips are private; this URL is the only unauthenticated path to one. |
+| `API_PUBLIC_URL` | `https://api.foodatlas.ai` | default | Base for the gated `download_link` values in `/v1/bundles` |
 | `API_UMAMI_WEBSITE_ID` | (empty = off) | CDK context `api_umami_website_id` | umami website that receives one `api_request` event per external `/v1` call (`src/umami_sink.py`). Not gated on `API_DEBUG`, so a local run can post to a fake receiver. |
 | `API_UMAMI_HOST_URL` | `https://umami.aifs.ucdavis.edu` | CDK context `api_umami_host_url` (optional) | umami base URL; events go to `<host>/api/send` |
 | `API_UMAMI_HOSTNAME` | `api.foodatlas.ai` | default | `hostname` field on each event |

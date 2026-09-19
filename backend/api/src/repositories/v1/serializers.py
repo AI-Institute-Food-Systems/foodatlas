@@ -263,5 +263,7 @@ class Bundle(BaseModel):
     release_date: str
     file_size: str = ""
     kgc_run: str = ""
+    # Gated: GET it with your Bearer key and follow the 302 to a
+    # short-lived pre-signed URL. Never a raw object URL.
     download_link: str
     summary_link: str = ""

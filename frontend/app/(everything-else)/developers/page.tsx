@@ -4,8 +4,10 @@ import Card from "@/components/basic/Card";
 import Citation from "@/components/basic/Citation";
 import Code from "@/components/basic/Code";
 import Heading from "@/components/basic/Heading";
+import JsonLd from "@/components/misc/JsonLd";
 import Link from "@/components/basic/Link";
 import { CANONICAL_PUBLICATION } from "@/utils/publications";
+import { webApiJsonLd } from "@/utils/structuredData";
 
 export const metadata: Metadata = {
   title: "Developers | FoodAtlas Public API",
@@ -100,11 +102,17 @@ const ENDPOINTS: Array<{ method: string; path: string; summary: string }> = [
   { method: "GET", path: "/v1/search", summary: "Trigram autocomplete" },
   { method: "GET", path: "/v1/stats", summary: "Aggregate counts" },
   { method: "GET", path: "/v1/bundles", summary: "Released bulk-download bundles" },
+  {
+    method: "GET",
+    path: "/v1/bundles/{version}/download",
+    summary: "302 to a short-lived signed URL for one bundle",
+  },
 ];
 
 const Developers = () => {
   return (
     <div>
+      <JsonLd data={webApiJsonLd()} />
       <div>
         <Heading type="h1" variant="display">
           Developer API
@@ -306,8 +314,11 @@ const Developers = () => {
             <Link href="/food-composition-downloads" isExternal={false}>
               Downloads
             </Link>{" "}
-            and via <Code>/v1/bundles</Code>. Use those for
-            corpus-scale work rather than scraping the API.
+            and via <Code>/v1/bundles</Code>, gated by the same key:{" "}
+            <Code>/v1/bundles/{"{version}"}/download</Code> answers with a
+            302 to a signed URL that is valid for ten minutes, so pass{" "}
+            <Code>-L</Code> to curl. Use those for corpus-scale work rather
+            than scraping the API.
           </p>
         </Card>
       </div>

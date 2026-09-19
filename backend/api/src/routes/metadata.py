@@ -26,6 +26,14 @@ async def search(
     return await search_repo.search(db, term, page, rows_per_page)
 
 
+@router.get("/entities")
+async def entities(
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, list[dict[str, str]]]:
+    """Full entity index for the frontend sitemap (~12k rows, unpaginated)."""
+    return {"data": await search_repo.list_entities(db)}
+
+
 @router.get("/statistics")
 async def statistics(
     db: AsyncSession = Depends(get_db),

@@ -1,18 +1,20 @@
-"""Downloads stack: public-read S3 bucket for released data bundles.
+"""Downloads stack: S3 bucket for released data bundles, zips gated.
 
 Holds two things:
 
 - ``bundles/<version>/<filename>`` — released FoodAtlas data bundles
-  (e.g. parquet zips). Uploaded via ``backend/kgc/scripts/publish-bundle.sh``.
+  (parquet zips) plus a ``SUMMARY.md`` per version. Uploaded via
+  ``backend/kgc/scripts/publish-bundle.sh``.
 - ``bundles/index.json`` — manifest describing all released bundles
-  (version, release date, changelog, file size, download link). The API
-  reads this manifest over HTTPS to populate the downloads page.
+  (version, release date, file size, links). The API reads this over
+  HTTPS to populate the downloads page.
 
-Unlike :class:`stacks.storage_stack.StorageStack` (private KGC
-artifacts), this bucket grants anonymous ``s3:GetObject`` so that
-anyone can fetch a bundle directly via its public S3 URL. Listing is
-not granted — callers must know the key (they learn it from the
-manifest).
+Access is split by object type. The manifest and the ``*.md`` summaries
+are anonymously readable so the downloads page renders for everyone. The
+zips are **not**: downloads are gated exactly like the API — a key
+holder calls ``/v1/bundles/{version}/download`` and the API, whose task
+role has ``s3:GetObject`` here, answers with a short-lived pre-signed
+URL. Listing is never granted.
 """
 
 from __future__ import annotations
@@ -50,19 +52,25 @@ def _build_downloads_bucket(scope: cdk.Stack, construct_id: str) -> s3.Bucket:
             ),
         ],
     )
+    # Anonymous read for the manifest and the summaries only. The zips fall
+    # through to the account default (private) and are reached solely via
+    # the API's pre-signed URLs.
     bucket.add_to_resource_policy(
         iam.PolicyStatement(
             effect=iam.Effect.ALLOW,
             principals=[iam.AnyPrincipal()],
             actions=["s3:GetObject"],
-            resources=[bucket.arn_for_objects("*")],
+            resources=[
+                bucket.arn_for_objects("bundles/index.json"),
+                bucket.arn_for_objects("bundles/*/*.md"),
+            ],
         ),
     )
     return bucket
 
 
 class DownloadsStack(cdk.Stack):
-    """Public-read S3 bucket for released FoodAtlas data bundles."""
+    """S3 bucket for released FoodAtlas data bundles (manifest public, zips gated)."""
 
     def __init__(
         self,
@@ -78,5 +86,5 @@ class DownloadsStack(cdk.Stack):
             self,
             "DownloadsBucketName",
             value=self.downloads_bucket.bucket_name,
-            description="Public S3 bucket for released FoodAtlas data bundles",
+            description="S3 bucket for released FoodAtlas data bundles (zips gated)",
         )

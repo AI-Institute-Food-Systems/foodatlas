@@ -18,6 +18,7 @@ import {
   getBioactivityFoods,
   getMetaData,
 } from "@/utils/fetching";
+import { apiEntityUrl } from "@/utils/site";
 import { decodeSpace, toTitleCase } from "@/utils/utils";
 
 interface BioactivityPageProps {
@@ -38,6 +39,10 @@ export async function generateMetadata({
     description: `Chemical measurements and food sources for the ${toTitleCase(
       metaData.common_name
     )} bioactivity.`,
+    // The same entity as JSON, for anyone who wants the data not the page.
+    alternates: {
+      types: { "application/json": apiEntityUrl("bioactivity", metaData.id) },
+    },
   };
 }
 

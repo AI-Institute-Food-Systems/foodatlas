@@ -102,6 +102,11 @@ sustained with a burst of 10.
 
 ## Who is actually using the API
 
+Bundle downloads are gated by the same key (since 2026-09-19): the downloads page POSTs the
+key to the API's `/v1/bundles/{version}/download`, so a download is just another `/v1` request
+in everything below — `route = "/v1/bundles/{version}/download"`. There is no separate download
+signup; "API Access Request" on the contact form covers both.
+
 Every `/v1/*` request writes one JSON line to the API's CloudWatch log group (six-month
 retention), tagged `"log": "v1_access"` and attributed to the key's email. Logs Insights →
 log group `/aws/ecs/...ApiLogGroup...`.

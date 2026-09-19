@@ -93,6 +93,23 @@ async def search(
     }
 
 
+async def list_entities(session: AsyncSession) -> list[dict[str, str]]:
+    """Every searchable entity as (foodatlas_id, entity_type, common_name).
+
+    Feeds the frontend sitemap, which is the one caller that legitimately
+    needs the whole index at once. Reads the same MV as search, so the
+    sitemap lists exactly the pages search can reach — nothing more.
+    """
+    result = await session.execute(
+        text("""
+        SELECT foodatlas_id, entity_type, common_name
+        FROM mv_search_auto_complete
+        ORDER BY entity_type, common_name
+        """)
+    )
+    return [dict(row._mapping) for row in result]
+
+
 async def get_statistics(session: AsyncSession) -> dict[str, object]:
     """Get aggregate statistics for the landing page."""
     result = await session.execute(

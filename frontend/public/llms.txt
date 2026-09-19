@@ -1,0 +1,23 @@
+# FoodAtlas
+
+> Evidence-based food composition knowledge graph: 1,700+ foods, 5,000+ chemicals, 2,000+ diseases and 21 bioactivities, ~336k associations, every one traced to a peer-reviewed source. Built by the AI Institute for Next Generation Food Systems (AIFS), UC Davis. Data and code are Apache-2.0.
+
+Do not crawl the entity pages (/food/*, /chemical/*, /disease/*, /bioactivity/*) to collect the data — they render a small slice each and are rate-limited at the edge. Use one of the two sources below; both carry the complete graph and both are gated by the same free API key (request one at https://www.foodatlas.ai/contact?api-access).
+
+## Bulk download
+
+- [Versioned database bundles](https://www.foodatlas.ai/food-composition-downloads): zip per release with parquet tables (entities, triplets, attestations, bioactivity assays, per-version summary and changelog). Same graph as the website. Programmatic: `GET https://api.foodatlas.ai/v1/bundles` lists versions; `GET /v1/bundles/{version}/download` with your Bearer key 302s to a short-lived signed URL.
+
+## API
+
+- [Public REST API, base https://api.foodatlas.ai/v1](https://api.foodatlas.ai/docs): foods, chemicals, diseases, bioactivities, triplets, attestations, search, stats. JSON, paginated, `Authorization: Bearer <key>`.
+- [OpenAPI 3 spec](https://api.foodatlas.ai/openapi.json)
+- [Get a free API key](https://www.foodatlas.ai/contact?api-access): 60 req/min per key.
+- [Developer guide](https://www.foodatlas.ai/developers)
+
+## About
+
+- [How the graph is built](https://www.foodatlas.ai/technical-background)
+- [Validation](https://www.foodatlas.ai/validation)
+- [Team and contact](https://www.foodatlas.ai/about)
+- Cite: Li, F., Youn, J., Xie, K., Chan, T., Gupta, P., Yoo, A., Gunning, M., Ni, K., & Tagkopoulos, I. (2026). A unified knowledge graph linking foodomics to chemical-disease networks and flavor profiles. *npj Science of Food*, 10(1), 33. https://doi.org/10.1038/s41538-025-00680-9
