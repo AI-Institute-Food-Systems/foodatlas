@@ -1,8 +1,9 @@
 # FoodAtlas — evidence-based food composition knowledge graph (Apache-2.0).
 #
-# Please don't scrape the entity pages. The whole graph is one download:
+# Please don't scrape the entity pages. The whole graph is one download, and
+# the API serves the same data; both need a free key
+# (https://www.foodatlas.ai/contact?api-access):
 #   https://www.foodatlas.ai/food-composition-downloads
-# or query it directly (free key: https://www.foodatlas.ai/contact?api-access):
 #   https://api.foodatlas.ai/v1
 #   OpenAPI: https://api.foodatlas.ai/openapi.json   Docs: https://api.foodatlas.ai/docs
 # Machine-readable summary for LLM agents: https://www.foodatlas.ai/llms.txt

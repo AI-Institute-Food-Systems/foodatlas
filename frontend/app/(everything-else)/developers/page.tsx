@@ -102,6 +102,11 @@ const ENDPOINTS: Array<{ method: string; path: string; summary: string }> = [
   { method: "GET", path: "/v1/search", summary: "Trigram autocomplete" },
   { method: "GET", path: "/v1/stats", summary: "Aggregate counts" },
   { method: "GET", path: "/v1/bundles", summary: "Released bulk-download bundles" },
+  {
+    method: "GET",
+    path: "/v1/bundles/{version}/download",
+    summary: "302 to a short-lived signed URL for one bundle",
+  },
 ];
 
 const Developers = () => {
@@ -309,8 +314,11 @@ const Developers = () => {
             <Link href="/food-composition-downloads" isExternal={false}>
               Downloads
             </Link>{" "}
-            and via <Code>/v1/bundles</Code>. Use those for
-            corpus-scale work rather than scraping the API.
+            and via <Code>/v1/bundles</Code>, gated by the same key:{" "}
+            <Code>/v1/bundles/{"{version}"}/download</Code> answers with a
+            302 to a signed URL that is valid for ten minutes, so pass{" "}
+            <Code>-L</Code> to curl. Use those for corpus-scale work rather
+            than scraping the API.
           </p>
         </Card>
       </div>
