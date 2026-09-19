@@ -18,6 +18,7 @@ import {
   getChemicalCompositionData,
   getMetaData,
 } from "@/utils/fetching";
+import { apiEntityUrl } from "@/utils/site";
 import { decodeSpace, toTitleCase } from "@/utils/utils";
 
 interface ChemicalPageProps {
@@ -29,12 +30,21 @@ export async function generateMetadata({
 }: ChemicalPageProps): Promise<Metadata> {
   const { slug } = params;
   const commonName = decodeSpace(decodeURIComponent(slug));
+  // Same cached call the page body makes; only needed here for the id.
+  // Unlike the other entity pages this one keeps rendering without it.
+  const metaData = await getMetaData(commonName, "chemical");
 
   return {
     title: `${toTitleCase(commonName)} in Foods - Evidence Based Database`,
     description: `Discover which foods contain ${toTitleCase(
       commonName
     )} and how it impacts your health.`,
+    // The same entity as JSON, for anyone who wants the data not the page.
+    ...(metaData && {
+      alternates: {
+        types: { "application/json": apiEntityUrl("chemical", metaData.id) },
+      },
+    }),
   };
 }
 

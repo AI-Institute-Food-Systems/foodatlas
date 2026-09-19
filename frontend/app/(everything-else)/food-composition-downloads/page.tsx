@@ -9,9 +9,11 @@ import Heading from "@/components/basic/Heading";
 import DownloadsTable, {
   DownloadRow,
 } from "@/components/misc/DownloadsTable";
+import JsonLd from "@/components/misc/JsonLd";
 import { DownloadEntry } from "@/types";
 import { getDownloadEntries } from "@/utils/fetching";
 import { CANONICAL_PUBLICATION } from "@/utils/publications";
+import { datasetJsonLd } from "@/utils/structuredData";
 
 export const metadata: Metadata = {
   title: "FoodAtlas | Download Food Composition Data",
@@ -41,6 +43,9 @@ const Downloads = async () => {
 
   return (
     <div>
+      {/* schema.org Dataset: what Google Dataset Search and data-hungry
+       * crawlers read instead of scraping entity pages. */}
+      <JsonLd data={datasetJsonLd(entries)} />
       <div>
         <Heading type="h1" variant="display">Download Database Bundles</Heading>
         <p className="mt-6 text-base leading-relaxed text-light-200">

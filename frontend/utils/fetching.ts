@@ -284,6 +284,27 @@ export async function getCorrelationDirectionCounts(
   return await response.json();
 }
 
+// Every searchable entity — the sitemap's input. Empty on any failure so a
+// flaky API yields a thin sitemap rather than a 500 for the crawler.
+export type EntityIndexRow = {
+  foodatlas_id: string;
+  entity_type: "food" | "chemical" | "disease" | "bioactivity";
+  common_name: string;
+};
+
+export async function getAllEntities(): Promise<EntityIndexRow[]> {
+  try {
+    const response = await apiFetch(`${apiBase()}/metadata/entities`, {
+      revalidate: 86400,
+    });
+    if (!response.ok) return [];
+    const { data } = await response.json();
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
 // fetch db bundle download entries
 export async function getDownloadEntries() {
   const response = await apiFetch(

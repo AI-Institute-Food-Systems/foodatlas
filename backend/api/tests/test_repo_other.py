@@ -11,7 +11,7 @@ from src.repositories.chemical import get_correlation as chem_correlation
 from src.repositories.chemical import get_metadata as chem_metadata
 from src.repositories.disease import get_correlation as disease_correlation
 from src.repositories.disease import get_metadata as disease_metadata
-from src.repositories.search import get_statistics, search
+from src.repositories.search import get_statistics, list_entities, search
 
 
 def _make_row(**kwargs: object) -> MagicMock:
@@ -293,6 +293,30 @@ class TestGetStatistics:
 
         result = await get_statistics(session)
         assert result["data"]["statistics"] == {}
+
+
+class TestListEntities:
+    @pytest.mark.asyncio
+    async def test_returns_every_row_as_plain_dicts(self) -> None:
+        rows = [
+            _make_row(
+                foodatlas_id="e1", entity_type="chemical", common_name="quercetin"
+            ),
+            _make_row(foodatlas_id="e2", entity_type="food", common_name="tomato"),
+        ]
+        session = _mock_session_single(rows)
+        result = await list_entities(session)
+        assert result == [
+            {
+                "foodatlas_id": "e1",
+                "entity_type": "chemical",
+                "common_name": "quercetin",
+            },
+            {"foodatlas_id": "e2", "entity_type": "food", "common_name": "tomato"},
+        ]
+        sql = str(session.execute.call_args.args[0])
+        assert "mv_search_auto_complete" in sql
+        assert "ORDER BY entity_type, common_name" in sql
 
 
 class TestChemicalCompositionEvidence:

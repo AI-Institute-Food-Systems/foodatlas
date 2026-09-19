@@ -12,6 +12,7 @@ import { DEFAULT_TAB_ID } from "@/components/entities/entityTabs.config";
 import EntityOverviewPanelSuspense from "@/components/entities/EntityOverviewPanelSuspense";
 import HeaderSectionSuspense from "@/components/entities/HeaderSectionSuspense";
 import { getMetaData } from "@/utils/fetching";
+import { apiEntityUrl } from "@/utils/site";
 import { decodeSpace, toTitleCase } from "@/utils/utils";
 
 interface DiseasePageProps {
@@ -32,6 +33,10 @@ export async function generateMetadata({
     description: `Evidence-based correlations between ${toTitleCase(
       metaData.common_name
     )} and the foods that contain it.`,
+    // The same entity as JSON, for anyone who wants the data not the page.
+    alternates: {
+      types: { "application/json": apiEntityUrl("disease", metaData.id) },
+    },
   };
 }
 
