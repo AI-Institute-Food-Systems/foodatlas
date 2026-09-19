@@ -221,6 +221,7 @@ const SearchBar = () => {
     setIsFocused(false);
     setSelectedSuggestion(-1);
     inputRef.current?.blur();
+    track("search_submit", { query: normaliseQuery(searchTerm) });
     startNav();
     // Terms carry `&`, `#` and `+` (e.g. `vitamin b6 & b12`); unencoded they
     // truncate or corrupt the query string the results page reads back.
@@ -256,6 +257,7 @@ const SearchBar = () => {
               ? 84
               : 72,
           );
+          track("search_submit", { query: normaliseQuery(searchTerm) });
           startNav();
           router.push(`/results?term=${encodeURIComponent(searchTerm)}`);
         }

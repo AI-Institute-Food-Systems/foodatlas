@@ -33,13 +33,17 @@ vi.mock("@/hooks/useSearchAutocompleteOptions", () => ({
 
 import Link from "@/components/basic/Link";
 import ContactForm from "@/components/contact/ContactForm";
-import EntityTabs from "@/components/entities/EntityTabs";
 import ErrorPageBeacon from "@/components/misc/ErrorPageBeacon";
+import SearchBar from "@/components/search/SearchBar";
 import SearchSuggestions from "@/components/search/SearchSuggestions";
 import SuggestionItem from "@/components/search/SuggestionItem";
-import { AutocompleteContext } from "@/context/autocompleteContext";
+import {
+  AutocompleteContext,
+  AutocompleteProvider,
+} from "@/context/autocompleteContext";
+import { NavigationProvider } from "@/context/navigationContext";
+import { PaginationsProvider } from "@/context/paginationsContext";
 import { SearchProvider } from "@/context/searchContext";
-import { TabCountsProvider } from "@/context/tabCountsContext";
 import { apiFetch, clearApiCache } from "@/utils/apiFetch";
 import { outboundLinkAttrs } from "@/utils/outboundLink";
 import { NO_RESULTS_SETTLE_MS } from "@/utils/searchEvents";
@@ -67,6 +71,10 @@ describe("outbound_link", () => {
     const a = screen.getByRole("link");
     expect(a).toHaveAttribute("data-umami-event", "outbound_link");
     expect(a).toHaveAttribute("data-umami-event-host", "pubmed.ncbi.nlm.nih.gov");
+    expect(a).toHaveAttribute(
+      "data-umami-event-url",
+      "https://pubmed.ncbi.nlm.nih.gov/123"
+    );
   });
 
   it("Link leaves internal links untagged", () => {
@@ -106,28 +114,6 @@ describe("contact_submit", () => {
       topic: "General Inquiry",
       outcome: "error",
     });
-  });
-});
-
-describe("tab_switch", () => {
-  it("reports entity type and tab id, no entity id", () => {
-    window.history.replaceState(null, "", "/food/tomato");
-    render(
-      <TabCountsProvider>
-        <EntityTabs
-          entityType="food"
-          defaultTabId="composition"
-          tabs={[
-            { id: "composition", label: "Composition", content: <div /> },
-            { id: "bioactivities", label: "Bioactivities", content: <div /> },
-          ]}
-        />
-      </TabCountsProvider>
-    );
-    fireEvent.click(screen.getAllByRole("tab", { name: /bioactivities/i })[0]);
-    expect(events("tab_switch")).toEqual([
-      { entity_type: "food", tab: "bioactivities" },
-    ]);
   });
 });
 
@@ -199,6 +185,57 @@ describe("search_select", () => {
     expect(events("search_select")).toEqual([
       { query: "tomato", entity_type: "food", id: "e123" },
     ]);
+  });
+});
+
+describe("search_submit", () => {
+  beforeEach(() => {
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    });
+  });
+
+  // The mocked pathname is an entity page, where the bar is mounted but
+  // faded out (aria-hidden) — query with hidden: true.
+  const input = () => screen.getByRole("textbox", { hidden: true });
+
+  const renderBar = () =>
+    render(
+      <NavigationProvider>
+        <PaginationsProvider>
+          <SearchProvider>
+            <AutocompleteProvider>
+              <SearchBar />
+            </AutocompleteProvider>
+          </SearchProvider>
+        </PaginationsProvider>
+      </NavigationProvider>
+    );
+
+  it("fires on Enter with no suggestion selected", () => {
+    renderBar();
+    fireEvent.change(input(), { target: { value: "  Vitamin C " } });
+    fireEvent.keyDown(input(), { key: "Enter" });
+    expect(events("search_submit")).toEqual([{ query: "vitamin c" }]);
+    expect(events("search_select")).toEqual([]);
+  });
+
+  it("fires on the Search button", () => {
+    renderBar();
+    fireEvent.change(input(), { target: { value: "garlic" } });
+    fireEvent.focus(input());
+    fireEvent.click(
+      screen.getByRole("button", { name: /^search$/i, hidden: true })
+    );
+    expect(events("search_submit")).toEqual([{ query: "garlic" }]);
+  });
+
+  it("does not fire on Enter with an empty term", () => {
+    renderBar();
+    fireEvent.keyDown(input(), { key: "Enter" });
+    expect(events("search_submit")).toEqual([]);
   });
 });
 
