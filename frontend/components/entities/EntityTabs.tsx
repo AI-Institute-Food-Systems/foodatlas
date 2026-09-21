@@ -318,7 +318,7 @@ const EntityTabs = ({ entityType, tabs: rawTabs, defaultTabId }: Props) => {
               // renders nothing: page load only pays for the tab you land
               // on, instead of every tab fetching at once.
               unmount={false}
-              className="outline-none focus-visible:outline-light-200 data-[selected]:animate-[fadeSlide_180ms_ease-out]"
+              className="outline-none focus-visible:outline-light-200"
             >
               {visited.has(tab.id) ? tab.content : null}
             </TabPanel>
