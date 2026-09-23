@@ -31,7 +31,7 @@ export async function middleware(request: NextRequest) {
 
   // Resolve entity ID → common_name via API
   const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-  const apiKey = process.env.NEXT_PUBLIC_API_KEY;
+  const apiKey = process.env.API_KEY;
   if (!apiUrl) return NextResponse.next();
 
   try {

@@ -39,7 +39,7 @@ const urlOf = (spy: CallRecorder): string => String(spy.mock.calls[0][0]);
 describe("composition filter URL contract", () => {
   beforeEach(() => {
     vi.stubEnv("NEXT_PUBLIC_API_URL", "http://api.test");
-    vi.stubEnv("NEXT_PUBLIC_API_KEY", "k");
+    vi.stubEnv("API_KEY", "k");
     clearApiCache();
   });
 
