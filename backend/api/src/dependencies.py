@@ -1,5 +1,6 @@
 """FastAPI dependencies: DB session and auth."""
 
+import secrets
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
 
@@ -73,6 +74,18 @@ async def get_db(request: Request) -> AsyncGenerator[AsyncSession]:
 _settings_dep = Depends(get_settings)
 
 
+def _matches(candidate: str, expected: str) -> bool:
+    """Compare a caller-supplied token against a secret in constant time.
+
+    A plain ``==`` on ``str`` short-circuits at the first differing byte, so the
+    time it takes to reject leaks how long a prefix the caller got right — enough
+    to recover the key one character at a time. Both sides are encoded first:
+    :func:`secrets.compare_digest` raises on non-ASCII ``str``, and the candidate
+    comes straight off the wire.
+    """
+    return secrets.compare_digest(candidate.encode("utf-8"), expected.encode("utf-8"))
+
+
 async def verify_api_key(
     request: Request,
     settings: APISettings = _settings_dep,
@@ -81,7 +94,7 @@ async def verify_api_key(
     if settings.debug or not settings.key:
         return
     auth = request.headers.get("Authorization", "")
-    if auth != f"Bearer {settings.key}":
+    if not _matches(auth, f"Bearer {settings.key}"):
         raise HTTPException(status_code=401, detail="Invalid API key")
 
 
@@ -105,7 +118,7 @@ async def verify_v1_key(
     if not auth.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Invalid API key")
     token = auth[len("Bearer ") :]
-    if settings.key and token == settings.key:
+    if settings.key and _matches(token, settings.key):
         request.state.api_key_email = "internal"
         request.state.api_key_prefix = ""
         request.state.api_key_org = "internal"
