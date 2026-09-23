@@ -33,11 +33,9 @@ export const useLandingStats = (): LandingStats | null => {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`${apiBase()}/metadata/statistics`, {
-          headers: {
-            Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
-          },
-        });
+        // No Authorization header: apiBase() is /_proxy-api in the browser
+        // and its route handler attaches the key server-side.
+        const res = await fetch(`${apiBase()}/metadata/statistics`);
         if (!res.ok) {
           if (!cancelled) setStats(EMPTY);
           return;

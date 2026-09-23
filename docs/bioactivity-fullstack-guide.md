@@ -105,7 +105,7 @@ region `us-west-1`). Production is **untouched** by bioactivity until launch.
 ### Getting access & credentials — start here
 
 This guide is **safe to commit: it contains no secrets.** Get the two values your frontend
-needs — `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_API_KEY` — in one of two ways.
+needs — `NEXT_PUBLIC_API_URL` and `API_KEY` — in one of two ways.
 
 **Option 1 — ask the maintainer (no AWS account needed).** If you're only building the
 frontend, ask the FoodAtlas maintainer for the staging **API URL** and **API key**, put them
@@ -127,7 +127,7 @@ aws cloudformation describe-stacks --stack-name FoodAtlasApiStack-Staging \
   --query "Stacks[0].Outputs[?OutputKey=='ApiUrl'].OutputValue" --output text
 ```
 
-*c) Fetch `NEXT_PUBLIC_API_KEY`* (the staging internal key):
+*c) Fetch `API_KEY`* (the staging internal key):
 ```bash
 ARN=$(aws cloudformation describe-stacks --stack-name FoodAtlasApiStack-Staging \
   --query "Stacks[0].Outputs[?OutputKey=='ApiKeySecretArn'].OutputValue" --output text)
@@ -148,7 +148,7 @@ time with `cdk destroy 'FoodAtlas*-Staging'`; redeploy with §8.
 foodatlas/
 ├── frontend/                     Next.js 14 app (port 3001)
 │   ├── utils/fetching.ts         ← API client (Bearer key); add bioactivity fetchers here
-│   ├── middleware.ts             reads NEXT_PUBLIC_API_URL / NEXT_PUBLIC_API_KEY
+│   ├── middleware.ts             reads NEXT_PUBLIC_API_URL / API_KEY
 │   └── next.config.mjs           rewrites/proxy config
 ├── backend/
 │   ├── api/                      FastAPI (port 8000)
@@ -182,7 +182,7 @@ No local backend needed. In your frontend repo:
 ```bash
 # frontend/.env.local
 NEXT_PUBLIC_API_URL=<staging API URL>     # fetch via §3 → Getting access, or ask the maintainer
-NEXT_PUBLIC_API_KEY=<staging API key>     # fetch via §3 → Getting access, or ask the maintainer
+API_KEY=<staging API key>                 # server-only; fetch via §3 → Getting access, or ask the maintainer
 ```
 ```bash
 cd frontend && npm install && npm run dev      # http://localhost:3001
@@ -209,7 +209,7 @@ cd backend/api && uv run python main.py
 # 4) Frontend (point at local API)
 #    frontend/.env.local:
 #      NEXT_PUBLIC_API_URL=http://localhost:8000
-#      NEXT_PUBLIC_API_KEY=anything            # ignored when API_DEBUG=True
+#      API_KEY=anything                        # ignored when API_DEBUG=True
 cd frontend && npm run dev
 ```
 
@@ -221,7 +221,7 @@ cd frontend && npm run dev
 | `API_DEBUG` | api (`API_` prefix) | `True` | **`True` skips the API-key check** + rate limit |
 | `API_KEY` | api | empty | the internal Bearer key (set on staging/prod) |
 | `API_CORS_ORIGINS` | api | `http://localhost:3000` | comma-separated allowed origins |
-| `NEXT_PUBLIC_API_URL` / `NEXT_PUBLIC_API_KEY` | frontend | — | the API base + Bearer key |
+| `NEXT_PUBLIC_API_URL` / `API_KEY` | frontend | — | the API base + Bearer key (the key is server-only) |
 
 Verify locally:
 ```bash

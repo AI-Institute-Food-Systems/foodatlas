@@ -3,9 +3,10 @@
 // On the server, Next's data cache already does the work — `next.revalidate`
 // is honoured and this is a plain pass-through.
 //
-// In the browser `next.revalidate` is silently ignored, and because every
-// request carries an Authorization header (and the /_proxy-api rewrite sets
-// no Cache-Control), the HTTP cache doesn't help either. So we keep our own:
+// In the browser `next.revalidate` is silently ignored, and the /_proxy-api
+// handler answers `Cache-Control: no-store`, so the HTTP cache doesn't help
+// either. (The browser sends no Authorization header — the handler attaches
+// the key server-side.) So we keep our own:
 // an in-flight map that collapses duplicate concurrent requests, plus a
 // bounded TTL map of parsed responses. That is what makes remounting a
 // component — reopening an entity tab, navigating back to a page you just
@@ -49,8 +50,11 @@ const stripIds = (url: string): string =>
     .replace(/\/e\d+(?=\/|$)/g, "/{id}")
     .replace(/\/\d+(?=\/|$)/g, "/{id}");
 
+// Server-only. API_KEY has no NEXT_PUBLIC_ prefix on purpose: the browser
+// must never see it. Client-side requests go to /_proxy-api, whose route
+// handler attaches this same key on the server.
 const authHeaders = () => ({
-  Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
+  Authorization: `Bearer ${process.env.API_KEY}`,
 });
 
 const cached = (body: unknown): ApiResponse => ({
@@ -97,7 +101,7 @@ export async function apiFetch(
   const request = (async (): Promise<ApiResponse> => {
     let res: Response;
     try {
-      res = await fetch(url, { headers: authHeaders() });
+      res = await fetch(url);
     } catch (err) {
       track("api_fetch_error", { path: stripIds(url), status: "network" });
       throw err;

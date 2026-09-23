@@ -131,7 +131,7 @@ Each sub-project reads its own `.env`. Defaults work out of the box for local de
 | `API_CORS_ORIGINS`    | `http://localhost:3000` | Comma-separated allowed origins (set to `http://localhost:3001` for local dev) |
 | `API_DEBUG`           | `true`                  | Skip API key verification when true                                              |
 | `NEXT_PUBLIC_API_URL` | —                        | Backend API URL (set to `http://localhost:8000`)                               |
-| `NEXT_PUBLIC_API_KEY` | —                        | Backend API key (not needed in debug mode)                                       |
+| `API_KEY`             | —                        | Backend API key, server-only (not needed in debug mode)                          |
 
 In production, `DB_USER`/`DB_PASSWORD` come from AWS Secrets Manager, `API_DEBUG=False`, and `NEXT_PUBLIC_API_URL` points at the ALB DNS or a custom domain. See [`infra/README.md`](infra/README.md).
 
