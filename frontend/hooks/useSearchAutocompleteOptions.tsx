@@ -5,12 +5,10 @@ import { AutocompleteContext } from "@/context/autocompleteContext";
 import { usePaginations } from "@/context/paginationsContext";
 import { apiBase } from "@/utils/fetching";
 
+// No Authorization header: this runs in the browser and apiBase() points at
+// /_proxy-api, whose route handler attaches the key server-side.
 const fetcher = async (url: string) => {
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
-    },
-  });
+  const response = await fetch(url);
   const json = await response.json();
   return json;
 };

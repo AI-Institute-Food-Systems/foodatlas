@@ -53,11 +53,14 @@ describe("apiFetch client cache", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it("sends the api key", async () => {
+  // The key is server-only. In the browser the request goes to /_proxy-api,
+  // whose route handler attaches it — so sending one from here would mean the
+  // key had leaked back into the bundle.
+  it("sends no api key from the browser", async () => {
     await apiFetch("/api/food?x=1", { revalidate: DAY });
 
     const [, init] = fetchMock.mock.calls[0];
-    expect(init.headers.Authorization).toMatch(/^Bearer /);
+    expect(init?.headers?.Authorization).toBeUndefined();
   });
 
   it("does not cache a failed response", async () => {

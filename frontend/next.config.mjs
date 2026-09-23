@@ -16,18 +16,10 @@ const nextConfig = {
         destination: "https://umami.aifs.ucdavis.edu/api/send",
       },
     ];
-    // Same-origin proxy to the API — lets the browser call a HTTPS path on
-    // dev.foodatlas.ai even when the upstream ALB only serves HTTP (staging
-    // has no TLS cert yet). Resolved at build time; only added when the env
-    // var exists so CI's bare `next build` (no NEXT_PUBLIC_API_URL set)
-    // doesn't fail validation on a literal "undefined/" destination.
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-    if (apiUrl) {
-      rewrites.push({
-        source: "/_proxy-api/:path*",
-        destination: `${apiUrl}/:path*`,
-      });
-    }
+    // /_proxy-api is no longer a rewrite: a rewrite forwards headers as-is
+    // and cannot attach the API key, which forced the key into the client
+    // bundle. It is now a route handler that injects the key server-side —
+    // see app/%5Fproxy-api/[...path]/route.ts.
     return rewrites;
   },
   redirects: async () => [
