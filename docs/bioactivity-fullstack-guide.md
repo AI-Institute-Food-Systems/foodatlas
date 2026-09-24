@@ -147,9 +147,11 @@ time with `cdk destroy 'FoodAtlas*-Staging'`; redeploy with §8.
 ```
 foodatlas/
 ├── frontend/                     Next.js 14 app (port 3001)
-│   ├── utils/fetching.ts         ← API client (Bearer key); add bioactivity fetchers here
+│   ├── utils/fetching.ts         ← API client; add bioactivity fetchers here
+│   ├── utils/apiFetch.ts         Bearer key, server-side only
+│   ├── app/%5Fproxy-api/         route handler: attaches the key for browser calls
 │   ├── middleware.ts             reads NEXT_PUBLIC_API_URL / API_KEY
-│   └── next.config.mjs           rewrites/proxy config
+│   └── next.config.mjs           rewrites (no longer proxies the API)
 ├── backend/
 │   ├── api/                      FastAPI (port 8000)
 │   │   └── src/
