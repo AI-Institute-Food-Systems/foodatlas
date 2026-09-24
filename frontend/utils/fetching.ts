@@ -11,10 +11,11 @@ export type ChemicalCompositionData = {
 import { apiFetch } from "@/utils/apiFetch";
 
 // API base URL. On the server we hit the upstream ALB directly (it may be
-// HTTP — that's fine server-side). On the client we route through a
-// same-origin rewrite (/_proxy-api → ALB; configured in next.config.mjs)
-// so the browser never makes a mixed-content request when the page is
-// served over HTTPS.
+// HTTP — that's fine server-side). On the client we route through the
+// same-origin route handler at app/%5Fproxy-api/[...path]/route.ts, which
+// attaches the API key server-side and keeps the browser off mixed content
+// when the page is served over HTTPS. NEXT_PUBLIC_API_URL is therefore only
+// read on the server branch below — the client never needs the upstream host.
 export const apiBase = (): string =>
   typeof window === "undefined"
     ? (process.env.NEXT_PUBLIC_API_URL ?? "")
