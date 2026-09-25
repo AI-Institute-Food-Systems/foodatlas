@@ -33,11 +33,12 @@ NUTRIENT_KEY_MAP = {
 # ._sources — see that module for why (the rows path and the counts path
 # are two implementations of one rule and drifted apart).
 #
-# `dmd_evidences` is still summed in the evidence_count sort key even
-# though DMD is not exposed as a source: the column exists and carries
-# real attestations, so a row with DMD evidence genuinely does rank above
-# one without. `_resort_after_filter` mirrors this key exactly.
-EVIDENCE_COUNT_SORT_SOURCES = (*COMPOSITION_SOURCES, "dmd")
+# The evidence_count sort key sums exactly the sources the API exposes.
+# `dmd_evidences` used to be summed here on the reasoning that the column
+# carries real attestations — but DMD is invisible everywhere else, so it
+# only let a retired source reorder rows whose visible evidence is equal.
+# `_resort_after_filter` mirrors this key exactly.
+EVIDENCE_COUNT_SORT_SOURCES = COMPOSITION_SOURCES
 VALID_SORT_COLS = {
     "common_name": "chemical_name",
     "median_concentration": "(median_concentration->>'value')::NUMERIC",
