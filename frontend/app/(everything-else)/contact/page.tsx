@@ -4,6 +4,7 @@ import Heading from "@/components/basic/Heading";
 import ContactForm from "@/components/contact/ContactForm";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/contact" },
   title: "Contact FoodAtlas | Get in Touch with the Research Team",
   description:
     "Contact the FoodAtlas team with questions about our research, data, or methodology, or to request API access for your project.",

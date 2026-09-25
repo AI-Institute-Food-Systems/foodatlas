@@ -1,6 +1,6 @@
 import { Portal } from "@headlessui/react";
 import { GoogleAnalytics } from "@next/third-parties/google";
-import type { Viewport } from "next";
+import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 
 import Providers from "@/app/providers";
@@ -9,7 +9,15 @@ import NavigationProgress from "@/components/navigation/NavigationProgress";
 import SearchBar from "@/components/search/SearchBar";
 import "@/styles/globals.css";
 import { fontMono, fontSans, fontSerif } from "@/styles/fonts";
+import { SITE_URL } from "@/utils/site";
 import { UMAMI_ENABLED, UMAMI_WEBSITE_ID } from "@/utils/umami";
+
+// metadataBase resolves every relative URL Next emits into metadata —
+// canonical links today, og:image if that is ever added. Without it Next
+// warns at build time and falls back to localhost in development.
+export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
+};
 
 export const viewport: Viewport = {
   width: "device-width",

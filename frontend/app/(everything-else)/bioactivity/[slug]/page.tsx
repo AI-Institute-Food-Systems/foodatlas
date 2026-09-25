@@ -18,7 +18,7 @@ import {
   getBioactivityFoods,
   getMetaData,
 } from "@/utils/fetching";
-import { apiEntityUrl } from "@/utils/site";
+import { apiEntityUrl, canonicalUrl } from "@/utils/site";
 import { decodeSpace, toTitleCase } from "@/utils/utils";
 
 interface BioactivityPageProps {
@@ -41,6 +41,7 @@ export async function generateMetadata({
     )} bioactivity.`,
     // The same entity as JSON, for anyone who wants the data not the page.
     alternates: {
+      canonical: canonicalUrl("bioactivity", metaData.common_name),
       types: { "application/json": apiEntityUrl("bioactivity", metaData.id) },
     },
   };

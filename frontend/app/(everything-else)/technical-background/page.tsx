@@ -8,6 +8,7 @@ import Link from "@/components/basic/Link";
 import { CANONICAL_PUBLICATION, doiUrl } from "@/utils/publications";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/technical-background" },
   title: "Background | How the FoodAtlas Knowledge Graph is Sourced",
   description:
     "How FoodAtlas turns peer-reviewed literature and public databases into a knowledge graph of foods, chemicals, diseases, and bioactivities.",

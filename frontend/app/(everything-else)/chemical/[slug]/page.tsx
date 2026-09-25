@@ -18,7 +18,7 @@ import {
   getChemicalCompositionData,
   getMetaData,
 } from "@/utils/fetching";
-import { apiEntityUrl } from "@/utils/site";
+import { apiEntityUrl, canonicalUrl } from "@/utils/site";
 import { decodeSpace, toTitleCase } from "@/utils/utils";
 
 interface ChemicalPageProps {
@@ -39,12 +39,16 @@ export async function generateMetadata({
     description: `Discover which foods contain ${toTitleCase(
       commonName
     )} and how it impacts your health.`,
-    // The same entity as JSON, for anyone who wants the data not the page.
-    ...(metaData && {
-      alternates: {
+    alternates: {
+      // Unlike the other entity pages this one renders without metaData, so
+      // the canonical falls back to the slug-derived name rather than
+      // disappearing on the exact pages most likely to be crawled oddly.
+      canonical: canonicalUrl("chemical", metaData?.common_name ?? commonName),
+      // The same entity as JSON, for anyone who wants the data not the page.
+      ...(metaData && {
         types: { "application/json": apiEntityUrl("chemical", metaData.id) },
-      },
-    }),
+      }),
+    },
   };
 }
 

@@ -13,6 +13,7 @@ import {
 } from "@/utils/publications";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/about" },
   title: "About FoodAtlas | USDA-NSF Funded Food Composition Research",
   description:
     "Meet the team dedicated to creating a comprehensive knowledge base where every piece of data is traceable back to its source.",
