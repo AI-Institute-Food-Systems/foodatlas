@@ -196,16 +196,31 @@ class TestResortAfterFilter:
     def test_evidence_count_desc(self) -> None:
         rows = [
             {"name": "a", "fdc_evidences": [1, 2], "foodatlas_evidences": [3]},
+            {"name": "b", "fdc_evidences": [1], "foodatlas_evidences": [2]},
+            {"name": "c", "fdc_evidences": []},
+        ]
+        out = _resort_after_filter(rows, "evidence_count", "DESC")
+        assert [r["name"] for r in out] == ["a", "b", "c"]
+
+    def test_dmd_evidence_does_not_break_a_tie(self) -> None:
+        """DMD is retired from the API, so it must not reorder visible rows.
+
+        Both rows show three attestations in the composition table; `b` also
+        carries a `dmd_evidences` array the API never selects. Ranking `b`
+        first would leak a retired source through the sort order, so the
+        tie stands and stable-sort order is preserved.
+        """
+        rows = [
+            {"name": "a", "fdc_evidences": [1, 2], "foodatlas_evidences": [3]},
             {
                 "name": "b",
                 "fdc_evidences": [1],
                 "foodatlas_evidences": [2, 3],
                 "dmd_evidences": [4],
             },
-            {"name": "c", "fdc_evidences": []},
         ]
         out = _resort_after_filter(rows, "evidence_count", "DESC")
-        assert [r["name"] for r in out] == ["b", "a", "c"]
+        assert [r["name"] for r in out] == ["a", "b"]
 
     def test_evidence_count_asc(self) -> None:
         rows = [
