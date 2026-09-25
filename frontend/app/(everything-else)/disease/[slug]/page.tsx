@@ -12,7 +12,7 @@ import { DEFAULT_TAB_ID } from "@/components/entities/entityTabs.config";
 import EntityOverviewPanelSuspense from "@/components/entities/EntityOverviewPanelSuspense";
 import HeaderSectionSuspense from "@/components/entities/HeaderSectionSuspense";
 import { getMetaData } from "@/utils/fetching";
-import { apiEntityUrl } from "@/utils/site";
+import { apiEntityUrl, canonicalUrl } from "@/utils/site";
 import { decodeSpace, toTitleCase } from "@/utils/utils";
 
 interface DiseasePageProps {
@@ -35,6 +35,7 @@ export async function generateMetadata({
     )} and the foods that contain it.`,
     // The same entity as JSON, for anyone who wants the data not the page.
     alternates: {
+      canonical: canonicalUrl("disease", metaData.common_name),
       types: { "application/json": apiEntityUrl("disease", metaData.id) },
     },
   };

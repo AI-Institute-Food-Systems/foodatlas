@@ -17,7 +17,7 @@ import {
   getFoodInferredBioactivities,
   getMetaData,
 } from "@/utils/fetching";
-import { apiEntityUrl } from "@/utils/site";
+import { apiEntityUrl, canonicalUrl } from "@/utils/site";
 import { decodeSpace, toTitleCase } from "@/utils/utils";
 
 interface FoodPageProps {
@@ -40,6 +40,7 @@ export async function generateMetadata({
     )}. Use evidence based molecular composition to help inform your food choices.`,
     // The same entity as JSON, for anyone who wants the data not the page.
     alternates: {
+      canonical: canonicalUrl("food", metaData.common_name),
       types: { "application/json": apiEntityUrl("food", metaData.id) },
     },
   };

@@ -16,6 +16,7 @@ import { CANONICAL_PUBLICATION } from "@/utils/publications";
 import { datasetJsonLd } from "@/utils/structuredData";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/food-composition-downloads" },
   title: "FoodAtlas | Download Food Composition Data",
   description:
     "FoodAtlas is provided as a free resource for public use. Download version-controlled database bundles to work with evidence-based food composition data on your machine.",
