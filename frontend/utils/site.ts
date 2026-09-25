@@ -14,6 +14,13 @@ export const ENTITY_TYPES: EntityType[] = [
   "bioactivity",
 ];
 
+// Sitemap ids, in the order `app/sitemap.ts` emits them: 0 is the static page
+// list, then one per entity type. The index route and robots.txt both derive
+// from this, so adding an entity type cannot leave a sitemap undiscoverable.
+export const SITEMAP_IDS = [0, ...ENTITY_TYPES.map((_, i) => i + 1)];
+
+export const sitemapPath = (id: number): string => `/sitemap/${id}.xml`;
+
 // Public /v1 collection for each entity page type.
 const API_COLLECTION: Record<EntityType, string> = {
   food: "foods",
