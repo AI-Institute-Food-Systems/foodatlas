@@ -18,12 +18,20 @@ import {
 // API_URL), with the entity index cached for a day by getAllEntities.
 export const dynamic = "force-dynamic";
 
+// lastmod was absent entirely, which with 9k URLs leaves Google no signal for
+// what changed between injection runs. Per-entity timestamps are not available
+// from /metadata/entities, so this is the coarse honest answer: the moment the
+// sitemap was generated. The files revalidate daily, so it tracks reality
+// within a day rather than claiming a precision we do not have.
+const BUILD_TIME = new Date();
+
 const STATIC_PATHS = [
   "/",
   "/about",
   "/developers",
   "/food-composition-downloads",
-  "/food-composition-api",
+  // /food-composition-api 307-redirects to / (next.config.mjs), so listing it
+  // submits a URL that resolves elsewhere — GSC reports that as a duplicate.
   "/technical-background",
   // /validation is the auth-gated internal curation tool — noindex, and it
   // has no business being advertised to crawlers. See its layout.tsx.
@@ -42,6 +50,7 @@ export default async function sitemap({
   if (id === 0) {
     return STATIC_PATHS.map((path) => ({
       url: `${SITE_URL}${path}`,
+      lastModified: BUILD_TIME,
       changeFrequency: "monthly",
       priority: path === "/" ? 1 : 0.6,
     }));
@@ -53,6 +62,7 @@ export default async function sitemap({
     .filter((e) => e.entity_type === type)
     .map((e) => ({
       url: `${SITE_URL}${entityPath(type, e.common_name)}`,
+      lastModified: BUILD_TIME,
       changeFrequency: "monthly",
       priority: 0.5,
     }));

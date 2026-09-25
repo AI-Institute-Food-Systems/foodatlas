@@ -2,7 +2,7 @@
 
 > Evidence-based food composition knowledge graph: 1,700+ foods, 5,000+ chemicals, 2,000+ diseases and 21 bioactivities, ~336k associations, every one traced to a peer-reviewed source. Built by the AI Institute for Next Generation Food Systems (AIFS), UC Davis. Data and code are Apache-2.0.
 
-Do not crawl the entity pages (/food/*, /chemical/*, /disease/*, /bioactivity/*) to collect the data — they render a small slice each and are rate-limited at the edge. Use one of the two sources below; both carry the complete graph and both are gated by the same free API key (request one at https://www.foodatlas.ai/contact?api-access).
+Do not crawl the entity pages (/food/*, /chemical/*, /disease/*, /bioactivity/*) to collect the data — they render a small slice each, and the data calls behind them are rate-limited at the edge. Use one of the two sources below; both carry the complete graph and both are gated by the same free API key (request one at https://www.foodatlas.ai/contact?api-access).
 
 ## Bulk download
 
@@ -18,6 +18,5 @@ Do not crawl the entity pages (/food/*, /chemical/*, /disease/*, /bioactivity/*)
 ## About
 
 - [How the graph is built](https://www.foodatlas.ai/technical-background)
-- [Validation](https://www.foodatlas.ai/validation)
 - [Team and contact](https://www.foodatlas.ai/about)
 - Cite: Li, F., Youn, J., Xie, K., Chan, T., Gupta, P., Yoo, A., Gunning, M., Ni, K., & Tagkopoulos, I. (2026). A unified knowledge graph linking foodomics to chemical-disease networks and flavor profiles. *npj Science of Food*, 10(1), 33. https://doi.org/10.1038/s41538-025-00680-9

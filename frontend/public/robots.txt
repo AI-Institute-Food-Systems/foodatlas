@@ -14,7 +14,8 @@ Allow: /
 Disallow: /api/
 Disallow: /_a/
 Disallow: /_proxy-api/
-Disallow: /results
+# /results is crawlable on purpose: the WebSite SearchAction targets it and
+# Google only honours a crawlable target. The page itself is noindex.
 Disallow: /report/
 
 # One index, so this file does not have to be edited when a sitemap is added.

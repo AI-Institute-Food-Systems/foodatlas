@@ -68,6 +68,10 @@ export const webSiteJsonLd = () => ({
   name: "FoodAtlas",
   url: SITE_URL,
   publisher: ORGANIZATION,
+  // Google requires this target to be crawlable, so robots.txt no longer
+  // disallows /results. The page carries noindex instead: crawlable so the
+  // SearchAction can take effect, unindexed because a thin search-results page
+  // does not belong in the index.
   potentialAction: {
     "@type": "SearchAction",
     target: {
