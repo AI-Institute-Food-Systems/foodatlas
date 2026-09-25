@@ -759,15 +759,6 @@ export async function getFoodEfficacy(commonName: string) {
   }
 }
 
-// cache & fetching testing function
-export async function getTime() {
-  const response = await fetch("https://worldtimeapi.org/api/timezone/Etc/UTC");
-
-  const data = await response.json();
-
-  return data.unixtime;
-}
-
 // Evidence behind one row of the chemical composition table, fetched when
 // its modal opens rather than with the table.
 //

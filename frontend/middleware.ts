@@ -45,6 +45,11 @@ export async function middleware(request: NextRequest) {
     if (!res.ok) return NextResponse.next();
 
     const { entity_type, common_name } = await res.json();
+    // entity_type comes from the upstream JSON and was interpolated into the
+    // redirect path unencoded: a value like "/evil.com" yields a
+    // protocol-relative URL and an open redirect. Latent — it needs control of
+    // the API response — but the allowlist costs nothing.
+    if (!ENTITY_ROUTES.has(entity_type)) return NextResponse.next();
     const encodedName = encodeURIComponent(encodeSpace(common_name));
     const redirectUrl = new URL(
       `/${entity_type}/${encodedName}`,
