@@ -33,6 +33,14 @@ const API_COLLECTION: Record<EntityType, string> = {
 export const entityPath = (type: EntityType, commonName: string): string =>
   `/${type}/${encodeURIComponent(commonName.replace(/ /g, "--"))}`;
 
+// The one URL Google should index for an entity. Query strings (the
+// composition filters, the tab id) produce distinct URLs serving the same
+// page, so without this every filter combination looks like a duplicate.
+// Built from entityPath so it is byte-identical to the sitemap entry — a
+// canonical that disagrees with the sitemap is a contradictory signal.
+export const canonicalUrl = (type: EntityType, commonName: string): string =>
+  `${SITE_URL}${entityPath(type, commonName)}`;
+
 // The machine-readable twin of an entity page.
 export const apiEntityUrl = (type: EntityType, foodatlasId: string): string =>
   `${API_URL}/v1/${API_COLLECTION[type]}/${encodeURIComponent(foodatlasId)}`;

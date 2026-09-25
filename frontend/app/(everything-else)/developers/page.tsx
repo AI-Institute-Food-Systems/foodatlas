@@ -10,6 +10,7 @@ import { CANONICAL_PUBLICATION } from "@/utils/publications";
 import { webApiJsonLd } from "@/utils/structuredData";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/developers" },
   title: "Developers | FoodAtlas Public API",
   description:
     "Programmatic access to the FoodAtlas knowledge graph. Authenticate with an API key, then call any /v1/ endpoint. Request a key via the contact form.",

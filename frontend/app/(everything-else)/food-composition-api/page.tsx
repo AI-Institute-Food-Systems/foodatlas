@@ -7,6 +7,7 @@ import Card from "@/components/basic/Card";
 import Heading from "@/components/basic/Heading";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/food-composition-api" },
   title: "FoodAtlas API | Connect to Data for Research or Industry",
   description:
     "FoodAtlas data is provided as a free resource for researchers. Connect to our API to access the extensive knowledge graph of foods, components, and concentrations.",

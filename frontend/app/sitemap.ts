@@ -25,7 +25,8 @@ const STATIC_PATHS = [
   "/food-composition-downloads",
   "/food-composition-api",
   "/technical-background",
-  "/validation",
+  // /validation is the auth-gated internal curation tool — noindex, and it
+  // has no business being advertised to crawlers. See its layout.tsx.
   "/contact",
 ];
 
