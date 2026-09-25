@@ -35,6 +35,12 @@ export async function generateMetadata({
   const metaData = await getMetaData(commonName, "chemical");
 
   return {
+    // Without metaData this is an unknown chemical, and the page used to
+    // render as a fully indexable 200 — every nonsense slug became a
+    // self-canonicalising page with a real title and description, i.e. an
+    // unbounded soft-404 surface. The page still renders (that is deliberate,
+    // see the body below), but it does not invite indexing.
+    ...(metaData ? {} : { robots: { index: false, follow: false } }),
     title: `${toTitleCase(commonName)} in Foods - Evidence Based Database`,
     description: `Discover which foods contain ${toTitleCase(
       commonName
