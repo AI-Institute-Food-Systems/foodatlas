@@ -17,8 +17,5 @@ Disallow: /_proxy-api/
 Disallow: /results
 Disallow: /report/
 
-Sitemap: https://www.foodatlas.ai/sitemap/0.xml
-Sitemap: https://www.foodatlas.ai/sitemap/1.xml
-Sitemap: https://www.foodatlas.ai/sitemap/2.xml
-Sitemap: https://www.foodatlas.ai/sitemap/3.xml
-Sitemap: https://www.foodatlas.ai/sitemap/4.xml
+# One index, so this file does not have to be edited when a sitemap is added.
+Sitemap: https://www.foodatlas.ai/sitemap.xml

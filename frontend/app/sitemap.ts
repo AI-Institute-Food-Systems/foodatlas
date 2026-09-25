@@ -1,7 +1,12 @@
 import type { MetadataRoute } from "next";
 
 import { getAllEntities } from "@/utils/fetching";
-import { ENTITY_TYPES, SITE_URL, entityPath } from "@/utils/site";
+import {
+  ENTITY_TYPES,
+  SITEMAP_IDS,
+  SITE_URL,
+  entityPath,
+} from "@/utils/site";
 
 // One sitemap per entity type plus one for the static pages, so a crawler
 // that only wants foods fetches one file. Numeric ids are what Next 14's
@@ -25,7 +30,7 @@ const STATIC_PATHS = [
 ];
 
 export async function generateSitemaps() {
-  return [0, ...ENTITY_TYPES.map((_, i) => i + 1)].map((id) => ({ id }));
+  return SITEMAP_IDS.map((id) => ({ id }));
 }
 
 export default async function sitemap({
