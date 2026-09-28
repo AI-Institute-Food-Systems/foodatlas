@@ -27,6 +27,7 @@ import ChemicalCorrelationSection from "@/components/entities/chemical/ChemicalC
 import DiseaseAssayInferredSection from "@/components/entities/disease/DiseaseAssayInferredSection";
 import DiseaseCorrelationsSection from "@/components/entities/disease/DiseaseCorrelationsSection";
 import type { CorrelationDirection } from "@/components/entities/shared/CorrelationRow";
+import type { CorrelationPayload } from "@/components/entities/CorrelationTable";
 import ActivityFilterGroup from "@/components/entities/shared/filters/ActivityFilterGroup";
 import SignalFilterGroup from "@/components/entities/shared/filters/SignalFilterGroup";
 import { usePublishTabCount } from "@/context/tabCountsContext";
@@ -38,6 +39,9 @@ interface Props {
   // Which page this is: "chemical" lists diseases, "disease" lists
   // chemicals.
   anchor: "chemical" | "disease";
+  // The literature table's first page as the server fetched it. Disease
+  // pages only: this is their landing tab, a chemical page's is not.
+  initialLiterature?: CorrelationPayload | null;
 }
 
 const DIRECTIONS: { key: CorrelationDirection; label: string }[] = [
@@ -51,7 +55,11 @@ const DIRECTIONS: { key: CorrelationDirection; label: string }[] = [
 // carry both values at once, and the rows label it in CTD's wording
 // rather than as Improves/Worsens.
 
-const CorrelationEvidenceTab = ({ commonName, anchor }: Props) => {
+const CorrelationEvidenceTab = ({
+  commonName,
+  anchor,
+  initialLiterature,
+}: Props) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [direction, setDirection] = useState<CorrelationDirection>("all");
   const [signals, setSignals] = useState<string[]>([]);
@@ -197,6 +205,7 @@ const CorrelationEvidenceTab = ({ commonName, anchor }: Props) => {
         direction={direction}
         search={debouncedSearch}
         onTotalRowsChange={setLiteratureTotal}
+        initialData={initialLiterature}
       />
     );
 
