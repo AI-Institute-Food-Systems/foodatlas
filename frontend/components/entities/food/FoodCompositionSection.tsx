@@ -44,6 +44,7 @@ import {
   FilterSearchInput,
 } from "@/components/entities/shared/filters/FilterControls";
 import FilterPanel from "@/components/entities/shared/filters/FilterPanel";
+import { readHighlightHash } from "@/components/entities/food/highlightLink";
 import { usePaginations } from "@/context/paginationsContext";
 import { usePublishTabCount } from "@/context/tabCountsContext";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
@@ -135,7 +136,7 @@ const FoodCompositionSection = ({
   const { getTablePaginations, setTablePaginations } = usePaginations();
   const { currentPage } = getTablePaginations("food-composition-table");
   // Highlight a single row when the user arrived from a chemical page link
-  // (`?highlight=`). The backend resolves the page containing the chemical
+  // (#highlight=, or the older query-string form). The backend resolves the page containing the chemical
   // and reports it as metadata.highlight_page; we navigate pagination there
   // on the first response, then clear `findChemical` so subsequent paging
   // doesn't keep snapping back. Highlight dismisses on any click.
@@ -147,6 +148,14 @@ const FoodCompositionSection = ({
     { top: number; height: number } | null
   >(null);
   const highlightRowRef = useRef<HTMLTableRowElement | null>(null);
+  // The fragment is only readable after mount: the server never sees it, so
+  // reading it during render would mismatch hydration.
+  useEffect(() => {
+    const fromHash = readHighlightHash(window.location.hash).toLowerCase();
+    if (!fromHash) return;
+    setHighlightName(fromHash);
+    setFindChemical(fromHash);
+  }, []);
   const tableWrapperRef = useRef<HTMLDivElement | null>(null);
   const [numberOfPages, setNumberOfPages] = useState(-1);
   const [numberOfRows, setNumberOfRows] = useState(-1);
@@ -420,6 +429,10 @@ const FoodCompositionSection = ({
           router.replace(qs ? `${pathname}?${qs}` : pathname, {
             scroll: false,
           });
+        } else if (readHighlightHash(window.location.hash)) {
+          // Next 14 syncs native history calls into the router.
+          const { pathname: path, search } = window.location;
+          window.history.replaceState(window.history.state, "", path + search);
         }
       }, 450);
     };
