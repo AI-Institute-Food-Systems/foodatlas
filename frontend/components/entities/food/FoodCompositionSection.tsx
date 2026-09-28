@@ -114,18 +114,44 @@ const CLASSIFICATION_OPTIONS = [
 ];
 
 
+// First page of /food/composition at the default filters, fetched by the page
+// on the server. Seeding the table with it puts the rows and their chemical
+// links in the server HTML — without it crawlers saw an empty table, since
+// the browser fetch runs through /_proxy-api, which robots.txt disallows.
+export type FoodCompositionPayload = {
+  data: unknown[];
+  metadata: { total_pages: number; total_rows: number };
+};
+
 interface FoodCompositionSectionProps {
   commonName: string;
+  initialData?: FoodCompositionPayload | null;
 }
 
 const FoodCompositionSection = ({
   commonName,
+  initialData = null,
 }: FoodCompositionSectionProps) => {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [data, setData] = useState<FoodCompositionData[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { getTablePaginations, setTablePaginations } = usePaginations();
+  const { currentPage } = getTablePaginations("food-composition-table");
+  // The seed only describes page 1 with nothing searched or highlighted; a
+  // URL asking for anything else fetches as before. (#highlight= is read
+  // after mount and triggers its own fetch.)
+  const seed =
+    initialData &&
+    currentPage === 1 &&
+    !searchParams.get("search") &&
+    !searchParams.get("highlight")
+      ? initialData
+      : null;
+  const skipSeededFetch = useRef(seed !== null);
+  const [data, setData] = useState<FoodCompositionData[]>(
+    (seed?.data as FoodCompositionData[] | undefined) ?? []
+  );
+  const [isLoading, setIsLoading] = useState(seed === null);
   const [isError, setIsError] = useState(false);
   // A fetch with rows already on screen is a REFETCH (page, sort, filter,
   // search), and blanking the table for it was the single most visible
@@ -133,8 +159,6 @@ const FoodCompositionSection = ({
   // keep; otherwise dim what's there and let it be replaced in place.
   const showSkeleton = isLoading && data.length === 0;
   const isRefetching = isLoading && data.length > 0;
-  const { getTablePaginations, setTablePaginations } = usePaginations();
-  const { currentPage } = getTablePaginations("food-composition-table");
   // Highlight a single row when the user arrived from a chemical page link
   // (#highlight=, or the older query-string form). The backend resolves the page containing the chemical
   // and reports it as metadata.highlight_page; we navigate pagination there
@@ -157,8 +181,12 @@ const FoodCompositionSection = ({
     setFindChemical(fromHash);
   }, []);
   const tableWrapperRef = useRef<HTMLDivElement | null>(null);
-  const [numberOfPages, setNumberOfPages] = useState(-1);
-  const [numberOfRows, setNumberOfRows] = useState(-1);
+  const [numberOfPages, setNumberOfPages] = useState(
+    seed?.metadata.total_pages ?? -1
+  );
+  const [numberOfRows, setNumberOfRows] = useState(
+    seed?.metadata.total_rows ?? -1
+  );
   // Publish the current filtered row count to the Composition tab
   // badge. -1 = "unknown" (initial state) → the badge falls back to
   // the server-prefetched static count until the first fetch resolves.
@@ -273,6 +301,11 @@ const FoodCompositionSection = ({
   // and the tab badge then showed the undone filter's rows as fact,
   // with nothing in the filter UI to say so.
   useEffect(() => {
+    // The seed already is this response; every later change fetches.
+    if (skipSeededFetch.current) {
+      skipSeededFetch.current = false;
+      return;
+    }
     let cancelled = false;
     const fetchData = async () => {
       // no sources selected, show empty state
