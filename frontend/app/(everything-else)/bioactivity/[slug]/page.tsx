@@ -18,7 +18,9 @@ import {
   getBioactivityFoods,
   getMetaData,
 } from "@/utils/fetching";
+import JsonLd from "@/components/misc/JsonLd";
 import { apiEntityUrl, canonicalUrl } from "@/utils/site";
+import { entityJsonLd } from "@/utils/structuredData";
 import { decodeSpace, toTitleCase } from "@/utils/utils";
 
 interface BioactivityPageProps {
@@ -69,6 +71,7 @@ const BioactivityPage = async ({ params }: BioactivityPageProps) => {
 
   return (
     <>
+      {metaPayload && <JsonLd data={entityJsonLd(entityType, metaPayload)} />}
       <Suspense fallback={<HeaderSectionSuspense entityType={entityType} />}>
         <HeaderSection commonName={commonName} entityType={entityType} />
       </Suspense>

@@ -12,7 +12,9 @@ import { DEFAULT_TAB_ID } from "@/components/entities/entityTabs.config";
 import EntityOverviewPanelSuspense from "@/components/entities/EntityOverviewPanelSuspense";
 import HeaderSectionSuspense from "@/components/entities/HeaderSectionSuspense";
 import { getMetaData } from "@/utils/fetching";
+import JsonLd from "@/components/misc/JsonLd";
 import { apiEntityUrl, canonicalUrl } from "@/utils/site";
+import { entityJsonLd } from "@/utils/structuredData";
 import { decodeSpace, toTitleCase } from "@/utils/utils";
 
 interface DiseasePageProps {
@@ -49,10 +51,16 @@ const DiseasePage = async ({ params }: DiseasePageProps) => {
   // The one counted tab. A tab mounts only when opened, so an unfetched
   // count leaves its badge placeholder pulsing for the life of the page.
   // Count only; the tab still loads lazily.
-  const healthCount = await correlationEvidenceCount(commonName, "disease");
+  // metaPayload is the same cached call generateMetadata made; it only
+  // feeds the JSON-LD here.
+  const [healthCount, metaPayload] = await Promise.all([
+    correlationEvidenceCount(commonName, "disease"),
+    getMetaData(commonName, entityType).catch(() => null),
+  ]);
 
   return (
     <>
+      {metaPayload && <JsonLd data={entityJsonLd(entityType, metaPayload)} />}
       <Suspense fallback={<HeaderSectionSuspense entityType={entityType} />}>
         <HeaderSection commonName={commonName} entityType={entityType} />
       </Suspense>
