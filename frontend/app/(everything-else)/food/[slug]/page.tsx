@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { Metadata } from "next";
 
 import FoodCompositionSection from "@/components/entities/food/FoodCompositionSection";
+import { ALL_SOURCE_VALUES } from "@/components/entities/food/compositionSources";
 import FoodBioactivitiesTab from "@/components/entities/bioactivity/FoodBioactivitiesTab";
 import HeaderSection from "@/components/entities/HeaderSection";
 import HeaderSectionSuspense from "@/components/entities/HeaderSectionSuspense";
@@ -60,7 +61,10 @@ const FoodPage = async ({ params }: FoodPageProps) => {
   // Parallel best-effort count fetches for the tab badges. Failures fall
   // back to null so the badge silently hides instead of breaking the page.
   // Composition uses the same call as the table (default filters: all sources,
-  // include unmeasured, no search) so the badge matches "Found N chemicals".
+  // include unmeasured, no search) so the badge matches "Found N chemicals",
+  // and the table renders this response as its first page on the server.
+  // (It listed fdc+foodatlas only, so PTFI-only rows were missing from the
+  // badge until the client refetched.)
   // Bioactivities badge sums the direct (food→bioactivity) and inferred
   // (via chemicals-in-food) totals — same shape as the two tables rendered
   // in the tab, so the badge matches what the user actually sees.
@@ -69,7 +73,7 @@ const FoodPage = async ({ params }: FoodPageProps) => {
       getFoodCompositionData(
         commonName,
         1,
-        ["fdc", "foodatlas"],
+        ALL_SOURCE_VALUES,
         "",
         { column: "median_concentration", direction: "desc" },
         true,
@@ -107,7 +111,12 @@ const FoodPage = async ({ params }: FoodPageProps) => {
         tabs={buildTabs(entityType, {
           composition: {
             count: compositionCount,
-            content: <FoodCompositionSection commonName={commonName} />,
+            content: (
+              <FoodCompositionSection
+                commonName={commonName}
+                initialData={compPayload}
+              />
+            ),
           },
           bioactivities: {
             count: bioactivitiesCount,
