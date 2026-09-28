@@ -17,6 +17,12 @@ Disallow: /_proxy-api/
 # /results is crawlable on purpose: the WebSite SearchAction targets it and
 # Google only honours a crawlable target. The page itself is noindex.
 Disallow: /report/
+# Chemical composition rows link to /food/<x>?highlight=<chemical id>: one URL
+# per food-chemical pair, ~200k variants of pages the sitemap already lists
+# bare. The canonical dedupes them only after they have been fetched.
+# Both positions, since robots patterns are anchored at the path.
+Disallow: /*?highlight=
+Disallow: /*&highlight=
 
 # One index, so this file does not have to be edited when a sitemap is added.
 Sitemap: https://www.foodatlas.ai/sitemap.xml

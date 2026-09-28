@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -45,6 +45,39 @@ describe("sitemap advertises only URLs that resolve", () => {
 
   it("emits lastmod", () => {
     expect(sitemap).toContain("lastModified");
+  });
+});
+
+describe("parameterised links stay out of the crawl", () => {
+  it("disallows the chemical→food ?highlight= links", () => {
+    // Every composition row on a chemical page links to its food with a
+    // highlight param — ~200k crawlable URLs, one per food-chemical pair.
+    const table = read("components/entities/chemical/ChemicalCompositionTable.tsx");
+    expect(table).toContain("?highlight=");
+    expect(robots).toContain("Disallow: /*?highlight=");
+    expect(robots).toContain("Disallow: /*&highlight=");
+  });
+
+  it("no other internal link carries a query param", () => {
+    // Any new param in an internal URL needs the decision ?highlight= got.
+    // /results?term= must stay crawlable (SearchAction); /contact?api-access
+    // is a single URL with a canonical.
+    const reviewed = ["api-access", "highlight", "term"];
+    const params = new Set<string>();
+    for (const dir of ["app", "components"]) {
+      for (const f of readdirSync(join(ROOT, dir), { recursive: true })) {
+        if (!String(f).endsWith(".tsx")) continue;
+        const src = read(join(dir, String(f)));
+        // A string literal that starts as a site path or bare query string.
+        const re = /["`](?:\/[^"`\s]*?)?\?([a-z_-]+)/g;
+        let m = re.exec(src);
+        while (m !== null) {
+          params.add(m[1]);
+          m = re.exec(src);
+        }
+      }
+    }
+    expect(Array.from(params).sort()).toEqual(reviewed);
   });
 });
 
