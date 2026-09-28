@@ -136,6 +136,38 @@ describe("BioactivityFoodsSection", () => {
       screen.getAllByRole("button", { name: /1 assay\b/i }).length,
     ).toBeGreaterThan(0);
   });
+
+  // The bioactivity page fetches page 1 on the server; rendering it is what
+  // puts the food links in the HTML crawlers get.
+  it("renders a server-fetched first page without fetching it again", async () => {
+    vi.mocked(getBioactivityFoods).mockClear();
+    // With totals known on the first render, headlessui chrome that measures
+    // itself mounts immediately; jsdom has no ResizeObserver.
+    globalThis.ResizeObserver ??= class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    } as unknown as typeof ResizeObserver;
+    const seed = {
+      data: [foodRow],
+      metadata: {
+        row_count: 1,
+        total_rows: 1,
+        total_pages: 1,
+        current_page: 1,
+        rows_per_page: 20,
+      },
+    };
+    renderWithPagination(
+      <BioactivityFoodsSection commonName="antioxidant" initialPayload={seed} />,
+    );
+    // Synchronous: present on the first render, i.e. in the server HTML.
+    const links = screen.getAllByRole("link", { name: /snail/i });
+    expect(links[0]?.getAttribute("href")).toBe("/food/snail");
+    // Let the mount effects run; the seeded page is not refetched.
+    await screen.findAllByText(/snail/i);
+    expect(vi.mocked(getBioactivityFoods)).not.toHaveBeenCalled();
+  });
 });
 
 describe("ChemicalBioactivitiesSection", () => {
