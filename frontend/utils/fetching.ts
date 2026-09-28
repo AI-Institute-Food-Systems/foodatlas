@@ -47,6 +47,33 @@ function normalizeExternalIds(raw: unknown): Metadata["external_ids"] {
   return out;
 }
 
+// An entity lookup that keeps "no such entity" apart from "no answer".
+// Only `missing` may become a 404: a 404 served because the API blipped
+// tells Google to drop a real page.
+export type MetaLookup = Metadata | "missing" | "error";
+
+export async function lookupMetaData(
+  commonName: string,
+  entityType: string
+): Promise<MetaLookup> {
+  try {
+    const res = await apiFetch(
+      `${apiBase()}/${entityType}/metadata?common_name=${encodeURIComponent(commonName)}`,
+      { revalidate: 86400 }
+    );
+    if (!res.ok) return "error";
+    const data = await res.json();
+    const record = data.data[0];
+    if (!record) return "missing";
+    return {
+      ...record,
+      external_ids: normalizeExternalIds(record.external_ids),
+    };
+  } catch {
+    return "error";
+  }
+}
+
 // fetch metadata for a given entity
 // returns null when no entity matches the given common name
 export async function getMetaData(
@@ -54,25 +81,11 @@ export async function getMetaData(
   entityType: string
 ): Promise<Metadata | null> {
   // Best-effort fetch — any failure (network blip, non-200, parse error) is
-  // surfaced as `null` so callers can fall back to notFound() / a "missing
-  // entity" UI instead of crashing the page with a 500. The staging stack
-  // is flaky enough that throwing here turned every blip into a hard error.
-  try {
-    const res = await apiFetch(
-      `${apiBase()}/${entityType}/metadata?common_name=${encodeURIComponent(commonName)}`,
-      { revalidate: 86400 }
-    );
-    if (!res.ok) return null;
-    const data = await res.json();
-    const record = data.data[0];
-    if (!record) return null;
-    return {
-      ...record,
-      external_ids: normalizeExternalIds(record.external_ids),
-    };
-  } catch {
-    return null;
-  }
+  // surfaced as `null` so callers can fall back to a "missing entity" UI
+  // instead of crashing the page with a 500. The staging stack is flaky
+  // enough that throwing here turned every blip into a hard error.
+  const result = await lookupMetaData(commonName, entityType);
+  return typeof result === "string" ? null : result;
 }
 
 // fetch taxonomy ancestry for a given entity

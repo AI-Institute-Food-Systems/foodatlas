@@ -1,10 +1,10 @@
 import { Metadata } from "next";
-import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
 import CorrelationEvidenceTab from "@/components/entities/shared/CorrelationEvidenceTab";
 import HeaderSection from "@/components/entities/HeaderSection";
 import EntityDetailLayout from "@/components/entities/EntityDetailLayout";
+import { requireEntity } from "@/components/entities/requireEntity";
 import EntityOverviewPanel from "@/components/entities/EntityOverviewPanel";
 import { buildTabs } from "@/components/entities/buildTabs";
 import { correlationEvidenceCount } from "@/utils/tabCounts";
@@ -27,18 +27,22 @@ export async function generateMetadata({
   const { slug } = params;
   const commonName = decodeSpace(decodeURIComponent(slug));
 
+  // Repeats the layout's check (cached) so a 404 doesn't get the slug as
+  // its <title>. Past it, null metaData means the API did not answer; fall
+  // back to the slug rather than fail the page.
+  await requireEntity("disease", slug);
   const metaData = await getMetaData(commonName, "disease");
-  if (!metaData) notFound();
+  const name = metaData?.common_name ?? commonName;
 
   return {
-    title: `${toTitleCase(metaData.common_name)} and Your Health`,
-    description: `Evidence-based correlations between ${toTitleCase(
-      metaData.common_name
-    )} and the foods that contain it.`,
+    title: `${toTitleCase(name)} and Your Health`,
+    description: `Evidence-based correlations between ${toTitleCase(name)} and the foods that contain it.`,
     // The same entity as JSON, for anyone who wants the data not the page.
     alternates: {
-      canonical: canonicalUrl("disease", metaData.common_name),
-      types: { "application/json": apiEntityUrl("disease", metaData.id) },
+      canonical: canonicalUrl("disease", name),
+      ...(metaData && {
+        types: { "application/json": apiEntityUrl("disease", metaData.id) },
+      }),
     },
   };
 }

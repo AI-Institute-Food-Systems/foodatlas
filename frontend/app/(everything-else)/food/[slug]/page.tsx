@@ -1,12 +1,12 @@
 import { Suspense } from "react";
 import { Metadata } from "next";
-import { notFound } from "next/navigation";
 
 import FoodCompositionSection from "@/components/entities/food/FoodCompositionSection";
 import FoodBioactivitiesTab from "@/components/entities/bioactivity/FoodBioactivitiesTab";
 import HeaderSection from "@/components/entities/HeaderSection";
 import HeaderSectionSuspense from "@/components/entities/HeaderSectionSuspense";
 import EntityDetailLayout from "@/components/entities/EntityDetailLayout";
+import { requireEntity } from "@/components/entities/requireEntity";
 import { buildTabs } from "@/components/entities/buildTabs";
 import { DEFAULT_TAB_ID } from "@/components/entities/entityTabs.config";
 import EntityOverviewPanel from "@/components/entities/EntityOverviewPanel";
@@ -32,18 +32,22 @@ export async function generateMetadata({
   const { slug } = params;
   const commonName = decodeSpace(decodeURIComponent(slug));
 
+  // Repeats the layout's check (cached) so a 404 doesn't get the slug as
+  // its <title>. Past it, null metaData means the API did not answer; fall
+  // back to the slug rather than fail the page.
+  await requireEntity("food", slug);
   const metaData = await getMetaData(commonName, "food");
-  if (!metaData) notFound();
+  const name = metaData?.common_name ?? commonName;
 
   return {
-    title: `${toTitleCase(metaData.common_name)} - Food Composition`,
-    description: `Nutritional value of ${toTitleCase(
-      metaData.common_name
-    )}. Use evidence based molecular composition to help inform your food choices.`,
+    title: `${toTitleCase(name)} - Food Composition`,
+    description: `Nutritional value of ${toTitleCase(name)}. Use evidence based molecular composition to help inform your food choices.`,
     // The same entity as JSON, for anyone who wants the data not the page.
     alternates: {
-      canonical: canonicalUrl("food", metaData.common_name),
-      types: { "application/json": apiEntityUrl("food", metaData.id) },
+      canonical: canonicalUrl("food", name),
+      ...(metaData && {
+        types: { "application/json": apiEntityUrl("food", metaData.id) },
+      }),
     },
   };
 }
