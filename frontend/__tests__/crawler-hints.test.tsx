@@ -10,8 +10,10 @@ import {
 } from "@/utils/structuredData";
 
 const getAllEntities = vi.fn();
+const getLatestBundle = vi.fn();
 vi.mock("@/utils/fetching", () => ({
   getAllEntities: () => getAllEntities(),
+  getLatestBundle: () => getLatestBundle(),
 }));
 
 import sitemap, { generateSitemaps } from "@/app/sitemap";
@@ -121,6 +123,24 @@ describe("sitemap", () => {
     expect(chemicals.map((r) => r.url)).toEqual([
       "https://www.foodatlas.ai/chemical/quercetin",
     ]);
+  });
+
+  it("dates entity pages by the latest dataset release, not the request", async () => {
+    getAllEntities.mockResolvedValue([
+      { foodatlas_id: "e1", entity_type: "food", common_name: "cow milk" },
+    ]);
+    getLatestBundle.mockResolvedValue(entry);
+    const [food] = await sitemap({ id: 1 });
+    expect(food.lastModified).toEqual(new Date("2026-09-18"));
+  });
+
+  it("omits lastmod rather than guessing when the bundle list is down", async () => {
+    getAllEntities.mockResolvedValue([
+      { foodatlas_id: "e1", entity_type: "food", common_name: "cow milk" },
+    ]);
+    getLatestBundle.mockResolvedValue(null);
+    const [food] = await sitemap({ id: 1 });
+    expect(food.lastModified).toBeUndefined();
   });
 
   it("is empty, not broken, when the index is unavailable", async () => {

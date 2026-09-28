@@ -150,7 +150,7 @@ describe("ChemicalCompositionTable", () => {
       .getAllByRole("link")
       .find((a) => a.textContent?.includes("onion"))!;
     expect(link.getAttribute("href")).toBe(
-      "/food/onion?highlight=c123#composition"
+      "/food/onion#highlight=c123"
     );
   });
 

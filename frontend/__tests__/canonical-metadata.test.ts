@@ -52,7 +52,6 @@ const PAGE_FOR_PATH: Record<string, string> = {
   "/contact": "app/(everything-else)/contact/page.tsx",
   "/developers": "app/(everything-else)/developers/page.tsx",
   "/technical-background": "app/(everything-else)/technical-background/page.tsx",
-  "/food-composition-api": "app/(everything-else)/food-composition-api/page.tsx",
   "/food-composition-downloads":
     "app/(everything-else)/food-composition-downloads/page.tsx",
 };

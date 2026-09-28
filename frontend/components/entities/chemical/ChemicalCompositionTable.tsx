@@ -6,6 +6,7 @@ import { MdInfo } from "react-icons/md";
 import Pagination from "@/components/basic/Pagination";
 import ChemicalCompositionCards from "@/components/entities/chemical/ChemicalCompositionCards";
 import FoodCompositionEvidenceModal from "@/components/entities/food/FoodCompositionEvidenceModal";
+import { foodHighlightHref } from "@/components/entities/food/highlightLink";
 import { getChemicalCompositionEvidence } from "@/utils/fetching";
 import type { FoodEvidence } from "@/types/Evidence";
 import ChemicalCompositionTableRow, {
@@ -51,7 +52,7 @@ interface ChemicalCompositionTableProps {
   // The chemical this table is about — the evidence modal names the pair,
   // and the lazy evidence fetch is keyed on it.
   commonName: string;
-  // The chemical's foodatlas_id — carried into the ?highlight= deep link
+  // The chemical's foodatlas_id — carried into the #highlight= deep link
   // and the report context, exactly as the old bar chart did.
   chemicalId?: string;
 }
@@ -149,10 +150,8 @@ const ChemicalCompositionTable = ({
   }, [withConcentrations, withoutConcentrations, includeUnmeasured]);
 
   const hrefFor = (row: Row) => {
-    const qs = chemicalId
-      ? `?highlight=${encodeURIComponent(chemicalId)}#composition`
-      : "";
-    return `/food/${encodeURIComponent(encodeSpace(row.name))}${qs}`;
+    const path = `/food/${encodeURIComponent(encodeSpace(row.name))}`;
+    return chemicalId ? foodHighlightHref(path, chemicalId) : path;
   };
 
   const rowContextFor = (row: Row) => ({
