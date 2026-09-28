@@ -1,5 +1,4 @@
 import { Metadata } from "next";
-import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
 import BioactivityChemicalsSection from "@/components/entities/bioactivity/BioactivityChemicalsSection";
@@ -8,6 +7,7 @@ import BioactivityFoodsSection from "@/components/entities/bioactivity/Bioactivi
 import HeaderSection from "@/components/entities/HeaderSection";
 import HeaderSectionSuspense from "@/components/entities/HeaderSectionSuspense";
 import EntityDetailLayout from "@/components/entities/EntityDetailLayout";
+import { requireEntity } from "@/components/entities/requireEntity";
 import { buildTabs } from "@/components/entities/buildTabs";
 import { bioactivityDiseasesCount } from "@/utils/tabCounts";
 import { DEFAULT_TAB_ID } from "@/components/entities/entityTabs.config";
@@ -33,18 +33,22 @@ export async function generateMetadata({
   const { slug } = params;
   const commonName = decodeSpace(decodeURIComponent(slug));
 
+  // Repeats the layout's check (cached) so a 404 doesn't get the slug as
+  // its <title>. Past it, null metaData means the API did not answer; fall
+  // back to the slug rather than fail the page.
+  await requireEntity("bioactivity", slug);
   const metaData = await getMetaData(commonName, "bioactivity");
-  if (!metaData) notFound();
+  const name = metaData?.common_name ?? commonName;
 
   return {
-    title: `${toTitleCase(metaData.common_name)} — Bioactivity Profile`,
-    description: `Chemical measurements and food sources for the ${toTitleCase(
-      metaData.common_name
-    )} bioactivity.`,
+    title: `${toTitleCase(name)} — Bioactivity Profile`,
+    description: `Chemical measurements and food sources for the ${toTitleCase(name)} bioactivity.`,
     // The same entity as JSON, for anyone who wants the data not the page.
     alternates: {
-      canonical: canonicalUrl("bioactivity", metaData.common_name),
-      types: { "application/json": apiEntityUrl("bioactivity", metaData.id) },
+      canonical: canonicalUrl("bioactivity", name),
+      ...(metaData && {
+        types: { "application/json": apiEntityUrl("bioactivity", metaData.id) },
+      }),
     },
   };
 }

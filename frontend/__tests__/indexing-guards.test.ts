@@ -15,13 +15,22 @@ const sitemap = read("app/sitemap.ts");
 const nextConfig = read("next.config.mjs");
 
 describe("soft-404 surface", () => {
-  it("chemical pages noindex an unknown slug", () => {
-    // /chemical/<anything> returned 200 with a real title, description and a
-    // self-canonical — an unbounded indexable surface. It is the one entity
-    // route that deliberately renders without metaData, so noindex is the fix
-    // rather than notFound().
-    const src = read("app/(everything-else)/chemical/[slug]/page.tsx");
-    expect(src).toContain("index: false");
+  it.each(["food", "chemical", "disease", "bioactivity"])(
+    "%s slugs are checked above the loading boundary",
+    (type) => {
+      // notFound() below loading.tsx lands after the 200 has streamed, which
+      // GSC reports as a soft 404. The check has to sit in the layout.
+      const dir = `app/(everything-else)/${type}/[slug]`;
+      expect(read(`${dir}/loading.tsx`)).toBeTruthy();
+      expect(read(`${dir}/layout.tsx`)).toContain(
+        `await requireEntity("${type}", params.slug)`
+      );
+    }
+  );
+
+  it("has a not-found boundary inside the route group", () => {
+    // Without it the layout-level 404 renders bare, with no site nav.
+    expect(read("app/(everything-else)/not-found.tsx")).toContain("not-found");
   });
 });
 
