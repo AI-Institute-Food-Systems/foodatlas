@@ -4,7 +4,9 @@
 // Mirror of ChemicalCorrelationSection; see it for why the Improves/
 // Worsens split became a column.
 
-import CorrelationTable from "@/components/entities/CorrelationTable";
+import CorrelationTable, {
+  type CorrelationPayload,
+} from "@/components/entities/CorrelationTable";
 import Heading from "@/components/basic/Heading";
 import InfoBanner from "@/components/basic/InfoBanner";
 import Link from "@/components/basic/Link";
@@ -15,6 +17,8 @@ interface DiseaseCorrelationsSectionProps {
   direction?: CorrelationDirection;
   search?: string;
   onTotalRowsChange?: (total: number) => void;
+  // Page 1 as the server fetched it; see CorrelationTable.
+  initialData?: CorrelationPayload | null;
 }
 
 const DiseaseCorrelationsSection = ({
@@ -22,6 +26,7 @@ const DiseaseCorrelationsSection = ({
   direction = "all",
   search = "",
   onTotalRowsChange,
+  initialData,
 }: DiseaseCorrelationsSectionProps) => (
   <div className="flex flex-col gap-4">
     {/* Section label + blurb in the same chip-over-serif vocabulary the
@@ -57,6 +62,7 @@ const DiseaseCorrelationsSection = ({
       direction={direction}
       search={search}
       onTotalRowsChange={onTotalRowsChange}
+      initialData={initialData}
     />
   </div>
 );

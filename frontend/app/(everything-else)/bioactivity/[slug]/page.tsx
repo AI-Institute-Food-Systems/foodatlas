@@ -61,6 +61,8 @@ const BioactivityPage = async ({ params }: BioactivityPageProps) => {
   const [chemPayload, foodPayload, metaPayload, diseasesCount] =
     await Promise.all([
       getBioactivityChemicals(commonName).catch(() => null),
+      // No params = the backend's defaults (page 1, measurement_count desc),
+      // which are also the table's, so this doubles as its first page.
       getBioactivityFoods(commonName).catch(() => null),
       getMetaData(commonName, entityType).catch(() => null),
       // Without this the Diseases badge placeholder pulses until the tab
@@ -89,6 +91,7 @@ const BioactivityPage = async ({ params }: BioactivityPageProps) => {
               <BioactivityFoodsSection
                 commonName={commonName}
                 anchorId={anchorId}
+                initialPayload={foodPayload}
               />
             ),
           },

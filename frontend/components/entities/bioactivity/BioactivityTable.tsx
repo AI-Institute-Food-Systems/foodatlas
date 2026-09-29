@@ -7,7 +7,14 @@
 
 "use client";
 
-import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { usePublishTabCount } from "@/context/tabCountsContext";
 import {
@@ -93,6 +100,17 @@ export type SortableColumn = {
 // measurements" — only meaningful when an endpoint+unit filter is set.
 const TOP_VALUE_SORT_KEY = "top_measurement_value";
 
+type BioactivityPayload = {
+  data: BioactivityRow[];
+  metadata: {
+    row_count: number;
+    total_rows: number;
+    total_pages: number;
+    current_page: number;
+    rows_per_page: number;
+  };
+};
+
 interface Props {
   // Optional overrides for shared-chrome layouts (e.g. the Food page's
   // Bioactivities tab hosts one search + filter sidebar for both the
@@ -114,22 +132,15 @@ interface Props {
   // The pivot entity's common_name, used by getBioactivityEndpointOptions
   // to look up the bioactivity_id (or chem/food id) in the right MV.
   pivotName?: string;
+  // Page 1 at the default sort with no filters, fetched by the page on the
+  // server. Rendering it instead of fetching puts the rows and their entity
+  // links in the server HTML; the browser fetch goes through /_proxy-api,
+  // which robots.txt disallows, so crawlers otherwise saw an empty table.
+  initialPayload?: BioactivityPayload | null;
   // Server-side fetcher; the table passes page/search/sort/sortDir.
   fetcher: (
     params: BioactivityListParams
-  ) => Promise<
-    | {
-        data: BioactivityRow[];
-        metadata: {
-          row_count: number;
-          total_rows: number;
-          total_pages: number;
-          current_page: number;
-          rows_per_page: number;
-        };
-      }
-    | null
-  >;
+  ) => Promise<BioactivityPayload | null>;
   columns: SortableColumn[];
   // Initial sort_by / sort_dir.
   defaultSortBy?: string;
@@ -201,6 +212,7 @@ const BioactivityTable = ({
   hideChrome = false,
   tabIdForCount,
   onTotalRowsChange,
+  initialPayload = null,
 }: Props) => {
   const { getTablePaginations, setTablePaginations } = usePaginations();
   const { currentPage } = getTablePaginations(tableId);
@@ -287,10 +299,16 @@ const BioactivityTable = ({
     setSelectedUnits([]);
   };
 
-  const [rows, setRows] = useState<BioactivityRow[]>([]);
-  const [totalPages, setTotalPages] = useState(0);
-  const [totalRows, setTotalRows] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
+  // The seed describes page 1 only; a table restored to a later page
+  // fetches as before.
+  const seed = currentPage === 1 ? initialPayload : null;
+  const skipSeededFetch = useRef(seed !== null);
+  const [rows, setRows] = useState<BioactivityRow[]>(seed?.data ?? []);
+  const [totalPages, setTotalPages] = useState(
+    seed?.metadata.total_pages ?? 0
+  );
+  const [totalRows, setTotalRows] = useState(seed?.metadata.total_rows ?? 0);
+  const [isLoading, setIsLoading] = useState(seed === null);
   // A fetch with rows already on screen is a refetch (page, sort, filter,
   // search) — keep them and dim, rather than blanking the table. Only a
   // fetch with nothing to keep gets the skeleton.
@@ -442,6 +460,11 @@ const BioactivityTable = ({
   const [selected, setSelected] = useState<BioactivityRow | null>(null);
 
   useEffect(() => {
+    // The seed already is this response; every later change fetches.
+    if (skipSeededFetch.current) {
+      skipSeededFetch.current = false;
+      return;
+    }
     let cancelled = false;
     setIsLoading(true);
     (async () => {

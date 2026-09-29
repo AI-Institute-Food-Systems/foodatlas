@@ -11,7 +11,8 @@ import { correlationEvidenceCount } from "@/utils/tabCounts";
 import { DEFAULT_TAB_ID } from "@/components/entities/entityTabs.config";
 import EntityOverviewPanelSuspense from "@/components/entities/EntityOverviewPanelSuspense";
 import HeaderSectionSuspense from "@/components/entities/HeaderSectionSuspense";
-import { getMetaData } from "@/utils/fetching";
+import { CORRELATION_DEFAULT_SORT } from "@/components/entities/shared/correlationSort";
+import { getDiseaseData, getMetaData } from "@/utils/fetching";
 import JsonLd from "@/components/misc/JsonLd";
 import { apiEntityUrl, canonicalUrl } from "@/utils/site";
 import { entityJsonLd } from "@/utils/structuredData";
@@ -57,9 +58,19 @@ const DiseasePage = async ({ params }: DiseasePageProps) => {
   // Count only; the tab still loads lazily.
   // metaPayload is the same cached call generateMetadata made; it only
   // feeds the JSON-LD here.
-  const [healthCount, metaPayload] = await Promise.all([
+  // literaturePage is the Chemicals tab's first page, rendered on the
+  // server so crawlers see the table; the count fetches the same URL.
+  const [healthCount, metaPayload, literaturePage] = await Promise.all([
     correlationEvidenceCount(commonName, "disease"),
     getMetaData(commonName, entityType).catch(() => null),
+    getDiseaseData(
+      commonName,
+      1,
+      "disease",
+      "all",
+      "",
+      CORRELATION_DEFAULT_SORT
+    ).catch(() => null),
   ]);
 
   return (
@@ -78,6 +89,7 @@ const DiseasePage = async ({ params }: DiseasePageProps) => {
               <CorrelationEvidenceTab
                 commonName={commonName}
                 anchor="disease"
+                initialLiterature={literaturePage}
               />
             ),
           },
