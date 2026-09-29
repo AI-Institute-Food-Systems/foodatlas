@@ -15,12 +15,18 @@ import EntityOverviewPanel from "@/components/entities/EntityOverviewPanel";
 import EntityOverviewPanelSuspense from "@/components/entities/EntityOverviewPanelSuspense";
 import {
   getBioactivityChemicals,
+  getBioactivityDiseases,
   getBioactivityFoods,
   getMetaData,
 } from "@/utils/fetching";
 import JsonLd from "@/components/misc/JsonLd";
+import TabSnapshot from "@/components/entities/shared/TabSnapshot";
 import { apiEntityUrl, canonicalUrl } from "@/utils/site";
 import { entityJsonLd } from "@/utils/structuredData";
+import {
+  bioactivityDiseasesSection,
+  bioactivityListSection,
+} from "@/utils/tabSnapshots";
 import { decodeSpace, toTitleCase } from "@/utils/utils";
 
 interface BioactivityPageProps {
@@ -58,7 +64,7 @@ const BioactivityPage = async ({ params }: BioactivityPageProps) => {
   const commonName = decodeSpace(decodeURIComponent(slug));
   const entityType = "bioactivity" as const;
 
-  const [chemPayload, foodPayload, metaPayload, diseasesCount] =
+  const [chemPayload, foodPayload, metaPayload, diseasesCount, diseasesPayload] =
     await Promise.all([
       getBioactivityChemicals(commonName).catch(() => null),
       // No params = the backend's defaults (page 1, measurement_count desc),
@@ -68,12 +74,25 @@ const BioactivityPage = async ({ params }: BioactivityPageProps) => {
       // Without this the Diseases badge placeholder pulses until the tab
       // is opened, since a tab publishes its count only once mounted.
       bioactivityDiseasesCount(commonName),
+      // The Diseases tab's snapshot; same URL as the count, so cached.
+      getBioactivityDiseases(commonName),
     ]);
   const chemicalsCount =
     (chemPayload?.metadata?.total_rows as number | undefined) ?? null;
   const foodsCount =
     (foodPayload?.metadata?.total_rows as number | undefined) ?? null;
   const anchorId = metaPayload?.id ?? null;
+
+  // Server-only; rendered outright and in the Overview tab's snapshot slot,
+  // so it's in the HTML whether or not the tab was opened. A factory, not
+  // one shared element: RSC dedupes a repeated element into a single
+  // reference, and SSR then fails on the shared <Suspense> ("reading
+  // 'fallback'"), dropping the whole page to client rendering.
+  const overview = () => (
+    <Suspense fallback={<EntityOverviewPanelSuspense entityType={entityType} />}>
+      <EntityOverviewPanel commonName={commonName} entityType={entityType} />
+    </Suspense>
+  );
 
   return (
     <>
@@ -103,25 +122,22 @@ const BioactivityPage = async ({ params }: BioactivityPageProps) => {
                 anchorId={anchorId}
               />
             ),
+            snapshot: (
+              <TabSnapshot
+                sections={[
+                  bioactivityListSection("Chemicals", "chemical", chemPayload),
+                ]}
+              />
+            ),
           },
           diseases: {
             count: diseasesCount,
             content: <BioactivityDiseasesSection commonName={commonName} />,
-          },
-          overview: {
-            content: (
-              <Suspense
-                fallback={
-                  <EntityOverviewPanelSuspense entityType={entityType} />
-                }
-              >
-                <EntityOverviewPanel
-                  commonName={commonName}
-                  entityType={entityType}
-                />
-              </Suspense>
+            snapshot: (
+              <TabSnapshot sections={[bioactivityDiseasesSection(diseasesPayload)]} />
             ),
           },
+          overview: { content: overview(), snapshot: overview() },
         })}
       />
     </>

@@ -73,6 +73,17 @@ const DiseasePage = async ({ params }: DiseasePageProps) => {
     ).catch(() => null),
   ]);
 
+  // Server-only; rendered outright and in the Overview tab's snapshot slot,
+  // so it's in the HTML whether or not the tab was opened. A factory, not
+  // one shared element: RSC dedupes a repeated element into a single
+  // reference, and SSR then fails on the shared <Suspense> ("reading
+  // 'fallback'"), dropping the whole page to client rendering.
+  const overview = () => (
+    <Suspense fallback={<EntityOverviewPanelSuspense entityType={entityType} />}>
+      <EntityOverviewPanel commonName={commonName} entityType={entityType} />
+    </Suspense>
+  );
+
   return (
     <>
       {metaPayload && <JsonLd data={entityJsonLd(entityType, metaPayload)} />}
@@ -93,20 +104,7 @@ const DiseasePage = async ({ params }: DiseasePageProps) => {
               />
             ),
           },
-          overview: {
-            content: (
-              <Suspense
-                fallback={
-                  <EntityOverviewPanelSuspense entityType={entityType} />
-                }
-              >
-                <EntityOverviewPanel
-                  commonName={commonName}
-                  entityType={entityType}
-                />
-              </Suspense>
-            ),
-          },
+          overview: { content: overview(), snapshot: overview() },
         })}
       />
     </>
