@@ -18,6 +18,14 @@ import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
+// robots.txt lets crawlers fetch this path, because Google renders an entity
+// page's tables only with the requests it is allowed to make. The JSON itself
+// is not a page, so every response says so; Google still fetches it to render.
+const NOINDEX = { "x-robots-tag": "noindex" };
+
+const refuse = (error: string, status: number) =>
+  NextResponse.json({ error }, { status, headers: NOINDEX });
+
 // The routers the UI actually calls, derived from every `apiBase()` call site
 // in utils/fetching.ts, the hooks and the components. Anything else is refused.
 //
@@ -68,15 +76,15 @@ const upstream = async (
 ) => {
   const base = process.env.NEXT_PUBLIC_API_URL;
   if (!base) {
-    return NextResponse.json({ error: "api_not_configured" }, { status: 503 });
+    return refuse("api_not_configured", 503);
   }
 
   // Reject before the key is ever attached.
   if (!isAllowed(path)) {
-    return NextResponse.json({ error: "not_proxied" }, { status: 404 });
+    return refuse("not_proxied", 404);
   }
   if (isCrossSite(req)) {
-    return NextResponse.json({ error: "cross_site" }, { status: 403 });
+    return refuse("cross_site", 403);
   }
 
   // `..` would otherwise survive: encodeURIComponent leaves `.` alone and
@@ -84,7 +92,7 @@ const upstream = async (
   // path. Harmless while the base has no path, a prefix escape the moment it
   // gains one.
   if (path.some((s) => s === "." || s === "..")) {
-    return NextResponse.json({ error: "bad_path" }, { status: 400 });
+    return refuse("bad_path", 400);
   }
 
   const suffix = path.map(encodeURIComponent).join("/");
@@ -102,10 +110,7 @@ const upstream = async (
       cache: "no-store",
     });
   } catch {
-    return NextResponse.json(
-      { error: "upstream_unavailable" },
-      { status: 502 },
-    );
+    return refuse("upstream_unavailable", 502);
   }
 
   // Stream the body through untouched. Content-Type is the only header worth
@@ -115,6 +120,7 @@ const upstream = async (
   const contentType = res.headers.get("content-type");
   if (contentType) headers.set("content-type", contentType);
   headers.set("cache-control", "no-store");
+  headers.set("x-robots-tag", NOINDEX["x-robots-tag"]);
 
   return new NextResponse(method === "HEAD" ? null : res.body, {
     status: res.status,

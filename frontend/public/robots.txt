@@ -13,7 +13,10 @@ Allow: /
 # Internal plumbing and pages with no indexable content of their own.
 Disallow: /api/
 Disallow: /_a/
-Disallow: /_proxy-api/
+# /_proxy-api/ is NOT disallowed: entity tables load through it, and Google
+# renders a page only with the fetches robots.txt lets it make. Blocking it
+# left crawlers an empty table. Its responses carry X-Robots-Tag: noindex, and
+# the proxy's route allowlist (not this file) is what limits it.
 # /results is crawlable on purpose: the WebSite SearchAction targets it and
 # Google only honours a crawlable target. The page itself is noindex.
 Disallow: /report/

@@ -121,6 +121,18 @@ describe("/_proxy-api authorization", () => {
     expect(init.headers).toEqual({ Authorization: `Bearer ${KEY}` });
   });
 
+  it("marks every response noindex, refusals included", async () => {
+    // Crawlers may fetch the proxy (robots.txt allows it so Google can render
+    // entity tables), but the JSON must never be listed as a page.
+    fetchSpy();
+    expect((await call(["food", "composition"])).headers.get("x-robots-tag")).toBe(
+      "noindex",
+    );
+    expect((await call(["v1", "stats"])).headers.get("x-robots-tag")).toBe(
+      "noindex",
+    );
+  });
+
   it("applies the same rules to HEAD", async () => {
     const spy = fetchSpy();
     const blocked = await HEAD(
