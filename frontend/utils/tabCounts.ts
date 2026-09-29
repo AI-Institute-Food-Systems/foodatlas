@@ -18,6 +18,7 @@ import {
   getDiseaseChemicalAssociations,
   getDiseaseData,
 } from "@/utils/fetching";
+import { CORRELATION_DEFAULT_SORT } from "@/components/entities/shared/correlationSort";
 
 const rowCount = async (
   fetcher: () => Promise<{ metadata?: { row_count?: number } } | null>
@@ -38,7 +39,16 @@ export const correlationEvidenceCount = async (
   tableLocation: "chemical" | "disease"
 ): Promise<number | null> => {
   const literature = async () => {
-    const data = await getDiseaseData(commonName, 1, tableLocation, "all");
+    // Same URL as the table's first page, so the disease page's seed fetch
+    // is deduplicated with this one.
+    const data = await getDiseaseData(
+      commonName,
+      1,
+      tableLocation,
+      "all",
+      "",
+      CORRELATION_DEFAULT_SORT
+    );
     const n = data?.metadata?.total_rows;
     return typeof n === "number" ? n : null;
   };
