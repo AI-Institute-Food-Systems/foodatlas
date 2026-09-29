@@ -41,6 +41,9 @@ export type TabSpec = {
   // The badge count itself; null while the tab's fetch is in flight.
   count?: number | null;
   content: ReactNode;
+  // Server-rendered stand-in shown (hidden) until the tab is first opened,
+  // so crawlers see its rows and links — see TabSnapshot.
+  snapshot?: ReactNode;
 };
 
 // Badges are a glanceable magnitude, not a figure to read off — k notation
@@ -315,12 +318,16 @@ const EntityTabs = ({ entityType, tabs: rawTabs, defaultTabId }: Props) => {
               // panel with `hidden` rather than tearing it down.
               //
               // Content is still gated on `visited`, so an unopened tab
-              // renders nothing: page load only pays for the tab you land
-              // on, instead of every tab fetching at once.
+              // renders only its static snapshot: page load only pays for
+              // the tab you land on, instead of every tab fetching at once.
+              // The selected tab counts as visited from the click itself,
+              // so the snapshot never paints while `visited` catches up.
               unmount={false}
               className="outline-none focus-visible:outline-light-200"
             >
-              {visited.has(tab.id) ? tab.content : null}
+              {visited.has(tab.id) || tab.id === selectedId
+                ? tab.content
+                : (tab.snapshot ?? null)}
             </TabPanel>
           ))}
         </TabPanels>

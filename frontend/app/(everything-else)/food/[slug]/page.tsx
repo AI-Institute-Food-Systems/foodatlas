@@ -19,8 +19,13 @@ import {
   getMetaData,
 } from "@/utils/fetching";
 import JsonLd from "@/components/misc/JsonLd";
+import TabSnapshot from "@/components/entities/shared/TabSnapshot";
 import { apiEntityUrl, canonicalUrl } from "@/utils/site";
 import { entityJsonLd } from "@/utils/structuredData";
+import {
+  bioactivityListSection,
+  inferredBioactivitySection,
+} from "@/utils/tabSnapshots";
 import { decodeSpace, toTitleCase } from "@/utils/utils";
 
 interface FoodPageProps {
@@ -99,6 +104,17 @@ const FoodPage = async ({ params }: FoodPageProps) => {
       ? null
       : (directBio ?? 0) + (inferredBio ?? 0);
 
+  // Server-only; rendered outright and in the Overview tab's snapshot slot,
+  // so it's in the HTML whether or not the tab was opened. A factory, not
+  // one shared element: RSC dedupes a repeated element into a single
+  // reference, and SSR then fails on the shared <Suspense> ("reading
+  // 'fallback'"), dropping the whole page to client rendering.
+  const overview = () => (
+    <Suspense fallback={<EntityOverviewPanelSuspense entityType={entityType} />}>
+      <EntityOverviewPanel commonName={commonName} entityType={entityType} />
+    </Suspense>
+  );
+
   return (
     <>
       {metaPayload && <JsonLd data={entityJsonLd(entityType, metaPayload)} />}
@@ -126,21 +142,16 @@ const FoodPage = async ({ params }: FoodPageProps) => {
                 anchorId={anchorId}
               />
             ),
-          },
-          overview: {
-            content: (
-              <Suspense
-                fallback={
-                  <EntityOverviewPanelSuspense entityType={entityType} />
-                }
-              >
-                <EntityOverviewPanel
-                  commonName={commonName}
-                  entityType={entityType}
-                />
-              </Suspense>
+            snapshot: (
+              <TabSnapshot
+                sections={[
+                  bioactivityListSection("Directly measured", "bioactivity", bioPayload),
+                  inferredBioactivitySection(inferredBioPayload),
+                ]}
+              />
             ),
           },
+          overview: { content: overview(), snapshot: overview() },
         })}
       />
     </>
