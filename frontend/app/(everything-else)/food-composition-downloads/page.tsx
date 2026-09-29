@@ -10,6 +10,7 @@ import DownloadsTable, {
   DownloadRow,
 } from "@/components/misc/DownloadsTable";
 import JsonLd from "@/components/misc/JsonLd";
+import UnderConstruction from "@/components/misc/UnderConstruction";
 import { DownloadEntry } from "@/types";
 import { getDownloadEntries } from "@/utils/fetching";
 import { CANONICAL_PUBLICATION } from "@/utils/publications";
@@ -51,54 +52,56 @@ const Downloads = async ({ searchParams }: DownloadsPageProps) => {
       {/* schema.org Dataset: what Google Dataset Search and data-hungry
        * crawlers read instead of scraping entity pages. */}
       <JsonLd data={datasetJsonLd(entries)} />
-      <div>
-        <Heading type="h1" variant="display">Download Database Bundles</Heading>
-        <p className="mt-6 text-base leading-relaxed text-light-200">
-          Our extensive food composition database contains only evidence-based
-          data that can be traced back to its source. As a USDA-NSF funded
-          research project, the data is presented as a free resource under the{" "}
-          <Link href="https://www.apache.org/licenses/LICENSE-2.0">
-            Apache-2.0
-          </Link>{" "}
-          license. Downloads are gated the same way as the API: request a free
-          key through the{" "}
-          <Link href="/contact?api-access" isExternal={false}>
-            contact form
-          </Link>{" "}
-          and use it below, or fetch bundles programmatically via{" "}
-          <Link href="/developers" isExternal={false}>
-            /v1/bundles
-          </Link>
-          .
-        </p>
-      </div>
-      <div className="mt-16">
-        <Heading type="h2" variant="chip">
-          How to Cite
-        </Heading>
-      </div>
-      <div className="mt-8">
-        <Card>
-          <p className="leading-relaxed text-light-200">
-            <Citation publication={CANONICAL_PUBLICATION} />
+      <UnderConstruction message="Bulk downloads are being rebuilt. Check back soon.">
+        <div>
+          <Heading type="h1" variant="display">Download Database Bundles</Heading>
+          <p className="mt-6 text-base leading-relaxed text-light-200">
+            Our extensive food composition database contains only evidence-based
+            data that can be traced back to its source. As a USDA-NSF funded
+            research project, the data is presented as a free resource under the{" "}
+            <Link href="https://www.apache.org/licenses/LICENSE-2.0">
+              Apache-2.0
+            </Link>{" "}
+            license. Downloads are gated the same way as the API: request a free
+            key through the{" "}
+            <Link href="/contact?api-access" isExternal={false}>
+              contact form
+            </Link>{" "}
+            and use it below, or fetch bundles programmatically via{" "}
+            <Link href="/developers" isExternal={false}>
+              /v1/bundles
+            </Link>
+            .
           </p>
-        </Card>
-      </div>
+        </div>
+        <div className="mt-16">
+          <Heading type="h2" variant="chip">
+            How to Cite
+          </Heading>
+        </div>
+        <div className="mt-8">
+          <Card>
+            <p className="leading-relaxed text-light-200">
+              <Citation publication={CANONICAL_PUBLICATION} />
+            </p>
+          </Card>
+        </div>
 
-      <div className="mt-16">
-        <Heading type="h2" variant="chip">
-          Bundles
-        </Heading>
-      </div>
-      <div className="mt-8">
-        <Card>
-          <DownloadsTable data={data} error={searchParams?.error} />
-        </Card>
-        <p className="mt-4 text-sm text-light-400">
-          Versions prior to v4.0 are retired and no longer available for
-          download.
-        </p>
-      </div>
+        <div className="mt-16">
+          <Heading type="h2" variant="chip">
+            Bundles
+          </Heading>
+        </div>
+        <div className="mt-8">
+          <Card>
+            <DownloadsTable data={data} error={searchParams?.error} />
+          </Card>
+          <p className="mt-4 text-sm text-light-400">
+            Versions prior to v4.0 are retired and no longer available for
+            download.
+          </p>
+        </div>
+      </UnderConstruction>
     </div>
   );
 };
