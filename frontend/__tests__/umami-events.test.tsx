@@ -94,9 +94,19 @@ describe("outbound_link", () => {
 });
 
 describe("contact_submit", () => {
-  it("reports topic and outcome, never the message", async () => {
+  it("reports topic and outcome, never the message or answers", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true }));
     render(<ContactForm isApiAccessRequest />);
+    // API requests only post once the structured questions are answered.
+    for (const [label, option] of [
+      [/how will you use the api/i, "Commercial"],
+      [/expected volume/i, "<1k requests/day"],
+    ] as const) {
+      fireEvent.click(screen.getByRole("button", { name: label }));
+      fireEvent.click(await screen.findByRole("option", { name: option }));
+    }
+    fireEvent.click(screen.getByRole("radio", { name: "Yes" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Foods" }));
     fireEvent.submit(screen.getByRole("button", { name: /send/i }).closest("form")!);
     await waitFor(() => expect(events("contact_submit")).toHaveLength(1));
     expect(events("contact_submit")[0]).toEqual({

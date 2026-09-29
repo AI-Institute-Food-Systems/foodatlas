@@ -11,6 +11,8 @@ import {
   str,
 } from "@/utils/formGuard";
 import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
+import { API_ACCESS_TOPIC } from "@/utils/apiAccessFields";
+import { apiAccessBlock, parseApiAccess } from "@/utils/apiAccessGuard";
 
 const ses = new SESv2Client({
   region: process.env.AWS_REGION || "us-west-2",
@@ -18,7 +20,7 @@ const ses = new SESv2Client({
 
 const KNOWN_TOPICS = [
   "General Inquiry",
-  "API Access Request",
+  API_ACCESS_TOPIC,
   "Data Issue",
 ] as const;
 
@@ -27,10 +29,8 @@ export async function POST(request: NextRequest) {
     if (isCrossSite(request)) return crossSite();
 
     const body: unknown = await request.json();
-    const { name, email, affiliation, topic, message } = (body ?? {}) as Record<
-      string,
-      unknown
-    >;
+    const { name, email, affiliation, topic, message, apiAccess } = (body ??
+      {}) as Record<string, unknown>;
 
     // Bounded server-side. The caps previously existed only as maxLength on
     // the client inputs, so a direct POST could send arbitrary volumes of text
@@ -54,6 +54,20 @@ export async function POST(request: NextRequest) {
     )
       ? (topic as string)
       : "General Inquiry";
+
+    // API requests carry the structured answers the PI reviews; without them
+    // (or an affiliation) the request can't be triaged, so refuse it here
+    // rather than forwarding a half-filled row.
+    let apiAccessSection = "";
+    if (topicLabel === API_ACCESS_TOPIC) {
+      const apiAccessV = parseApiAccess(apiAccess);
+      if (!apiAccessV || !affiliationV) {
+        return badRequest(
+          "API access requests need an affiliation and all API access fields",
+        );
+      }
+      apiAccessSection = apiAccessBlock(apiAccessV);
+    }
 
     // CONTACT_EMAIL is a JSON array so ops can fan-out to multiple
     // recipients without touching code.
@@ -79,7 +93,8 @@ export async function POST(request: NextRequest) {
                   `Email: ${emailV}\n` +
                   affiliationLine +
                   `Topic: ${topicLabel}\n\n` +
-                  messageV,
+                  messageV +
+                  apiAccessSection,
               },
             },
           },
