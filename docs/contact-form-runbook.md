@@ -34,7 +34,7 @@ Lukas has. Acknowledge, then park the email in a folder so nothing gets lost:
 > Thanks for your interest in the FoodAtlas API. Lukas handles key issuance and is out until
 > <date> — I've put you at the front of the queue and you'll hear from him shortly after.
 > In the meantime the endpoints and response shapes are documented at
-> foodatlas.ai/food-composition-api.
+> foodatlas.ai/developers.
 
 Forward the whole batch to Lukas when he's back.
 

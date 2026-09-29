@@ -1,8 +1,15 @@
-// Schema.org objects for the pages that describe the data itself. Kept as
+// Schema.org objects for the pages that describe the data and its entities. Kept as
 // plain functions so the pages stay readable and a test can assert the shape.
 import type { DownloadEntry } from "@/types";
+import type { Metadata as EntityMetadata } from "@/types/Metadata";
 import { CANONICAL_PUBLICATION, doiUrl } from "@/utils/publications";
-import { API_URL, DOWNLOADS_PATH, SITE_URL } from "@/utils/site";
+import {
+  API_URL,
+  DOWNLOADS_PATH,
+  SITE_URL,
+  canonicalUrl,
+  type EntityType,
+} from "@/utils/site";
 
 // Downloads are gated like the API: free, but behind a key. Schema.org has
 // a field for exactly that distinction, so crawlers don't try the link raw.
@@ -81,3 +88,68 @@ export const webSiteJsonLd = () => ({
     "query-input": "required name=search_term_string",
   },
 });
+
+// Entity pages render their tables client-side, so to a crawler that does not
+// run the XHRs the page is a header and nothing else. This is the part of the
+// entity it can still read. Types: the closest schema.org fit per entity; food
+// and bioactivity have none, so they are terms in FoodAtlas's own vocabulary.
+const ENTITY_SCHEMA_TYPE: Record<EntityType, string> = {
+  food: "DefinedTerm",
+  chemical: "MolecularEntity",
+  disease: "MedicalCondition",
+  bioactivity: "DefinedTerm",
+};
+
+// Chemicals carry hundreds of IUPAC variants; the head is what matters.
+const MAX_ALTERNATE_NAMES = 25;
+
+// Synonyms include the name itself and, for some foods, raw ontology IRIs
+// ("<http://purl.obolibrary.org/...>") that are ids, not names.
+const alternateNames = (m: EntityMetadata): string[] => {
+  const own = m.common_name.toLowerCase();
+  const names = m.synonyms.filter(
+    (s) => s && s.toLowerCase() !== own && !/^<?https?:/i.test(s)
+  );
+  return Array.from(new Set(names)).slice(0, MAX_ALTERNATE_NAMES);
+};
+
+// The type comes from the route, not the payload: /bioactivity/metadata
+// omits entity_type.
+export const entityJsonLd = (type: EntityType, m: EntityMetadata) => {
+  const url = canonicalUrl(type, m.common_name);
+  const external = Object.values(m.external_ids).flatMap((source) =>
+    source.ids.map((i) => ({ ...i, source: source.display_name }))
+  );
+  const sameAs = Array.from(
+    new Set(external.map((i) => i.url).filter((u) => u && /^https?:/.test(u)))
+  );
+  const synonyms = alternateNames(m);
+  const schemaType = ENTITY_SCHEMA_TYPE[type];
+
+  return {
+    "@context": "https://schema.org",
+    "@type": schemaType,
+    "@id": `${url}#entity`,
+    name: m.common_name,
+    ...(synonyms.length > 0 && { alternateName: synonyms }),
+    ...(m.description && { description: m.description }),
+    url,
+    identifier: [
+      { "@type": "PropertyValue", propertyID: "FoodAtlas", value: m.id },
+      ...external.map((i) => ({
+        "@type": "PropertyValue",
+        propertyID: i.source,
+        value: i.id,
+      })),
+    ],
+    ...(sameAs.length > 0 && { sameAs }),
+    ...(schemaType === "DefinedTerm" && {
+      termCode: m.id,
+      inDefinedTermSet: {
+        "@type": "DefinedTermSet",
+        name: `FoodAtlas ${type} vocabulary`,
+        url: SITE_URL,
+      },
+    }),
+  };
+};

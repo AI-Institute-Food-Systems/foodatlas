@@ -1,12 +1,13 @@
 import { Suspense } from "react";
 import { Metadata } from "next";
-import { notFound } from "next/navigation";
 
 import FoodCompositionSection from "@/components/entities/food/FoodCompositionSection";
+import { ALL_SOURCE_VALUES } from "@/components/entities/food/compositionSources";
 import FoodBioactivitiesTab from "@/components/entities/bioactivity/FoodBioactivitiesTab";
 import HeaderSection from "@/components/entities/HeaderSection";
 import HeaderSectionSuspense from "@/components/entities/HeaderSectionSuspense";
 import EntityDetailLayout from "@/components/entities/EntityDetailLayout";
+import { requireEntity } from "@/components/entities/requireEntity";
 import { buildTabs } from "@/components/entities/buildTabs";
 import { DEFAULT_TAB_ID } from "@/components/entities/entityTabs.config";
 import EntityOverviewPanel from "@/components/entities/EntityOverviewPanel";
@@ -17,7 +18,9 @@ import {
   getFoodInferredBioactivities,
   getMetaData,
 } from "@/utils/fetching";
+import JsonLd from "@/components/misc/JsonLd";
 import { apiEntityUrl, canonicalUrl } from "@/utils/site";
+import { entityJsonLd } from "@/utils/structuredData";
 import { decodeSpace, toTitleCase } from "@/utils/utils";
 
 interface FoodPageProps {
@@ -30,18 +33,22 @@ export async function generateMetadata({
   const { slug } = params;
   const commonName = decodeSpace(decodeURIComponent(slug));
 
+  // Repeats the layout's check (cached) so a 404 doesn't get the slug as
+  // its <title>. Past it, null metaData means the API did not answer; fall
+  // back to the slug rather than fail the page.
+  await requireEntity("food", slug);
   const metaData = await getMetaData(commonName, "food");
-  if (!metaData) notFound();
+  const name = metaData?.common_name ?? commonName;
 
   return {
-    title: `${toTitleCase(metaData.common_name)} - Food Composition`,
-    description: `Nutritional value of ${toTitleCase(
-      metaData.common_name
-    )}. Use evidence based molecular composition to help inform your food choices.`,
+    title: `${toTitleCase(name)} - Food Composition`,
+    description: `Nutritional value of ${toTitleCase(name)}. Use evidence based molecular composition to help inform your food choices.`,
     // The same entity as JSON, for anyone who wants the data not the page.
     alternates: {
-      canonical: canonicalUrl("food", metaData.common_name),
-      types: { "application/json": apiEntityUrl("food", metaData.id) },
+      canonical: canonicalUrl("food", name),
+      ...(metaData && {
+        types: { "application/json": apiEntityUrl("food", metaData.id) },
+      }),
     },
   };
 }
@@ -54,7 +61,10 @@ const FoodPage = async ({ params }: FoodPageProps) => {
   // Parallel best-effort count fetches for the tab badges. Failures fall
   // back to null so the badge silently hides instead of breaking the page.
   // Composition uses the same call as the table (default filters: all sources,
-  // include unmeasured, no search) so the badge matches "Found N chemicals".
+  // include unmeasured, no search) so the badge matches "Found N chemicals",
+  // and the table renders this response as its first page on the server.
+  // (It listed fdc+foodatlas only, so PTFI-only rows were missing from the
+  // badge until the client refetched.)
   // Bioactivities badge sums the direct (food→bioactivity) and inferred
   // (via chemicals-in-food) totals — same shape as the two tables rendered
   // in the tab, so the badge matches what the user actually sees.
@@ -63,7 +73,7 @@ const FoodPage = async ({ params }: FoodPageProps) => {
       getFoodCompositionData(
         commonName,
         1,
-        ["fdc", "foodatlas"],
+        ALL_SOURCE_VALUES,
         "",
         { column: "median_concentration", direction: "desc" },
         true,
@@ -91,6 +101,7 @@ const FoodPage = async ({ params }: FoodPageProps) => {
 
   return (
     <>
+      {metaPayload && <JsonLd data={entityJsonLd(entityType, metaPayload)} />}
       <Suspense fallback={<HeaderSectionSuspense entityType={entityType} />}>
         <HeaderSection commonName={commonName} entityType={entityType} />
       </Suspense>
@@ -100,7 +111,12 @@ const FoodPage = async ({ params }: FoodPageProps) => {
         tabs={buildTabs(entityType, {
           composition: {
             count: compositionCount,
-            content: <FoodCompositionSection commonName={commonName} />,
+            content: (
+              <FoodCompositionSection
+                commonName={commonName}
+                initialData={compPayload}
+              />
+            ),
           },
           bioactivities: {
             count: bioactivitiesCount,

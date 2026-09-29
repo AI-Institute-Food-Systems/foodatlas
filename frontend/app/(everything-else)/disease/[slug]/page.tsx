@@ -1,10 +1,10 @@
 import { Metadata } from "next";
-import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
 import CorrelationEvidenceTab from "@/components/entities/shared/CorrelationEvidenceTab";
 import HeaderSection from "@/components/entities/HeaderSection";
 import EntityDetailLayout from "@/components/entities/EntityDetailLayout";
+import { requireEntity } from "@/components/entities/requireEntity";
 import EntityOverviewPanel from "@/components/entities/EntityOverviewPanel";
 import { buildTabs } from "@/components/entities/buildTabs";
 import { correlationEvidenceCount } from "@/utils/tabCounts";
@@ -12,7 +12,9 @@ import { DEFAULT_TAB_ID } from "@/components/entities/entityTabs.config";
 import EntityOverviewPanelSuspense from "@/components/entities/EntityOverviewPanelSuspense";
 import HeaderSectionSuspense from "@/components/entities/HeaderSectionSuspense";
 import { getMetaData } from "@/utils/fetching";
+import JsonLd from "@/components/misc/JsonLd";
 import { apiEntityUrl, canonicalUrl } from "@/utils/site";
+import { entityJsonLd } from "@/utils/structuredData";
 import { decodeSpace, toTitleCase } from "@/utils/utils";
 
 interface DiseasePageProps {
@@ -25,18 +27,22 @@ export async function generateMetadata({
   const { slug } = params;
   const commonName = decodeSpace(decodeURIComponent(slug));
 
+  // Repeats the layout's check (cached) so a 404 doesn't get the slug as
+  // its <title>. Past it, null metaData means the API did not answer; fall
+  // back to the slug rather than fail the page.
+  await requireEntity("disease", slug);
   const metaData = await getMetaData(commonName, "disease");
-  if (!metaData) notFound();
+  const name = metaData?.common_name ?? commonName;
 
   return {
-    title: `${toTitleCase(metaData.common_name)} and Your Health`,
-    description: `Evidence-based correlations between ${toTitleCase(
-      metaData.common_name
-    )} and the foods that contain it.`,
+    title: `${toTitleCase(name)} and Your Health`,
+    description: `Evidence-based correlations between ${toTitleCase(name)} and the foods that contain it.`,
     // The same entity as JSON, for anyone who wants the data not the page.
     alternates: {
-      canonical: canonicalUrl("disease", metaData.common_name),
-      types: { "application/json": apiEntityUrl("disease", metaData.id) },
+      canonical: canonicalUrl("disease", name),
+      ...(metaData && {
+        types: { "application/json": apiEntityUrl("disease", metaData.id) },
+      }),
     },
   };
 }
@@ -49,10 +55,16 @@ const DiseasePage = async ({ params }: DiseasePageProps) => {
   // The one counted tab. A tab mounts only when opened, so an unfetched
   // count leaves its badge placeholder pulsing for the life of the page.
   // Count only; the tab still loads lazily.
-  const healthCount = await correlationEvidenceCount(commonName, "disease");
+  // metaPayload is the same cached call generateMetadata made; it only
+  // feeds the JSON-LD here.
+  const [healthCount, metaPayload] = await Promise.all([
+    correlationEvidenceCount(commonName, "disease"),
+    getMetaData(commonName, entityType).catch(() => null),
+  ]);
 
   return (
     <>
+      {metaPayload && <JsonLd data={entityJsonLd(entityType, metaPayload)} />}
       <Suspense fallback={<HeaderSectionSuspense entityType={entityType} />}>
         <HeaderSection commonName={commonName} entityType={entityType} />
       </Suspense>

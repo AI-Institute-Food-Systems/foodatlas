@@ -114,6 +114,12 @@ const ContactForm = ({ isApiAccessRequest }: ContactFormProps) => {
                 </ListboxOptions>
               </div>
             </Listbox>
+            {topic === "API Access Request" && (
+              <p className="mt-2 text-xs italic text-accent-500 font-serif">
+                The API is under construction. Send your request anyway —
+                we&apos;ll reach out once keys are available again.
+              </p>
+            )}
           </Field>
 
           {/* Name + email side-by-side once there's room. */}
