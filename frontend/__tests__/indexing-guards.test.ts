@@ -58,20 +58,24 @@ describe("sitemap advertises only URLs that resolve", () => {
 });
 
 describe("parameterised links stay out of the crawl", () => {
-  it("disallows the chemical→food ?highlight= links", () => {
-    // Every composition row on a chemical page links to its food with a
-    // highlight param — ~200k crawlable URLs, one per food-chemical pair.
+  it("keeps the chemical→food highlight out of the query string", () => {
+    // Every composition row on a chemical page links to its food. As a
+    // ?highlight= param that was ~200k crawlable URLs, one per food-chemical
+    // pair, and blocking them in robots.txt left chemical pages with no
+    // crawlable food links at all. The fragment keeps the link bare.
     const table = read("components/entities/chemical/ChemicalCompositionTable.tsx");
-    expect(table).toContain("?highlight=");
+    expect(table).not.toContain("?highlight=");
+    expect(table).toContain("foodHighlightHref(");
+    // Links already out there keep the old form; they stay blocked.
     expect(robots).toContain("Disallow: /*?highlight=");
     expect(robots).toContain("Disallow: /*&highlight=");
   });
 
   it("no other internal link carries a query param", () => {
-    // Any new param in an internal URL needs the decision ?highlight= got.
-    // /results?term= must stay crawlable (SearchAction); /contact?api-access
-    // is a single URL with a canonical.
-    const reviewed = ["api-access", "highlight", "term"];
+    // Any new param in an internal URL needs the decision ?highlight= got
+    // (moved to the fragment). /results?term= must stay crawlable
+    // (SearchAction); /contact?api-access is a single URL with a canonical.
+    const reviewed = ["api-access", "term"];
     const params = new Set<string>();
     for (const dir of ["app", "components"]) {
       for (const f of readdirSync(join(ROOT, dir), { recursive: true })) {

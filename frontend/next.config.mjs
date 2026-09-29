@@ -86,14 +86,23 @@ const nextConfig = {
       permanent: true,
     },
     {
+      // /food-composition-table no longer exists; this redirected to a 404.
       source: "/data",
-      destination: "/food-composition-table",
+      destination: "/food-composition-downloads",
+      permanent: true,
+    },
+    // The API docs moved to /developers. These were temporary redirects to /
+    // while the API was under construction, which left Google holding on to
+    // the old URLs instead of transferring them.
+    {
+      source: "/api_documentation",
+      destination: "/developers",
       permanent: true,
     },
     {
-      source: "/api_documentation",
-      destination: "/",
-      permanent: false,
+      source: "/food-composition-api",
+      destination: "/developers",
+      permanent: true,
     },
     {
       source: "/downlodas",
@@ -103,11 +112,6 @@ const nextConfig = {
     // temp for api under construction
     {
       source: "/api",
-      destination: "/",
-      permanent: false,
-    },
-    {
-      source: "/food-composition-api",
       destination: "/",
       permanent: false,
     },
