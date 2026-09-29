@@ -1,22 +1,24 @@
 "use client";
 
 import { ChangeEvent, FormEvent, useState } from "react";
-import {
-  Field,
-  Fieldset,
-  Input,
-  Label,
-  Listbox,
-  ListboxButton,
-  ListboxOption,
-  ListboxOptions,
-  Textarea,
-} from "@headlessui/react";
-import { MdCheck, MdKeyboardArrowDown } from "react-icons/md";
+import { Field, Fieldset, Input, Label, Textarea } from "@headlessui/react";
 import { twMerge } from "tailwind-merge";
 
 import Button from "@/components/basic/Button";
 import Card from "@/components/basic/Card";
+import ApiAccessFields from "@/components/contact/ApiAccessFields";
+import {
+  FIELD_CLASS,
+  HINT_CLASS,
+  LABEL_CLASS,
+} from "@/components/contact/fieldStyles";
+import FormListbox from "@/components/contact/FormListbox";
+import {
+  API_ACCESS_TOPIC,
+  ApiAccess,
+  EMPTY_API_ACCESS,
+  isApiAccessComplete,
+} from "@/utils/apiAccessFields";
 import { track } from "@/utils/umami";
 
 interface ContactFormProps {
@@ -25,42 +27,45 @@ interface ContactFormProps {
 
 // Topics ordered by likely user intent; General Inquiry stays the
 // default landing option so first-time visitors don't have to think.
-const TOPICS = [
-  "General Inquiry",
-  "API Access Request",
-  "Data Issue",
-] as const;
+const TOPICS = ["General Inquiry", API_ACCESS_TOPIC, "Data Issue"] as const;
 
-// Shared class stack for text inputs — keeps every Field visually
-// aligned without repeating the ring/focus/border rules five times.
-const FIELD_CLASS = twMerge(
-  "mt-2 block w-full rounded-lg bg-light-800 border-light-700/50 border py-2 px-3 text-sm/6 text-light-50 placeholder-light-500",
-  "focus:outline-none data-[focus]:outline-2 data-[focus]:-outline-offset-2 data-[focus]:outline-white/25",
-);
-const LABEL_CLASS = "text-sm/6 font-medium text-white";
+type Status = "idle" | "sending" | "sent" | "error" | "incomplete";
 
 const ContactForm = ({ isApiAccessRequest }: ContactFormProps) => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [affiliation, setAffiliation] = useState("");
   const [topic, setTopic] = useState<(typeof TOPICS)[number]>(
-    isApiAccessRequest ? "API Access Request" : "General Inquiry",
+    isApiAccessRequest ? API_ACCESS_TOPIC : "General Inquiry",
   );
   const [message, setMessage] = useState("");
-  const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">(
-    "idle",
-  );
+  const [apiAccess, setApiAccess] = useState<ApiAccess>(EMPTY_API_ACCESS);
+  const [status, setStatus] = useState<Status>("idle");
+
+  const isApi = topic === API_ACCESS_TOPIC;
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    // The listboxes and checkbox group can't use native `required`.
+    if (isApi && !isApiAccessComplete(apiAccess)) {
+      setStatus("incomplete");
+      return;
+    }
     setStatus("sending");
     try {
       const response = await fetch("/contact/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, affiliation, topic, message }),
+        body: JSON.stringify({
+          name,
+          email,
+          affiliation,
+          topic,
+          message,
+          ...(isApi && { apiAccess }),
+        }),
       });
-      // Topic + outcome only — never the name, email or message.
+      // Topic + outcome only — never the name, email, message or answers.
       track("contact_submit", {
         topic,
         outcome: response.ok ? "sent" : "error",
@@ -81,46 +86,19 @@ const ContactForm = ({ isApiAccessRequest }: ContactFormProps) => {
       <Card>
         <Fieldset className="flex flex-col gap-5">
           {/* Topic — first so the rest of the form is framed by it. */}
-          <Field>
-            <Label className={LABEL_CLASS}>What can we help with?</Label>
-            <Listbox value={topic} onChange={setTopic}>
-              <div className="relative mt-2">
-                <ListboxButton
-                  className={twMerge(
-                    FIELD_CLASS,
-                    "mt-0 pl-3 pr-9 text-left",
-                  )}
-                >
-                  {topic}
-                  <MdKeyboardArrowDown
-                    aria-hidden
-                    className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 size-4 text-white/60"
-                  />
-                </ListboxButton>
-                <ListboxOptions
-                  anchor="bottom start"
-                  className="mt-1 w-[var(--button-width)] rounded-lg border border-light-700/50 bg-light-950 shadow-lg shadow-black/40 focus:outline-none z-50 py-1"
-                >
-                  {TOPICS.map((opt) => (
-                    <ListboxOption
-                      key={opt}
-                      value={opt}
-                      className="group flex items-center gap-2 px-3 py-2 text-sm text-light-200 data-[focus]:bg-light-900/60 data-[selected]:text-light-50 cursor-pointer"
-                    >
-                      <MdCheck className="size-4 opacity-0 group-data-[selected]:opacity-100 text-accent-500" />
-                      <span>{opt}</span>
-                    </ListboxOption>
-                  ))}
-                </ListboxOptions>
-              </div>
-            </Listbox>
-            {topic === "API Access Request" && (
-              <p className="mt-2 text-xs italic text-accent-500 font-serif">
-                The API is under construction. Send your request anyway —
-                we&apos;ll reach out once keys are available again.
-              </p>
-            )}
-          </Field>
+          <FormListbox
+            label="What can we help with?"
+            options={TOPICS}
+            value={topic}
+            onChange={setTopic}
+          />
+          {/* -mt-3 pulls it under the listbox, matching the old in-Field mt-2. */}
+          {isApi && (
+            <p className="-mt-3 text-xs italic text-accent-500 font-serif">
+              The API is under construction. Send your request anyway —
+              we&apos;ll reach out once keys are available again.
+            </p>
+          )}
 
           {/* Name + email side-by-side once there's room. */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
@@ -149,13 +127,15 @@ const ContactForm = ({ isApiAccessRequest }: ContactFormProps) => {
             </Field>
           </div>
 
+          {/* Required for API requests: the PI checks it against the email. */}
           <Field>
             <Label className={LABEL_CLASS}>
               Affiliation{" "}
-              <span className="font-normal text-light-400">(optional)</span>
+              {!isApi && <span className={HINT_CLASS}>(optional)</span>}
             </Label>
             <Input
               className={FIELD_CLASS}
+              required={isApi}
               value={affiliation}
               maxLength={80}
               placeholder="Lab, company, or school"
@@ -163,15 +143,25 @@ const ContactForm = ({ isApiAccessRequest }: ContactFormProps) => {
             />
           </Field>
 
+          {isApi && (
+            <ApiAccessFields value={apiAccess} onChange={setApiAccess} />
+          )}
+
           <Field>
-            <Label className={LABEL_CLASS}>Your message</Label>
+            <Label className={LABEL_CLASS}>
+              {isApi ? "Describe your project" : "Your message"}
+            </Label>
             <Textarea
               className={twMerge(FIELD_CLASS, "resize-none")}
               required
               rows={6}
               value={message}
               maxLength={2000}
-              placeholder="Tell us a bit about what you're working on…"
+              placeholder={
+                isApi
+                  ? "What are you building, and how will FoodAtlas data fit in?"
+                  : "Tell us a bit about what you're working on…"
+              }
               onChange={on(setMessage)}
             />
           </Field>
@@ -191,6 +181,12 @@ const ContactForm = ({ isApiAccessRequest }: ContactFormProps) => {
               className="text-sm text-accent-500 font-serif italic"
             >
               Thanks — your message is on its way. We&apos;ll be in touch.
+            </p>
+          )}
+          {status === "incomplete" && (
+            <p role="alert" className="text-sm text-rose-400">
+              Please answer the API access questions: use, volume, commercial
+              use, and at least one data type.
             </p>
           )}
           {status === "error" && (

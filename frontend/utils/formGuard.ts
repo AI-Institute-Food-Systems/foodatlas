@@ -21,6 +21,7 @@ export const LIMITS = {
   name: 40,
   email: 80,
   affiliation: 80,
+  projectUrl: 200,
   message: 2000,
   description: 4000,
   pageUrl: 500,
