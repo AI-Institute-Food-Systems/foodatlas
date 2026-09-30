@@ -36,9 +36,16 @@ def load_sources(settings: KGCSettings) -> dict[str, dict[str, pd.DataFrame]]:
         ``{source_id: {"nodes": df, "edges": df, "xrefs": df}}``.
     """
     ingest_dir = Path(settings.ingest_dir)
+    disabled = settings.disabled_sources
     result: dict[str, dict[str, pd.DataFrame]] = {}
 
     for source_id in _SOURCE_IDS:
+        # A disabled source's adapter did not run this time, but a previous
+        # run's parquet may still be on disk — skip the directory too.
+        if source_id in disabled:
+            logger.info("Skipping disabled source %s.", source_id)
+            continue
+
         source_dir = ingest_dir / source_id
         if not source_dir.exists():
             logger.warning("No ingest output for %s.", source_id)
