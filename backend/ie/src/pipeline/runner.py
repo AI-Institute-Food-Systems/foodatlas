@@ -190,12 +190,17 @@ class IERunner:
 
         staging.mkdir(parents=True, exist_ok=True)
 
+        # IE_MIN_DATE forces the search window's start (for catch-up re-runs);
+        # otherwise run_search auto-derives it from the latest run folder.
+        min_date = s.min_date.replace("-", "/").replace("_", "/") or None
+
         run_search(
             query=s.food_terms,
             query_uid_results_filepath=str(staging / "query_uid_results.tsv"),
             filepath_bioc_pmc=s.bioc_pmc_dir,
             output_base_dir=str(self._search_base),
             current_date=run_date,
+            min_date=min_date,
         )
 
         staging.rename(final)

@@ -79,7 +79,7 @@ def run_search(
     current_date: str,
     save_every: int = 50,
     min_date: str | None = None,
-    fetch_workers: int = 16,
+    fetch_workers: int = 6,
     fetch_timeout: float = 30.0,
 ) -> None:
     """Entrez search → set-diff against local BioC cache → fetch missing articles."""
