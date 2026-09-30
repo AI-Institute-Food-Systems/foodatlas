@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { type ComponentProps, useCallback, useMemo } from "react";
 
 import { getBioactivityFoods } from "@/utils/fetching";
 import type { BioactivityListParams } from "@/utils/fetching";
@@ -15,9 +15,15 @@ import BioactivityTable, {
 interface Props {
   commonName: string;
   anchorId?: string | null;
+  // Page 1 as the server fetched it; see BioactivityTable.
+  initialPayload?: ComponentProps<typeof BioactivityTable>["initialPayload"];
 }
 
-const BioactivityFoodsSection = ({ commonName, anchorId }: Props) => {
+const BioactivityFoodsSection = ({
+  commonName,
+  anchorId,
+  initialPayload,
+}: Props) => {
   const fetcher = useCallback(
     (params: BioactivityListParams) => getBioactivityFoods(commonName, params),
     [commonName]
@@ -60,6 +66,7 @@ const BioactivityFoodsSection = ({ commonName, anchorId }: Props) => {
       direction="bioactivity-foods"
       pivotName={commonName}
       fetcher={fetcher}
+      initialPayload={initialPayload}
       columns={columns}
       searchPlaceholder="Search foods"
       emptyMessage="No food measurements recorded for this bioactivity yet"

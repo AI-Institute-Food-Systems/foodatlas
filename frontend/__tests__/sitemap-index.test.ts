@@ -75,7 +75,9 @@ describe("sitemap index", () => {
     expect(sitemapLines).toHaveLength(1);
   });
 
-  it("keeps /_proxy-api disallowed now that it is unauthenticated", () => {
-    expect(robots).toContain("Disallow: /_proxy-api/");
+  it("lets crawlers fetch /_proxy-api so Google can render entity tables", () => {
+    // Disallowing it left Googlebot's renderer with empty tables. The proxy's
+    // route allowlist is the access control; robots.txt never was.
+    expect(robots).not.toMatch(/Disallow:\s*\/_proxy-api/);
   });
 });

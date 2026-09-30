@@ -13,6 +13,7 @@ import {
 type TabParts = {
   count?: number | null;
   content: ReactNode;
+  snapshot?: ReactNode;
 };
 
 // Assembles a page's tabs from the shared config.

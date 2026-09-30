@@ -208,3 +208,49 @@ describe("literature table column widths", () => {
     expect(direction + name + publications).toBe(100);
   });
 });
+
+// The disease page fetches the literature table's first page on the server;
+// rendering it is what puts the chemical links in the HTML crawlers get.
+describe("literature table server seed", () => {
+  // The fixture rows are partial ChemicalCorrelations, as everywhere above.
+  const seed = {
+    data: { associations: [literatureRow("caffeine", 3)] },
+    metadata: { total_rows: 1, total_pages: 1 },
+  } as never;
+
+  it("renders the seeded page on first render, without fetching it", async () => {
+    const onTotal = vi.fn();
+    render(
+      <PaginationsProvider>
+        <CorrelationTable
+          commonName="diabetes"
+          tableLocation="disease"
+          initialData={seed}
+          onTotalRowsChange={onTotal}
+        />
+      </PaginationsProvider>
+    );
+    // Synchronous: present on the first render, i.e. in the server HTML.
+    const links = screen.getAllByRole("link", { name: "caffeine" });
+    expect(links[0]?.getAttribute("href")).toMatch(/^\/chemical\/caffeine/);
+    // The merged tab's badge still gets this table's total.
+    await waitFor(() => expect(onTotal).toHaveBeenCalledWith(1));
+    expect(getDiseaseData).not.toHaveBeenCalled();
+  });
+
+  it("fetches as soon as the sort changes", async () => {
+    vi.mocked(getDiseaseData).mockResolvedValue(seed);
+    render(
+      <PaginationsProvider>
+        <CorrelationTable
+          commonName="diabetes"
+          tableLocation="disease"
+          initialData={seed}
+        />
+      </PaginationsProvider>
+    );
+    clickHeader(/^chemical/i);
+    await waitFor(() => expect(getDiseaseData).toHaveBeenCalled());
+    expect(lastSort()).toEqual({ by: "name", dir: "asc" });
+  });
+});

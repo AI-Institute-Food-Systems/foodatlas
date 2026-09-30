@@ -38,6 +38,7 @@ import {
 } from "@/components/entities/shared/EvidenceTable";
 import { useReportRows } from "@/context/reportModeContext";
 import { usePaginations } from "@/context/paginationsContext";
+import { CORRELATION_DEFAULT_SORT } from "@/components/entities/shared/correlationSort";
 import { getDiseaseData } from "@/utils/fetching";
 import { ChemicalCorrelation } from "@/types";
 import TableEmptyState from "@/components/entities/shared/TableEmptyState";
@@ -45,6 +46,11 @@ import TableEmptyState from "@/components/entities/shared/TableEmptyState";
 // What the server can sort this table by — see backend _correlation.SORT_KEYS.
 // Direction is a filter, not a sort: it is the sidebar's job.
 export type CorrelationSortKey = "name" | "evidence_count";
+
+export type CorrelationPayload = {
+  data: { associations?: ChemicalCorrelation[] };
+  metadata: { total_pages: number; total_rows: number };
+};
 
 interface CorrelationTableProps {
   commonName: string;
@@ -56,6 +62,11 @@ interface CorrelationTableProps {
   // Fires whenever totalRows changes so the merged tab can sum this
   // table with the assay-inferred one for a single badge.
   onTotalRowsChange?: (total: number) => void;
+  // Page 1 at the default sort, direction and search, fetched by the page on
+  // the server. Rendering it puts the rows and their entity links in the
+  // server HTML; the browser fetch goes through /_proxy-api, which
+  // robots.txt disallows, so crawlers otherwise saw an empty table.
+  initialData?: CorrelationPayload | null;
 }
 
 const CorrelationTable = ({
@@ -64,27 +75,37 @@ const CorrelationTable = ({
   direction = "all",
   search = "",
   onTotalRowsChange,
+  initialData = null,
 }: CorrelationTableProps) => {
   const tableId = tableLocation + "-correlation-table";
   const peer = tableLocation === "chemical" ? "disease" : "chemical";
-
-  const [data, setData] = useState<ChemicalCorrelation[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isError, setIsError] = useState(false);
-  const [numberOfPages, setNumberOfPages] = useState(1);
-  const [totalRows, setTotalRows] = useState<number | null>(null);
-  const [selectedRowIdx, setSelectedRowIdx] = useState(-1);
 
   const { getTablePaginations, setTablePaginations } = usePaginations();
   const { currentPage } = getTablePaginations(tableId);
   const reporter = useReportRows();
 
+  // The seed describes page 1 only; a table restored to a later page
+  // fetches as before.
+  const seed = currentPage === 1 ? initialData : null;
+  const skipSeededFetch = useRef(seed !== null);
+  const [data, setData] = useState<ChemicalCorrelation[]>(
+    seed?.data.associations ?? []
+  );
+  const [isLoading, setIsLoading] = useState(seed === null);
+  const [isError, setIsError] = useState(false);
+  const [numberOfPages, setNumberOfPages] = useState(
+    seed?.metadata.total_pages ?? 1
+  );
+  const [totalRows, setTotalRows] = useState<number | null>(
+    seed ? Number(seed.metadata.total_rows ?? 0) : null
+  );
+  const [selectedRowIdx, setSelectedRowIdx] = useState(-1);
+
   // Server-side sort. Most evidence first by default — the order the
   // table always had — and a header click changes it for every page.
-  const [sort, setSort] = useState<{ by: CorrelationSortKey; dir: SortDir }>({
-    by: "evidence_count",
-    dir: "desc",
-  });
+  const [sort, setSort] = useState<{ by: CorrelationSortKey; dir: SortDir }>(
+    CORRELATION_DEFAULT_SORT
+  );
   const changeSort = (next: { by: CorrelationSortKey; dir: SortDir }) => {
     setSort(next);
     // Back to page 1: page 3 of the old order is nowhere in the new one.
@@ -112,6 +133,11 @@ const CorrelationTable = ({
   }, [onTotalRowsChange, totalRows]);
 
   useEffect(() => {
+    // The seed already is this response; every later change fetches.
+    if (skipSeededFetch.current) {
+      skipSeededFetch.current = false;
+      return;
+    }
     let cancelled = false;
     setIsLoading(true);
     (async () => {
