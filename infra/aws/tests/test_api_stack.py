@@ -214,6 +214,16 @@ def test_https_mode_declares_443_listener_with_cert() -> None:
     )
 
 
+def test_https_listener_rejects_tls_below_1_2() -> None:
+    template = _synth(cert_arn=_FAKE_CERT_ARN)
+    template.has_resource_properties(
+        "AWS::ElasticLoadBalancingV2::Listener",
+        Match.object_like(
+            {"Port": 443, "SslPolicy": "ELBSecurityPolicy-TLS13-1-2-2021-06"},
+        ),
+    )
+
+
 def test_https_mode_redirects_port_80_to_443() -> None:
     template = _synth(cert_arn=_FAKE_CERT_ARN)
     template.resource_count_is("AWS::ElasticLoadBalancingV2::Listener", 2)
