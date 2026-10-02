@@ -205,8 +205,8 @@ cd backend/db && uv run python main.py load
 #    └ or load straight from the staging S3 copy:
 #      uv run python main.py load --parquet-dir s3://<kgc-bucket>/outputs/staging-bioactivity/kg/
 
-# 3) API (port 8000). API_DEBUG defaults True locally → no API key required.
-cd backend/api && uv run python main.py
+# 3) API (port 8000). API_DEBUG=true → no API key required.
+cd backend/api && API_DEBUG=true uv run python main.py
 
 # 4) Frontend (point at local API)
 #    frontend/.env.local:
@@ -220,7 +220,7 @@ cd frontend && npm run dev
 | Var | Where | Local default | Notes |
 |---|---|---|---|
 | `DB_HOST`/`DB_PORT`/`DB_NAME`/`DB_USER`/`DB_PASSWORD` | api + db (`DB_` prefix) | `localhost:5432` / `foodatlas`×3 | API & loader DB connection |
-| `API_DEBUG` | api (`API_` prefix) | `True` | **`True` skips the API-key check** + rate limit |
+| `API_DEBUG` | api (`API_` prefix) | `False` | **`True` skips the API-key check** + rate limit. Set it for local dev. |
 | `API_KEY` | api | empty | the internal Bearer key (set on staging/prod) |
 | `API_CORS_ORIGINS` | api | `http://localhost:3000` | comma-separated allowed origins |
 | `NEXT_PUBLIC_API_URL` / `API_KEY` | frontend | — | the API base + Bearer key (the key is server-only) |

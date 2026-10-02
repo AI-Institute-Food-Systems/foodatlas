@@ -31,7 +31,7 @@ import json
 import logging
 import sys
 import time
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TextIO
 from urllib.parse import parse_qsl, urlencode
 
 from src.public_keys import PREFIX_LEN
@@ -51,8 +51,18 @@ REDACTED_PARAMS = frozenset({"key", "token", "api_key", "apikey", "access_token"
 logger = logging.getLogger(LOGGER_NAME)
 
 
-class AccessLogHandler(logging.StreamHandler):
+class AccessLogHandler(logging.StreamHandler[TextIO]):
     """Marker subclass so :func:`configure_access_logger` stays idempotent."""
+
+    # Resolve sys.stdout per write: the import-time app attaches this handler
+    # before anything (pytest capsys, a reloader) swaps stdout out.
+    @property
+    def stream(self) -> TextIO:
+        return sys.stdout
+
+    @stream.setter
+    def stream(self, _value: object) -> None:
+        pass
 
 
 def configure_access_logger() -> logging.Logger:
