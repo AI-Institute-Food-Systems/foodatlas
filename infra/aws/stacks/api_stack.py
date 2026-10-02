@@ -222,13 +222,12 @@ class ApiStack(cdk.Stack):
         }
         if cert_arn:
             certificate = acm.Certificate.from_certificate_arn(
-                self,
-                "ApiCertificate",
-                cert_arn,
+                self, "ApiCertificate", cert_arn
             )
             service_kwargs.update(
                 certificate=certificate,
                 protocol=elbv2.ApplicationProtocol.HTTPS,
+                ssl_policy=elbv2.SslPolicy.RECOMMENDED_TLS,
                 redirect_http=True,
                 listener_port=443,
             )
