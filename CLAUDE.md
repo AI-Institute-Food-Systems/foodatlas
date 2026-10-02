@@ -42,8 +42,8 @@ docker compose -f infra/local/docker-compose.yml up -d
 # Load KGC data into PostgreSQL (drops and recreates schema)
 cd backend/db && uv run python main.py load
 
-# Start API server (port 8000)
-cd backend/api && uv run python main.py
+# Start API server (port 8000; API_DEBUG=true skips the API-key check)
+cd backend/api && API_DEBUG=true uv run python main.py
 
 # Start frontend (port 3001)
 cd frontend && npm run dev

@@ -20,11 +20,11 @@ class TestAPISettingsDefaults:
         )
         assert settings.cors_origins == "http://localhost:3000"
 
-    def test_default_debug_is_true(self) -> None:
+    def test_default_debug_is_false(self) -> None:
         settings = APISettings(
             **{"_env_file": None},
         )
-        assert settings.debug is True
+        assert settings.debug is False
 
 
 class TestAPISettingsFromEnv:
@@ -51,12 +51,12 @@ class TestAPISettingsFromEnv:
             os.environ.pop("API_CORS_ORIGINS", None)
 
     def test_debug_from_env(self) -> None:
-        os.environ["API_DEBUG"] = "false"
+        os.environ["API_DEBUG"] = "true"
         try:
             settings = APISettings(
                 **{"_env_file": None},
             )
-            assert settings.debug is False
+            assert settings.debug is True
         finally:
             os.environ.pop("API_DEBUG", None)
 
