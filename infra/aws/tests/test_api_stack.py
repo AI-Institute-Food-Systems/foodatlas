@@ -19,7 +19,10 @@ _FAKE_CERT_ARN = (
 
 
 def _synth(
-    *, cert_arn: str | None = None, context: dict[str, str] | None = None
+    *,
+    cert_arn: str | None = None,
+    context: dict[str, str] | None = None,
+    name_suffix: str = "",
 ) -> Template:
     merged = dict(context or {})
     if cert_arn:
@@ -43,6 +46,7 @@ def _synth(
         db_secret=database.db_secret,
         kgc_bucket=storage.kgc_bucket,
         downloads_bucket=downloads.downloads_bucket,
+        name_suffix=name_suffix,
     )
     return Template.from_stack(stack)
 
