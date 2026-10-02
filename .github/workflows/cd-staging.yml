@@ -97,7 +97,7 @@ jobs:
             --require-approval never
           )
           if [ -n "$API_CERT_ARN" ]; then
-            args+=(--context "api_cert_arn=$API_CERT_ARN")
+            args+=(--context "api_cert_arn-staging=$API_CERT_ARN")
           fi
           uv run cdk deploy \
             FoodAtlasDatabaseStack-Staging \
@@ -118,7 +118,7 @@ jobs:
             --require-approval never
           )
           if [ -n "$API_CERT_ARN" ]; then
-            args+=(--context "api_cert_arn=$API_CERT_ARN")
+            args+=(--context "api_cert_arn-staging=$API_CERT_ARN")
           fi
           uv run cdk deploy FoodAtlasApiStack-Staging "${args[@]}"
 
