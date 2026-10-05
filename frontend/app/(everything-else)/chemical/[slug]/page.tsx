@@ -5,7 +5,6 @@ import ChemicalCompositionSection from "@/components/entities/chemical/ChemicalC
 import CorrelationEvidenceTab from "@/components/entities/shared/CorrelationEvidenceTab";
 import ChemicalBioactivitiesSection from "@/components/entities/bioactivity/ChemicalBioactivitiesSection";
 import HeaderSection from "@/components/entities/HeaderSection";
-import HeaderSectionSuspense from "@/components/entities/HeaderSectionSuspense";
 import EntityDetailLayout from "@/components/entities/EntityDetailLayout";
 import { requireEntity } from "@/components/entities/requireEntity";
 import { buildTabs } from "@/components/entities/buildTabs";
@@ -135,9 +134,14 @@ const ChemicalPage = async ({ params }: ChemicalPageProps) => {
           metaPayload?.common_name ?? commonName
         )}
       />
-      <Suspense fallback={<HeaderSectionSuspense entityType={entityType} />}>
-        <HeaderSection commonName={commonName} entityType={entityType} />
-      </Suspense>
+      {/* Rendered in order with the page, from the metadata awaited above.
+       * Behind its own Suspense it streamed last, so the h1 (the mobile
+       * LCP element) painted only once the whole document was in. */}
+      <HeaderSection
+        commonName={commonName}
+        entityType={entityType}
+        metadata={metaPayload}
+      />
       <EntityDetailLayout
         entityType={entityType}
         defaultTabId={DEFAULT_TAB_ID[entityType]}

@@ -5,7 +5,7 @@ import DiseaseIcon from "@/components/icons/DiseaseIcon";
 import BioactivityIcon from "@/components/icons/BioactivityIcon";
 import Heading from "@/components/basic/Heading";
 import EntityAmbiguityBadge from "@/components/entities/EntityAmbiguityBadge";
-import { getMetaData } from "@/utils/fetching";
+import type { Metadata } from "@/types/Metadata";
 
 const colorScheme = {
   food: "text-amber-600 border-amber-600 bg-amber-600/10 shadow-amber-600/50",
@@ -26,13 +26,18 @@ const icon = {
 interface HeaderSectionProps {
   commonName: string;
   entityType: "food" | "chemical" | "disease" | "bioactivity";
+  // The page's own getMetaData result; null when there is none.
+  metadata: Metadata | null;
 }
 
-const HeaderSection = async ({
+// Synchronous on purpose. As an async component that fetched for itself it
+// was serialised last, after the tab snapshots, so the h1 (the mobile LCP
+// element) arrived at the very end of a ~650 KB document.
+const HeaderSection = ({
   entityType,
   commonName,
+  metadata: data,
 }: HeaderSectionProps) => {
-  const data = await getMetaData(commonName, entityType);
 
   return (
     <div>

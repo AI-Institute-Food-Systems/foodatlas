@@ -10,7 +10,6 @@ import { buildTabs } from "@/components/entities/buildTabs";
 import { correlationEvidenceCount } from "@/utils/tabCounts";
 import { DEFAULT_TAB_ID } from "@/components/entities/entityTabs.config";
 import EntityOverviewPanelSuspense from "@/components/entities/EntityOverviewPanelSuspense";
-import HeaderSectionSuspense from "@/components/entities/HeaderSectionSuspense";
 import { CORRELATION_DEFAULT_SORT } from "@/components/entities/shared/correlationSort";
 import { getDiseaseData, getMetaData } from "@/utils/fetching";
 import JsonLd from "@/components/misc/JsonLd";
@@ -101,9 +100,14 @@ const DiseasePage = async ({ params }: DiseasePageProps) => {
           metaPayload?.common_name ?? commonName
         )}
       />
-      <Suspense fallback={<HeaderSectionSuspense entityType={entityType} />}>
-        <HeaderSection commonName={commonName} entityType={entityType} />
-      </Suspense>
+      {/* Rendered in order with the page, from the metadata awaited above.
+       * Behind its own Suspense it streamed last, so the h1 (the mobile
+       * LCP element) painted only once the whole document was in. */}
+      <HeaderSection
+        commonName={commonName}
+        entityType={entityType}
+        metadata={metaPayload}
+      />
       <EntityDetailLayout
         entityType={entityType}
         defaultTabId={DEFAULT_TAB_ID[entityType]}

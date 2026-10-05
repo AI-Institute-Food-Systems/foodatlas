@@ -5,7 +5,6 @@ import FoodCompositionSection from "@/components/entities/food/FoodCompositionSe
 import { ALL_SOURCE_VALUES } from "@/components/entities/food/compositionSources";
 import FoodBioactivitiesTab from "@/components/entities/bioactivity/FoodBioactivitiesTab";
 import HeaderSection from "@/components/entities/HeaderSection";
-import HeaderSectionSuspense from "@/components/entities/HeaderSectionSuspense";
 import EntityDetailLayout from "@/components/entities/EntityDetailLayout";
 import { requireEntity } from "@/components/entities/requireEntity";
 import { buildTabs } from "@/components/entities/buildTabs";
@@ -132,9 +131,14 @@ const FoodPage = async ({ params }: FoodPageProps) => {
           metaPayload?.common_name ?? commonName
         )}
       />
-      <Suspense fallback={<HeaderSectionSuspense entityType={entityType} />}>
-        <HeaderSection commonName={commonName} entityType={entityType} />
-      </Suspense>
+      {/* Rendered in order with the page, from the metadata awaited above.
+       * Behind its own Suspense it streamed last, so the h1 (the mobile
+       * LCP element) painted only once the whole document was in. */}
+      <HeaderSection
+        commonName={commonName}
+        entityType={entityType}
+        metadata={metaPayload}
+      />
       <EntityDetailLayout
         entityType={entityType}
         defaultTabId={DEFAULT_TAB_ID[entityType]}

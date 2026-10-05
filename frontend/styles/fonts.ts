@@ -6,6 +6,11 @@ export const fontMono = IBM_Plex_Mono({
   style: ["normal", "italic"],
   variable: "--font-mono",
   display: "swap",
+  // 7 weights x 2 styles = 14 files. Preloaded, they all went out at High
+  // priority on every page and competed with the LCP text and image on a
+  // slow mobile link. Mono sets only labels and ids, never the LCP, so it
+  // loads on use instead; display: swap keeps that text visible meanwhile.
+  preload: false,
 });
 
 export const fontSerif = Aleo({
