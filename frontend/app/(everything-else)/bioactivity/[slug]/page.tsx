@@ -29,7 +29,10 @@ import {
   fitDescription,
   fitTitle,
 } from "@/utils/site";
-import { entityJsonLd } from "@/utils/structuredData";
+import {
+  entityBreadcrumbJsonLd,
+  entityJsonLd,
+} from "@/utils/structuredData";
 import {
   bioactivityDiseasesSection,
   bioactivityListSection,
@@ -113,6 +116,13 @@ const BioactivityPage = async ({ params }: BioactivityPageProps) => {
   return (
     <>
       {metaPayload && <JsonLd data={entityJsonLd(entityType, metaPayload)} />}
+      <JsonLd
+        data={entityBreadcrumbJsonLd(
+          entityType,
+          toTitleCase(metaPayload?.common_name ?? commonName),
+          metaPayload?.common_name ?? commonName
+        )}
+      />
       <Suspense fallback={<HeaderSectionSuspense entityType={entityType} />}>
         <HeaderSection commonName={commonName} entityType={entityType} />
       </Suspense>

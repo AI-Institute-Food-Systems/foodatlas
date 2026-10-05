@@ -207,3 +207,34 @@ export const entityJsonLd = (type: EntityType, m: EntityMetadata) => {
     }),
   };
 };
+
+// BreadcrumbList for the trail Home › page. Entity pages stop at two levels:
+// there is no per-type index page, and Google requires a URL on every
+// crumb but the last.
+type Crumb = { name: string; url: string };
+
+export const breadcrumbJsonLd = (crumbs: Crumb[]) => ({
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: crumbs.map(({ name, url }, i) => ({
+    "@type": "ListItem",
+    position: i + 1,
+    name,
+    item: url,
+  })),
+});
+
+const HOME_CRUMB: Crumb = { name: "Home", url: `${SITE_URL}/` };
+
+export const pageBreadcrumbJsonLd = (path: string, title: string) =>
+  breadcrumbJsonLd([HOME_CRUMB, { name: title, url: `${SITE_URL}${path}` }]);
+
+export const entityBreadcrumbJsonLd = (
+  type: EntityType,
+  displayName: string,
+  commonName: string
+) =>
+  breadcrumbJsonLd([
+    HOME_CRUMB,
+    { name: displayName, url: canonicalUrl(type, commonName) },
+  ]);

@@ -21,7 +21,10 @@ import {
   fitDescription,
   fitTitle,
 } from "@/utils/site";
-import { entityJsonLd } from "@/utils/structuredData";
+import {
+  entityBreadcrumbJsonLd,
+  entityJsonLd,
+} from "@/utils/structuredData";
 import { decodeSpace, toTitleCase } from "@/utils/utils";
 
 interface DiseasePageProps {
@@ -91,6 +94,13 @@ const DiseasePage = async ({ params }: DiseasePageProps) => {
   return (
     <>
       {metaPayload && <JsonLd data={entityJsonLd(entityType, metaPayload)} />}
+      <JsonLd
+        data={entityBreadcrumbJsonLd(
+          entityType,
+          toTitleCase(metaPayload?.common_name ?? commonName),
+          metaPayload?.common_name ?? commonName
+        )}
+      />
       <Suspense fallback={<HeaderSectionSuspense entityType={entityType} />}>
         <HeaderSection commonName={commonName} entityType={entityType} />
       </Suspense>

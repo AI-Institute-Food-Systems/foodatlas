@@ -31,7 +31,10 @@ import {
   fitDescription,
   fitTitle,
 } from "@/utils/site";
-import { entityJsonLd } from "@/utils/structuredData";
+import {
+  entityBreadcrumbJsonLd,
+  entityJsonLd,
+} from "@/utils/structuredData";
 import {
   assayInferredSection,
   bioactivityListSection,
@@ -125,6 +128,13 @@ const ChemicalPage = async ({ params }: ChemicalPageProps) => {
   return (
     <>
       {metaPayload && <JsonLd data={entityJsonLd(entityType, metaPayload)} />}
+      <JsonLd
+        data={entityBreadcrumbJsonLd(
+          entityType,
+          toTitleCase(metaPayload?.common_name ?? commonName),
+          metaPayload?.common_name ?? commonName
+        )}
+      />
       <Suspense fallback={<HeaderSectionSuspense entityType={entityType} />}>
         <HeaderSection commonName={commonName} entityType={entityType} />
       </Suspense>
