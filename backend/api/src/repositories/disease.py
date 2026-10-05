@@ -54,7 +54,9 @@ async def get_correlation(
         relation, search, "c.chemical_name"
     )
     where, _ = _correlation.build_filters(relation, search, "chemical_name")
-    order = _correlation.build_order(sort_by, sort_dir, "c.chemical_name")
+    order = _correlation.build_order(
+        sort_by, sort_dir, "c.chemical_name", _correlation.ROW_KEY_CHEMICAL
+    )
     offset = rows_per_page * (page - 1)
 
     result = await session.execute(
