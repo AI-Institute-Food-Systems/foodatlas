@@ -56,7 +56,10 @@ export async function middleware(request: NextRequest) {
       request.url
     );
 
-    return NextResponse.redirect(redirectUrl);
+    // 308, not the default 307: an entity id names the same entity for
+    // good, so the name URL is the permanent home and search engines should
+    // move the id URL's signals onto it.
+    return NextResponse.redirect(redirectUrl, 308);
   } catch {
     return NextResponse.next();
   }
