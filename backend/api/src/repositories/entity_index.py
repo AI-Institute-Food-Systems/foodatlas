@@ -5,7 +5,9 @@ the one the frontend uses to 404 an entity route (``requireEntity.ts``):
 
 * a row in the type's metadata MV (``mv_{type}_entities``) has a page;
 * a chemical with no metadata row still has a page when it has bioassay
-  measurements (``mv_chemical_bioactivity``).
+  measurements (``mv_chemical_bioactivity``);
+* a disease with no metadata row still has a page when assays link it to
+  chemicals (``mv_chemical_disease_bioactivity``).
 
 Reading ``mv_search_auto_complete`` instead left out about two thirds of the
 pages that return 200 — the bioassay-only chemicals, and the chemicals and
@@ -31,6 +33,12 @@ _SOURCES: tuple[tuple[IndexEntityType, int, str], ...] = (
         "SELECT chemical_foodatlas_id, chemical_name FROM mv_chemical_bioactivity",
     ),
     ("disease", 0, "SELECT foodatlas_id, common_name FROM mv_disease_entities"),
+    (
+        "disease",
+        1,
+        "SELECT disease_foodatlas_id, disease_name"
+        " FROM mv_chemical_disease_bioactivity",
+    ),
     (
         "bioactivity",
         0,

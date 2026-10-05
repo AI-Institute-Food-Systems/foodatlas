@@ -42,6 +42,7 @@ class TestListEntities:
             "mv_chemical_entities",
             "mv_chemical_bioactivity",
             "mv_disease_entities",
+            "mv_chemical_disease_bioactivity",
             "mv_bioactivity_entities",
         ):
             assert table in sql

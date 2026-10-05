@@ -2,9 +2,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const lookupMetaData = vi.fn();
 const getChemicalBioactivities = vi.fn();
+const getDiseaseChemicalAssociations = vi.fn();
 vi.mock("@/utils/fetching", () => ({
   lookupMetaData: (...a: unknown[]) => lookupMetaData(...a),
   getChemicalBioactivities: (...a: unknown[]) => getChemicalBioactivities(...a),
+  getDiseaseChemicalAssociations: (...a: unknown[]) =>
+    getDiseaseChemicalAssociations(...a),
 }));
 vi.mock("next/navigation", () => ({
   notFound: () => {
@@ -27,9 +30,35 @@ describe("requireEntity", () => {
 
   it("404s a slug the API says does not exist", async () => {
     lookupMetaData.mockResolvedValue("missing");
+    getDiseaseChemicalAssociations.mockResolvedValue({
+      metadata: { row_count: 0 },
+    });
     await expect(requireEntity("disease", "nope")).rejects.toThrow(
       "NEXT_NOT_FOUND"
     );
+  });
+
+  describe("diseases without metadata", () => {
+    // Bioactivity pages link every disease their assays reach; those
+    // without a CTD correlation have no metadata row but a real page.
+    it("keep their page when assays link them to chemicals", async () => {
+      lookupMetaData.mockResolvedValue("missing");
+      getDiseaseChemicalAssociations.mockResolvedValue({
+        metadata: { row_count: 26 },
+      });
+      await expect(
+        requireEntity("disease", "favism")
+      ).resolves.toBeUndefined();
+      expect(getDiseaseChemicalAssociations).toHaveBeenCalledWith("favism");
+    });
+
+    it("keep their page when the assay check errors", async () => {
+      lookupMetaData.mockResolvedValue("missing");
+      getDiseaseChemicalAssociations.mockResolvedValue(null);
+      await expect(
+        requireEntity("disease", "favism")
+      ).resolves.toBeUndefined();
+    });
   });
 
   it("fails open when the API errors", async () => {
@@ -79,5 +108,6 @@ describe("requireEntity", () => {
     lookupMetaData.mockResolvedValue("missing");
     await expect(requireEntity("food", "nope")).rejects.toThrow();
     expect(getChemicalBioactivities).not.toHaveBeenCalled();
+    expect(getDiseaseChemicalAssociations).not.toHaveBeenCalled();
   });
 });
