@@ -73,8 +73,8 @@ describe("parameterised links stay out of the crawl", () => {
 
   it("no other internal link carries a query param", () => {
     // Any new param in an internal URL needs the decision ?highlight= got
-    // (moved to the fragment). /results?term= must stay crawlable
-    // (SearchAction); /contact?api-access is a single URL with a canonical.
+    // (moved to the fragment). /results?term= is noindex but crawlable;
+    // /contact?api-access is a single URL with a canonical.
     const reviewed = ["api-access", "term"];
     const params = new Set<string>();
     for (const dir of ["app", "components"]) {
@@ -94,11 +94,8 @@ describe("parameterised links stay out of the crawl", () => {
   });
 });
 
-describe("SearchAction target is reachable", () => {
-  it("does not disallow the URL the SearchAction points at", () => {
-    const structured = read("utils/structuredData.ts");
-    expect(structured).toContain("/results?term={search_term_string}");
-    // Google only honours a crawlable sitelinks-searchbox target.
+describe("/results stays noindex and crawlable", () => {
+  it("is not disallowed, so Google can read its noindex", () => {
     expect(robots).not.toContain("Disallow: /results");
   });
 

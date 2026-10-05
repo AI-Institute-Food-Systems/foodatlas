@@ -2,7 +2,7 @@ import { Metadata } from "next";
 
 import HeroSection from "@/components/landing/HeroSection";
 import JsonLd from "@/components/misc/JsonLd";
-import { webSiteJsonLd } from "@/utils/structuredData";
+import { organizationJsonLd, webSiteJsonLd } from "@/utils/structuredData";
 import { HOME_TITLE, buildMetadata } from "@/utils/site";
 
 export const metadata: Metadata = buildMetadata({
@@ -16,6 +16,7 @@ export const metadata: Metadata = buildMetadata({
 const Landing = () => (
   <>
     <JsonLd data={webSiteJsonLd()} />
+    <JsonLd data={organizationJsonLd()} />
     <HeroSection />
   </>
 );

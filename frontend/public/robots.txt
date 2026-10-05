@@ -17,8 +17,7 @@ Disallow: /_a/
 # renders a page only with the fetches robots.txt lets it make. Blocking it
 # left crawlers an empty table. Its responses carry X-Robots-Tag: noindex, and
 # the proxy's route allowlist (not this file) is what limits it.
-# /results is crawlable on purpose: the WebSite SearchAction targets it and
-# Google only honours a crawlable target. The page itself is noindex.
+# /results is crawlable on purpose, so Google reads its noindex.
 Disallow: /report/
 # Chemical composition rows link to /food/<x>?highlight=<chemical id>: one URL
 # per food-chemical pair, ~200k variants of pages the sitemap already lists
