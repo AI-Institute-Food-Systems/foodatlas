@@ -20,7 +20,7 @@ import { buildMetadata } from "@/utils/site";
 export const metadata: Metadata = buildMetadata({
   title: "Download Food Composition Data",
   description:
-    "FoodAtlas is provided as a free resource for public use. Download version-controlled database bundles to work with evidence-based food composition data on your machine.",
+    "Download versioned FoodAtlas bundles: the full evidence-based food composition knowledge graph as parquet tables. Free for public use with an API key.",
   path: "/food-composition-downloads",
 });
 

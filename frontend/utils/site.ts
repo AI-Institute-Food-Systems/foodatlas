@@ -76,6 +76,17 @@ export const fitTitle = (name: string, suffix: string): string => {
   return `${head.replace(/[\s,;:(-]+$/, "")}…${suffix}`;
 };
 
+// Search engines show about 160 characters of a description.
+export const MAX_DESCRIPTION = 160;
+
+// Cuts a templated description at a word so a long entity name cannot push
+// it past MAX_DESCRIPTION.
+export const fitDescription = (text: string): string => {
+  if (text.length <= MAX_DESCRIPTION) return text;
+  const cut = text.slice(0, MAX_DESCRIPTION - 1);
+  return `${cut.slice(0, cut.lastIndexOf(" ")).replace(/[\s,;:]+$/, "")}…`;
+};
+
 // One metadata block per page: title, description, canonical, the full
 // openGraph block and a summary_large_image Twitter card. `path` is
 // root-relative or absolute; metadataBase resolves it either way.

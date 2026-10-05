@@ -20,11 +20,13 @@ import {
   getMetaData,
 } from "@/utils/fetching";
 import JsonLd from "@/components/misc/JsonLd";
+import type { Metadata as EntityMetadata } from "@/types/Metadata";
 import TabSnapshot from "@/components/entities/shared/TabSnapshot";
 import {
   apiEntityUrl,
   buildMetadata,
   canonicalUrl,
+  fitDescription,
   fitTitle,
 } from "@/utils/site";
 import { entityJsonLd } from "@/utils/structuredData";
@@ -37,6 +39,19 @@ import { decodeSpace, toTitleCase } from "@/utils/utils";
 interface BioactivityPageProps {
   params: { slug: string };
 }
+
+// The counts come with the metadata, so they cost no extra request.
+const bioactivityDescription = (
+  name: string,
+  meta: EntityMetadata | null
+): string => {
+  const title = toTitleCase(name);
+  const counts =
+    meta?.n_chemicals != null && meta?.n_foods != null
+      ? `${meta.n_chemicals.toLocaleString("en-US")} chemicals and ${meta.n_foods.toLocaleString("en-US")} foods`
+      : "Chemicals and foods";
+  return `${title} bioactivity: ${counts} with measured activity, plus assay values and linked diseases, each traced to its source.`;
+};
 
 export async function generateMetadata({
   params,
@@ -53,7 +68,7 @@ export async function generateMetadata({
 
   return buildMetadata({
     title: fitTitle(toTitleCase(name), " Bioactivity"),
-    description: `Chemical measurements and food sources for the ${toTitleCase(name)} bioactivity.`,
+    description: fitDescription(bioactivityDescription(name, metaData)),
     path: canonicalUrl("bioactivity", name),
     // The same entity as JSON, for anyone who wants the data not the page.
     jsonAlternate: metaData ? apiEntityUrl("bioactivity", metaData.id) : undefined,

@@ -5,11 +5,13 @@ import { describe, expect, it } from "vitest";
 
 import {
   ENTITY_TYPES,
+  MAX_DESCRIPTION,
   MAX_TITLE,
   OG_IMAGE,
   SITE_NAME,
   TITLE_SEPARATOR,
   buildMetadata,
+  fitDescription,
   fitTitle,
 } from "@/utils/site";
 
@@ -100,5 +102,27 @@ describe("fitTitle", () => {
     );
     expect(branded(t).length).toBeLessThanOrEqual(MAX_TITLE);
     expect(t).toMatch(/^Anemia, Nonspherocytic…: Chemical Associations$/);
+  });
+});
+
+describe("description templates", () => {
+  it("cut a long description at a word, within 160 characters", () => {
+    const long = `Chemicals linked to ${"Very Long Disease Name ".repeat(8)}by evidence.`;
+    const d = fitDescription(long);
+    expect(d.length).toBeLessThanOrEqual(MAX_DESCRIPTION);
+    expect(d.endsWith("…")).toBe(true);
+    expect(fitDescription("Short and fine.")).toBe("Short and fine.");
+  });
+
+  it("do not say foods contain a disease", () => {
+    const src = read("app/(everything-else)/disease/[slug]/page.tsx");
+    expect(src).not.toContain("foods that contain it");
+  });
+
+  it("go through fitDescription on every entity page", () => {
+    for (const type of ENTITY_TYPES) {
+      const src = read(`app/(everything-else)/${type}/[slug]/page.tsx`);
+      expect(src, type).toContain("fitDescription(");
+    }
   });
 });

@@ -28,6 +28,7 @@ import {
   apiEntityUrl,
   buildMetadata,
   canonicalUrl,
+  fitDescription,
   fitTitle,
 } from "@/utils/site";
 import { entityJsonLd } from "@/utils/structuredData";
@@ -60,7 +61,9 @@ export async function generateMetadata({
 
   return buildMetadata({
     title: fitTitle(toTitleCase(name), " in Foods"),
-    description: `Discover which foods contain ${toTitleCase(name)} and how it impacts your health.`,
+    description: fitDescription(
+      `Foods that contain ${toTitleCase(name)}, with concentrations, plus its bioactivity measurements and disease links, each traced to its source.`
+    ),
     path: canonicalUrl("chemical", name),
     // The same entity as JSON, for anyone who wants the data not the page.
     jsonAlternate: metaData ? apiEntityUrl("chemical", metaData.id) : undefined,
