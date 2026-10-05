@@ -1,0 +1,50 @@
+# How to cite FoodAtlas. GitHub shows this as "Cite this repository".
+# The preferred citation must match CANONICAL_PUBLICATION in
+# frontend/utils/publications.ts; frontend/__tests__/citation-cff.test.ts
+# checks it.
+cff-version: 1.2.0
+message: "If you use FoodAtlas or its data, please cite the article below."
+title: FoodAtlas
+abstract: >-
+  Evidence-based knowledge graph of foods, chemicals, diseases and
+  bioactivities, with every association traced to a peer-reviewed source.
+authors:
+  - name: "AI Institute for Next Generation Food Systems (AIFS), UC Davis"
+    website: "https://www.aifs.ucdavis.edu"
+license: Apache-2.0
+url: "https://www.foodatlas.ai"
+repository-code: "https://github.com/AI-Institute-Food-Systems/foodatlas"
+keywords:
+  - food composition
+  - knowledge graph
+  - nutrition
+  - bioactivity
+  - chemical-disease associations
+preferred-citation:
+  type: article
+  title: "A unified knowledge graph linking foodomics to chemical-disease networks and flavor profiles"
+  authors:
+    - given-names: Fangzhou
+      family-names: Li
+    - given-names: Jason
+      family-names: Youn
+    - given-names: Kaichi
+      family-names: Xie
+    - given-names: Trevor
+      family-names: Chan
+    - given-names: Pranav
+      family-names: Gupta
+    - given-names: Arielle
+      family-names: Yoo
+    - given-names: Michael
+      family-names: Gunning
+    - given-names: Keer
+      family-names: Ni
+    - given-names: Ilias
+      family-names: Tagkopoulos
+  journal: "npj Science of Food"
+  year: 2026
+  volume: 10
+  issue: 1
+  start: 33
+  doi: "10.1038/s41538-025-00680-9"
