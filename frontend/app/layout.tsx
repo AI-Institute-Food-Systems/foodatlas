@@ -10,6 +10,7 @@ import SearchBar from "@/components/search/SearchBar";
 import "@/styles/globals.css";
 import { fontMono, fontSans, fontSerif } from "@/styles/fonts";
 import { HOME_TITLE, SITE_NAME, SITE_URL, TITLE_SEPARATOR } from "@/utils/site";
+import { GA_ENABLED, GA_MEASUREMENT_ID } from "@/utils/googleAnalytics";
 import { UMAMI_ENABLED, UMAMI_WEBSITE_ID } from "@/utils/umami";
 
 // metadataBase resolves every relative URL Next emits into metadata —
@@ -58,9 +59,7 @@ const Layout = ({ children }: ClientLayoutProps) => {
         >
           Skip to main content
         </a>
-        <GoogleAnalytics
-          gaId={process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ?? ""}
-        />
+        {GA_ENABLED && <GoogleAnalytics gaId={GA_MEASUREMENT_ID} />}
         {UMAMI_ENABLED && (
           <Script
             defer
