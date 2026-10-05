@@ -108,7 +108,7 @@ describe("/results stays noindex and crawlable", () => {
 
 describe("llms.txt matches reality", () => {
   it("does not advertise the noindexed validation tool", () => {
-    expect(read("public/llms.txt")).not.toContain("/validation");
+    expect(read("utils/llmsTxt.ts")).not.toContain("/validation");
   });
 });
 
