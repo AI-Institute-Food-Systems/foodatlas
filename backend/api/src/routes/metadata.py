@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.dependencies import get_db, verify_api_key
+from src.repositories import entity_index
 from src.repositories import search as search_repo
 
 router = APIRouter(
@@ -28,10 +29,15 @@ async def search(
 
 @router.get("/entities")
 async def entities(
+    entity_type: entity_index.IndexEntityType | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, list[dict[str, str]]]:
-    """Full entity index for the frontend sitemap (~12k rows, unpaginated)."""
-    return {"data": await search_repo.list_entities(db)}
+    """Every entity with a page, for the frontend sitemap (unpaginated).
+
+    ``entity_type`` returns one type only; the chemical list alone is tens of
+    thousands of rows, so each per-type sitemap asks for its own.
+    """
+    return {"data": await entity_index.list_entities(db, entity_type)}
 
 
 @router.get("/statistics")

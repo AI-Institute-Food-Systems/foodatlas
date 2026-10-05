@@ -298,17 +298,23 @@ export async function getCorrelationDirectionCounts(
   return await response.json();
 }
 
-// Every searchable entity — the sitemap's input. Empty on any failure so a
-// flaky API yields a thin sitemap rather than a 500 for the crawler.
+// Every entity that has a page — the sitemap's input. The API applies the
+// same existence rule as requireEntity, so the sitemap lists exactly the
+// entity URLs that return 200. `entityType` asks for one type only (the
+// chemical list alone is tens of thousands of rows). Empty on any failure so
+// a flaky API yields a thin sitemap rather than a 500 for the crawler.
 export type EntityIndexRow = {
   foodatlas_id: string;
   entity_type: "food" | "chemical" | "disease" | "bioactivity";
   common_name: string;
 };
 
-export async function getAllEntities(): Promise<EntityIndexRow[]> {
+export async function getAllEntities(
+  entityType?: EntityIndexRow["entity_type"]
+): Promise<EntityIndexRow[]> {
+  const query = entityType ? `?entity_type=${entityType}` : "";
   try {
-    const response = await apiFetch(`${apiBase()}/metadata/entities`, {
+    const response = await apiFetch(`${apiBase()}/metadata/entities${query}`, {
       revalidate: 86400,
     });
     if (!response.ok) return [];
