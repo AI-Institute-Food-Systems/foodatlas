@@ -24,7 +24,12 @@ import {
 import JsonLd from "@/components/misc/JsonLd";
 import TabSnapshot from "@/components/entities/shared/TabSnapshot";
 import { CORRELATION_DEFAULT_SORT } from "@/components/entities/shared/correlationSort";
-import { apiEntityUrl, canonicalUrl } from "@/utils/site";
+import {
+  apiEntityUrl,
+  buildMetadata,
+  canonicalUrl,
+  fitTitle,
+} from "@/utils/site";
 import { entityJsonLd } from "@/utils/structuredData";
 import {
   assayInferredSection,
@@ -50,20 +55,16 @@ export async function generateMetadata({
   // metadata.
   const metaData = await getMetaData(commonName, "chemical");
 
-  return {
-    title: `${toTitleCase(commonName)} in Foods - Evidence Based Database`,
-    description: `Discover which foods contain ${toTitleCase(
-      commonName
-    )} and how it impacts your health.`,
-    alternates: {
-      // Falls back to the slug-derived name for metadata-less chemicals.
-      canonical: canonicalUrl("chemical", metaData?.common_name ?? commonName),
-      // The same entity as JSON, for anyone who wants the data not the page.
-      ...(metaData && {
-        types: { "application/json": apiEntityUrl("chemical", metaData.id) },
-      }),
-    },
-  };
+  // Falls back to the slug-derived name for metadata-less chemicals.
+  const name = metaData?.common_name ?? commonName;
+
+  return buildMetadata({
+    title: fitTitle(toTitleCase(name), " in Foods"),
+    description: `Discover which foods contain ${toTitleCase(name)} and how it impacts your health.`,
+    path: canonicalUrl("chemical", name),
+    // The same entity as JSON, for anyone who wants the data not the page.
+    jsonAlternate: metaData ? apiEntityUrl("chemical", metaData.id) : undefined,
+  });
 }
 
 const ChemicalPage = async ({ params }: ChemicalPageProps) => {

@@ -1,6 +1,8 @@
 // Canonical public URLs, for everything that has to tell a machine where
-// FoodAtlas lives: robots/sitemap, JSON-LD, the API `rel=alternate` links.
+// FoodAtlas lives: robots/sitemap, JSON-LD, the API `rel=alternate` links,
+// and the per-page metadata block (buildMetadata).
 // Server-safe: no "use client", no env lookups.
+import type { Metadata } from "next";
 
 export const SITE_URL = "https://www.foodatlas.ai";
 export const API_URL = "https://api.foodatlas.ai";
@@ -44,3 +46,76 @@ export const canonicalUrl = (type: EntityType, commonName: string): string =>
 // The machine-readable twin of an entity page.
 export const apiEntityUrl = (type: EntityType, foodatlasId: string): string =>
   `${API_URL}/v1/${API_COLLECTION[type]}/${encodeURIComponent(foodatlasId)}`;
+
+export const SITE_NAME = "FoodAtlas";
+// Root layout's title.template. Pages give only their own part.
+export const TITLE_SEPARATOR = " · ";
+export const HOME_TITLE = `${SITE_NAME} | Evidence-Based Food Composition Database`;
+
+// Google cuts titles at about 60 characters; keep each one under that.
+export const MAX_TITLE = 60;
+
+// app/opengraph-image.tsx, the site-wide share card. Named on every page,
+// because Next replaces (does not merge) a parent's openGraph block, and a
+// page that sets openGraph without images would lose the file-based one.
+export const OG_IMAGE = {
+  url: "/opengraph-image",
+  width: 1200,
+  height: 630,
+  alt: "FoodAtlas: evidence-based food composition knowledge graph",
+};
+
+// Shortens `name` at a word boundary so `name + suffix + " · FoodAtlas"`
+// fits MAX_TITLE. Long IUPAC chemical names otherwise ran to 91 characters.
+export const fitTitle = (name: string, suffix: string): string => {
+  const room = MAX_TITLE - TITLE_SEPARATOR.length - SITE_NAME.length - suffix.length;
+  if (name.length <= room) return `${name}${suffix}`;
+  const cut = name.slice(0, room - 1);
+  const atWord = cut.lastIndexOf(" ");
+  const head = atWord > room / 2 ? cut.slice(0, atWord) : cut;
+  return `${head.replace(/[\s,;:(-]+$/, "")}…${suffix}`;
+};
+
+// One metadata block per page: title, description, canonical, the full
+// openGraph block and a summary_large_image Twitter card. `path` is
+// root-relative or absolute; metadataBase resolves it either way.
+export const buildMetadata = ({
+  title,
+  description,
+  path,
+  absoluteTitle = false,
+  jsonAlternate,
+}: {
+  title: string;
+  description: string;
+  path: string;
+  // The home page's title already carries the brand.
+  absoluteTitle?: boolean;
+  // The machine-readable twin of the page, if it has one.
+  jsonAlternate?: string;
+}): Metadata => {
+  const fullTitle = absoluteTitle ? title : `${title}${TITLE_SEPARATOR}${SITE_NAME}`;
+  return {
+    title: absoluteTitle ? { absolute: title } : title,
+    description,
+    alternates: {
+      canonical: path,
+      ...(jsonAlternate && { types: { "application/json": jsonAlternate } }),
+    },
+    openGraph: {
+      type: "website",
+      siteName: SITE_NAME,
+      locale: "en_US",
+      url: path,
+      title: fullTitle,
+      description,
+      images: [OG_IMAGE],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: fullTitle,
+      description,
+      images: [OG_IMAGE.url],
+    },
+  };
+};

@@ -61,7 +61,10 @@ describe("canonical URLs", () => {
     for (const path of staticPaths) {
       const file = PAGE_FOR_PATH[path];
       expect(file, `no page mapped for sitemap path ${path}`).toBeDefined();
-      expect(read(file)).toContain(`canonical: "${path}"`);
+      // Through buildMetadata, which sets alternates.canonical from `path`.
+      const src = read(file);
+      expect(src).toContain("buildMetadata({");
+      expect(src).toContain(`path: "${path}"`);
     }
   });
 

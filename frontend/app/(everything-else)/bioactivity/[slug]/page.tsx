@@ -21,7 +21,12 @@ import {
 } from "@/utils/fetching";
 import JsonLd from "@/components/misc/JsonLd";
 import TabSnapshot from "@/components/entities/shared/TabSnapshot";
-import { apiEntityUrl, canonicalUrl } from "@/utils/site";
+import {
+  apiEntityUrl,
+  buildMetadata,
+  canonicalUrl,
+  fitTitle,
+} from "@/utils/site";
 import { entityJsonLd } from "@/utils/structuredData";
 import {
   bioactivityDiseasesSection,
@@ -46,17 +51,13 @@ export async function generateMetadata({
   const metaData = await getMetaData(commonName, "bioactivity");
   const name = metaData?.common_name ?? commonName;
 
-  return {
-    title: `${toTitleCase(name)} — Bioactivity Profile`,
+  return buildMetadata({
+    title: fitTitle(toTitleCase(name), " Bioactivity"),
     description: `Chemical measurements and food sources for the ${toTitleCase(name)} bioactivity.`,
+    path: canonicalUrl("bioactivity", name),
     // The same entity as JSON, for anyone who wants the data not the page.
-    alternates: {
-      canonical: canonicalUrl("bioactivity", name),
-      ...(metaData && {
-        types: { "application/json": apiEntityUrl("bioactivity", metaData.id) },
-      }),
-    },
-  };
+    jsonAlternate: metaData ? apiEntityUrl("bioactivity", metaData.id) : undefined,
+  });
 }
 
 const BioactivityPage = async ({ params }: BioactivityPageProps) => {

@@ -9,14 +9,16 @@ import NavigationProgress from "@/components/navigation/NavigationProgress";
 import SearchBar from "@/components/search/SearchBar";
 import "@/styles/globals.css";
 import { fontMono, fontSans, fontSerif } from "@/styles/fonts";
-import { SITE_URL } from "@/utils/site";
+import { HOME_TITLE, SITE_NAME, SITE_URL, TITLE_SEPARATOR } from "@/utils/site";
 import { UMAMI_ENABLED, UMAMI_WEBSITE_ID } from "@/utils/umami";
 
 // metadataBase resolves every relative URL Next emits into metadata —
-// canonical links today, og:image if that is ever added. Without it Next
-// warns at build time and falls back to localhost in development.
+// canonicals, og:url, og:image. Without it Next warns at build time and
+// falls back to localhost in development. The template brands every title a
+// page sets; pages without metadata (404, error) get the default.
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
+  title: { default: HOME_TITLE, template: `%s${TITLE_SEPARATOR}${SITE_NAME}` },
 };
 
 export const viewport: Viewport = {

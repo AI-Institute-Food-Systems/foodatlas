@@ -6,13 +6,14 @@ import Code from "@/components/basic/Code";
 import Heading from "@/components/basic/Heading";
 import Link from "@/components/basic/Link";
 import { CANONICAL_PUBLICATION, doiUrl } from "@/utils/publications";
+import { buildMetadata } from "@/utils/site";
 
-export const metadata: Metadata = {
-  alternates: { canonical: "/technical-background" },
-  title: "Background | How the FoodAtlas Knowledge Graph is Sourced",
+export const metadata: Metadata = buildMetadata({
+  title: "How the Knowledge Graph Is Sourced",
   description:
     "How FoodAtlas turns peer-reviewed literature and public databases into a knowledge graph of foods, chemicals, diseases, and bioactivities.",
-};
+  path: "/technical-background",
+});
 
 // Source families integrated by the KGC ingest stage. Kept as data so
 // the "Sources" section stays visually consistent as the list grows.

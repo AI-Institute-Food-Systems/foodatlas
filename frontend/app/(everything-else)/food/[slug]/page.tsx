@@ -20,7 +20,12 @@ import {
 } from "@/utils/fetching";
 import JsonLd from "@/components/misc/JsonLd";
 import TabSnapshot from "@/components/entities/shared/TabSnapshot";
-import { apiEntityUrl, canonicalUrl } from "@/utils/site";
+import {
+  apiEntityUrl,
+  buildMetadata,
+  canonicalUrl,
+  fitTitle,
+} from "@/utils/site";
 import { entityJsonLd } from "@/utils/structuredData";
 import {
   bioactivityListSection,
@@ -45,17 +50,13 @@ export async function generateMetadata({
   const metaData = await getMetaData(commonName, "food");
   const name = metaData?.common_name ?? commonName;
 
-  return {
-    title: `${toTitleCase(name)} - Food Composition`,
+  return buildMetadata({
+    title: fitTitle(toTitleCase(name), ": Food Composition"),
     description: `Nutritional value of ${toTitleCase(name)}. Use evidence based molecular composition to help inform your food choices.`,
+    path: canonicalUrl("food", name),
     // The same entity as JSON, for anyone who wants the data not the page.
-    alternates: {
-      canonical: canonicalUrl("food", name),
-      ...(metaData && {
-        types: { "application/json": apiEntityUrl("food", metaData.id) },
-      }),
-    },
-  };
+    jsonAlternate: metaData ? apiEntityUrl("food", metaData.id) : undefined,
+  });
 }
 
 const FoodPage = async ({ params }: FoodPageProps) => {

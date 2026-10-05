@@ -15,13 +15,14 @@ import { DownloadEntry } from "@/types";
 import { getDownloadEntries } from "@/utils/fetching";
 import { CANONICAL_PUBLICATION } from "@/utils/publications";
 import { datasetJsonLd } from "@/utils/structuredData";
+import { buildMetadata } from "@/utils/site";
 
-export const metadata: Metadata = {
-  alternates: { canonical: "/food-composition-downloads" },
-  title: "FoodAtlas | Download Food Composition Data",
+export const metadata: Metadata = buildMetadata({
+  title: "Download Food Composition Data",
   description:
     "FoodAtlas is provided as a free resource for public use. Download version-controlled database bundles to work with evidence-based food composition data on your machine.",
-};
+  path: "/food-composition-downloads",
+});
 
 async function fetchSummary(url: string): Promise<string> {
   try {

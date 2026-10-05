@@ -14,7 +14,12 @@ import HeaderSectionSuspense from "@/components/entities/HeaderSectionSuspense";
 import { CORRELATION_DEFAULT_SORT } from "@/components/entities/shared/correlationSort";
 import { getDiseaseData, getMetaData } from "@/utils/fetching";
 import JsonLd from "@/components/misc/JsonLd";
-import { apiEntityUrl, canonicalUrl } from "@/utils/site";
+import {
+  apiEntityUrl,
+  buildMetadata,
+  canonicalUrl,
+  fitTitle,
+} from "@/utils/site";
 import { entityJsonLd } from "@/utils/structuredData";
 import { decodeSpace, toTitleCase } from "@/utils/utils";
 
@@ -35,17 +40,13 @@ export async function generateMetadata({
   const metaData = await getMetaData(commonName, "disease");
   const name = metaData?.common_name ?? commonName;
 
-  return {
-    title: `${toTitleCase(name)} and Your Health`,
+  return buildMetadata({
+    title: fitTitle(toTitleCase(name), ": Chemical Associations"),
     description: `Evidence-based correlations between ${toTitleCase(name)} and the foods that contain it.`,
+    path: canonicalUrl("disease", name),
     // The same entity as JSON, for anyone who wants the data not the page.
-    alternates: {
-      canonical: canonicalUrl("disease", name),
-      ...(metaData && {
-        types: { "application/json": apiEntityUrl("disease", metaData.id) },
-      }),
-    },
-  };
+    jsonAlternate: metaData ? apiEntityUrl("disease", metaData.id) : undefined,
+  });
 }
 
 const DiseasePage = async ({ params }: DiseasePageProps) => {
