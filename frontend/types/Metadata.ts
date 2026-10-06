@@ -25,4 +25,7 @@ export type Metadata = {
   // Bioactivity-only: the r2 (IS_A) hierarchy resolved by mv_bioactivity_entities.
   parents?: BioactivityHierarchyNode[];
   children?: BioactivityHierarchyNode[];
+  // Bioactivity only: how many chemicals and foods have a measurement.
+  n_chemicals?: number;
+  n_foods?: number;
 };

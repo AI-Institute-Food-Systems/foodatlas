@@ -22,7 +22,7 @@ const HeroSection = () => {
         alt="Background wallpaper of a graph resembling a neural network"
         src="/images/hero_wallpaper_color.webp"
         priority
-        quality={100}
+        quality={60}
       />
       <div className="relative min-h-[38rem] sm:min-h-[44rem] md:min-h-[48rem] flex flex-col justify-center px-4 md:px-24 py-10 sm:py-14 md:py-20">
         <div className="max-w-4xl w-full mx-auto flex flex-col items-center gap-6 md:gap-8">

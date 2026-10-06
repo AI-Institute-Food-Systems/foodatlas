@@ -50,3 +50,12 @@ export const PUBLICATIONS: Publication[] = [
 export const CANONICAL_PUBLICATION: Publication = PUBLICATIONS[0];
 
 export const doiUrl = (doi: string): string => `https://doi.org/${doi}`;
+
+// The APA reference as Markdown text, for plain-text surfaces (/llms.txt).
+// Same parts and order as components/basic/Citation.tsx, without the link.
+export const citationMarkdown = (p: Publication): string => {
+  const volume = p.volume ? `, *${p.volume}*${p.issue ? `(${p.issue})` : ""}` : "";
+  const article = p.articleNumber ? `, ${p.articleNumber}` : "";
+  const venue = `${p.kind === "proceedings" ? "In " : ""}*${p.venue}*`;
+  return `${p.authors} (${p.year}). ${p.title}. ${venue}${volume}${article}.`;
+};

@@ -5,7 +5,6 @@ import ChemicalCompositionSection from "@/components/entities/chemical/ChemicalC
 import CorrelationEvidenceTab from "@/components/entities/shared/CorrelationEvidenceTab";
 import ChemicalBioactivitiesSection from "@/components/entities/bioactivity/ChemicalBioactivitiesSection";
 import HeaderSection from "@/components/entities/HeaderSection";
-import HeaderSectionSuspense from "@/components/entities/HeaderSectionSuspense";
 import EntityDetailLayout from "@/components/entities/EntityDetailLayout";
 import { requireEntity } from "@/components/entities/requireEntity";
 import { buildTabs } from "@/components/entities/buildTabs";
@@ -24,8 +23,17 @@ import {
 import JsonLd from "@/components/misc/JsonLd";
 import TabSnapshot from "@/components/entities/shared/TabSnapshot";
 import { CORRELATION_DEFAULT_SORT } from "@/components/entities/shared/correlationSort";
-import { apiEntityUrl, canonicalUrl } from "@/utils/site";
-import { entityJsonLd } from "@/utils/structuredData";
+import {
+  apiEntityUrl,
+  buildMetadata,
+  canonicalUrl,
+  fitDescription,
+  fitTitle,
+} from "@/utils/site";
+import {
+  entityBreadcrumbJsonLd,
+  entityJsonLd,
+} from "@/utils/structuredData";
 import {
   assayInferredSection,
   bioactivityListSection,
@@ -50,20 +58,18 @@ export async function generateMetadata({
   // metadata.
   const metaData = await getMetaData(commonName, "chemical");
 
-  return {
-    title: `${toTitleCase(commonName)} in Foods - Evidence Based Database`,
-    description: `Discover which foods contain ${toTitleCase(
-      commonName
-    )} and how it impacts your health.`,
-    alternates: {
-      // Falls back to the slug-derived name for metadata-less chemicals.
-      canonical: canonicalUrl("chemical", metaData?.common_name ?? commonName),
-      // The same entity as JSON, for anyone who wants the data not the page.
-      ...(metaData && {
-        types: { "application/json": apiEntityUrl("chemical", metaData.id) },
-      }),
-    },
-  };
+  // Falls back to the slug-derived name for metadata-less chemicals.
+  const name = metaData?.common_name ?? commonName;
+
+  return buildMetadata({
+    title: fitTitle(toTitleCase(name), " in Foods"),
+    description: fitDescription(
+      `Foods that contain ${toTitleCase(name)}, with concentrations, plus its bioactivity measurements and disease links, each traced to its source.`
+    ),
+    path: canonicalUrl("chemical", name),
+    // The same entity as JSON, for anyone who wants the data not the page.
+    jsonAlternate: metaData ? apiEntityUrl("chemical", metaData.id) : undefined,
+  });
 }
 
 const ChemicalPage = async ({ params }: ChemicalPageProps) => {
@@ -121,9 +127,21 @@ const ChemicalPage = async ({ params }: ChemicalPageProps) => {
   return (
     <>
       {metaPayload && <JsonLd data={entityJsonLd(entityType, metaPayload)} />}
-      <Suspense fallback={<HeaderSectionSuspense entityType={entityType} />}>
-        <HeaderSection commonName={commonName} entityType={entityType} />
-      </Suspense>
+      <JsonLd
+        data={entityBreadcrumbJsonLd(
+          entityType,
+          toTitleCase(metaPayload?.common_name ?? commonName),
+          metaPayload?.common_name ?? commonName
+        )}
+      />
+      {/* Rendered in order with the page, from the metadata awaited above.
+       * Behind its own Suspense it streamed last, so the h1 (the mobile
+       * LCP element) painted only once the whole document was in. */}
+      <HeaderSection
+        commonName={commonName}
+        entityType={entityType}
+        metadata={metaPayload}
+      />
       <EntityDetailLayout
         entityType={entityType}
         defaultTabId={DEFAULT_TAB_ID[entityType]}

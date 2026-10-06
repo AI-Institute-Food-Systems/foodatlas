@@ -1,3 +1,6 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+
 import { render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -5,6 +8,7 @@ import JsonLd from "@/components/misc/JsonLd";
 import { apiEntityUrl, entityPath } from "@/utils/site";
 import {
   datasetJsonLd,
+  organizationJsonLd,
   webApiJsonLd,
   webSiteJsonLd,
 } from "@/utils/structuredData";
@@ -74,11 +78,33 @@ describe("structured data", () => {
     expect(a.documentation).toBe("https://api.foodatlas.ai/docs");
   });
 
-  it("gives the WebSite a SearchAction on /results", () => {
+  it("gives the WebSite no SearchAction (sitelinks search box is retired)", () => {
     const w = webSiteJsonLd();
-    expect(w.potentialAction.target.urlTemplate).toContain(
-      "/results?term={search_term_string}"
-    );
+    expect(w).not.toHaveProperty("potentialAction");
+    expect(w.publisher["@id"]).toBe("https://www.foodatlas.ai/#organization");
+  });
+
+  it("describes FoodAtlas as an Organization with a raster logo and sameAs", () => {
+    const o = organizationJsonLd();
+    expect(o["@type"]).toBe("Organization");
+    expect(o.logo).toMatchObject({ width: 512, height: 512 });
+    expect(o.logo.url).toMatch(/\.png$/);
+    expect(o.sameAs.length).toBeGreaterThan(0);
+    expect(o.parentOrganization.name).toMatch(/AIFS/);
+    expect(
+      existsSync(join(process.cwd(), "public", "icon-512.png"))
+    ).toBe(true);
+  });
+
+  it("gives the Dataset measured variables, coverage and a catalog", () => {
+    const d = datasetJsonLd([entry]);
+    expect(d.variableMeasured.length).toBeGreaterThanOrEqual(3);
+    expect(d.variableMeasured[0]).toMatchObject({
+      "@type": "PropertyValue",
+      unitText: "mg/100g",
+    });
+    expect(d.temporalCoverage).toBe("../2026-09-18");
+    expect(d.includedInDataCatalog["@type"]).toBe("DataCatalog");
   });
 
   it("JsonLd renders a script tag and escapes '<'", () => {

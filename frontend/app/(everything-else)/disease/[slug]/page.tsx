@@ -10,12 +10,20 @@ import { buildTabs } from "@/components/entities/buildTabs";
 import { correlationEvidenceCount } from "@/utils/tabCounts";
 import { DEFAULT_TAB_ID } from "@/components/entities/entityTabs.config";
 import EntityOverviewPanelSuspense from "@/components/entities/EntityOverviewPanelSuspense";
-import HeaderSectionSuspense from "@/components/entities/HeaderSectionSuspense";
 import { CORRELATION_DEFAULT_SORT } from "@/components/entities/shared/correlationSort";
 import { getDiseaseData, getMetaData } from "@/utils/fetching";
 import JsonLd from "@/components/misc/JsonLd";
-import { apiEntityUrl, canonicalUrl } from "@/utils/site";
-import { entityJsonLd } from "@/utils/structuredData";
+import {
+  apiEntityUrl,
+  buildMetadata,
+  canonicalUrl,
+  fitDescription,
+  fitTitle,
+} from "@/utils/site";
+import {
+  entityBreadcrumbJsonLd,
+  entityJsonLd,
+} from "@/utils/structuredData";
 import { decodeSpace, toTitleCase } from "@/utils/utils";
 
 interface DiseasePageProps {
@@ -35,17 +43,15 @@ export async function generateMetadata({
   const metaData = await getMetaData(commonName, "disease");
   const name = metaData?.common_name ?? commonName;
 
-  return {
-    title: `${toTitleCase(name)} and Your Health`,
-    description: `Evidence-based correlations between ${toTitleCase(name)} and the foods that contain it.`,
+  return buildMetadata({
+    title: fitTitle(toTitleCase(name), ": Chemical Associations"),
+    description: fitDescription(
+      `Chemicals linked to ${toTitleCase(name)} by literature and bioassay evidence, and the foods that contain them. Every link traced to its source.`
+    ),
+    path: canonicalUrl("disease", name),
     // The same entity as JSON, for anyone who wants the data not the page.
-    alternates: {
-      canonical: canonicalUrl("disease", name),
-      ...(metaData && {
-        types: { "application/json": apiEntityUrl("disease", metaData.id) },
-      }),
-    },
-  };
+    jsonAlternate: metaData ? apiEntityUrl("disease", metaData.id) : undefined,
+  });
 }
 
 const DiseasePage = async ({ params }: DiseasePageProps) => {
@@ -87,9 +93,21 @@ const DiseasePage = async ({ params }: DiseasePageProps) => {
   return (
     <>
       {metaPayload && <JsonLd data={entityJsonLd(entityType, metaPayload)} />}
-      <Suspense fallback={<HeaderSectionSuspense entityType={entityType} />}>
-        <HeaderSection commonName={commonName} entityType={entityType} />
-      </Suspense>
+      <JsonLd
+        data={entityBreadcrumbJsonLd(
+          entityType,
+          toTitleCase(metaPayload?.common_name ?? commonName),
+          metaPayload?.common_name ?? commonName
+        )}
+      />
+      {/* Rendered in order with the page, from the metadata awaited above.
+       * Behind its own Suspense it streamed last, so the h1 (the mobile
+       * LCP element) painted only once the whole document was in. */}
+      <HeaderSection
+        commonName={commonName}
+        entityType={entityType}
+        metadata={metaPayload}
+      />
       <EntityDetailLayout
         entityType={entityType}
         defaultTabId={DEFAULT_TAB_ID[entityType]}

@@ -15,13 +15,66 @@ import {
 // a field for exactly that distinction, so crawlers don't try the link raw.
 const ACCESS_CONDITIONS = `Free API key required; request one at ${SITE_URL}/contact?api-access`;
 
+// The institute that builds and funds FoodAtlas. Its profiles are the ones
+// in the site footer.
 const ORGANIZATION = {
   "@type": "Organization",
   name: "AI Institute for Next Generation Food Systems (AIFS), UC Davis",
   url: "https://www.aifs.ucdavis.edu",
+  sameAs: [
+    "https://www.linkedin.com/company/aifoodsystems/",
+    "https://www.youtube.com/channel/UCyvVBZ6Qx34ElPB0UmoEF2A",
+    "https://www.instagram.com/aifoodsystems",
+    "https://www.threads.net/@aifoodsystems",
+  ],
+};
+
+// FoodAtlas itself, for Google's logo and site-name features. Inline, not
+// an @id reference: Google does not resolve an @id declared in another
+// JSON-LD block. The logo is a raster ≥112 px, as Google requires.
+const FOODATLAS = {
+  "@type": "Organization",
+  "@id": `${SITE_URL}/#organization`,
+  name: "FoodAtlas",
+  url: SITE_URL,
+  logo: {
+    "@type": "ImageObject",
+    url: `${SITE_URL}/icon-512.png`,
+    width: 512,
+    height: 512,
+  },
+  sameAs: ["https://github.com/AI-Institute-Food-Systems/foodatlas"],
+  parentOrganization: ORGANIZATION,
 };
 
 const LICENSE = "https://www.apache.org/licenses/LICENSE-2.0";
+
+const VARIABLES_MEASURED = [
+  {
+    "@type": "PropertyValue",
+    name: "Chemical concentration in food",
+    unitText: "mg/100g",
+    description:
+      "Concentration of a chemical in a food, from USDA FoodData Central, PTFI and literature extraction, with the source of each value.",
+  },
+  {
+    "@type": "PropertyValue",
+    name: "Chemical-disease association",
+    description:
+      "Whether a chemical is reported to improve or worsen a disease (CTD literature), or is linked to it through shared bioassays.",
+  },
+  {
+    "@type": "PropertyValue",
+    name: "Bioactivity measurement",
+    description:
+      "Assay results of a chemical or food against a bioactivity (for example antioxidant), with endpoint, value and unit.",
+  },
+];
+
+export const organizationJsonLd = () => ({
+  "@context": "https://schema.org",
+  ...FOODATLAS,
+});
 
 export const datasetJsonLd = (entries: DownloadEntry[]) => ({
   "@context": "https://schema.org",
@@ -43,6 +96,18 @@ export const datasetJsonLd = (entries: DownloadEntry[]) => ({
     "chemical-disease associations",
   ],
   version: entries[0]?.version,
+  // What the tables measure, one entry per kind of row.
+  variableMeasured: VARIABLES_MEASURED,
+  // Literature and source databases up to the latest release; the graph
+  // has no fixed start date.
+  ...(entries[0]?.release_date && {
+    temporalCoverage: `../${entries[0].release_date}`,
+  }),
+  includedInDataCatalog: {
+    "@type": "DataCatalog",
+    name: "FoodAtlas",
+    url: SITE_URL,
+  },
   distribution: entries.map((e) => ({
     "@type": "DataDownload",
     name: `FoodAtlas ${e.version}`,
@@ -74,19 +139,8 @@ export const webSiteJsonLd = () => ({
   "@type": "WebSite",
   name: "FoodAtlas",
   url: SITE_URL,
-  publisher: ORGANIZATION,
-  // Google requires this target to be crawlable, so robots.txt no longer
-  // disallows /results. The page carries noindex instead: crawlable so the
-  // SearchAction can take effect, unindexed because a thin search-results page
-  // does not belong in the index.
-  potentialAction: {
-    "@type": "SearchAction",
-    target: {
-      "@type": "EntryPoint",
-      urlTemplate: `${SITE_URL}/results?term={search_term_string}`,
-    },
-    "query-input": "required name=search_term_string",
-  },
+  publisher: FOODATLAS,
+  // No SearchAction: Google retired the sitelinks search box in 2024.
 });
 
 // Entity pages render their tables client-side, so to a crawler that does not
@@ -153,3 +207,34 @@ export const entityJsonLd = (type: EntityType, m: EntityMetadata) => {
     }),
   };
 };
+
+// BreadcrumbList for the trail Home › page. Entity pages stop at two levels:
+// there is no per-type index page, and Google requires a URL on every
+// crumb but the last.
+type Crumb = { name: string; url: string };
+
+export const breadcrumbJsonLd = (crumbs: Crumb[]) => ({
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: crumbs.map(({ name, url }, i) => ({
+    "@type": "ListItem",
+    position: i + 1,
+    name,
+    item: url,
+  })),
+});
+
+const HOME_CRUMB: Crumb = { name: "Home", url: `${SITE_URL}/` };
+
+export const pageBreadcrumbJsonLd = (path: string, title: string) =>
+  breadcrumbJsonLd([HOME_CRUMB, { name: title, url: `${SITE_URL}${path}` }]);
+
+export const entityBreadcrumbJsonLd = (
+  type: EntityType,
+  displayName: string,
+  commonName: string
+) =>
+  breadcrumbJsonLd([
+    HOME_CRUMB,
+    { name: displayName, url: canonicalUrl(type, commonName) },
+  ]);

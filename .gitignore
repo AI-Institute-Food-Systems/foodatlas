@@ -167,3 +167,6 @@ _bmad_output/
 .zshrc
 docs/staging.env
 .env*.local
+
+# Local planning notes from the Nimbalyst editor; never committed.
+nimbalyst-local/
