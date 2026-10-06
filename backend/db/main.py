@@ -5,7 +5,7 @@ import tempfile
 from pathlib import Path
 
 import click
-from sqlalchemy import text
+from sqlalchemy import Connection, Engine, text
 from src.config import DBSettings
 from src.engine import create_sync_engine
 from src.etl.loader import load_kg, load_trust_only, refresh_materialized_views
@@ -19,6 +19,18 @@ logging.basicConfig(
 )
 
 _DEFAULT_PARQUET_DIR = Path(__file__).resolve().parent.parent / "kgc" / "outputs" / "kg"
+
+
+def _vacuum_analyze(engine: Engine) -> None:
+    """Refresh planner stats and visibility maps after a bulk reload.
+
+    TRUNCATE + COPY leaves the MVs with no statistics and an empty
+    visibility map until autovacuum gets to them, so the first queries
+    after a load can pick bad plans and can't use index-only scans.
+    VACUUM refuses to run inside a transaction, hence AUTOCOMMIT.
+    """
+    with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
+        conn.execute(text("VACUUM ANALYZE"))
 
 
 @click.group()
@@ -69,6 +81,7 @@ def load(parquet_dir: str, only: str | None) -> None:
         with engine.connect() as conn:
             loader(conn, local_path)
 
+    _vacuum_analyze(engine)
     click.echo("Done.")
 
 
@@ -83,6 +96,7 @@ def refresh() -> None:
     engine = create_sync_engine(settings)
     with engine.connect() as conn:
         refresh_materialized_views(conn)
+    _vacuum_analyze(engine)
     click.echo("Done.")
 
 
@@ -186,6 +200,75 @@ def migrate_bioact_perf() -> None:
         for description, sql in _BIOACT_PERF_MIGRATION:
             logger.info(">>> %s", description)
             conn.execute(text(sql))
+    click.echo("Done.")
+
+
+# The sort indexes with the row key appended, so the API's tiebreak
+# (ORDER BY count, <ids>) reads one index range instead of sorting every
+# tied row. Builds each new index before dropping the one it replaces, so
+# no sort is ever left without an index. Idempotent.
+_SORT_KEY_INDEXES = [
+    (
+        "ix_mv_cb_bio_mcount",
+        "mv_chemical_bioactivity",
+        "bioactivity_name, measurement_count",
+    ),
+    (
+        "ix_mv_cb_chem_mcount",
+        "mv_chemical_bioactivity",
+        "chemical_name, measurement_count",
+    ),
+    ("ix_mv_cb_bio_nfoods", "mv_chemical_bioactivity", "bioactivity_name, n_foods"),
+    ("ix_mv_fb_food_mcount", "mv_food_bioactivity", "food_name, measurement_count"),
+    (
+        "ix_mv_fb_bio_mcount",
+        "mv_food_bioactivity",
+        "bioactivity_name, measurement_count",
+    ),
+]
+_ROW_KEY = {
+    "mv_chemical_bioactivity": "chemical_foodatlas_id, bioactivity_foodatlas_id",
+    "mv_food_bioactivity": "food_foodatlas_id, bioactivity_foodatlas_id",
+}
+
+
+def _index_valid(conn: Connection, name: str) -> bool | None:
+    """pg_index.indisvalid for ``name``; None when the index doesn't exist."""
+    return conn.execute(
+        text("SELECT indisvalid FROM pg_index WHERE indexrelid = to_regclass(:n)"),
+        {"n": name},
+    ).scalar()
+
+
+@cli.command("migrate-sort-key-indexes")
+def migrate_sort_key_indexes() -> None:
+    """One-shot: add the row key to the bioactivity sort indexes.
+
+    Brings a loaded RDS to the indexes in ``models/views.py`` without a
+    full ``db load``. Run via ``infra/aws/scripts/run-migration.sh``.
+    """
+    engine = create_sync_engine(DBSettings())
+    logger = logging.getLogger("migrate-sort-key-indexes")
+    with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
+        conn.execute(text("SET lock_timeout = '30s'"))
+        for old, table, cols in _SORT_KEY_INDEXES:
+            new = f"{old}_key"
+            logger.info(">>> %s", new)
+            # A failed CONCURRENTLY build leaves an INVALID index that
+            # IF NOT EXISTS would skip; rebuild it instead.
+            if _index_valid(conn, new) is False:
+                conn.execute(text(f"DROP INDEX CONCURRENTLY IF EXISTS {new}"))
+            conn.execute(
+                text(
+                    f"CREATE INDEX CONCURRENTLY IF NOT EXISTS {new} "
+                    f"ON {table}({cols}, {_ROW_KEY[table]})"
+                )
+            )
+            if not _index_valid(conn, new):
+                msg = f"{new} is not valid; kept {old}. Re-run the migration."
+                raise click.ClickException(msg)
+            conn.execute(text(f"DROP INDEX CONCURRENTLY IF EXISTS {old}"))
+    _vacuum_analyze(engine)
     click.echo("Done.")
 
 
