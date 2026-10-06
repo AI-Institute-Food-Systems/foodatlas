@@ -26,6 +26,7 @@ _SOURCE_IDS = [
     "fdc",
     "dmd",
     "bioactivity",
+    "ptfi",
 ]
 
 

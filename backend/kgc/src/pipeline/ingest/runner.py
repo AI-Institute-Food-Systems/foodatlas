@@ -19,6 +19,7 @@ from .adapters.fdc import FDCAdapter
 from .adapters.flavordb import FlavorDBAdapter
 from .adapters.foodon import FoodOnAdapter
 from .adapters.mesh import MeSHAdapter
+from .adapters.ptfi import PTFIAdapter
 from .adapters.pubchem import PubChemAdapter
 
 if TYPE_CHECKING:
@@ -39,6 +40,7 @@ ALL_ADAPTERS: list[type] = [
     FDCAdapter,
     DMDAdapter,
     BioactivityAdapter,
+    PTFIAdapter,
 ]
 
 
