@@ -14,6 +14,8 @@
 
 import {
   getBioactivityDiseases,
+  getChemicalBioactivities,
+  getChemicalCompositionData,
   getChemicalDiseaseAssociations,
   getDiseaseChemicalAssociations,
   getDiseaseData,
@@ -65,3 +67,22 @@ export const correlationEvidenceCount = async (
 // Matches BioactivityDiseasesSection, which publishes rows.length.
 export const bioactivityDiseasesCount = (commonName: string) =>
   rowCount(() => getBioactivityDiseases(commonName));
+
+// True only when every tab is known to be empty: no foods, no bioactivities,
+// no diseases. A failed count is unknown, not zero, so it keeps the page
+// indexable. Same fetches as the chemical page's badges (deduped).
+export const chemicalHasNoRelations = async (
+  commonName: string
+): Promise<boolean> => {
+  const [composition, bio, health] = await Promise.all([
+    getChemicalCompositionData(commonName).catch(() => null),
+    getChemicalBioactivities(commonName).catch(() => null),
+    correlationEvidenceCount(commonName, "chemical"),
+  ]);
+  const foods = composition
+    ? (composition.with_concentrations?.length ?? 0) +
+      (composition.without_concentrations?.length ?? 0)
+    : null;
+  const bioactivities = bio?.metadata?.total_rows ?? null;
+  return foods === 0 && bioactivities === 0 && health === 0;
+};

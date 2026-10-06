@@ -1,6 +1,10 @@
 import type { MetadataRoute } from "next";
 
-import { getAllEntities, getLatestBundle } from "@/utils/fetching";
+import {
+  getAllEntities,
+  getLatestBundle,
+  type EntityIndexRow,
+} from "@/utils/fetching";
 import {
   ENTITY_TYPES,
   SITEMAP_IDS,
@@ -29,6 +33,15 @@ async function datasetReleaseDate(): Promise<Date | undefined> {
   const release = (await getLatestBundle())?.release_date;
   return release ? new Date(release) : undefined;
 }
+
+// Only chemicals with food composition are promoted. The rest (~40k
+// bioassay-only, ~9k disease- or drug-only) keep their pages but would
+// compete for crawl budget in a food atlas. Decided 2026-10-06. Falls back to
+// has_metadata for an API without has_foods.
+const promotedChemical = (e: EntityIndexRow) =>
+  e.has_foods === undefined || e.has_foods === null
+    ? e.has_metadata !== false
+    : e.has_foods;
 
 const STATIC_PATHS = [
   "/",
@@ -73,10 +86,7 @@ export default async function sitemap({
   const urls = new Set(
     entities
       .filter((e) => e.entity_type === type)
-      // Bioassay-only chemicals (~40k, no food data) keep their pages but are
-      // not promoted: they would compete for crawl budget with the ~5.4k
-      // chemicals that have food composition. Decided 2026-10-06.
-      .filter((e) => !(type === "chemical" && e.has_metadata === false))
+      .filter((e) => type !== "chemical" || promotedChemical(e))
       .map((e) => `${SITE_URL}${entityPath(type, e.common_name)}`)
   );
   // The protocol caps one file at 50,000 URLs. The API lists metadata-backed

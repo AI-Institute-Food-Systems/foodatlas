@@ -96,6 +96,7 @@ export const buildMetadata = ({
   path,
   absoluteTitle = false,
   jsonAlternate,
+  noindex = false,
 }: {
   title: string;
   description: string;
@@ -104,11 +105,14 @@ export const buildMetadata = ({
   absoluteTitle?: boolean;
   // The machine-readable twin of the page, if it has one.
   jsonAlternate?: string;
+  // Keep the page out of the index but let crawlers follow its links.
+  noindex?: boolean;
 }): Metadata => {
   const fullTitle = absoluteTitle ? title : `${title}${TITLE_SEPARATOR}${SITE_NAME}`;
   return {
     title: absoluteTitle ? { absolute: title } : title,
     description,
+    ...(noindex && { robots: { index: false, follow: true } }),
     alternates: {
       canonical: path,
       ...(jsonAlternate && { types: { "application/json": jsonAlternate } }),

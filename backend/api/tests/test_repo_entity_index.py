@@ -64,6 +64,15 @@ class TestListEntities:
         assert "tier = 0 AS has_metadata" in _sql(session)
 
     @pytest.mark.asyncio
+    async def test_flags_chemicals_with_foods(self) -> None:
+        session = _session([])
+        await list_entities(session, "chemical")
+        sql = _sql(session)
+        assert "mv_food_chemical_composition" in sql
+        assert "c.chemical_name = named.common_name" in sql
+        assert "END AS has_foods" in sql
+
+    @pytest.mark.asyncio
     async def test_type_filter_reads_only_that_type(self) -> None:
         session = _session([])
         await list_entities(session, "chemical")
