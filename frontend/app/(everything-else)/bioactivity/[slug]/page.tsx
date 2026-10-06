@@ -176,3 +176,11 @@ const BioactivityPage = async ({ params }: BioactivityPageProps) => {
 
 BioactivityPage.displayName = "BioactivityPage";
 export default BioactivityPage;
+
+// Cache each rendered page at the edge (ISR). An empty generateStaticParams
+// builds nothing up front but lets Next cache pages on first request; without
+// it every request rendered from scratch. 1 h, not the fetches' 24 h: a page
+// generated while the API failed renders its empty states, and only failed
+// fetches are retried (Next caches 200s only), so the next hour heals it.
+export const revalidate = 3600;
+export const generateStaticParams = async () => [];
