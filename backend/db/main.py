@@ -5,7 +5,7 @@ import tempfile
 from pathlib import Path
 
 import click
-from sqlalchemy import Engine, text
+from sqlalchemy import Connection, Engine, text
 from src.config import DBSettings
 from src.engine import create_sync_engine
 from src.etl.loader import load_kg, load_trust_only, refresh_materialized_views
@@ -232,6 +232,14 @@ _ROW_KEY = {
 }
 
 
+def _index_valid(conn: Connection, name: str) -> bool | None:
+    """pg_index.indisvalid for ``name``; None when the index doesn't exist."""
+    return conn.execute(
+        text("SELECT indisvalid FROM pg_index WHERE indexrelid = to_regclass(:n)"),
+        {"n": name},
+    ).scalar()
+
+
 @cli.command("migrate-sort-key-indexes")
 def migrate_sort_key_indexes() -> None:
     """One-shot: add the row key to the bioactivity sort indexes.
@@ -244,13 +252,21 @@ def migrate_sort_key_indexes() -> None:
     with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
         conn.execute(text("SET lock_timeout = '30s'"))
         for old, table, cols in _SORT_KEY_INDEXES:
-            logger.info(">>> %s_key", old)
+            new = f"{old}_key"
+            logger.info(">>> %s", new)
+            # A failed CONCURRENTLY build leaves an INVALID index that
+            # IF NOT EXISTS would skip; rebuild it instead.
+            if _index_valid(conn, new) is False:
+                conn.execute(text(f"DROP INDEX CONCURRENTLY IF EXISTS {new}"))
             conn.execute(
                 text(
-                    f"CREATE INDEX CONCURRENTLY IF NOT EXISTS {old}_key "
+                    f"CREATE INDEX CONCURRENTLY IF NOT EXISTS {new} "
                     f"ON {table}({cols}, {_ROW_KEY[table]})"
                 )
             )
+            if not _index_valid(conn, new):
+                msg = f"{new} is not valid; kept {old}. Re-run the migration."
+                raise click.ClickException(msg)
             conn.execute(text(f"DROP INDEX CONCURRENTLY IF EXISTS {old}"))
     _vacuum_analyze(engine)
     click.echo("Done.")

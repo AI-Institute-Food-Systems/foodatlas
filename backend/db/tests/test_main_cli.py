@@ -10,11 +10,24 @@ from src.models.base import Base
 from src.models.views import MVChemicalBioactivity, MVFoodBioactivity
 
 
-def _engine() -> tuple[MagicMock, list[str]]:
-    """A sync engine whose connections record each SQL string executed."""
+def _engine(valid: dict[str, bool] | None = None) -> tuple[MagicMock, list[str]]:
+    """A sync engine whose connections record each SQL string executed.
+
+    ``valid`` maps index name -> pg_index.indisvalid; unlisted indexes
+    report valid, as after a successful CONCURRENTLY build.
+    """
     executed: list[str] = []
+    valid = valid or {}
+
+    def execute(stmt: object, params: dict | None = None, *_a: object) -> MagicMock:
+        executed.append(str(stmt))
+        result = MagicMock()
+        name = (params or {}).get("n")
+        result.scalar.return_value = valid.get(name, True) if name else None
+        return result
+
     conn = MagicMock()
-    conn.execute.side_effect = lambda stmt, *_a, **_k: executed.append(str(stmt))
+    conn.execute.side_effect = execute
     conn.execution_options.return_value = conn
     conn.__enter__.return_value = conn
     engine = MagicMock()
@@ -77,3 +90,17 @@ def test_migration_matches_the_model_indexes() -> None:
         migrated = [c.strip() for c in f"{cols}, {main._ROW_KEY[table]}".split(",")]
         assert model[f"{old}_key"] == migrated
         assert old not in model
+
+
+def test_migration_rebuilds_an_invalid_leftover_index() -> None:
+    old = main._SORT_KEY_INDEXES[0][0]
+    engine, executed = _engine({f"{old}_key": False})
+    with (
+        patch.object(main, "create_sync_engine", return_value=engine),
+        patch.object(main, "DBSettings"),
+    ):
+        result = CliRunner().invoke(main.cli, ["migrate-sort-key-indexes"])
+    # The rebuild still reports invalid, so the old index must survive.
+    assert result.exit_code != 0
+    assert f"DROP INDEX CONCURRENTLY IF EXISTS {old}_key" in executed
+    assert f"DROP INDEX CONCURRENTLY IF EXISTS {old}" not in executed
