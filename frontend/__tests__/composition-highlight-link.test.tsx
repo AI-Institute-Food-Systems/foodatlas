@@ -35,13 +35,11 @@ vi.mock("@/context/tabCountsContext", () => ({
   usePublishTabCount: () => undefined,
 }));
 const nav = vi.hoisted(() => ({
-  search: "",
   router: { push: () => {}, replace: () => {}, back: () => {} },
 }));
 vi.mock("next/navigation", () => ({
   useRouter: () => nav.router,
   usePathname: () => "/food/onion",
-  useSearchParams: () => new URLSearchParams(nav.search),
 }));
 
 import FoodCompositionSection from "@/components/entities/food/FoodCompositionSection";
@@ -71,7 +69,6 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.clearAllMocks();
-  nav.search = "";
   window.history.replaceState(null, "", "/");
 });
 
@@ -101,7 +98,7 @@ describe("food composition highlight", () => {
   });
 
   it("still honours a legacy ?highlight= link", async () => {
-    nav.search = "highlight=e73791";
+    window.history.replaceState(null, "", "/food/onion?highlight=e73791");
     render(<FoodCompositionSection commonName="onion" />);
     await waitFor(() => expect(findChemicalArgs()).toContain("e73791"));
   });
