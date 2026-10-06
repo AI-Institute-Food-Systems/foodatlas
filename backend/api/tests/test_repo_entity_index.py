@@ -58,6 +58,12 @@ class TestListEntities:
         assert "ORDER BY entity_type, tier, common_name" in sql
 
     @pytest.mark.asyncio
+    async def test_flags_rows_with_a_metadata_row(self) -> None:
+        session = _session([])
+        await list_entities(session)
+        assert "tier = 0 AS has_metadata" in _sql(session)
+
+    @pytest.mark.asyncio
     async def test_type_filter_reads_only_that_type(self) -> None:
         session = _session([])
         await list_entities(session, "chemical")

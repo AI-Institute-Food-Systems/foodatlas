@@ -9,17 +9,22 @@ vi.mock("@/utils/fetching", () => ({
 import sitemap from "@/app/sitemap";
 import { SITE_URL } from "@/utils/site";
 
-const row = (common_name: string, entity_type = "chemical") => ({
+const row = (
+  common_name: string,
+  entity_type = "chemical",
+  has_metadata?: boolean
+) => ({
   foodatlas_id: "e1",
   entity_type,
   common_name,
+  has_metadata,
 });
 
 afterEach(() => vi.clearAllMocks());
 
-// The entity sitemaps list what the API's entity index returns, which uses
-// the same existence rule as requireEntity: a bioassay-only chemical has a
-// page, so it must be in the sitemap too.
+// The entity sitemaps list what the API's entity index returns (the same
+// existence rule as requireEntity), minus bioassay-only chemicals, which keep
+// their pages but are not promoted.
 describe("entity sitemaps", () => {
   it("asks the index for its own type only", async () => {
     getAllEntities.mockResolvedValue([row("olaparib")]);
@@ -32,6 +37,25 @@ describe("entity sitemaps", () => {
     getAllEntities.mockResolvedValue([row("tomato", "food"), row("quercetin")]);
     const urls = await sitemap({ id: 2 });
     expect(urls.map((u) => u.url)).toEqual([`${SITE_URL}/chemical/quercetin`]);
+  });
+
+  it("leaves out bioassay-only chemicals", async () => {
+    getAllEntities.mockResolvedValue([
+      row("quercetin", "chemical", true),
+      row("zygosporamide", "chemical", false),
+      row("olaparib"),
+    ]);
+    const urls = await sitemap({ id: 2 });
+    expect(urls.map((u) => u.url)).toEqual([
+      `${SITE_URL}/chemical/quercetin`,
+      `${SITE_URL}/chemical/olaparib`,
+    ]);
+  });
+
+  it("keeps assay-only diseases", async () => {
+    getAllEntities.mockResolvedValue([row("viremia", "disease", false)]);
+    const urls = await sitemap({ id: 3 });
+    expect(urls.map((u) => u.url)).toEqual([`${SITE_URL}/disease/viremia`]);
   });
 
   it("lists each URL once", async () => {

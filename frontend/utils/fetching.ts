@@ -307,6 +307,9 @@ export type EntityIndexRow = {
   foodatlas_id: string;
   entity_type: "food" | "chemical" | "disease" | "bioactivity";
   common_name: string;
+  // false for a page that exists only through an exception (bioassay-only
+  // chemical, assay-only disease). Absent from an older API.
+  has_metadata?: boolean;
 };
 
 export async function getAllEntities(
