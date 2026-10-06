@@ -9,6 +9,9 @@ the one the frontend uses to 404 an entity route (``requireEntity.ts``):
 * a disease with no metadata row still has a page when assays link it to
   chemicals (``mv_chemical_disease_bioactivity``).
 
+Each row carries ``has_metadata`` (tier 0), so the sitemap can promote only
+the pages it chooses while this index still lists every page that exists.
+
 Reading ``mv_search_auto_complete`` instead left out about two thirds of the
 pages that return 200 — the bioassay-only chemicals, and the chemicals and
 diseases that are only reached through correlations or ancestry.
@@ -69,7 +72,7 @@ def _index_sql(entity_type: IndexEntityType | None) -> str:
           WHERE common_name <> ''
           ORDER BY entity_type, common_name, tier, foodatlas_id
         )
-        SELECT foodatlas_id, entity_type, common_name
+        SELECT foodatlas_id, entity_type, common_name, tier = 0 AS has_metadata
         FROM named
         ORDER BY entity_type, tier, common_name
     """
@@ -77,8 +80,8 @@ def _index_sql(entity_type: IndexEntityType | None) -> str:
 
 async def list_entities(
     session: AsyncSession, entity_type: IndexEntityType | None = None
-) -> list[dict[str, str]]:
-    """Every entity with a page, as (foodatlas_id, entity_type, common_name).
+) -> list[dict[str, str | bool]]:
+    """Every entity with a page: foodatlas_id, entity_type, common_name, has_metadata.
 
     ``entity_type`` limits the index to one type, so each per-type sitemap
     fetches only its own rows.

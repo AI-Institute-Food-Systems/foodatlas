@@ -73,6 +73,10 @@ export default async function sitemap({
   const urls = new Set(
     entities
       .filter((e) => e.entity_type === type)
+      // Bioassay-only chemicals (~40k, no food data) keep their pages but are
+      // not promoted: they would compete for crawl budget with the ~5.4k
+      // chemicals that have food composition. Decided 2026-10-06.
+      .filter((e) => !(type === "chemical" && e.has_metadata === false))
       .map((e) => `${SITE_URL}${entityPath(type, e.common_name)}`)
   );
   // The protocol caps one file at 50,000 URLs. The API lists metadata-backed
