@@ -160,7 +160,9 @@ async def get_correlation(
     query produced it.
     """
     where, filter_params = _correlation.build_filters(relation, search, "disease_name")
-    order = _correlation.build_order(sort_by, sort_dir, "disease_name")
+    order = _correlation.build_order(
+        sort_by, sort_dir, "disease_name", _correlation.ROW_KEY_PAIR
+    )
     offset = rows_per_page * (page - 1)
 
     result = await session.execute(

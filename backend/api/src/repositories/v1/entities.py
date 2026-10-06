@@ -95,7 +95,7 @@ async def list_entities(
     params["limit"] = page_size
     params["offset"] = _offset(page, page_size)
     list_sql = (
-        f"SELECT {cols} FROM {table}{where_sql} ORDER BY common_name "
+        f"SELECT {cols} FROM {table}{where_sql} ORDER BY common_name, foodatlas_id "
         "OFFSET :offset ROWS FETCH FIRST :limit ROWS ONLY"
     )
     list_result = await session.execute(text(list_sql), params)
