@@ -61,7 +61,8 @@ async def search(
                 ELSE 3
             END,
             associations DESC,
-            similarity(substr_auto, :word) DESC
+            similarity(substr_auto, :word) DESC,
+            foodatlas_id
         OFFSET :offset ROWS
         FETCH FIRST :limit ROWS ONLY
     """)

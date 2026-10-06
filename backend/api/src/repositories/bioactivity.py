@@ -54,6 +54,12 @@ _BIO_FOOD_SORT = {
 }
 _VALID_DIR = {"ASC", "DESC"}
 
+# Columns that identify one row of each paginated MV.
+_MV_ROW_KEY = {
+    "mv_chemical_bioactivity": ("chemical_foodatlas_id", "bioactivity_foodatlas_id"),
+    "mv_food_bioactivity": ("food_foodatlas_id", "bioactivity_foodatlas_id"),
+}
+
 # Pseudo-column used when sorting by the row's top measurement value.
 # Resolves to a SQL expression in _paginated, not an actual MV column —
 # only valid when filter_endpoint + filter_unit are both supplied, since
@@ -324,12 +330,18 @@ async def _paginated(
             )
             order_expr = "top_measurement_value"
 
+    # Allowlisted sort columns are NOT NULL, so NULLS LAST only matters for
+    # the computed top value; leaving it off the others lets a backward
+    # index scan serve DESC. The row key ends the ORDER BY so ties can't
+    # shuffle rows between pages.
+    nulls = " NULLS LAST" if order_expr == TOP_VALUE_SORT else ""
+    tiebreak = "".join(f", {col} {sort_dir}" for col in _MV_ROW_KEY[mv])
     offset = rows_per_page * (page - 1)
     rows_result = await session.execute(
         text(f"""
             SELECT {select_cols}{extra_select}
             FROM {mv} WHERE {where}
-            ORDER BY {order_expr} {sort_dir} NULLS LAST
+            ORDER BY {order_expr} {sort_dir}{nulls}{tiebreak}
             OFFSET :offset ROWS FETCH FIRST :limit ROWS ONLY
         """),
         {**params, "offset": offset, "limit": rows_per_page},
@@ -584,6 +596,11 @@ async def get_food_inferred_bioactivities(
     # `ORDER BY a, b DESC` would silently sort `a` ascending.
     sort_cols = [sort_col] if isinstance(sort_col, str) else sort_col
     order_by = ", ".join(f"{c} {direction} NULLS LAST" for c in sort_cols)
+    # The row key, so ties can't shuffle rows between pages.
+    order_by += (
+        ", fcc.food_foodatlas_id, fcc.chemical_foodatlas_id,"
+        " cb.bioactivity_foodatlas_id"
+    )
 
     params: dict = {"name": common_name}
     where_parts = ["fcc.food_name = :name"]
