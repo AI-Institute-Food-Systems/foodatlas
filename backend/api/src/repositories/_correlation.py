@@ -42,6 +42,14 @@ GROUP_BY_CHEMICAL = (
     "disease_foodatlas_id, disease_name, chemical_foodatlas_id, chemical_name"
 )
 
+# The id columns of each grouping, for the ORDER BY tiebreak.
+ROW_KEY_PAIR = (
+    "disease_foodatlas_id",
+    "source_chemical_foodatlas_id",
+    "chemical_foodatlas_id",
+)
+ROW_KEY_CHEMICAL = ("disease_foodatlas_id", "chemical_foodatlas_id")
+
 # r4 helps reduce the disease, r3 worsens it. "all" maps to neither, which
 # is what lets one page carry both directions.
 RELATION_IDS = {"positive": "r4", "negative": "r3"}
@@ -149,13 +157,16 @@ DEFAULT_SORT_BY = "evidence_count"
 DEFAULT_SORT_DIR = "desc"
 
 
-def build_order(sort_by: str, sort_dir: str, peer_column: str) -> str:
+def build_order(
+    sort_by: str, sort_dir: str, peer_column: str, row_key: tuple[str, ...]
+) -> str:
     """ORDER BY clause for a page query, from allowlisted inputs.
 
     Unknown keys fall back to the default rather than erroring, matching
     how the composition endpoint treats ``sort_by``. The peer name is
-    always the tiebreaker so pages are stable across requests; when it is
-    the primary key the tiebreaker is redundant and omitted.
+    the next tiebreaker (omitted when it is the primary key), then
+    ``row_key`` — the grouping ids — because two peers can share a name
+    and a tie between them would shuffle rows between pages.
 
     ``peer_column`` must be qualified to match the query — the disease
     page query aliases the view as ``c``, the chemical one does not — and
@@ -169,9 +180,10 @@ def build_order(sort_by: str, sort_dir: str, peer_column: str) -> str:
     expr = SORT_KEYS[key].format(
         peer=peer_column, evidence_count=f"{qualifier}evidence_count"
     )
+    ids = ", ".join(f"{qualifier}{col}" for col in row_key)
     if key == "name":
-        return f"ORDER BY {expr} {direction}"
-    return f"ORDER BY {expr} {direction}, {peer_column}"
+        return f"ORDER BY {expr} {direction}, {ids}"
+    return f"ORDER BY {expr} {direction}, {peer_column}, {ids}"
 
 
 def build_filters(

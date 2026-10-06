@@ -227,6 +227,9 @@ class TestPairGrouping:
         assert f"GROUP BY {_correlation.GROUP_BY_PAIR}" in _sql(session, 0)
 
 
+_KEY = ("disease_foodatlas_id",)
+
+
 class TestBuildOrder:
     # The literature tables sort server-side, so the header click has to
     # become an ORDER BY the query can actually take. Allowlisted: the key
@@ -234,40 +237,52 @@ class TestBuildOrder:
 
     def test_default_is_evidence_count_desc_with_name_tiebreak(self) -> None:
         assert (
-            _correlation.build_order("evidence_count", "desc", "disease_name")
-            == "ORDER BY SUM(evidence_count) DESC, disease_name"
+            _correlation.build_order("evidence_count", "desc", "disease_name", _KEY)
+            == "ORDER BY SUM(evidence_count) DESC, disease_name, disease_foodatlas_id"
         )
 
-    def test_name_sorts_by_the_peer_column_alone(self) -> None:
-        # The peer name IS the tiebreaker, so it is not repeated.
+    def test_name_sort_is_not_repeated_as_a_tiebreaker(self) -> None:
         assert (
-            _correlation.build_order("name", "asc", "disease_name")
-            == "ORDER BY disease_name ASC"
+            _correlation.build_order("name", "asc", "disease_name", _KEY)
+            == "ORDER BY disease_name ASC, disease_foodatlas_id"
         )
+
+    def test_row_key_ends_every_order(self) -> None:
+        # Two peers can share a name; without the ids a tie between them
+        # can put the same row on two pages and drop another.
+        for sort_by in _correlation.SORT_KEYS:
+            order = _correlation.build_order(
+                sort_by, "desc", "disease_name", _correlation.ROW_KEY_PAIR
+            )
+            assert order.endswith(", ".join(_correlation.ROW_KEY_PAIR))
 
     def test_qualifies_evidence_count_like_the_peer(self) -> None:
         # The disease page query aliases the view as `c`; both columns
         # must carry it or Postgres reports an ambiguous reference.
         assert (
-            _correlation.build_order("evidence_count", "asc", "c.chemical_name")
-            == "ORDER BY SUM(c.evidence_count) ASC, c.chemical_name"
+            _correlation.build_order(
+                "evidence_count", "asc", "c.chemical_name", ("chemical_foodatlas_id",)
+            )
+            == "ORDER BY SUM(c.evidence_count) ASC, c.chemical_name,"
+            " c.chemical_foodatlas_id"
         )
 
     @pytest.mark.parametrize("bad", ["", "drop table", "name; --", "EVIDENCE_COUNT"])
     def test_unknown_key_falls_back_to_the_default(self, bad: str) -> None:
-        assert _correlation.build_order(bad, "asc", "disease_name") == (
-            "ORDER BY SUM(evidence_count) ASC, disease_name"
+        assert _correlation.build_order(bad, "asc", "disease_name", _KEY) == (
+            "ORDER BY SUM(evidence_count) ASC, disease_name, disease_foodatlas_id"
         )
 
     @pytest.mark.parametrize("bad", ["", "sideways", "DESC; --"])
     def test_unknown_direction_is_desc(self, bad: str) -> None:
-        assert _correlation.build_order("name", bad, "disease_name").endswith(" DESC")
+        order = _correlation.build_order("name", bad, "disease_name", _KEY)
+        assert order.startswith("ORDER BY disease_name DESC,")
 
     @pytest.mark.asyncio
     async def test_reaches_the_chemical_page_query(self) -> None:
         session = _session([], 0)
         await chem_correlation(session, "caffeine", sort_by="name", sort_dir="asc")
-        assert "ORDER BY disease_name ASC" in _sql(session, 0)
+        assert "ORDER BY disease_name ASC, disease_foodatlas_id" in _sql(session, 0)
 
     @pytest.mark.asyncio
     async def test_reaches_the_disease_page_query(self) -> None:

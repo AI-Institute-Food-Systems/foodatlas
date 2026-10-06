@@ -490,6 +490,8 @@ def _compose_sql(
         + " "
         + direction
         + " NULLS LAST"
+        # The row key, so ties can't shuffle rows between pages.
+        + ", food_foodatlas_id, chemical_foodatlas_id"
         + pagination
     )
 
