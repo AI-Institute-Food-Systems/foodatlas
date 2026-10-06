@@ -54,6 +54,12 @@ describe("buildMetadata", () => {
     });
   });
 
+  it("is indexable unless asked otherwise", () => {
+    expect(meta.robots).toBeUndefined();
+    const empty = buildMetadata({ title: "x", description: "x", path: "/x", noindex: true });
+    expect(empty.robots).toEqual({ index: false, follow: true });
+  });
+
   it("can opt out of the title template", () => {
     const home = buildMetadata({
       title: "FoodAtlas | Home",

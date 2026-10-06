@@ -31,7 +31,7 @@ async def search(
 async def entities(
     entity_type: entity_index.IndexEntityType | None = Query(None),
     db: AsyncSession = Depends(get_db),
-) -> dict[str, list[dict[str, str | bool]]]:
+) -> dict[str, list[dict[str, str | bool | None]]]:
     """Every entity with a page, for the frontend sitemap (unpaginated).
 
     ``entity_type`` returns one type only; the chemical list alone is tens of
