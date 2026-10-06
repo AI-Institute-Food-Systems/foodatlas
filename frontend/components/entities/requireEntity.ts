@@ -1,6 +1,10 @@
 import { notFound } from "next/navigation";
 
-import { getChemicalBioactivities, lookupMetaData } from "@/utils/fetching";
+import {
+  getChemicalBioactivities,
+  getDiseaseChemicalAssociations,
+  lookupMetaData,
+} from "@/utils/fetching";
 import type { EntityType } from "@/utils/site";
 import { decodeSpace } from "@/utils/utils";
 
@@ -33,6 +37,15 @@ export async function requireEntity(
   if (type === "chemical") {
     const bio = await getChemicalBioactivities(commonName);
     if (bio?.metadata?.total_rows !== 0) return;
+  }
+  // mv_disease_entities likewise holds only diseases with CTD literature
+  // correlations. A disease that only assays tie to chemicals (e.g. favism,
+  // linked from a bioactivity's Diseases tab) has no metadata, yet its
+  // Chemicals tab lists those assay-inferred chemicals. Same call the page's
+  // tab count makes, so it is served from the fetch cache there.
+  if (type === "disease") {
+    const assays = await getDiseaseChemicalAssociations(commonName);
+    if (assays?.metadata?.row_count !== 0) return;
   }
   notFound();
 }

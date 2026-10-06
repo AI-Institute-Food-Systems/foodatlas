@@ -5,7 +5,6 @@ import BioactivityChemicalsSection from "@/components/entities/bioactivity/Bioac
 import BioactivityDiseasesSection from "@/components/entities/bioactivity/BioactivityDiseasesSection";
 import BioactivityFoodsSection from "@/components/entities/bioactivity/BioactivityFoodsSection";
 import HeaderSection from "@/components/entities/HeaderSection";
-import HeaderSectionSuspense from "@/components/entities/HeaderSectionSuspense";
 import EntityDetailLayout from "@/components/entities/EntityDetailLayout";
 import { requireEntity } from "@/components/entities/requireEntity";
 import { buildTabs } from "@/components/entities/buildTabs";
@@ -20,9 +19,19 @@ import {
   getMetaData,
 } from "@/utils/fetching";
 import JsonLd from "@/components/misc/JsonLd";
+import type { Metadata as EntityMetadata } from "@/types/Metadata";
 import TabSnapshot from "@/components/entities/shared/TabSnapshot";
-import { apiEntityUrl, canonicalUrl } from "@/utils/site";
-import { entityJsonLd } from "@/utils/structuredData";
+import {
+  apiEntityUrl,
+  buildMetadata,
+  canonicalUrl,
+  fitDescription,
+  fitTitle,
+} from "@/utils/site";
+import {
+  entityBreadcrumbJsonLd,
+  entityJsonLd,
+} from "@/utils/structuredData";
 import {
   bioactivityDiseasesSection,
   bioactivityListSection,
@@ -32,6 +41,19 @@ import { decodeSpace, toTitleCase } from "@/utils/utils";
 interface BioactivityPageProps {
   params: { slug: string };
 }
+
+// The counts come with the metadata, so they cost no extra request.
+const bioactivityDescription = (
+  name: string,
+  meta: EntityMetadata | null
+): string => {
+  const title = toTitleCase(name);
+  const counts =
+    meta?.n_chemicals != null && meta?.n_foods != null
+      ? `${meta.n_chemicals.toLocaleString("en-US")} chemicals and ${meta.n_foods.toLocaleString("en-US")} foods`
+      : "Chemicals and foods";
+  return `${title} bioactivity: ${counts} with measured activity, plus assay values and linked diseases, each traced to its source.`;
+};
 
 export async function generateMetadata({
   params,
@@ -46,17 +68,13 @@ export async function generateMetadata({
   const metaData = await getMetaData(commonName, "bioactivity");
   const name = metaData?.common_name ?? commonName;
 
-  return {
-    title: `${toTitleCase(name)} — Bioactivity Profile`,
-    description: `Chemical measurements and food sources for the ${toTitleCase(name)} bioactivity.`,
+  return buildMetadata({
+    title: fitTitle(toTitleCase(name), " Bioactivity"),
+    description: fitDescription(bioactivityDescription(name, metaData)),
+    path: canonicalUrl("bioactivity", name),
     // The same entity as JSON, for anyone who wants the data not the page.
-    alternates: {
-      canonical: canonicalUrl("bioactivity", name),
-      ...(metaData && {
-        types: { "application/json": apiEntityUrl("bioactivity", metaData.id) },
-      }),
-    },
-  };
+    jsonAlternate: metaData ? apiEntityUrl("bioactivity", metaData.id) : undefined,
+  });
 }
 
 const BioactivityPage = async ({ params }: BioactivityPageProps) => {
@@ -97,9 +115,21 @@ const BioactivityPage = async ({ params }: BioactivityPageProps) => {
   return (
     <>
       {metaPayload && <JsonLd data={entityJsonLd(entityType, metaPayload)} />}
-      <Suspense fallback={<HeaderSectionSuspense entityType={entityType} />}>
-        <HeaderSection commonName={commonName} entityType={entityType} />
-      </Suspense>
+      <JsonLd
+        data={entityBreadcrumbJsonLd(
+          entityType,
+          toTitleCase(metaPayload?.common_name ?? commonName),
+          metaPayload?.common_name ?? commonName
+        )}
+      />
+      {/* Rendered in order with the page, from the metadata awaited above.
+       * Behind its own Suspense it streamed last, so the h1 (the mobile
+       * LCP element) painted only once the whole document was in. */}
+      <HeaderSection
+        commonName={commonName}
+        entityType={entityType}
+        metadata={metaPayload}
+      />
       <EntityDetailLayout
         entityType={entityType}
         defaultTabId={DEFAULT_TAB_ID[entityType]}

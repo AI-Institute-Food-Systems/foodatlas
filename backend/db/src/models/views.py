@@ -225,26 +225,32 @@ class MVChemicalBioactivity(Base):
         Index("ix_mv_cb_chemical", "chemical_name"),
         Index("ix_mv_cb_bioactivity", "bioactivity_name"),
         Index("ix_mv_cb_chemical_id", "chemical_foodatlas_id"),
-        # Composite indexes that serve the most common (filter, sort)
-        # combos directly — WHERE bioactivity_name = X ORDER BY
-        # measurement_count DESC LIMIT 20 returns from the index without
-        # a separate sort pass over the 11k+ matching rows.
+        # Composite indexes that serve the paged (filter, sort) combos
+        # directly — WHERE bioactivity_name = X ORDER BY measurement_count
+        # DESC, <row key> DESC LIMIT 20 reads ~20 rows instead of sorting
+        # the 23k+ matching rows. The row key is the API's tiebreak.
         Index(
-            "ix_mv_cb_bio_mcount",
+            "ix_mv_cb_bio_mcount_key",
             "bioactivity_name",
             "measurement_count",
+            "chemical_foodatlas_id",
+            "bioactivity_foodatlas_id",
             postgresql_using="btree",
         ),
         Index(
-            "ix_mv_cb_chem_mcount",
+            "ix_mv_cb_chem_mcount_key",
             "chemical_name",
             "measurement_count",
+            "chemical_foodatlas_id",
+            "bioactivity_foodatlas_id",
             postgresql_using="btree",
         ),
         Index(
-            "ix_mv_cb_bio_nfoods",
+            "ix_mv_cb_bio_nfoods_key",
             "bioactivity_name",
             "n_foods",
+            "chemical_foodatlas_id",
+            "bioactivity_foodatlas_id",
             postgresql_using="btree",
         ),
     )
@@ -269,17 +275,21 @@ class MVFoodBioactivity(Base):
     __table_args__ = (
         Index("ix_mv_fb_food", "food_name"),
         Index("ix_mv_fb_bioactivity", "bioactivity_name"),
-        # Composite indexes for default-sort patterns on the foods table.
+        # Composite indexes for the paged sorts, row key included.
         Index(
-            "ix_mv_fb_food_mcount",
+            "ix_mv_fb_food_mcount_key",
             "food_name",
             "measurement_count",
+            "food_foodatlas_id",
+            "bioactivity_foodatlas_id",
             postgresql_using="btree",
         ),
         Index(
-            "ix_mv_fb_bio_mcount",
+            "ix_mv_fb_bio_mcount_key",
             "bioactivity_name",
             "measurement_count",
+            "food_foodatlas_id",
+            "bioactivity_foodatlas_id",
             postgresql_using="btree",
         ),
     )

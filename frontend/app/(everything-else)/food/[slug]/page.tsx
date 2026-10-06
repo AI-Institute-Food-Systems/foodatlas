@@ -5,7 +5,6 @@ import FoodCompositionSection from "@/components/entities/food/FoodCompositionSe
 import { ALL_SOURCE_VALUES } from "@/components/entities/food/compositionSources";
 import FoodBioactivitiesTab from "@/components/entities/bioactivity/FoodBioactivitiesTab";
 import HeaderSection from "@/components/entities/HeaderSection";
-import HeaderSectionSuspense from "@/components/entities/HeaderSectionSuspense";
 import EntityDetailLayout from "@/components/entities/EntityDetailLayout";
 import { requireEntity } from "@/components/entities/requireEntity";
 import { buildTabs } from "@/components/entities/buildTabs";
@@ -20,8 +19,17 @@ import {
 } from "@/utils/fetching";
 import JsonLd from "@/components/misc/JsonLd";
 import TabSnapshot from "@/components/entities/shared/TabSnapshot";
-import { apiEntityUrl, canonicalUrl } from "@/utils/site";
-import { entityJsonLd } from "@/utils/structuredData";
+import {
+  apiEntityUrl,
+  buildMetadata,
+  canonicalUrl,
+  fitDescription,
+  fitTitle,
+} from "@/utils/site";
+import {
+  entityBreadcrumbJsonLd,
+  entityJsonLd,
+} from "@/utils/structuredData";
 import {
   bioactivityListSection,
   inferredBioactivitySection,
@@ -45,17 +53,15 @@ export async function generateMetadata({
   const metaData = await getMetaData(commonName, "food");
   const name = metaData?.common_name ?? commonName;
 
-  return {
-    title: `${toTitleCase(name)} - Food Composition`,
-    description: `Nutritional value of ${toTitleCase(name)}. Use evidence based molecular composition to help inform your food choices.`,
+  return buildMetadata({
+    title: fitTitle(toTitleCase(name), ": Food Composition"),
+    description: fitDescription(
+      `Chemical composition of ${toTitleCase(name)}: nutrients and other compounds with measured concentrations, each traced to a peer-reviewed source or database.`
+    ),
+    path: canonicalUrl("food", name),
     // The same entity as JSON, for anyone who wants the data not the page.
-    alternates: {
-      canonical: canonicalUrl("food", name),
-      ...(metaData && {
-        types: { "application/json": apiEntityUrl("food", metaData.id) },
-      }),
-    },
-  };
+    jsonAlternate: metaData ? apiEntityUrl("food", metaData.id) : undefined,
+  });
 }
 
 const FoodPage = async ({ params }: FoodPageProps) => {
@@ -118,9 +124,21 @@ const FoodPage = async ({ params }: FoodPageProps) => {
   return (
     <>
       {metaPayload && <JsonLd data={entityJsonLd(entityType, metaPayload)} />}
-      <Suspense fallback={<HeaderSectionSuspense entityType={entityType} />}>
-        <HeaderSection commonName={commonName} entityType={entityType} />
-      </Suspense>
+      <JsonLd
+        data={entityBreadcrumbJsonLd(
+          entityType,
+          toTitleCase(metaPayload?.common_name ?? commonName),
+          metaPayload?.common_name ?? commonName
+        )}
+      />
+      {/* Rendered in order with the page, from the metadata awaited above.
+       * Behind its own Suspense it streamed last, so the h1 (the mobile
+       * LCP element) painted only once the whole document was in. */}
+      <HeaderSection
+        commonName={commonName}
+        entityType={entityType}
+        metadata={metaPayload}
+      />
       <EntityDetailLayout
         entityType={entityType}
         defaultTabId={DEFAULT_TAB_ID[entityType]}

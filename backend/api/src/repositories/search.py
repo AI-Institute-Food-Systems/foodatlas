@@ -61,7 +61,8 @@ async def search(
                 ELSE 3
             END,
             associations DESC,
-            similarity(substr_auto, :word) DESC
+            similarity(substr_auto, :word) DESC,
+            foodatlas_id
         OFFSET :offset ROWS
         FETCH FIRST :limit ROWS ONLY
     """)
@@ -91,23 +92,6 @@ async def search(
             "total_pages": total_pages,
         },
     }
-
-
-async def list_entities(session: AsyncSession) -> list[dict[str, str]]:
-    """Every searchable entity as (foodatlas_id, entity_type, common_name).
-
-    Feeds the frontend sitemap, which is the one caller that legitimately
-    needs the whole index at once. Reads the same MV as search, so the
-    sitemap lists exactly the pages search can reach — nothing more.
-    """
-    result = await session.execute(
-        text("""
-        SELECT foodatlas_id, entity_type, common_name
-        FROM mv_search_auto_complete
-        ORDER BY entity_type, common_name
-        """)
-    )
-    return [dict(row._mapping) for row in result]
 
 
 async def get_statistics(session: AsyncSession) -> dict[str, object]:

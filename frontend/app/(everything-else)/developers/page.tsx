@@ -9,13 +9,14 @@ import Link from "@/components/basic/Link";
 import UnderConstruction from "@/components/misc/UnderConstruction";
 import { CANONICAL_PUBLICATION } from "@/utils/publications";
 import { webApiJsonLd } from "@/utils/structuredData";
+import { buildMetadata } from "@/utils/site";
 
-export const metadata: Metadata = {
-  alternates: { canonical: "/developers" },
-  title: "Developers | FoodAtlas Public API",
+export const metadata: Metadata = buildMetadata({
+  title: "Public API for Developers",
   description:
     "Programmatic access to the FoodAtlas knowledge graph. Authenticate with an API key, then call any /v1/ endpoint. Request a key via the contact form.",
-};
+  path: "/developers",
+});
 
 const API_BASE = "https://api.foodatlas.ai";
 

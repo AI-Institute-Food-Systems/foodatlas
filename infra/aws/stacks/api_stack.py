@@ -6,8 +6,8 @@ credentials at task start; the ALB forwards to the task on port 8000.
 
 When the context variable ``api_cert_arn`` is set, the ALB listens on 443
 with HTTPS (cert imported from ACM by ARN) and redirects port 80 → 443.
-Without the context variable, the ALB falls back to plain HTTP on port 80
-so that local ``cdk synth`` and snapshot tests don't require a real cert.
+``cdk.json`` pins the prod ARN; without it the ALB serves plain HTTP on
+port 80, so snapshot tests don't require a real cert.
 
 Networking: tasks are placed in public subnets with public IPs so they can
 pull from ECR and reach Secrets Manager without a NAT gateway. Security
@@ -22,8 +22,8 @@ stack.
 
 Context variables:
 - ``api_image_tag`` (default ``latest``): image tag in ECR to deploy.
-- ``api_cert_arn`` (optional): ACM certificate ARN in the same region as
-  the ALB. When set, enables HTTPS termination on port 443.
+- ``api_cert_arn`` (``api_cert_arn-staging`` for the staging stack): ACM
+  certificate ARN in the ALB's region. Enables HTTPS on port 443.
 - ``api_umami_website_id`` (optional; ``api_umami_website_id-staging`` for
   the staging stack): umami website id the API mirrors external ``/v1``
   usage into (``src/umami_sink.py``). Unset → no ``API_UMAMI_*`` env vars
@@ -205,7 +205,7 @@ class ApiStack(cdk.Stack):
         # them with this role, so it needs GetObject on the downloads bucket.
         downloads_bucket.grant_read(task_definition.task_role)
 
-        cert_arn = self.node.try_get_context("api_cert_arn")
+        cert_arn = self.node.try_get_context(f"api_cert_arn{name_suffix}")
         service_kwargs: dict[str, Any] = {
             "cluster": self.cluster,
             "task_definition": task_definition,
@@ -222,13 +222,12 @@ class ApiStack(cdk.Stack):
         }
         if cert_arn:
             certificate = acm.Certificate.from_certificate_arn(
-                self,
-                "ApiCertificate",
-                cert_arn,
+                self, "ApiCertificate", cert_arn
             )
             service_kwargs.update(
                 certificate=certificate,
                 protocol=elbv2.ApplicationProtocol.HTTPS,
+                ssl_policy=elbv2.SslPolicy.RECOMMENDED_TLS,
                 redirect_http=True,
                 listener_port=443,
             )

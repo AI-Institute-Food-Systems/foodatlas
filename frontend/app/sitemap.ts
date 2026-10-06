@@ -18,6 +18,8 @@ import {
 // API_URL), with the entity index cached for a day by getAllEntities.
 export const dynamic = "force-dynamic";
 
+const MAX_SITEMAP_URLS = 50_000;
+
 // Entity pages change only when a new dataset ships, so their lastmod is the
 // latest bundle's release date. Stamping the generation time instead claimed
 // every page changed daily, and Google learns to ignore a lastmod that always
@@ -63,13 +65,28 @@ export default async function sitemap({
   const type = ENTITY_TYPES[id - 1];
   if (!type) return [];
   const [entities, lastModified] = await Promise.all([
-    getAllEntities(),
+    getAllEntities(type),
     datasetReleaseDate(),
   ]);
-  return entities
-    .filter((e) => e.entity_type === type)
-    .map((e) => ({
-      url: `${SITE_URL}${entityPath(type, e.common_name)}`,
+  // The filter stays for an API that ignores ?entity_type. Two names can
+  // map to one slug, and a sitemap must not repeat a URL.
+  const urls = new Set(
+    entities
+      .filter((e) => e.entity_type === type)
+      .map((e) => `${SITE_URL}${entityPath(type, e.common_name)}`)
+  );
+  // The protocol caps one file at 50,000 URLs. The API lists metadata-backed
+  // entities first, so a cut drops the thinnest pages (bioassay-only
+  // chemicals). Logged, because hitting it means this file needs splitting.
+  if (urls.size > MAX_SITEMAP_URLS) {
+    console.error(
+      `sitemap ${type}: ${urls.size} URLs, cut to ${MAX_SITEMAP_URLS}`
+    );
+  }
+  return Array.from(urls)
+    .slice(0, MAX_SITEMAP_URLS)
+    .map((url) => ({
+      url,
       lastModified,
       changeFrequency: "monthly",
       priority: 0.5,

@@ -18,8 +18,9 @@
 // EntityDetailLayoutSuspense stayed behind, so every entity route stepped
 // down when the loading shell handed off. Both pairs are checked here.
 //
-// Static, because HeaderSection is an async Server Component: rendering it
-// would mean standing up the data layer to compare two boxes.
+// Static, so both pairs are compared the same way: EntityDetailLayout is a
+// Server Component tree, and rendering it would mean standing up the data
+// layer to compare two boxes.
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";

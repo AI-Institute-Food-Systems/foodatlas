@@ -244,10 +244,29 @@ class TestMetadataEntities:
             },
             {"foodatlas_id": "e2", "entity_type": "food", "common_name": "tomato"},
         ]
-        with patch("src.repositories.search.list_entities", return_value=rows):
+        with patch(
+            "src.repositories.entity_index.list_entities", return_value=rows
+        ) as list_mock:
             resp = client.get("/metadata/entities")
         assert resp.status_code == 200
         assert resp.json() == {"data": rows}
+        assert list_mock.call_args.args[1] is None
+
+    def test_passes_the_entity_type_filter(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        with patch(
+            "src.repositories.entity_index.list_entities", return_value=[]
+        ) as list_mock:
+            resp = client.get("/metadata/entities?entity_type=chemical")
+        assert resp.status_code == 200
+        assert list_mock.call_args.args[1] == "chemical"
+
+    def test_rejects_an_unknown_entity_type(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        resp = client.get("/metadata/entities?entity_type=planet")
+        assert resp.status_code == 422
 
 
 # -- /metadata/search -------------------------------------------------------
