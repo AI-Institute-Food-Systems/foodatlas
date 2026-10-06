@@ -11,7 +11,13 @@ import { correlationEvidenceCount } from "@/utils/tabCounts";
 import { DEFAULT_TAB_ID } from "@/components/entities/entityTabs.config";
 import EntityOverviewPanelSuspense from "@/components/entities/EntityOverviewPanelSuspense";
 import { CORRELATION_DEFAULT_SORT } from "@/components/entities/shared/correlationSort";
-import { getDiseaseData, getMetaData } from "@/utils/fetching";
+import TabSnapshot from "@/components/entities/shared/TabSnapshot";
+import {
+  getDiseaseChemicalAssociations,
+  getDiseaseData,
+  getMetaData,
+} from "@/utils/fetching";
+import { assayInferredSection } from "@/utils/tabSnapshots";
 import JsonLd from "@/components/misc/JsonLd";
 import {
   apiEntityUrl,
@@ -66,7 +72,9 @@ const DiseasePage = async ({ params }: DiseasePageProps) => {
   // feeds the JSON-LD here.
   // literaturePage is the Chemicals tab's first page, rendered on the
   // server so crawlers see the table; the count fetches the same URL.
-  const [healthCount, metaPayload, literaturePage] = await Promise.all([
+  // labAssays is the count's other fetch, reused for the lab-assay
+  // table's hidden server rows.
+  const [healthCount, metaPayload, literaturePage, labAssays] = await Promise.all([
     correlationEvidenceCount(commonName, "disease"),
     getMetaData(commonName, entityType).catch(() => null),
     getDiseaseData(
@@ -77,6 +85,7 @@ const DiseasePage = async ({ params }: DiseasePageProps) => {
       "",
       CORRELATION_DEFAULT_SORT
     ).catch(() => null),
+    getDiseaseChemicalAssociations(commonName).catch(() => null),
   ]);
 
   // Server-only; rendered outright and in the Overview tab's snapshot slot,
@@ -119,6 +128,11 @@ const DiseasePage = async ({ params }: DiseasePageProps) => {
                 commonName={commonName}
                 anchor="disease"
                 initialLiterature={literaturePage}
+                labAssaySnapshot={
+                  <TabSnapshot
+                    sections={[assayInferredSection("chemical", labAssays)]}
+                  />
+                }
               />
             ),
           },

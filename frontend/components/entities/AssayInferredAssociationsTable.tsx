@@ -21,7 +21,7 @@
 // table directly above this one, and because the tail is long: caffeine
 // alone has 89 associations, obesity 1,693.
 
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 
 import Pagination from "@/components/basic/Pagination";
 import {
@@ -111,6 +111,9 @@ interface Props {
   onActivityCountsChange?: (counts: Record<string, number>) => void;
   // Post-filter row count, for a parent summing several tables.
   onTotalRowsChange?: (total: number) => void;
+  // Server-rendered rows, kept hidden in the HTML until the client fetch
+  // lands, so crawlers see this table's links on a landing tab.
+  loadingSnapshot?: ReactNode;
 }
 
 const AssayInferredAssociationsTable = ({
@@ -124,6 +127,7 @@ const AssayInferredAssociationsTable = ({
   onTotalRowsChange,
   onSignalCountsChange,
   onActivityCountsChange,
+  loadingSnapshot,
 }: Props) => {
   const {
     rows,
@@ -200,6 +204,7 @@ const AssayInferredAssociationsTable = ({
 
   return (
     <div className="flex flex-col gap-4">
+      {isLoading && loadingSnapshot && <div hidden>{loadingSnapshot}</div>}
       {!isLoading && filtered.length > 0 && (
         <MobileSort
           sort={sort}

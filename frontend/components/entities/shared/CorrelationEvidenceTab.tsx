@@ -13,7 +13,7 @@
 // (PMIDs and a direction on one side, assay/active counts, signal and
 // target genes on the other), so one table would be mostly empty cells.
 
-import { useCallback, useEffect, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
 
 import {
   FilterGroup,
@@ -42,6 +42,8 @@ interface Props {
   // The literature table's first page as the server fetched it. Disease
   // pages only: this is their landing tab, a chemical page's is not.
   initialLiterature?: CorrelationPayload | null;
+  // The lab-assay table's rows as server HTML, for the same reason.
+  labAssaySnapshot?: ReactNode;
 }
 
 const DIRECTIONS: { key: CorrelationDirection; label: string }[] = [
@@ -59,6 +61,7 @@ const CorrelationEvidenceTab = ({
   commonName,
   anchor,
   initialLiterature,
+  labAssaySnapshot,
 }: Props) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [direction, setDirection] = useState<CorrelationDirection>("all");
@@ -229,6 +232,7 @@ const CorrelationEvidenceTab = ({
         onTotalRowsChange={setInferredTotal}
         onSignalCountsChange={handleSignalCounts}
         onActivityCountsChange={handleActivityCounts}
+        loadingSnapshot={labAssaySnapshot}
       />
     );
 
