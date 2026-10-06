@@ -63,11 +63,11 @@ async def list_composition(
     """List composition rows filtered by either food_id or chemical_id."""
     if food_id is not None:
         where = "food_foodatlas_id = :v"
-        order = "chemical_name"
+        order = "chemical_name, chemical_foodatlas_id"
         params: dict[str, object] = {"v": food_id}
     elif chemical_id is not None:
         where = "chemical_foodatlas_id = :v"
-        order = "food_name"
+        order = "food_name, food_foodatlas_id"
         params = {"v": chemical_id}
     else:
         return [], 0
@@ -119,11 +119,16 @@ async def list_bioactivity_chemicals(
     """List chemical↔bioactivity measurement rows filtered by either side."""
     if bioactivity_id is not None:
         where = "bioactivity_foodatlas_id = :v"
-        order = "measurement_count DESC NULLS LAST, chemical_name"
+        order = (
+            "measurement_count DESC NULLS LAST, chemical_name, chemical_foodatlas_id"
+        )
         params: dict[str, object] = {"v": bioactivity_id}
     elif chemical_id is not None:
         where = "chemical_foodatlas_id = :v"
-        order = "measurement_count DESC NULLS LAST, bioactivity_name"
+        order = (
+            "measurement_count DESC NULLS LAST, bioactivity_name, "
+            "bioactivity_foodatlas_id"
+        )
         params = {"v": chemical_id}
     else:
         return [], 0
@@ -171,11 +176,14 @@ async def list_bioactivity_foods(
     """List food↔bioactivity measurement rows filtered by either side."""
     if bioactivity_id is not None:
         where = "bioactivity_foodatlas_id = :v"
-        order = "measurement_count DESC NULLS LAST, food_name"
+        order = "measurement_count DESC NULLS LAST, food_name, food_foodatlas_id"
         params: dict[str, object] = {"v": bioactivity_id}
     elif food_id is not None:
         where = "food_foodatlas_id = :v"
-        order = "measurement_count DESC NULLS LAST, bioactivity_name"
+        order = (
+            "measurement_count DESC NULLS LAST, bioactivity_name, "
+            "bioactivity_foodatlas_id"
+        )
         params = {"v": food_id}
     else:
         return [], 0
@@ -252,7 +260,7 @@ async def list_correlation(
             evidence_count
         FROM mv_chemical_disease_correlation
         WHERE {where}
-        ORDER BY evidence_count DESC
+        ORDER BY evidence_count DESC, id
         OFFSET :offset ROWS FETCH FIRST :limit ROWS ONLY
     """
     list_result = await session.execute(text(sql), params)
