@@ -29,9 +29,10 @@ vi.mock("next/navigation", () => ({
 import AssayInferredAssociationsTable from "@/components/entities/AssayInferredAssociationsTable";
 import TabSnapshot from "@/components/entities/shared/TabSnapshot";
 import { PaginationsProvider } from "@/context/paginationsContext";
+import type { AssayInferredAssociation } from "@/types/AssayInferred";
 import { assayInferredSection } from "@/utils/tabSnapshots";
 
-const assay = (chemical: string, n_assays: number) => ({
+const assay = (chemical: string, n_assays: number): AssayInferredAssociation => ({
   chemical_name: chemical,
   chemical_foodatlas_id: `c-${chemical}`,
   disease_name: "diabetes",
@@ -43,6 +44,7 @@ const assay = (chemical: string, n_assays: number) => ({
   targets: [],
   assays: [],
   bioactivities: ["anticancer"],
+  literature_directions: [],
 });
 
 const payload = { data: [assay("berberine", 5)], metadata: { row_count: 1 } };
