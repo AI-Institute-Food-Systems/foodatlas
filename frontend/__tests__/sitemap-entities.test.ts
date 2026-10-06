@@ -23,8 +23,8 @@ const row = (
 afterEach(() => vi.clearAllMocks());
 
 // The entity sitemaps list what the API's entity index returns (the same
-// existence rule as requireEntity), minus bioassay-only chemicals, which keep
-// their pages but are not promoted.
+// existence rule as requireEntity), except that only chemicals with foods are
+// promoted; the other chemicals keep their pages.
 describe("entity sitemaps", () => {
   it("asks the index for its own type only", async () => {
     getAllEntities.mockResolvedValue([row("olaparib")]);
@@ -50,6 +50,16 @@ describe("entity sitemaps", () => {
       `${SITE_URL}/chemical/quercetin`,
       `${SITE_URL}/chemical/olaparib`,
     ]);
+  });
+
+  it("lists only chemicals with foods when the API flags them", async () => {
+    getAllEntities.mockResolvedValue([
+      { ...row("quercetin", "chemical", true), has_foods: true },
+      { ...row("methotrexate", "chemical", true), has_foods: false },
+      { ...row("zygosporamide", "chemical", false), has_foods: false },
+    ]);
+    const urls = await sitemap({ id: 2 });
+    expect(urls.map((u) => u.url)).toEqual([`${SITE_URL}/chemical/quercetin`]);
   });
 
   it("keeps assay-only diseases", async () => {

@@ -8,7 +8,10 @@ import HeaderSection from "@/components/entities/HeaderSection";
 import EntityDetailLayout from "@/components/entities/EntityDetailLayout";
 import { requireEntity } from "@/components/entities/requireEntity";
 import { buildTabs } from "@/components/entities/buildTabs";
-import { correlationEvidenceCount } from "@/utils/tabCounts";
+import {
+  chemicalHasNoRelations,
+  correlationEvidenceCount,
+} from "@/utils/tabCounts";
 import { DEFAULT_TAB_ID } from "@/components/entities/entityTabs.config";
 import EntityOverviewPanel from "@/components/entities/EntityOverviewPanel";
 import EntityOverviewPanelSuspense from "@/components/entities/EntityOverviewPanelSuspense";
@@ -56,7 +59,10 @@ export async function generateMetadata({
   // Same cached call the page body makes; only needed here for the id.
   // Null for a real page too: chemicals known only from bioassays have no
   // metadata.
-  const metaData = await getMetaData(commonName, "chemical");
+  const [metaData, empty] = await Promise.all([
+    getMetaData(commonName, "chemical"),
+    chemicalHasNoRelations(commonName),
+  ]);
 
   // Falls back to the slug-derived name for metadata-less chemicals.
   const name = metaData?.common_name ?? commonName;
@@ -69,6 +75,8 @@ export async function generateMetadata({
     path: canonicalUrl("chemical", name),
     // The same entity as JSON, for anyone who wants the data not the page.
     jsonAlternate: metaData ? apiEntityUrl("chemical", metaData.id) : undefined,
+    // A page with no foods, bioactivities or diseases has nothing to rank.
+    noindex: empty,
   });
 }
 

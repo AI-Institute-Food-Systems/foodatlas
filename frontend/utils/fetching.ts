@@ -310,6 +310,9 @@ export type EntityIndexRow = {
   // false for a page that exists only through an exception (bioassay-only
   // chemical, assay-only disease). Absent from an older API.
   has_metadata?: boolean;
+  // Chemicals only: has a Foods-tab row. null for other types; absent from
+  // an older API.
+  has_foods?: boolean | null;
 };
 
 export async function getAllEntities(
