@@ -115,7 +115,8 @@ export const datasetJsonLd = (entries: DownloadEntry[]) => ({
     // signed URL. Raw object URLs are private.
     contentUrl: `${API_URL}/v1/bundles/${e.version}/download`,
     encodingFormat: "application/zip",
-    datePublished: e.release_date,
+    // Google's DataDownload check rejects a bare date ("Invalid datetime").
+    datePublished: `${e.release_date}T00:00:00Z`,
     contentSize: e.file_size,
   })),
 });

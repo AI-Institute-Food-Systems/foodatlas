@@ -64,7 +64,7 @@ describe("structured data", () => {
         // Gated hop, never the raw object URL.
         contentUrl: "https://api.foodatlas.ai/v1/bundles/v4.12/download",
         encodingFormat: "application/zip",
-        datePublished: "2026-09-18",
+        datePublished: "2026-09-18T00:00:00Z",
       }),
     ]);
     expect(JSON.stringify(d)).not.toContain("downloads.example");
