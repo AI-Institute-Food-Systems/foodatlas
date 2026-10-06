@@ -7,7 +7,7 @@
 // it". Kept as its own table rather than merged row-wise because the two
 // carry almost disjoint columns.
 
-import { useCallback } from "react";
+import { type ReactNode, useCallback } from "react";
 
 import AssayInferredAssociationsTable from "@/components/entities/AssayInferredAssociationsTable";
 import Heading from "@/components/basic/Heading";
@@ -21,6 +21,7 @@ interface Props {
   onSignalCountsChange?: (counts: Record<string, number>) => void;
   onActivityCountsChange?: (counts: Record<string, number>) => void;
   onTotalRowsChange?: (total: number) => void;
+  loadingSnapshot?: ReactNode;
 }
 
 const DiseaseAssayInferredSection = ({
@@ -31,6 +32,7 @@ const DiseaseAssayInferredSection = ({
   onTotalRowsChange,
   onSignalCountsChange,
   onActivityCountsChange,
+  loadingSnapshot,
 }: Props) => {
   const fetcher = useCallback(
     () => getDiseaseChemicalAssociations(commonName),
@@ -63,6 +65,7 @@ const DiseaseAssayInferredSection = ({
         onTotalRowsChange={onTotalRowsChange}
         onSignalCountsChange={onSignalCountsChange}
         onActivityCountsChange={onActivityCountsChange}
+        loadingSnapshot={loadingSnapshot}
       />
     </div>
   );
