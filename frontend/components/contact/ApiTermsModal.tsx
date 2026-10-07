@@ -1,9 +1,10 @@
 "use client";
 
 import Button from "@/components/basic/Button";
+import CopyCitation from "@/components/basic/CopyCitation";
 import Link from "@/components/basic/Link";
 import Modal from "@/components/basic/Modal";
-import { CANONICAL_PUBLICATION, doiUrl } from "@/utils/publications";
+import { CANONICAL_PUBLICATION } from "@/utils/publications";
 
 interface ApiTermsModalProps {
   isOpen: boolean;
@@ -33,12 +34,10 @@ const ApiTermsModal = ({ isOpen, onClose, onAccept }: ApiTermsModalProps) => (
   >
     <ul className="max-w-prose list-disc space-y-3 pl-5 text-base font-light text-light-300">
       <li>
-        FoodAtlas data is licensed under the{" "}
-        <Link href={LICENSE_URL}>
-          Creative Commons Attribution-NonCommercial 4.0 International License
-          (CC BY-NC 4.0)
-        </Link>
-        . This covers data from the API and the downloadable bundles.
+        FoodAtlas data is licensed under the Creative Commons
+        Attribution-NonCommercial 4.0 International License (
+        <Link href={LICENSE_URL}>CC BY-NC 4.0</Link>). This covers data from
+        the API and the downloadable bundles.
       </li>
       <li>
         <strong className="font-medium text-light-100">
@@ -49,13 +48,12 @@ const ApiTermsModal = ({ isOpen, onClose, onAccept }: ApiTermsModalProps) => (
       </li>
       <li>
         Give credit: cite <i>FoodAtlas</i> in any published work that uses the
-        data:{" "}
-        <Link href={doiUrl(CANONICAL_PUBLICATION.doi)}>
-          {CANONICAL_PUBLICATION.venue} ({CANONICAL_PUBLICATION.year})
-        </Link>
-        .
+        data.
       </li>
     </ul>
+    <div className="mt-4 max-w-prose">
+      <CopyCitation publication={CANONICAL_PUBLICATION} />
+    </div>
   </Modal>
 );
 

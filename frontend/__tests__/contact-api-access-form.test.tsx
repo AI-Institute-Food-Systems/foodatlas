@@ -85,6 +85,9 @@ describe("ContactForm API access fields", () => {
     const dialog = await screen.findByRole("dialog");
     expect(dialog).toHaveTextContent(/CC BY-NC 4\.0/);
     expect(dialog).toHaveTextContent(/non-commercial use only/i);
+    expect(
+      screen.getByRole("button", { name: /copy citation/i }),
+    ).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: /i agree/i }));
