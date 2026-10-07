@@ -14,12 +14,6 @@ class TestAPISettingsDefaults:
         )
         assert settings.key == ""
 
-    def test_default_cors_origins(self) -> None:
-        settings = APISettings(
-            **{"_env_file": None},
-        )
-        assert settings.cors_origins == "http://localhost:3000"
-
     def test_default_debug_is_false(self) -> None:
         settings = APISettings(
             **{"_env_file": None},
@@ -39,16 +33,6 @@ class TestAPISettingsFromEnv:
             assert settings.key == "test-secret-123"
         finally:
             os.environ.pop("API_KEY", None)
-
-    def test_cors_origins_from_env(self, monkeypatch: object) -> None:
-        os.environ["API_CORS_ORIGINS"] = "https://example.com,https://other.com"
-        try:
-            settings = APISettings(
-                **{"_env_file": None},
-            )
-            assert settings.cors_origins == "https://example.com,https://other.com"
-        finally:
-            os.environ.pop("API_CORS_ORIGINS", None)
 
     def test_debug_from_env(self) -> None:
         os.environ["API_DEBUG"] = "true"

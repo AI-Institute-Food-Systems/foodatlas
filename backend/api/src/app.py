@@ -3,7 +3,6 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 
 from src.access_log import AccessLogMiddleware, configure_access_logger
@@ -82,14 +81,6 @@ def create_app(settings: APISettings | None = None) -> FastAPI:
         lifespan=lifespan,
     )
 
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=settings.cors_origins.split(","),
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-
     # Exposed for tests to swap in a mock transport before the lifespan runs.
     app.state.umami_sink = sink
 
@@ -113,8 +104,9 @@ def create_app(settings: APISettings | None = None) -> FastAPI:
             burst=settings.rate_limit_burst,
         )
 
-    # Added last so it is outermost: it also covers the CORS preflights
-    # that CORSMiddleware answers without reaching a route.
+    # Added last so it is outermost and wraps every other middleware's
+    # responses. No CORSMiddleware: nothing calls the API from a browser
+    # (the site fetches server-side or via its same-origin /_proxy-api).
     app.add_middleware(SecurityHeadersMiddleware)
 
     @app.get("/health", tags=["health"], include_in_schema=False)
