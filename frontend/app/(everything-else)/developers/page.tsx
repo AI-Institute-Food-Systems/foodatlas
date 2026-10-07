@@ -4,6 +4,7 @@ import Card from "@/components/basic/Card";
 import Citation from "@/components/basic/Citation";
 import Code from "@/components/basic/Code";
 import Heading from "@/components/basic/Heading";
+import DataLicenseNote from "@/components/misc/DataLicenseNote";
 import JsonLd from "@/components/misc/JsonLd";
 import Link from "@/components/basic/Link";
 import { CANONICAL_PUBLICATION } from "@/utils/publications";
@@ -144,14 +145,7 @@ const Developers = () => {
             you&apos;re building. You&apos;ll usually hear back within a few
             business days.
           </p>
-          <p className="mt-4 text-base font-light text-light-300">
-            The data is licensed under{" "}
-            <Link href="https://creativecommons.org/licenses/by-nc/4.0/">
-              CC BY-NC 4.0
-            </Link>
-            : academic and non-commercial use only. Please cite{" "}
-            <i>FoodAtlas</i> in any published work.
-          </p>
+          <DataLicenseNote />
         </Card>
       </div>
 

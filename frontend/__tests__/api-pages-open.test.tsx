@@ -33,6 +33,23 @@ describe("API and downloads pages are open", () => {
     expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument();
   });
 
+  it.each([
+    ["developers", async () => <Developers />],
+    ["downloads", async () => await Downloads({})],
+  ])("shows the key box and data license on the %s page", async (_, page) => {
+    render(await page());
+    expect(
+      screen.getByRole("heading", { name: /get an api key/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /request access via the contact form/i }),
+    ).toHaveAttribute("href", "/contact?api-access");
+    expect(screen.getByRole("link", { name: /CC BY-NC 4\.0/ })).toHaveAttribute(
+      "href",
+      "https://creativecommons.org/licenses/by-nc/4.0/",
+    );
+  });
+
   it("drops the under-construction note from API requests", () => {
     render(<ContactForm isApiAccessRequest />);
     expect(screen.queryByText(/under construction/i)).toBeNull();
