@@ -60,4 +60,5 @@ Every sub-project has its own README with setup, configuration, and usage detail
 
 ## License
 
-See [LICENSE](LICENSE).
+- Code: MIT — see [LICENSE](LICENSE).
+- Data: CC BY-NC 4.0 — see [LICENSE-DATA.md](LICENSE-DATA.md).

@@ -144,7 +144,8 @@ cat > "$STAGE_DIR/README.md" <<EOF
 # FoodAtlas Data Bundle — ${VERSION}
 
 Version-controlled snapshot of the FoodAtlas knowledge graph as parquet
-files. Released under the Apache-2.0 license.
+files. Released under the CC BY-NC 4.0 license
+(https://creativecommons.org/licenses/by-nc/4.0/).
 
 See \`SUMMARY.md\` for a short release blurb and \`CHANGELOG.md\` for
 the full KG-level diff against the previous release.

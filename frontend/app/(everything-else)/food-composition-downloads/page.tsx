@@ -60,10 +60,10 @@ const Downloads = async ({ searchParams }: DownloadsPageProps) => {
             Our extensive food composition database contains only evidence-based
             data that can be traced back to its source. As a USDA-NSF funded
             research project, the data is presented as a free resource under the{" "}
-            <Link href="https://www.apache.org/licenses/LICENSE-2.0">
-              Apache-2.0
+            <Link href="https://creativecommons.org/licenses/by-nc/4.0/">
+              CC BY-NC 4.0
             </Link>{" "}
-            license. Downloads are gated the same way as the API: request a free
+            license (non-commercial use, with attribution). Downloads are gated the same way as the API: request a free
             key through the{" "}
             <Link href="/contact?api-access" isExternal={false}>
               contact form

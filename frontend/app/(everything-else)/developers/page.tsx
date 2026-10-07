@@ -147,8 +147,12 @@ const Developers = () => {
               business days.
             </p>
             <p className="mt-4 text-base font-light text-light-300">
-              Use is intended for academic and non-commercial research. Please
-              cite <i>FoodAtlas</i> in any published work.
+              The data is licensed under{" "}
+              <Link href="https://creativecommons.org/licenses/by-nc/4.0/">
+                CC BY-NC 4.0
+              </Link>
+              : academic and non-commercial use only. Please cite{" "}
+              <i>FoodAtlas</i> in any published work.
             </p>
           </Card>
         </div>

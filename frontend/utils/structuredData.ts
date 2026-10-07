@@ -47,7 +47,7 @@ const FOODATLAS = {
   parentOrganization: ORGANIZATION,
 };
 
-const LICENSE = "https://www.apache.org/licenses/LICENSE-2.0";
+const LICENSE = "https://creativecommons.org/licenses/by-nc/4.0/";
 
 const VARIABLES_MEASURED = [
   {
