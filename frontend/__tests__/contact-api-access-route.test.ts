@@ -2,6 +2,7 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { DATA_NEEDED } from "@/utils/apiAccessFields";
 import { parseApiAccess } from "@/utils/apiAccessGuard";
 
 // Structured API-access answers on /contact/send: validated server-side
@@ -67,6 +68,10 @@ afterEach(() => {
 describe("parseApiAccess", () => {
   it("canonicalises data order and drops duplicates", () => {
     expect(parseApiAccess(VALID)?.dataNeeded).toEqual(["Foods", "Chemicals"]);
+  });
+
+  it("keeps the data options comma-free for the email's list", () => {
+    expect(DATA_NEEDED.filter((d) => d.includes(","))).toEqual([]);
   });
 
   it("treats a missing project URL as empty", () => {

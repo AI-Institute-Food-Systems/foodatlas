@@ -22,15 +22,20 @@ export const USE_CATEGORIES = [
 
 export const COMMERCIAL = ["Yes", "No", "Not sure"] as const;
 
-// Mirrors the /v1 resource groups on /developers.
+// Covers every /v1 resource group on /developers, plus "Other" so any
+// request fits. No commas: the email joins these with ", ".
 export const DATA_NEEDED = [
   "Foods",
   "Chemicals",
   "Food composition",
   "Diseases",
+  "Chemical–disease associations",
   "Bioactivity",
+  "Taxonomy",
+  "Triplets & evidence",
   "Search & metadata",
   "Bulk bundles",
+  "Other (describe below)",
 ] as const;
 
 export const VOLUMES = [
