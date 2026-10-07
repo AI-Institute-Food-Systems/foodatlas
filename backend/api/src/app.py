@@ -21,6 +21,7 @@ from src.routes import (
     resolve,
 )
 from src.routes import v1 as v1_routes
+from src.security_headers import SecurityHeadersMiddleware
 from src.umami_sink import build_sink
 
 PUBLIC_API_DESCRIPTION = """
@@ -111,6 +112,10 @@ def create_app(settings: APISettings | None = None) -> FastAPI:
             sustained_per_min=settings.rate_limit_per_minute,
             burst=settings.rate_limit_burst,
         )
+
+    # Added last so it is outermost: it also covers the CORS preflights
+    # that CORSMiddleware answers without reaching a route.
+    app.add_middleware(SecurityHeadersMiddleware)
 
     @app.get("/health", tags=["health"], include_in_schema=False)
     async def health() -> dict[str, str]:
