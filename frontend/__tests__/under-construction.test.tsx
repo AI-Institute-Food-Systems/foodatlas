@@ -25,11 +25,8 @@ import Downloads from "@/app/(everything-else)/food-composition-downloads/page";
 const content = () => screen.getByTestId("under-construction-content");
 
 describe("Under-construction overlay", () => {
-  it.each([
-    ["developers", async () => <Developers />],
-    ["downloads", async () => await Downloads({})],
-  ])("blurs the %s page behind the label", async (_, page) => {
-    render(await page());
+  it("blurs the downloads page behind the label", async () => {
+    render(await Downloads({}));
 
     expect(
       screen.getByRole("heading", { name: /under construction/i }),
@@ -47,16 +44,15 @@ describe("Under-construction overlay", () => {
   });
 });
 
-describe("Contact form API note", () => {
-  const note = /the api is under construction/i;
-
-  it("shows on API access requests", () => {
-    render(<ContactForm isApiAccessRequest />);
-    expect(screen.getByText(note)).toBeInTheDocument();
+describe("API is open again", () => {
+  it("shows the developers page without the overlay", () => {
+    render(<Developers />);
+    expect(screen.queryByTestId("under-construction-content")).toBeNull();
+    expect(screen.queryByText(/under construction/i)).toBeNull();
   });
 
-  it("stays hidden for general inquiries", () => {
-    render(<ContactForm isApiAccessRequest={false} />);
-    expect(screen.queryByText(note)).toBeNull();
+  it("drops the under-construction note from API requests", () => {
+    render(<ContactForm isApiAccessRequest />);
+    expect(screen.queryByText(/under construction/i)).toBeNull();
   });
 });

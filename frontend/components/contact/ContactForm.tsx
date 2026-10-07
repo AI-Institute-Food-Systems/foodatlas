@@ -7,6 +7,7 @@ import { twMerge } from "tailwind-merge";
 import Button from "@/components/basic/Button";
 import Card from "@/components/basic/Card";
 import ApiAccessFields from "@/components/contact/ApiAccessFields";
+import ApiTermsModal from "@/components/contact/ApiTermsModal";
 import {
   FIELD_CLASS,
   HINT_CLASS,
@@ -41,16 +42,31 @@ const ContactForm = ({ isApiAccessRequest }: ContactFormProps) => {
   const [message, setMessage] = useState("");
   const [apiAccess, setApiAccess] = useState<ApiAccess>(EMPTY_API_ACCESS);
   const [status, setStatus] = useState<Status>("idle");
+  const [isTermsOpen, setIsTermsOpen] = useState(false);
 
   const isApi = topic === API_ACCESS_TOPIC;
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!isApi) {
+      void send();
+      return;
+    }
     // The listboxes and checkbox group can't use native `required`.
-    if (isApi && !isApiAccessComplete(apiAccess)) {
+    if (!isApiAccessComplete(apiAccess)) {
       setStatus("incomplete");
       return;
     }
+    setStatus("idle");
+    setIsTermsOpen(true);
+  };
+
+  const acceptTerms = () => {
+    setIsTermsOpen(false);
+    void send();
+  };
+
+  const send = async () => {
     setStatus("sending");
     try {
       const response = await fetch("/contact/send", {
@@ -62,7 +78,9 @@ const ContactForm = ({ isApiAccessRequest }: ContactFormProps) => {
           affiliation,
           topic,
           message,
-          ...(isApi && { apiAccess }),
+          ...(isApi && {
+            apiAccess: { ...apiAccess, termsAccepted: true },
+          }),
         }),
       });
       // Topic + outcome only — never the name, email, message or answers.
@@ -92,13 +110,6 @@ const ContactForm = ({ isApiAccessRequest }: ContactFormProps) => {
             value={topic}
             onChange={setTopic}
           />
-          {/* -mt-3 pulls it under the listbox, matching the old in-Field mt-2. */}
-          {isApi && (
-            <p className="-mt-3 text-xs italic text-accent-500 font-serif">
-              The API is under construction. Send your request anyway —
-              we&apos;ll reach out once keys are available again.
-            </p>
-          )}
 
           {/* Name + email side-by-side once there's room. */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
@@ -196,6 +207,11 @@ const ContactForm = ({ isApiAccessRequest }: ContactFormProps) => {
           )}
         </Fieldset>
       </Card>
+      <ApiTermsModal
+        isOpen={isTermsOpen}
+        onClose={() => setIsTermsOpen(false)}
+        onAccept={acceptTerms}
+      />
     </form>
   );
 };

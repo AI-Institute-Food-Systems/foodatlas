@@ -26,6 +26,7 @@ const VALID = {
   dataNeeded: ["Chemicals", "Foods", "Chemicals"],
   volume: "<1k requests/day",
   projectUrl: "https://lab.example.edu",
+  termsAccepted: true,
 };
 
 const BASE = {
@@ -75,6 +76,8 @@ describe("parseApiAccess", () => {
 
   it.each([
     ["missing object", undefined],
+    ["terms not accepted", { ...VALID, termsAccepted: undefined }],
+    ["terms as a string", { ...VALID, termsAccepted: "true" }],
     ["unknown use category", { ...VALID, useCategory: "Hobby" }],
     ["missing commercial answer", { ...VALID, commercial: undefined }],
     ["unknown volume", { ...VALID, volume: "lots" }],
@@ -99,7 +102,8 @@ describe("POST /contact/send — API access", () => {
         "Commercial use: No\n" +
         "Data needed: Foods, Chemicals\n" +
         "Expected volume: <1k requests/day\n" +
-        "Project URL: https://lab.example.edu\n",
+        "Project URL: https://lab.example.edu\n" +
+        "Terms accepted: CC BY-NC 4.0 data license, non-commercial use only, cite FoodAtlas\n",
     );
   });
 

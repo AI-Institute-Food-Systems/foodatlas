@@ -8,6 +8,10 @@
 
 export const API_ACCESS_TOPIC = "API Access Request";
 
+// Recorded in the request email as what the requester agreed to.
+export const API_TERMS_SUMMARY =
+  "CC BY-NC 4.0 data license, non-commercial use only, cite FoodAtlas";
+
 export const USE_CATEGORIES = [
   "Academic research",
   "Student project",
