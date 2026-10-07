@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { GET } from "@/app/sitemap.xml/route";
+import { GET } from "@/app/sitemap-index.xml/route";
 import { generateSitemaps } from "@/app/sitemap";
 import { ENTITY_TYPES, SITEMAP_IDS, SITE_URL, sitemapPath } from "@/utils/site";
 
