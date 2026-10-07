@@ -1,12 +1,6 @@
 "use client";
 
-import { Field, Input, Label } from "@headlessui/react";
-
-import {
-  FIELD_CLASS,
-  HINT_CLASS,
-  LABEL_CLASS,
-} from "@/components/contact/fieldStyles";
+import { HINT_CLASS, LABEL_CLASS } from "@/components/contact/fieldStyles";
 import FormListbox from "@/components/contact/FormListbox";
 import {
   ApiAccess,
@@ -43,7 +37,7 @@ const ApiAccessFields = ({ value, onChange }: ApiAccessFieldsProps) => {
 
   return (
     <>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
         <FormListbox
           label="How will you use the API?"
           options={USE_CATEGORIES}
@@ -56,35 +50,34 @@ const ApiAccessFields = ({ value, onChange }: ApiAccessFieldsProps) => {
           value={value.volume}
           onChange={(v) => set("volume", v)}
         />
+        <fieldset>
+          <legend className={LABEL_CLASS}>Used commercially?</legend>
+          {/* min-h matches a text field, so the radios line up with the
+           * dropdowns beside them. */}
+          <div className="mt-2 flex min-h-[42px] flex-wrap items-center gap-x-6 gap-y-2">
+            {COMMERCIAL.map((opt) => (
+              <label key={opt} className={CHOICE_CLASS}>
+                <input
+                  type="radio"
+                  name="commercial"
+                  required
+                  className="accent-accent-500"
+                  checked={value.commercial === opt}
+                  onChange={() => set("commercial", opt)}
+                />
+                {opt}
+              </label>
+            ))}
+          </div>
+        </fieldset>
       </div>
-
-      <fieldset>
-        <legend className={LEGEND_CLASS}>
-          Will this be used commercially?
-        </legend>
-        <div className="flex flex-wrap gap-x-6 gap-y-2">
-          {COMMERCIAL.map((opt) => (
-            <label key={opt} className={CHOICE_CLASS}>
-              <input
-                type="radio"
-                name="commercial"
-                required
-                className="accent-accent-500"
-                checked={value.commercial === opt}
-                onChange={() => set("commercial", opt)}
-              />
-              {opt}
-            </label>
-          ))}
-        </div>
-      </fieldset>
 
       <fieldset>
         <legend className={LEGEND_CLASS}>
           Which data do you need?{" "}
           <span className={HINT_CLASS}>(pick all that apply)</span>
         </legend>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-2 gap-x-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-y-2 gap-x-6">
           {DATA_NEEDED.map((opt) => (
             <label key={opt} className={CHOICE_CLASS}>
               <input
@@ -98,20 +91,6 @@ const ApiAccessFields = ({ value, onChange }: ApiAccessFieldsProps) => {
           ))}
         </div>
       </fieldset>
-
-      <Field>
-        <Label className={LABEL_CLASS}>
-          Project or lab URL <span className={HINT_CLASS}>(optional)</span>
-        </Label>
-        <Input
-          type="url"
-          className={FIELD_CLASS}
-          value={value.projectUrl}
-          maxLength={200}
-          placeholder="https://"
-          onChange={(e) => set("projectUrl", e.target.value)}
-        />
-      </Field>
     </>
   );
 };

@@ -31,7 +31,7 @@ describe("CITATION.cff", () => {
     expect(family).toEqual(fromApa);
   });
 
-  it("keeps the Apache-2.0 licence until the PI decides otherwise", () => {
-    expect(cff).toMatch(/^license: Apache-2.0$/m);
+  it("licenses code as MIT and data as CC BY-NC 4.0", () => {
+    expect(cff).toMatch(/^license:\n  - MIT\n  - CC-BY-NC-4\.0$/m);
   });
 });

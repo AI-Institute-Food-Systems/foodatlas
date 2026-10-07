@@ -2,7 +2,11 @@ import { readFileSync, readdirSync } from "node:fs";
 import { extname, join, relative } from "node:path";
 
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn() }),
+}));
 
 import About from "@/app/(everything-else)/about/page";
 import Developers from "@/app/(everything-else)/developers/page";

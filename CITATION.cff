@@ -11,7 +11,9 @@ abstract: >-
 authors:
   - name: "AI Institute for Next Generation Food Systems (AIFS), UC Davis"
     website: "https://www.aifs.ucdavis.edu"
-license: Apache-2.0
+license:
+  - MIT
+  - CC-BY-NC-4.0
 url: "https://www.foodatlas.ai"
 repository-code: "https://github.com/AI-Institute-Food-Systems/foodatlas"
 keywords:

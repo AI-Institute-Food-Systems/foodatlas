@@ -59,3 +59,7 @@ export const citationMarkdown = (p: Publication): string => {
   const venue = `${p.kind === "proceedings" ? "In " : ""}*${p.venue}*`;
   return `${p.authors} (${p.year}). ${p.title}. ${venue}${volume}${article}.`;
 };
+
+// The APA reference as plain text with its DOI link, for the clipboard.
+export const citationText = (p: Publication): string =>
+  `${citationMarkdown(p).replaceAll("*", "")} ${doiUrl(p.doi)}`;

@@ -7,6 +7,7 @@ import { twMerge } from "tailwind-merge";
 import Button from "@/components/basic/Button";
 import Card from "@/components/basic/Card";
 import ApiAccessFields from "@/components/contact/ApiAccessFields";
+import ApiTermsModal from "@/components/contact/ApiTermsModal";
 import {
   FIELD_CLASS,
   HINT_CLASS,
@@ -41,16 +42,31 @@ const ContactForm = ({ isApiAccessRequest }: ContactFormProps) => {
   const [message, setMessage] = useState("");
   const [apiAccess, setApiAccess] = useState<ApiAccess>(EMPTY_API_ACCESS);
   const [status, setStatus] = useState<Status>("idle");
+  const [isTermsOpen, setIsTermsOpen] = useState(false);
 
   const isApi = topic === API_ACCESS_TOPIC;
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!isApi) {
+      void send();
+      return;
+    }
     // The listboxes and checkbox group can't use native `required`.
-    if (isApi && !isApiAccessComplete(apiAccess)) {
+    if (!isApiAccessComplete(apiAccess)) {
       setStatus("incomplete");
       return;
     }
+    setStatus("idle");
+    setIsTermsOpen(true);
+  };
+
+  const acceptTerms = () => {
+    setIsTermsOpen(false);
+    void send();
+  };
+
+  const send = async () => {
     setStatus("sending");
     try {
       const response = await fetch("/contact/send", {
@@ -62,7 +78,9 @@ const ContactForm = ({ isApiAccessRequest }: ContactFormProps) => {
           affiliation,
           topic,
           message,
-          ...(isApi && { apiAccess }),
+          ...(isApi && {
+            apiAccess: { ...apiAccess, termsAccepted: true },
+          }),
         }),
       });
       // Topic + outcome only — never the name, email, message or answers.
@@ -85,23 +103,14 @@ const ContactForm = ({ isApiAccessRequest }: ContactFormProps) => {
     <form className="w-full" onSubmit={handleSubmit}>
       <Card>
         <Fieldset className="flex flex-col gap-5">
-          {/* Topic — first so the rest of the form is framed by it. */}
-          <FormListbox
-            label="What can we help with?"
-            options={TOPICS}
-            value={topic}
-            onChange={setTopic}
-          />
-          {/* -mt-3 pulls it under the listbox, matching the old in-Field mt-2. */}
-          {isApi && (
-            <p className="-mt-3 text-xs italic text-accent-500 font-serif">
-              The API is under construction. Send your request anyway —
-              we&apos;ll reach out once keys are available again.
-            </p>
-          )}
-
-          {/* Name + email side-by-side once there's room. */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          {/* Topic first, so the rest of the form is framed by it. */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <FormListbox
+              label="What can we help with?"
+              options={TOPICS}
+              value={topic}
+              onChange={setTopic}
+            />
             <Field>
               <Label className={LABEL_CLASS}>Your name</Label>
               <Input
@@ -127,21 +136,46 @@ const ContactForm = ({ isApiAccessRequest }: ContactFormProps) => {
             </Field>
           </div>
 
-          {/* Required for API requests: the PI checks it against the email. */}
-          <Field>
-            <Label className={LABEL_CLASS}>
-              Affiliation{" "}
-              {!isApi && <span className={HINT_CLASS}>(optional)</span>}
-            </Label>
-            <Input
-              className={FIELD_CLASS}
-              required={isApi}
-              value={affiliation}
-              maxLength={80}
-              placeholder="Lab, company, or school"
-              onChange={on(setAffiliation)}
-            />
-          </Field>
+          <div
+            className={twMerge(
+              "grid grid-cols-1 gap-5",
+              isApi && "sm:grid-cols-2",
+            )}
+          >
+            {/* Required for API requests: the PI checks it against the email. */}
+            <Field>
+              <Label className={LABEL_CLASS}>
+                Affiliation{" "}
+                {!isApi && <span className={HINT_CLASS}>(optional)</span>}
+              </Label>
+              <Input
+                className={FIELD_CLASS}
+                required={isApi}
+                value={affiliation}
+                maxLength={80}
+                placeholder="Lab, company, or school"
+                onChange={on(setAffiliation)}
+              />
+            </Field>
+            {isApi && (
+              <Field>
+                <Label className={LABEL_CLASS}>
+                  Project or lab URL{" "}
+                  <span className={HINT_CLASS}>(optional)</span>
+                </Label>
+                <Input
+                  type="url"
+                  className={FIELD_CLASS}
+                  value={apiAccess.projectUrl}
+                  maxLength={200}
+                  placeholder="https://"
+                  onChange={(e) =>
+                    setApiAccess({ ...apiAccess, projectUrl: e.target.value })
+                  }
+                />
+              </Field>
+            )}
+          </div>
 
           {isApi && (
             <ApiAccessFields value={apiAccess} onChange={setApiAccess} />
@@ -154,7 +188,7 @@ const ContactForm = ({ isApiAccessRequest }: ContactFormProps) => {
             <Textarea
               className={twMerge(FIELD_CLASS, "resize-none")}
               required
-              rows={6}
+              rows={4}
               value={message}
               maxLength={2000}
               placeholder={
@@ -196,6 +230,11 @@ const ContactForm = ({ isApiAccessRequest }: ContactFormProps) => {
           )}
         </Fieldset>
       </Card>
+      <ApiTermsModal
+        isOpen={isTermsOpen}
+        onClose={() => setIsTermsOpen(false)}
+        onAccept={acceptTerms}
+      />
     </form>
   );
 };
