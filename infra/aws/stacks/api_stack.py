@@ -148,15 +148,6 @@ class ApiStack(cdk.Stack):
             # API_HOST is set via the Dockerfile ENV to bind all
             # interfaces inside the container; no need to duplicate here.
             "API_DEBUG": "False",
-            "API_CORS_ORIGINS": ",".join(
-                [
-                    "https://foodatlas.ai",
-                    "https://www.foodatlas.ai",
-                    "https://dev.foodatlas.ai",
-                    "http://localhost:3000",
-                    "http://localhost:3001",
-                ],
-            ),
             "DB_HOST": db_instance.db_instance_endpoint_address,
             "DB_PORT": db_instance.db_instance_endpoint_port,
             "DB_NAME": "foodatlas",

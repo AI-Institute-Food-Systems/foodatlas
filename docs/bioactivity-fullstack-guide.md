@@ -189,8 +189,8 @@ API_KEY=<staging API key>                 # server-only; fetch via §3 → Getti
 ```bash
 cd frontend && npm install && npm run dev      # http://localhost:3001
 ```
-> The staging API allows CORS from `http://localhost:3000` and `http://localhost:3001`.
-> Server-side calls (RSC / route handlers) aren't subject to CORS at all.
+> The API sends no CORS headers: the frontend calls it server-side (RSC / route
+> handlers) or through its same-origin `/_proxy-api`, neither of which needs CORS.
 
 ### Mode B — full stack local (when changing backend/data)
 Prerequisites: `docker`, `uv` (Python 3.12), `node`, `aws` CLI.
@@ -222,7 +222,6 @@ cd frontend && npm run dev
 | `DB_HOST`/`DB_PORT`/`DB_NAME`/`DB_USER`/`DB_PASSWORD` | api + db (`DB_` prefix) | `localhost:5432` / `foodatlas`×3 | API & loader DB connection |
 | `API_DEBUG` | api (`API_` prefix) | `False` | **`True` skips the API-key check** + rate limit. Set it for local dev. |
 | `API_KEY` | api | empty | the internal Bearer key (set on staging/prod) |
-| `API_CORS_ORIGINS` | api | `http://localhost:3000` | comma-separated allowed origins |
 | `NEXT_PUBLIC_API_URL` / `API_KEY` | frontend | — | the API base + Bearer key (the key is server-only) |
 
 Verify locally:
@@ -405,9 +404,9 @@ Same shape as #3 (no potency/active fields); `name`/`id` = the **bioactivity**:
 The files in [`bioactivity-api-examples/`](bioactivity-api-examples/) hold the full, real
 responses for all five (regenerate them with `query-bioactivity-api.sh`, above).
 
-### Auth & CORS (summary)
+### Auth (summary)
 - Bearer key required on staging/prod (`API_DEBUG=False`); skipped locally (`API_DEBUG=True`).
-- Staging CORS: `localhost:3000`, `localhost:3001`, the `foodatlas.ai` origins. Need another origin? See §8.4.
+- No CORS: call the API server-side or via `/_proxy-api`, never directly from the browser.
 - Endpoints are unlisted (`include_in_schema=False`) but fully callable.
 
 ---
@@ -542,14 +541,13 @@ aws s3 sync backend/kgc/outputs/kg/ s3://$KGC_BUCKET/outputs/staging-bioactivity
 ```
 > Never sync bioactivity output to `outputs/LATEST` — that's what a **production** load reads.
 
-### 8.4 You changed CDK infra (CORS, instance size, env vars, new resources)
+### 8.4 You changed CDK infra (instance size, env vars, new resources)
 ```bash
 cd infra/aws
 npx cdk diff   'FoodAtlas*-Staging' --context api_image_tag=bioactivity --context db_image_tag=bioactivity
 npx cdk deploy 'FoodAtlasApiStack-Staging' --exclusively \
   --context api_image_tag=bioactivity --context db_image_tag=bioactivity --require-approval never
 ```
-- Add a CORS origin: edit `API_CORS_ORIGINS` in `stacks/api_stack.py`, then deploy as above.
 - `--exclusively` keeps CDK from touching dependency stacks; always pass the two `*_image_tag` contexts so it deploys the `bioactivity` images, not `latest`.
 
 ### Safety checklist (every redeploy)
@@ -619,7 +617,7 @@ cd infra/aws && npx cdk destroy 'FoodAtlas*-Staging'
 | Symptom | Cause / fix |
 |---|---|
 | `401 Invalid API key` | Missing/incorrect `Authorization: Bearer <key>`. Locally, set `API_DEBUG=True` to skip auth. |
-| Browser CORS error | Your origin isn't allowed — add it in `stacks/api_stack.py` `API_CORS_ORIGINS` and redeploy (§8.4). |
+| Browser CORS error | The API sends no CORS headers by design. Fetch server-side or through `/_proxy-api`. |
 | Endpoint returns `{"data": [], "row_count": 0}` | Term not found, or the RDS wasn't (re)loaded — re-run the ETL (§8.2). |
 | `jq: libonig.so.5` error | `jq` is broken in some shells; the tester script uses Python instead — no action needed. |
 | API change didn't show up | You pushed the image but didn't `--force-new-deployment` (§8.1). |
@@ -627,6 +625,5 @@ cd infra/aws && npx cdk destroy 'FoodAtlas*-Staging'
 | `aws` calls fail with auth errors | `aws sso login --profile <your-profile>` (token expired). |
 
 ### What we need from you
-1. Your frontend origin(s) for CORS if not `localhost:3000/3001`.
-2. Feedback on the response shapes (the example JSON) before we lock them for production.
-3. A heads-up before you redeploy staging, so we don't step on each other.
+1. Feedback on the response shapes (the example JSON) before we lock them for production.
+2. A heads-up before you redeploy staging, so we don't step on each other.

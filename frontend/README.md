@@ -11,8 +11,6 @@ npm run dev
 
 Open [http://localhost:3001](http://localhost:3001) to view the app. The dev server is pinned to port 3001 in `package.json` (see the `dev` script).
 
-> The local API's default `API_CORS_ORIGINS` is still `http://localhost:3000`. To call the API from `localhost:3001` you need to set `API_CORS_ORIGINS=http://localhost:3001` on the API process.
-
 ## Commands
 
 | Command         | Description                      |
@@ -52,8 +50,6 @@ Create a `.env.local` file (or set env vars) before running locally:
 |---|---|---|---|
 | `NEXT_PUBLIC_API_URL` | `http://localhost:8000` | Vercel project env var → ALB DNS or domain | Backend API URL |
 | `API_KEY` | — | Vercel project env var | Backend API key. Server-only — no `NEXT_PUBLIC_` prefix, so it never reaches the browser; the `/_proxy-api` route handler attaches it. (Not needed when API runs in debug mode.) |
-| `VALIDATION_PAGE_PASSWORD` | — | Vercel project env var | Password for the validation page (NextAuth) |
-| `NEXTAUTH_SECRET` | — | Vercel project env var | NextAuth.js secret |
 | `RESEND_API_KEY` | — | Vercel project env var | Resend API key (contact form) |
 | `EMAIL_FROM` | — | Vercel project env var | Sender email address |
 | `EMAIL_TO` | — | Vercel project env var | Recipient email address(es) |

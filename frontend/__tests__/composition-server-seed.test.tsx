@@ -34,13 +34,11 @@ vi.mock("@/context/tabCountsContext", () => ({
   usePublishTabCount: () => undefined,
 }));
 const nav = vi.hoisted(() => ({
-  search: "",
   router: { push: () => {}, replace: () => {}, back: () => {} },
 }));
 vi.mock("next/navigation", () => ({
   useRouter: () => nav.router,
   usePathname: () => "/food/onion",
-  useSearchParams: () => new URLSearchParams(nav.search),
 }));
 
 import FoodCompositionSection from "@/components/entities/food/FoodCompositionSection";
@@ -78,8 +76,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  window.history.replaceState(null, "", "/");
   vi.clearAllMocks();
-  nav.search = "";
   pagination.page = 1;
 });
 
@@ -98,7 +96,7 @@ describe("food composition server seed", () => {
   });
 
   it("fetches when the URL asks for a search the seed does not cover", async () => {
-    nav.search = "search=kaempferol";
+    window.history.replaceState(null, "", "/food/onion?search=kaempferol");
     render(<FoodCompositionSection commonName="onion" initialData={SEED} />);
     await waitFor(() =>
       expect(vi.mocked(getFoodCompositionData)).toHaveBeenCalled()

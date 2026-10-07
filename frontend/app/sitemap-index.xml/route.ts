@@ -4,7 +4,10 @@ import { SITEMAP_IDS, SITE_URL, sitemapPath } from "@/utils/site";
 // serve the individual files at /sitemap/{id}.xml and leaves /sitemap.xml
 // itself a 404 — but that is the path crawlers probe by convention, and the
 // one you hand to Google Search Console. This handler fills it with a
-// <sitemapindex> pointing at the per-type files.
+// <sitemapindex> pointing at the per-type files. It lives at
+// /sitemap-index.xml and next.config rewrites /sitemap.xml to it: a route
+// at app/sitemap.xml collides with sitemap.ts's own /sitemap.xml[[...id]]
+// route, which `next build` tolerates but `next dev` refuses to start on.
 //
 // Ids come from SITEMAP_IDS, the same list generateSitemaps() maps over, so
 // the index cannot fall out of step with what actually exists.
