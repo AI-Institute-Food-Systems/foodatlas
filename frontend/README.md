@@ -52,8 +52,6 @@ Create a `.env.local` file (or set env vars) before running locally:
 |---|---|---|---|
 | `NEXT_PUBLIC_API_URL` | `http://localhost:8000` | Vercel project env var → ALB DNS or domain | Backend API URL |
 | `API_KEY` | — | Vercel project env var | Backend API key. Server-only — no `NEXT_PUBLIC_` prefix, so it never reaches the browser; the `/_proxy-api` route handler attaches it. (Not needed when API runs in debug mode.) |
-| `VALIDATION_PAGE_PASSWORD` | — | Vercel project env var | Password for the validation page (NextAuth) |
-| `NEXTAUTH_SECRET` | — | Vercel project env var | NextAuth.js secret |
 | `RESEND_API_KEY` | — | Vercel project env var | Resend API key (contact form) |
 | `EMAIL_FROM` | — | Vercel project env var | Sender email address |
 | `EMAIL_TO` | — | Vercel project env var | Recipient email address(es) |

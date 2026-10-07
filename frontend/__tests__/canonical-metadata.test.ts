@@ -18,11 +18,9 @@ import {
 // same <title> and no canonical, which is the duplicate-title report Search
 // Console raises first.
 //
-// The /validation case is why this scans rather than spot-checks: it was
-// listed in the sitemap, had no metadata at all, and so served no <title> on
-// a page that sits behind a next-auth session. A test over "the pages I
-// remembered to check" would not have caught it; one over "every path the
-// sitemap advertises" does.
+// This scans every path the sitemap advertises rather than spot-checking:
+// a since-removed page once shipped in the sitemap with no <title>, and a
+// test over "the pages I remembered to check" would not have caught it.
 
 const ROOT = process.cwd();
 const read = (p: string) => readFileSync(join(ROOT, p), "utf8");
@@ -88,23 +86,5 @@ describe("canonical URLs", () => {
     // The static pages use root-relative values; without metadataBase Next
     // emits them against localhost.
     expect(read("app/layout.tsx")).toContain("metadataBase: new URL(SITE_URL)");
-  });
-});
-
-describe("/validation is kept out of the index", () => {
-  it("is not advertised in the sitemap", () => {
-    expect(staticPaths).not.toContain("/validation");
-  });
-
-  it("is noindex", () => {
-    const src = read("app/(everything-else)/validation/layout.tsx");
-    expect(src).toContain("robots:");
-    expect(src).toContain("index: false");
-  });
-
-  it("stays crawlable so the noindex is actually read", () => {
-    // Disallowing it in robots.txt would stop Google fetching the page, so it
-    // would never see the noindex and could still list a bare URL.
-    expect(read("public/robots.txt")).not.toContain("Disallow: /validation");
   });
 });
