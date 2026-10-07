@@ -2,6 +2,7 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { DATA_NEEDED } from "@/utils/apiAccessFields";
 import { parseApiAccess } from "@/utils/apiAccessGuard";
 
 // Structured API-access answers on /contact/send: validated server-side
@@ -26,6 +27,7 @@ const VALID = {
   dataNeeded: ["Chemicals", "Foods", "Chemicals"],
   volume: "<1k requests/day",
   projectUrl: "https://lab.example.edu",
+  termsAccepted: true,
 };
 
 const BASE = {
@@ -68,6 +70,10 @@ describe("parseApiAccess", () => {
     expect(parseApiAccess(VALID)?.dataNeeded).toEqual(["Foods", "Chemicals"]);
   });
 
+  it("keeps the data options comma-free for the email's list", () => {
+    expect(DATA_NEEDED.filter((d) => d.includes(","))).toEqual([]);
+  });
+
   it("treats a missing project URL as empty", () => {
     const raw = { ...VALID, projectUrl: undefined };
     expect(parseApiAccess(raw)?.projectUrl).toBe("");
@@ -75,6 +81,8 @@ describe("parseApiAccess", () => {
 
   it.each([
     ["missing object", undefined],
+    ["terms not accepted", { ...VALID, termsAccepted: undefined }],
+    ["terms as a string", { ...VALID, termsAccepted: "true" }],
     ["unknown use category", { ...VALID, useCategory: "Hobby" }],
     ["missing commercial answer", { ...VALID, commercial: undefined }],
     ["unknown volume", { ...VALID, volume: "lots" }],
@@ -99,7 +107,8 @@ describe("POST /contact/send — API access", () => {
         "Commercial use: No\n" +
         "Data needed: Foods, Chemicals\n" +
         "Expected volume: <1k requests/day\n" +
-        "Project URL: https://lab.example.edu\n",
+        "Project URL: https://lab.example.edu\n" +
+        "Terms accepted: CC BY-NC 4.0 data license, non-commercial use only, cite FoodAtlas\n",
     );
   });
 

@@ -1,4 +1,4 @@
-# FoodAtlas — evidence-based food composition knowledge graph (Apache-2.0).
+# FoodAtlas — evidence-based food composition knowledge graph (data CC BY-NC 4.0).
 #
 # Please don't scrape the entity pages. The whole graph is one download, and
 # the API serves the same data; both need a free key
