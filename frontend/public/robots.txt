@@ -8,8 +8,13 @@
 #   OpenAPI: https://api.foodatlas.ai/openapi.json   Docs: https://api.foodatlas.ai/docs
 # Machine-readable summary for LLM agents: https://www.foodatlas.ai/llms.txt
 
+# AI policy: search and answer engines may crawl and cite this site; training
+# models on it is not allowed. AI search and user-triggered fetchers
+# (OAI-SearchBot, ChatGPT-User, Claude-SearchBot, Claude-User, PerplexityBot,
+# Perplexity-User, Googlebot, Bingbot) follow the * group below. Training-only
+# crawlers get their own group further down.
 User-agent: *
-Allow: /
+Content-Signal: search=yes, ai-input=yes, ai-train=no
 # Internal plumbing and pages with no indexable content of their own.
 Disallow: /api/
 Disallow: /_a/
@@ -25,6 +30,24 @@ Disallow: /report/
 # Both positions, since robots patterns are anchored at the path.
 Disallow: /*?highlight=
 Disallow: /*&highlight=
+# Last, so parsers that take the first matching rule (not the longest) still
+# apply the Disallows above.
+Allow: /
+
+# Crawlers that collect model-training data. A crawler obeys only its most
+# specific group, so these skip the * group entirely. Google-Extended and
+# Applebot-Extended are opt-out tokens; they do not affect Search or Siri.
+User-agent: GPTBot
+User-agent: ClaudeBot
+User-agent: anthropic-ai
+User-agent: Google-Extended
+User-agent: Applebot-Extended
+User-agent: CCBot
+User-agent: Meta-ExternalAgent
+User-agent: Bytespider
+User-agent: cohere-training-data-crawler
+User-agent: AI2Bot
+Disallow: /
 
 # One index, so this file does not have to be edited when a sitemap is added.
 Sitemap: https://www.foodatlas.ai/sitemap.xml
