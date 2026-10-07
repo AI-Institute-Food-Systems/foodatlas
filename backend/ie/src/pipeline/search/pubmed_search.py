@@ -205,10 +205,11 @@ def _search_single_db(
     db: str,
     query: str,
     min_date: str | None,
+    max_date: str | None = None,
 ) -> list[str]:
     """Search one NCBI database and return list of UIDs."""
     term = QUERY_TEMPLATE.format(food=query)
-    uids = _collect_ids(db, term, min_date or _MIN_DATE, _MAX_DATE)
+    uids = _collect_ids(db, term, min_date or _MIN_DATE, max_date or _MAX_DATE)
     return [f"PMC{uid}" if db == "pmc" else uid for uid in uids]
 
 
@@ -259,13 +260,14 @@ def _collect_ids(
 def _search_both_dbs(
     q: str,
     min_date: str | None,
+    max_date: str | None = None,
 ) -> tuple[bool, list[tuple[str, str, list[str]]]]:
     """Search pubmed and pmc concurrently for a query. Return (all_ok, results)."""
     results: list[tuple[str, str, list[str]]] = []
     succeeded = True
     with ThreadPoolExecutor(max_workers=2) as db_pool:
         futures = {
-            db_pool.submit(_search_single_db, db, q, min_date): db
+            db_pool.submit(_search_single_db, db, q, min_date, max_date): db
             for db in ("pubmed", "pmc")
         }
         for future in as_completed(futures):
@@ -305,6 +307,7 @@ def search_queries(
     save_every: int,
     save_filepath: str,
     api_key: str | None = None,
+    max_date: str | None = None,
 ) -> dict[tuple[str, str], list[str]]:
     """Search PubMed/PMC for each query and collect article UIDs."""
     # Bio.Entrez stubs declare these module attrs as None-typed even though
@@ -344,7 +347,8 @@ def search_queries(
     try:
         with ThreadPoolExecutor(max_workers=workers) as pool:
             futures = {
-                pool.submit(_search_both_dbs, q, min_date): q for q in new_queries
+                pool.submit(_search_both_dbs, q, min_date, max_date): q
+                for q in new_queries
             }
             for future in as_completed(futures):
                 q = futures[future]

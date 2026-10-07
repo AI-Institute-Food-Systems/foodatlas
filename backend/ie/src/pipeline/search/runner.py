@@ -79,6 +79,7 @@ def run_search(
     current_date: str,
     save_every: int = 50,
     min_date: str | None = None,
+    max_date: str | None = None,
     fetch_workers: int = 6,
     fetch_timeout: float = 30.0,
 ) -> None:
@@ -110,6 +111,7 @@ def run_search(
         pmid_pmcid_dict=pmid_pmcid_dict,
         email=os.environ.get("NCBI_EMAIL", "user@example.com"),
         min_date=min_date,
+        max_date=max_date,
         save_every=save_every,
         save_filepath=query_uid_results_filepath,
         api_key=os.environ.get("NCBI_API_KEY"),

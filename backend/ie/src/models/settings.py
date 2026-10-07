@@ -72,6 +72,7 @@ class IESettings(BaseSettings):
 
     date: str = ""
     min_date: str = ""
+    max_date: str = ""
     model: str = "gpt-5.2"
     bioc_pmc_dir: str = ""
     bioc_pmc_dl_dir: str = ""
