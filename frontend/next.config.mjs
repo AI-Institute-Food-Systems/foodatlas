@@ -24,7 +24,11 @@ const csp = [
   "object-src 'none'",
   "frame-ancestors 'none'",
   "form-action 'self' https://*.amazonaws.com",
-  "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com",
+  // `next dev` evaluates its modules with eval(); without this no page
+  // hydrates locally. Production builds never get 'unsafe-eval'.
+  `script-src 'self' 'unsafe-inline'${
+    process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""
+  } https://www.googletagmanager.com`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://www.googletagmanager.com https://*.google-analytics.com",
   "font-src 'self' data:",
