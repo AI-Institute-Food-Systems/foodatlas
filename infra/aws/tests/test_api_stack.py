@@ -257,6 +257,17 @@ def _container_env(template: Template) -> dict[str, str]:
     return {e["Name"]: e["Value"] for e in container["Environment"]}
 
 
+def test_cors_allows_only_the_site_origins() -> None:
+    # A localhost origin let any page on a developer's machine read the
+    # API with credentials; the frontend never calls it cross-origin.
+    origins = _container_env(_synth())["API_CORS_ORIGINS"].split(",")
+    assert origins == [
+        "https://foodatlas.ai",
+        "https://www.foodatlas.ai",
+        "https://dev.foodatlas.ai",
+    ]
+
+
 def test_umami_env_absent_by_default() -> None:
     env = _container_env(_synth())
     assert not any(k.startswith("API_UMAMI_") for k in env)
