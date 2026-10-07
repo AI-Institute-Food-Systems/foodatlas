@@ -11,7 +11,6 @@ class APISettings(BaseSettings):
     )
 
     key: str = ""
-    cors_origins: str = "http://localhost:3000"
     debug: bool = False
     downloads_bucket: str = ""
     downloads_region: str = "us-west-1"

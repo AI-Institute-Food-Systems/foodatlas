@@ -28,7 +28,6 @@ Settings are read from `API_*` and `DB_*` environment variables (or a `.env` fil
 | Variable | Default (local) | Production source | Description |
 |---|---|---|---|
 | `API_KEY` | (empty) | env var on the task | Bearer token for authentication |
-| `API_CORS_ORIGINS` | `http://localhost:3000` | env var on the task | Comma-separated allowed origins. Set to `http://localhost:3001` to call from the local Next.js dev server. |
 | `API_DEBUG` | `false` | `False` | Skip API key verification, rate limit and access log, and enable auto-reload, when true. Set `true` for local dev. |
 | `API_DOWNLOADS_BUCKET` | (empty) | downloads bucket name from `FoodAtlasDownloadsStack` | S3 bucket holding `bundles/index.json` (public) and the bundle zips (private; the task role pre-signs them) |
 | `API_DOWNLOADS_REGION` | `us-west-1` | env var on the task | AWS region for the downloads bucket |

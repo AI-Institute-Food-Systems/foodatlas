@@ -29,15 +29,17 @@ def test_unknown_path_404(client: TestClient) -> None:
     _assert_headers(dict(response.headers))
 
 
-def test_cors_preflight(client: TestClient) -> None:
-    # CORSMiddleware answers a preflight itself, without reaching a route.
+def test_cross_origin_preflight_gets_no_cors_grant(client: TestClient) -> None:
+    # No CORSMiddleware: a browser on another origin is never allowed to
+    # read the API, and the refusal still carries the security headers.
     response = client.options(
         "/health",
         headers={
-            "Origin": "http://localhost:3000",
+            "Origin": "https://example.com",
             "Access-Control-Request-Method": "GET",
         },
     )
+    assert "access-control-allow-origin" not in response.headers
     _assert_headers(dict(response.headers))
 
 
