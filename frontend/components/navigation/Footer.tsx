@@ -122,7 +122,7 @@ const Footer = () => {
               <FaYoutube className="h-8 w-8 md:h-9 md:w-9" />
             </a>
           </div>
-          {/* copyright — two paragraphs (grant blurb + copyright line)
+          {/* copyright — two paragraphs (grant blurb + copyright/license line)
            * instead of one <p> with <br/><br/>, which was hitting a
            * hydration mismatch on iOS Safari for the <br> children.
            * suppressHydrationWarning on the year span in case
@@ -138,7 +138,15 @@ const Footer = () => {
             <span suppressHydrationWarning>
               {new Date().getFullYear()}
             </span>{" "}
-            AIFS. All rights reserved.
+            AIFS. Data:{" "}
+            <Link href="https://creativecommons.org/licenses/by-nc/4.0/">
+              CC BY-NC 4.0
+            </Link>
+            . Code:{" "}
+            <Link href="https://github.com/AI-Institute-Food-Systems/foodatlas/blob/main/LICENSE">
+              MIT
+            </Link>
+            .
           </p>
         </div>
       </div>
