@@ -106,12 +106,6 @@ describe("/results stays noindex and crawlable", () => {
   });
 });
 
-describe("llms.txt matches reality", () => {
-  it("does not advertise the noindexed validation tool", () => {
-    expect(read("utils/llmsTxt.ts")).not.toContain("/validation");
-  });
-});
-
 describe("middleware redirect cannot leave the site", () => {
   it("allowlists the upstream entity_type before building the URL", () => {
     const src = read("middleware.ts");

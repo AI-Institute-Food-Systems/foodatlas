@@ -52,8 +52,6 @@ const STATIC_PATHS = [
   // /food-composition-api): GSC reports a URL that resolves elsewhere as a
   // page with redirect.
   "/technical-background",
-  // /validation is the auth-gated internal curation tool — noindex, and it
-  // has no business being advertised to crawlers. See its layout.tsx.
   "/contact",
 ];
 
