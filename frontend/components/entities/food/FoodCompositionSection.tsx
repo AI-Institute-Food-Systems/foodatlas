@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Portal, Switch } from "@headlessui/react";
 import {
   MdCheck,
@@ -134,19 +134,12 @@ const FoodCompositionSection = ({
 }: FoodCompositionSectionProps) => {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const { getTablePaginations, setTablePaginations } = usePaginations();
   const { currentPage } = getTablePaginations("food-composition-table");
-  // The seed only describes page 1 with nothing searched or highlighted; a
-  // URL asking for anything else fetches as before. (#highlight= is read
-  // after mount and triggers its own fetch.)
-  const seed =
-    initialData &&
-    currentPage === 1 &&
-    !searchParams.get("search") &&
-    !searchParams.get("highlight")
-      ? initialData
-      : null;
+  // The seed is page 1 with nothing searched or highlighted. The page is
+  // cached (ISR), so the URL's ?search= / ?highlight= / #highlight= are
+  // read after mount, and each triggers its own fetch.
+  const seed = initialData && currentPage === 1 ? initialData : null;
   const skipSeededFetch = useRef(seed !== null);
   const [data, setData] = useState<FoodCompositionData[]>(
     (seed?.data as FoodCompositionData[] | undefined) ?? []
@@ -164,21 +157,28 @@ const FoodCompositionSection = ({
   // and reports it as metadata.highlight_page; we navigate pagination there
   // on the first response, then clear `findChemical` so subsequent paging
   // doesn't keep snapping back. Highlight dismisses on any click.
-  const initialHighlight = (searchParams.get("highlight") ?? "").toLowerCase();
-  const [highlightName, setHighlightName] = useState(initialHighlight);
-  const [findChemical, setFindChemical] = useState(initialHighlight);
+  const [highlightName, setHighlightName] = useState("");
+  const [findChemical, setFindChemical] = useState("");
   const [isDismissing, setIsDismissing] = useState(false);
   const [overlayRect, setOverlayRect] = useState<
     { top: number; height: number } | null
   >(null);
   const highlightRowRef = useRef<HTMLTableRowElement | null>(null);
-  // The fragment is only readable after mount: the server never sees it, so
-  // reading it during render would mismatch hydration.
+  // Read after mount: the server never sees the fragment, and the cached
+  // page can't depend on the query string.
   useEffect(() => {
-    const fromHash = readHighlightHash(window.location.hash).toLowerCase();
-    if (!fromHash) return;
-    setHighlightName(fromHash);
-    setFindChemical(fromHash);
+    const query = new URLSearchParams(window.location.search);
+    const highlight = (
+      readHighlightHash(window.location.hash) ||
+      query.get("highlight") ||
+      ""
+    ).toLowerCase();
+    if (highlight) {
+      setHighlightName(highlight);
+      setFindChemical(highlight);
+    }
+    const search = query.get("search");
+    if (search) setSearchTerm(search);
   }, []);
   const tableWrapperRef = useRef<HTMLDivElement | null>(null);
   const [numberOfPages, setNumberOfPages] = useState(
@@ -191,9 +191,7 @@ const FoodCompositionSection = ({
   // badge. -1 = "unknown" (initial state) → the badge falls back to
   // the server-prefetched static count until the first fetch resolves.
   usePublishTabCount("composition", numberOfRows >= 0 ? numberOfRows : null);
-  const [searchTerm, setSearchTerm] = useState(
-    searchParams.get("search") ?? ""
-  );
+  const [searchTerm, setSearchTerm] = useState("");
   // The input stays instant; only the fetch waits. Without this every
   // keystroke was its own request.
   const debouncedSearch = useDebouncedValue(searchTerm);
@@ -455,7 +453,7 @@ const FoodCompositionSection = ({
       window.setTimeout(() => {
         setHighlightName("");
         setIsDismissing(false);
-        const params = new URLSearchParams(searchParams.toString());
+        const params = new URLSearchParams(window.location.search);
         if (params.has("highlight")) {
           params.delete("highlight");
           const qs = params.toString();
@@ -482,7 +480,7 @@ const FoodCompositionSection = ({
         window.removeEventListener(e, handleInteraction)
       );
     };
-  }, [highlightName, data, pathname, router, searchParams]);
+  }, [highlightName, data, pathname, router]);
 
   // handle source filter change
   const handleFilterChange = (sources: string[]) => {

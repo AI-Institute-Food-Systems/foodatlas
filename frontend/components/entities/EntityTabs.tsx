@@ -1,7 +1,13 @@
 "use client";
 
-import { ReactNode, useEffect, useRef, useState } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import {
+  ReactNode,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
+import { usePathname } from "next/navigation";
 import {
   Listbox,
   ListboxButton,
@@ -90,9 +96,13 @@ interface Props {
   defaultTabId: string;
 }
 
+// Layout effect in the browser (applies ?tab= before paint); plain effect
+// on the server, where a layout effect only logs a warning.
+const useIsomorphicLayoutEffect =
+  typeof window === "undefined" ? useEffect : useLayoutEffect;
+
 const EntityTabs = ({ entityType, tabs: rawTabs, defaultTabId }: Props) => {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const { counts: dynamicCounts } = useTabCounts();
 
   // Merge dynamic counts published by tab contents (via
@@ -115,15 +125,31 @@ const EntityTabs = ({ entityType, tabs: rawTabs, defaultTabId }: Props) => {
   // reliably update useSearchParams synchronously inside Headless UI's
   // controlled TabGroup — the tab would visually "revert" and the user
   // had to click twice. Local state avoids the round-trip.
-  const urlId = searchParams.get("tab") ?? defaultTabId;
-  const urlIdx = tabs.findIndex((t) => t.id === urlId);
-  const [selectedIndex, setSelectedIndex] = useState(urlIdx >= 0 ? urlIdx : 0);
+  //
+  // The server renders the default tab: entity pages are cached (ISR), so
+  // the query string is unknown during render, and reading it with
+  // useSearchParams would drop the whole page out of the server HTML.
+  // The tab param is applied before paint instead, for every page this instance
+  // shows (client navigation reuses it across slugs).
+  const defaultIdx = Math.max(
+    0,
+    tabs.findIndex((t) => t.id === defaultTabId),
+  );
+  const [selectedIndex, setSelectedIndex] = useState(defaultIdx);
+  const tabIds = rawTabs.map((t) => t.id).join("\n");
+  useIsomorphicLayoutEffect(() => {
+    const ids = tabIds.split("\n");
+    const urlId =
+      new URLSearchParams(window.location.search).get("tab") ?? defaultTabId;
+    const idx = ids.indexOf(urlId);
+    setSelectedIndex(idx >= 0 ? idx : Math.max(0, ids.indexOf(defaultTabId)));
+  }, [pathname, tabIds, defaultTabId]);
 
   // Panels are mounted lazily and then kept alive (see TabPanel below), so
   // track which tabs the user has actually opened. Seeded with the landing
   // tab so the first paint has content rather than an empty card.
   const [visited, setVisited] = useState<Set<string>>(() => {
-    const first = rawTabs[urlIdx >= 0 ? urlIdx : 0]?.id;
+    const first = rawTabs[defaultIdx]?.id;
     return new Set(first ? [first] : []);
   });
 
@@ -135,22 +161,11 @@ const EntityTabs = ({ entityType, tabs: rawTabs, defaultTabId }: Props) => {
     );
   }, [selectedId]);
 
-  // Keep local state in sync when the URL changes from OUTSIDE this
-  // component (e.g. browser back/forward, deep link).
-  useEffect(() => {
-    if (urlIdx >= 0 && urlIdx !== selectedIndex) {
-      setSelectedIndex(urlIdx);
-    }
-    // We intentionally don't depend on selectedIndex — that would flip
-    // the tab back if the URL update lags the click.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [urlIdx]);
-
   const handleChange = (next: number) => {
     const id = tabs[next]?.id;
     if (!id) return;
     setSelectedIndex(next);
-    // The `tab` param is bookkeeping for deep links and sharing — no page
+    // The `tab` param is bookkeeping for deep links and sharing — nothing
     // reads it during render, so going through the router would only buy a
     // wasted RSC round-trip (and re-run the server-side badge-count
     // prefetch). Next supports the native history methods for exactly this.
