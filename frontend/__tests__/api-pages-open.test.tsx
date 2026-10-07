@@ -44,6 +44,9 @@ describe("API and downloads pages are open", () => {
     expect(
       screen.getByRole("link", { name: /request access via the contact form/i }),
     ).toHaveAttribute("href", "/contact?api-access");
+    expect(
+      screen.getByRole("button", { name: /copy citation/i }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /CC BY-NC 4\.0/ })).toHaveAttribute(
       "href",
       "https://creativecommons.org/licenses/by-nc/4.0/",

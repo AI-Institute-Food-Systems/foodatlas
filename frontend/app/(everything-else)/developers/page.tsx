@@ -1,7 +1,7 @@
 import { Metadata } from "next";
 
 import Card from "@/components/basic/Card";
-import Citation from "@/components/basic/Citation";
+import CopyCitation from "@/components/basic/CopyCitation";
 import Code from "@/components/basic/Code";
 import Heading from "@/components/basic/Heading";
 import DataLicenseNote from "@/components/misc/DataLicenseNote";
@@ -156,9 +156,7 @@ const Developers = () => {
       </div>
       <div className="mt-8">
         <Card>
-          <p className="leading-relaxed text-light-200">
-            <Citation publication={CANONICAL_PUBLICATION} />
-          </p>
+          <CopyCitation publication={CANONICAL_PUBLICATION} />
         </Card>
       </div>
 

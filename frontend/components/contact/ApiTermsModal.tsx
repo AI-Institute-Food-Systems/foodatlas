@@ -52,7 +52,7 @@ const ApiTermsModal = ({ isOpen, onClose, onAccept }: ApiTermsModalProps) => (
       </li>
     </ul>
     <div className="mt-4 max-w-prose">
-      <CopyCitation publication={CANONICAL_PUBLICATION} />
+      <CopyCitation publication={CANONICAL_PUBLICATION} boxed />
     </div>
   </Modal>
 );
