@@ -22,33 +22,15 @@ import ContactForm from "@/components/contact/ContactForm";
 import Developers from "@/app/(everything-else)/developers/page";
 import Downloads from "@/app/(everything-else)/food-composition-downloads/page";
 
-const content = () => screen.getByTestId("under-construction-content");
-
-describe("Under-construction overlay", () => {
-  it("blurs the downloads page behind the label", async () => {
-    render(await Downloads({}));
-
-    expect(
-      screen.getByRole("heading", { name: /under construction/i }),
-    ).toBeInTheDocument();
-    expect(content()).toHaveClass("blur-md", "pointer-events-none");
-    expect(content()).toHaveAttribute("inert");
-    // The page copy is still in the DOM (crawlable), just not reachable.
-    expect(content().querySelector("h1")).not.toBeNull();
-    // Structured data stays outside the inert, blurred wrapper.
-    const jsonLd = document.querySelector(
-      'script[type="application/ld+json"]',
-    );
-    expect(jsonLd).not.toBeNull();
-    expect(content().contains(jsonLd)).toBe(false);
-  });
-});
-
-describe("API is open again", () => {
-  it("shows the developers page without the overlay", () => {
-    render(<Developers />);
-    expect(screen.queryByTestId("under-construction-content")).toBeNull();
+describe("API and downloads pages are open", () => {
+  it.each([
+    ["developers", async () => <Developers />],
+    ["downloads", async () => await Downloads({})],
+  ])("renders the %s page without an overlay", async (_, page) => {
+    render(await page());
     expect(screen.queryByText(/under construction/i)).toBeNull();
+    expect(document.querySelector("[inert]")).toBeNull();
+    expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument();
   });
 
   it("drops the under-construction note from API requests", () => {
