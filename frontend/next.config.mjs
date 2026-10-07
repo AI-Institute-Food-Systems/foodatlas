@@ -56,6 +56,9 @@ const nextConfig = {
   headers: async () => [{ source: "/:path*", headers: securityHeaders }],
   rewrites: async () => {
     const rewrites = [
+      // The sitemap index; see app/sitemap-index.xml/route.ts for why it
+      // isn't served from app/sitemap.xml directly.
+      { source: "/sitemap.xml", destination: "/sitemap-index.xml" },
       // Proxy umami through a first-party path so adblock pattern rules
       // (||umami.*, /script.js, /api/send) don't match.
       {
