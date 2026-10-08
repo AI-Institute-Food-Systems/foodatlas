@@ -2,5 +2,6 @@
 
 from .dmd import merge_dmd_triplets
 from .fdc import merge_fdc_triplets
+from .ptfi import merge_ptfi_triplets
 
-__all__ = ["merge_dmd_triplets", "merge_fdc_triplets"]
+__all__ = ["merge_dmd_triplets", "merge_fdc_triplets", "merge_ptfi_triplets"]

@@ -19,6 +19,7 @@ from .adapters.fdc import FDCAdapter
 from .adapters.flavordb import FlavorDBAdapter
 from .adapters.foodon import FoodOnAdapter
 from .adapters.mesh import MeSHAdapter
+from .adapters.ptfi import PTFIAdapter
 from .adapters.pubchem import PubChemAdapter
 
 if TYPE_CHECKING:
@@ -39,6 +40,7 @@ ALL_ADAPTERS: list[type] = [
     FDCAdapter,
     DMDAdapter,
     BioactivityAdapter,
+    PTFIAdapter,
 ]
 
 
@@ -95,10 +97,15 @@ class IngestRunner:
         raw_dir = self._settings.data_dir
         output_dir = self._settings.ingest_dir
 
-        adapters_to_run = ALL_ADAPTERS
+        disabled = self._settings.disabled_sources
+        adapters_to_run = [
+            cls for cls in ALL_ADAPTERS if cls().source_id not in disabled
+        ]
+        if disabled:
+            logger.info("Sources disabled by config: %s.", ", ".join(sorted(disabled)))
         if sources:
             adapters_to_run = [
-                cls for cls in ALL_ADAPTERS if cls().source_id in sources
+                cls for cls in adapters_to_run if cls().source_id in sources
             ]
 
         logger.info("Launching %d ingest adapters.", len(adapters_to_run))

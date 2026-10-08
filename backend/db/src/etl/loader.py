@@ -252,6 +252,7 @@ def load_kg(conn: Connection, parquet_dir: Path) -> None:
                 "logac50_median",
                 "logac50_min",
                 "logac50_max",
+                "rep_offset_from_median_log",
                 "dose_over_ac50_log",
                 "conc_vs_ac50",
                 "efficacy_fraction",

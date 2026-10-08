@@ -236,6 +236,7 @@ class TestAdapterEndToEnd:
                     "logac50_median": -4.92,
                     "logac50_min": -9.11,
                     "logac50_max": -3.7,
+                    "rep_offset_from_median_log": 0.07,
                     "dose_over_ac50_log": 1.99,
                     "conc_vs_ac50": "above",
                     "efficacy_fraction": 0.9999,

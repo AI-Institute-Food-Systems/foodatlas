@@ -139,6 +139,7 @@ class TestMaterialize:
             "logac50_median": -5.0,
             "logac50_min": -5.0,
             "logac50_max": -5.0,
+            "rep_offset_from_median_log": 0.0,
             "dose_over_ac50_log": 0.0,
             "conc_vs_ac50": "above",
             "efficacy_fraction": 0.5,

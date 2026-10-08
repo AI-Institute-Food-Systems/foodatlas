@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import logging
+from typing import TYPE_CHECKING
 
 import pandas as pd
 import pytest
@@ -10,10 +12,14 @@ from nltk.tokenize.punkt import PunktSentenceTokenizer
 from src.pipeline.retrieval.sentence_retrieval import (
     _build_translated_queries,
     _is_valid_passage,
+    _log_coverage,
     get_all_foods,
     get_filtered_sentences,
     pmcid_to_filepath,
 )
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def test_pmcid_to_filepath():
@@ -212,3 +218,42 @@ def test_get_filtered_sentences_no_match(tmp_path):
         (("", "PMC123"), ["cocoa"]),
     )
     assert len(result) == 0
+
+
+class TestCoverageLog:
+    """The reconciliation line distinguishes 'no match' from 'never read'."""
+
+    def test_counts_absent_malformed_and_readable(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        (tmp_path / "PMC1.xml").write_text("{}")
+        data = {
+            ("1", "PMC1"): ["apple"],  # readable
+            ("2", "PMC2"): ["pear"],  # absent from the cache
+            ("3", "PMCxyz"): ["fig"],  # malformed
+            ("4", ""): ["plum"],  # no pmcid at all — not requested
+        }
+        merged = pd.DataFrame(
+            {
+                "pmcid": ["PMC1"],
+                "section": ["ABSTRACT"],
+                "matched_query": ["apple"],
+                "sentence": ["an apple sentence"],
+            }
+        )
+        with caplog.at_level(logging.INFO):
+            _log_coverage(data, str(tmp_path), merged)
+        msg = caplog.text
+        assert "3 requested" in msg
+        assert "1 readable" in msg
+        assert "1 absent from the cache" in msg
+        assert "1 malformed" in msg
+        assert "1 yielded sentences" in msg
+
+    def test_empty_output_reports_zero_yielded(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        empty = pd.DataFrame(columns=["pmcid", "section", "matched_query", "sentence"])
+        with caplog.at_level(logging.INFO):
+            _log_coverage({("1", "PMC9"): ["apple"]}, str(tmp_path), empty)
+        assert "0 yielded sentences" in caplog.text

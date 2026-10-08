@@ -15,8 +15,41 @@ from transformers import AutoModelForSequenceClassification, AutoTokenizer
 log = logging.getLogger(__name__)
 
 
+# BioBERT + inference headroom; a GPU with less free than this is unusable.
+_MIN_FREE_MIB = 2500
+
+
+class NoFreeGPUError(RuntimeError):
+    """Raised when no CUDA device has enough free memory (all GPUs busy)."""
+
+
+def _gpu_free_mib() -> list[int]:
+    """Free memory (MiB) per CUDA device, index-aligned."""
+    return [
+        torch.cuda.mem_get_info(i)[0] // (1024 * 1024)
+        for i in range(torch.cuda.device_count())
+    ]
+
+
 def _select_device() -> torch.device:
-    return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    """Pick the CUDA device with the most free memory (CPU if no GPU).
+
+    Blindly using ``cuda`` (== cuda:0) OOMs when another process occupies
+    GPU 0 — common on a shared cluster. Picking the emptiest GPU avoids that;
+    if none has enough free memory, raise so the caller can wait and retry.
+    """
+    if not torch.cuda.is_available():
+        return torch.device("cpu")
+    free = _gpu_free_mib()
+    best_idx = max(range(len(free)), key=free.__getitem__)
+    if free[best_idx] < _MIN_FREE_MIB:
+        msg = (
+            f"No GPU has >= {_MIN_FREE_MIB} MiB free "
+            f"(per-GPU free MiB: {free}). All GPUs busy."
+        )
+        raise NoFreeGPUError(msg)
+    log.info("Selected cuda:%d (%d MiB free)", best_idx, free[best_idx])
+    return torch.device(f"cuda:{best_idx}")
 
 
 class _SentenceDataset(TorchDataset):
