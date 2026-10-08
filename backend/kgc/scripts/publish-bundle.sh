@@ -146,6 +146,9 @@ cat > "$STAGE_DIR/README.md" <<EOF
 Version-controlled snapshot of the FoodAtlas knowledge graph as parquet
 files. Released under the CC BY-NC 4.0 license
 (https://creativecommons.org/licenses/by-nc/4.0/).
+Bundles up to and including v4.12 were released under Apache-2.0; that
+grant still covers copies of those versions. Later bundles, including
+this one, are CC BY-NC 4.0 only: non-commercial use, with attribution.
 
 See \`SUMMARY.md\` for a short release blurb and \`CHANGELOG.md\` for
 the full KG-level diff against the previous release.
