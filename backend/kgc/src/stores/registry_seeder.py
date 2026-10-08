@@ -43,6 +43,11 @@ _SOURCE_MAP: dict[tuple[str, str], tuple[str, Any, bool]] = {
     ("chemical", "mesh"): ("mesh", str, False),
     ("chemical", "kegg"): ("kegg", str, False),
     ("chemical", "mirbase"): ("mirbase", str, False),
+    # PTFI: GGB sample ids for foods, MET_PTF ids for chemicals. Aliases
+    # (foods resolve on FoodOn IRI, chemicals on CID), but seeding them is
+    # what keeps a PTFI-minted entity on the same id next run.
+    ("food", "ptfi"): ("ptfi", str, False),
+    ("chemical", "ptfi"): ("ptfi", str, False),
 }
 
 

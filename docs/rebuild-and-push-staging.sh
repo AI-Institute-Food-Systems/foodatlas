@@ -71,8 +71,10 @@ rebuild_kg() {
             # Stages 0-4 build the complete loadable KG (incl. lit2kg composition
             # from ../ie/outputs/extraction and the bioactivity layer). TRUST/
             # EVALUATION/NEWSLETTER (5-7) are LLM stages and deliberately skipped.
-            # --config run_config.json pins entity-id carry-forward for stable ids.
-            run bash -c "cd '$REPO_ROOT/backend/kgc' && uv run python main.py --config run_config.json run --stages ingest:enrichment"
+            # Entity-id carry-forward seeds from the newest data/PreviousFAKG/
+            # snapshot (same as the weekly prod build) — no --config pin, which
+            # would silently rewind the registry to an older base.
+            run bash -c "cd '$REPO_ROOT/backend/kgc' && uv run python main.py run --stages ingest:enrichment"
             KG_DIR="$REPO_ROOT/backend/kgc/outputs/kg"
             ;;
         *)

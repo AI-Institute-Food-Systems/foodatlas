@@ -20,7 +20,7 @@ _SELECT_COLUMNS = """
     e.rep_source_assay_id, e.endpoint_type, e.endpoint_class, e.curve_method,
     e.logac50, e.hillslope, e.zeroactivity, e.infiniteactivity,
     e.n_curves, e.n_curves_4param, e.curve_agreement, e.ac50_spread_log,
-    e.logac50_median, e.logac50_min, e.logac50_max,
+    e.logac50_median, e.logac50_min, e.logac50_max, e.rep_offset_from_median_log,
     e.dose_over_ac50_log, e.conc_vs_ac50, e.efficacy_fraction, e.efficacy_response,
     e.saturated,
     COALESCE(b.measurement_count, 0) AS n_measurements_total

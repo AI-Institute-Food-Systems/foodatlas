@@ -6,10 +6,12 @@
 #            With no argument, reads s3://<bucket>/outputs/LATEST and loads
 #            whichever version it points at. Pass an explicit version to
 #            roll back to or pin a specific KGC run.
-#   --allow-no-bioactivity: load a version whose kg/ lacks the bioactivity
-#            parquet. Refused by default — prod must always carry
-#            bioactivity, and raw KGC injection runs don't (see
-#            infra/README.md "Load a new KGC run onto prod").
+#   --allow-no-bioactivity: load a version whose kg/ is missing any of the
+#            five bioactivity parquet files. Refused by default — prod must
+#            always carry bioactivity, and the DB loader treats every one of
+#            those files as optional, so a partial run loads clean and
+#            silently drops data. Use only to roll back to a pre-bioactivity
+#            run (see infra/README.md "Load a new KGC run onto prod").
 
 set -euo pipefail
 
@@ -62,21 +64,38 @@ if ! aws s3 ls "$PARQUET_DIR" --region "$REGION" >/dev/null 2>&1; then
     exit 1
 fi
 
-# Raw KGC injection runs lack the bioactivity parquet and the loader treats
-# it as optional, so loading one silently drops bioactivity from prod.
-# Merge first (backend/kgc/scripts/merge_bioactivity_delta.py), then load.
-if ! aws s3 ls "${PARQUET_DIR}attestations_bioactivity.parquet" --region "$REGION" >/dev/null 2>&1; then
+# backend/db treats every bioactivity table as optional, so a run missing any
+# of them loads clean and silently drops that slice of prod. A run built with
+# the bioactivity source emits all five; check them all rather than only
+# attestations_bioactivity, because a partially-complete run is the failure
+# mode that hides.
+BIOACTIVITY_PARQUET=(
+    attestations_bioactivity.parquet
+    bioassays.parquet
+    food_chemical_efficacy.parquet
+    bioactivity_disease.parquet
+    bioactivity_disease_targets.parquet
+)
+MISSING_PARQUET=()
+for f in "${BIOACTIVITY_PARQUET[@]}"; do
+    aws s3 ls "${PARQUET_DIR}${f}" --region "$REGION" >/dev/null 2>&1 \
+        || MISSING_PARQUET+=("$f")
+done
+
+if [[ ${#MISSING_PARQUET[@]} -gt 0 ]]; then
     if [[ -z "$ALLOW_NO_BIOACTIVITY" ]]; then
         cat >&2 <<NOBIO
-Error: $PARQUET_DIR has no attestations_bioactivity.parquet.
-
-Loading it would drop bioactivity from prod. Merge the bioactivity delta
-onto this run first (infra/README.md → "Load a new KGC run onto prod") and
-load the merged version. To load anyway: --allow-no-bioactivity
+Error: $PARQUET_DIR is missing ${#MISSING_PARQUET[@]} of ${#BIOACTIVITY_PARQUET[@]} bioactivity parquet files:
+$(printf '  - %s\n' "${MISSING_PARQUET[@]}")
+Loading it would drop that data from prod. Build the run with the bioactivity
+source enabled (it emits all five), or merge the delta onto this run first
+(infra/README.md → "Load a new KGC run onto prod"), then load the result.
+To load anyway: --allow-no-bioactivity
 NOBIO
         exit 1
     fi
-    echo "WARNING: no bioactivity parquet in $PARQUET_DIR — loading anyway (--allow-no-bioactivity)." >&2
+    echo "WARNING: $PARQUET_DIR is missing ${MISSING_PARQUET[*]} —" \
+         "loading anyway (--allow-no-bioactivity)." >&2
 fi
 
 COMMAND_JSON="[\"python\",\"main.py\",\"load\",\"--parquet-dir\",\"$PARQUET_DIR\"]"

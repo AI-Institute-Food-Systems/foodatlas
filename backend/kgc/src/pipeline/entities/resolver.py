@@ -20,6 +20,12 @@ from .resolve_primary import (
     create_diseases_from_ctd,
     create_foods_from_foodon,
 )
+from .resolve_ptfi import (
+    create_unlinked_ptfi_chemicals,
+    create_unlinked_ptfi_foods,
+    link_ptfi_chemicals,
+    link_ptfi_foods,
+)
 from .resolve_secondary import (
     create_unlinked_cdno,
     create_unlinked_fdc_foods,
@@ -115,6 +121,8 @@ class EntityResolver:
         link_pubchem_to_chebi(sources, self._entity_store)
         link_mesh_to_chebi(sources, self._entity_store)
         link_dmd(sources, self._entity_store, reg)
+        link_ptfi_foods(sources, self._entity_store, self._linked_native_ids, reg)
+        link_ptfi_chemicals(sources, self._entity_store, self._linked_native_ids, reg)
         logger.info("Pass 2 complete: %d entities.", len(self._entity_store._entities))
 
     def _pass3_unlinked(self, sources: dict[str, dict[str, pd.DataFrame]]) -> None:
@@ -134,6 +142,20 @@ class EntityResolver:
             self._registry,
         )
         create_unlinked_dmd(sources, self._entity_store, self._lut, self._registry)
+        create_unlinked_ptfi_foods(
+            sources,
+            self._entity_store,
+            self._lut,
+            self._linked_native_ids,
+            self._registry,
+        )
+        create_unlinked_ptfi_chemicals(
+            sources,
+            self._entity_store,
+            self._lut,
+            self._linked_native_ids,
+            self._registry,
+        )
         logger.info("Pass 3 complete: %d entities.", len(self._entity_store._entities))
 
     def _rebuild_store_luts(self) -> None:

@@ -57,6 +57,12 @@ class BaseFoodChemicalEfficacy(Base):
     logac50_median: Mapped[float | None] = mapped_column(Float, nullable=True)
     logac50_min: Mapped[float | None] = mapped_column(Float, nullable=True)
     logac50_max: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # How far the representative curve sits from the median of all curves for
+    # this (chemical, bioactivity) — log units, signed. Large magnitude means
+    # the representative curve is an outlier among the available assays.
+    rep_offset_from_median_log: Mapped[float | None] = mapped_column(
+        Float, nullable=True
+    )
 
     # Dietary dose vs. the active concentration (the efficacy estimate).
     dose_over_ac50_log: Mapped[float | None] = mapped_column(Float, nullable=True)
