@@ -55,6 +55,9 @@ class MVFoodChemicalEfficacy(Base):
     logac50_median: Mapped[float | None] = mapped_column(Float, nullable=True)
     logac50_min: Mapped[float | None] = mapped_column(Float, nullable=True)
     logac50_max: Mapped[float | None] = mapped_column(Float, nullable=True)
+    rep_offset_from_median_log: Mapped[float | None] = mapped_column(
+        Float, nullable=True
+    )
     dose_over_ac50_log: Mapped[float | None] = mapped_column(Float, nullable=True)
     conc_vs_ac50: Mapped[str] = mapped_column(Text, server_default="")
     efficacy_fraction: Mapped[float | None] = mapped_column(Float, nullable=True)

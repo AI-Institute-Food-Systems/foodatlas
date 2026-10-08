@@ -19,7 +19,11 @@ from .chemical_chemical import (
 )
 from .chemical_disease import merge_ctd_triplets
 from .disease_disease import merge_disease_ontology
-from .food_chemical import merge_dmd_triplets, merge_fdc_triplets
+from .food_chemical import (
+    merge_dmd_triplets,
+    merge_fdc_triplets,
+    merge_ptfi_triplets,
+)
 from .food_food import merge_food_ontology
 
 if TYPE_CHECKING:
@@ -57,6 +61,8 @@ def build_triplets(
         merge_ctd_triplets(kg, sources)
     with log_duration("DMD food-chemical triplets", logger):
         merge_dmd_triplets(kg, sources)
+    with log_duration("PTFI food-chemical triplets", logger):
+        merge_ptfi_triplets(kg, sources)
     with log_duration("Bioactivity hierarchy triplets", logger):
         merge_bioactivity_ontology(kg, sources)
     with log_duration("Food-bioactivity triplets", logger):

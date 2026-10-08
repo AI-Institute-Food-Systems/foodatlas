@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import pandas as pd
+from src.models.settings import IESettings
 from src.pipeline.search.pubmed_search import (
+    _MAX_DATE,
     _resolve_uid,
+    _search_single_db,
     load_data,
     parse_query,
     save_data,
@@ -120,3 +125,26 @@ def test_load_data_fills_missing_pmcid(tmp_path):
     loaded, _ = load_data(filepath, pmcid_pmid, pmid_pmcid)
     for key in loaded:
         assert key[1] == "PMC100"
+
+
+class TestDateWindow:
+    """IE_MAX_DATE caps the search window's end (mirrors IE_MIN_DATE's start)."""
+
+    def test_max_date_is_passed_to_esearch(self) -> None:
+        with patch(
+            "src.pipeline.search.pubmed_search._collect_ids", return_value=[]
+        ) as collect:
+            _search_single_db("pubmed", "apple", "2026/09/11", "2026/10/02")
+        assert collect.call_args.args[2:] == ("2026/09/11", "2026/10/02")
+
+    def test_absent_max_date_falls_back_to_the_module_ceiling(self) -> None:
+        with patch(
+            "src.pipeline.search.pubmed_search._collect_ids", return_value=[]
+        ) as collect:
+            _search_single_db("pubmed", "apple", "2026/09/11")
+        assert collect.call_args.args[3] == _MAX_DATE
+
+    def test_settings_carries_the_knob(self) -> None:
+        assert IESettings.model_validate({"max_date": "2026_10_02"}).max_date == (
+            "2026_10_02"
+        )

@@ -26,6 +26,18 @@ class DataCleaningStageConfig(BaseModel):
     output_dir: str = ""
 
 
+class IngestStageConfig(BaseModel):
+    """Config for the INGEST stage (raw source -> standardized parquet).
+
+    ``disabled_sources`` drops a source from the build entirely: its adapter is
+    skipped *and* its ``outputs/ingest/<source>/`` directory is ignored by
+    ``load_sources``. Both halves matter — skipping only the adapter leaves a
+    previous run's parquet on disk, which downstream stages would still read.
+    """
+
+    disabled_sources: list[str] = []
+
+
 class KgInitStageConfig(BaseModel):
     previous_kg_entities: str = ""
 
@@ -101,6 +113,7 @@ class NewsletterStageConfig(BaseModel):
 
 class StagesConfig(BaseModel):
     data_cleaning: DataCleaningStageConfig = DataCleaningStageConfig()
+    ingest: IngestStageConfig = IngestStageConfig()
     kg_init: KgInitStageConfig = KgInitStageConfig()
     trust: TrustStageConfig = TrustStageConfig()
     evaluation: EvaluationStageConfig = EvaluationStageConfig()
@@ -124,6 +137,11 @@ class KGCSettings(BaseSettings):
     @property
     def data_cleaning_dir(self) -> str:
         return self.pipeline.stages.data_cleaning.output_dir
+
+    @property
+    def disabled_sources(self) -> set[str]:
+        """Source ids excluded from this build (see IngestStageConfig)."""
+        return {s.lower() for s in self.pipeline.stages.ingest.disabled_sources}
 
     @property
     def previous_kg_entities(self) -> str:

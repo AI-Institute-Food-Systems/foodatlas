@@ -266,3 +266,34 @@ def retrieve_sentences(
         len(merged),
         out_path,
     )
+    _log_coverage(data, filepath_bioc_pmc, merged)
+
+
+def _log_coverage(
+    data: dict[tuple[str, str], list[str]],
+    filepath_bioc_pmc: str,
+    merged: pd.DataFrame,
+) -> None:
+    """Reconcile what the search asked for against what this stage could read.
+
+    ``get_filtered_sentences`` returns an empty frame for a PMCID that is
+    malformed or absent from the cache, which is indistinguishable in the output
+    from an article that was read and simply matched nothing. Counting them here
+    is what makes a partially-synced cache visible instead of silent.
+    """
+    requested = [pmcid for _, pmcid in data if pmcid]
+    malformed = [p for p in requested if not p.replace("PMC", "").isdigit()]
+    readable = sum(
+        1
+        for p in requested
+        if p not in malformed and pmcid_to_filepath(p, filepath_bioc_pmc).is_file()
+    )
+    log.info(
+        "Retrieval coverage: %d requested, %d readable, %d absent from the cache, "
+        "%d malformed, %d yielded sentences",
+        len(requested),
+        readable,
+        len(requested) - len(malformed) - readable,
+        len(malformed),
+        merged["pmcid"].nunique() if len(merged) else 0,
+    )

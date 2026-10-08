@@ -18,10 +18,33 @@ from src.pipeline.ingest.runner import (
     _make_queue_callback,
     _run_single_adapter,
 )
+from src.pipeline.load_sources import _SOURCE_IDS
 
 
 def test_all_adapters_registered() -> None:
-    assert len(ALL_ADAPTERS) == 10
+    """Names, not a count — a count says nothing about which source went missing.
+
+    Every id here must also appear in load_sources._SOURCE_IDS, or the adapter
+    writes ingest parquet that no later stage reads.
+    """
+    assert {cls().source_id for cls in ALL_ADAPTERS} == {
+        "foodon",
+        "chebi",
+        "cdno",
+        "ctd",
+        "mesh",
+        "pubchem",
+        "flavordb",
+        "fdc",
+        "dmd",
+        "bioactivity",
+        "ptfi",
+    }
+
+
+def test_every_adapter_is_loadable_by_the_next_stage() -> None:
+    adapter_ids = {cls().source_id for cls in ALL_ADAPTERS}
+    assert adapter_ids <= set(_SOURCE_IDS), adapter_ids - set(_SOURCE_IDS)
 
 
 def test_all_adapters_unique_source_ids() -> None:
