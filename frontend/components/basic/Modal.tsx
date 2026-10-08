@@ -33,6 +33,7 @@ interface ModalProps {
   // doesn't dismiss it. Hidden below 1440; callers offer a Filters
   // drawer inside `children` for narrower viewports.
   sidebar?: React.ReactNode;
+  panelClassName?: string;
 }
 
 const Modal = ({
@@ -44,6 +45,7 @@ const Modal = ({
   fullHeight,
   footer,
   sidebar,
+  panelClassName,
 }: ModalProps) => {
   // Lock page scroll while the dialog is open — Headless UI's Dialog
   // doesn't do this on its own in v2. The scroll container in this app
@@ -98,7 +100,8 @@ const Modal = ({
               // own, so md:p-7 takes over.
               FAB_CLEARANCE_PB,
               fullHeight &&
-                "flex flex-col h-[100dvh] sm:h-[calc(100dvh-3rem)] md:h-[min(85vh,800px)]"
+                "flex flex-col h-[100dvh] sm:h-[calc(100dvh-3rem)] md:h-[min(85vh,800px)]",
+              panelClassName
             )}
           >
             {/* Sidebar hangs OUTSIDE the panel visually via absolute

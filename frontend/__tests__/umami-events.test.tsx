@@ -108,6 +108,8 @@ describe("contact_submit", () => {
     fireEvent.click(screen.getByRole("radio", { name: "Yes" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Foods" }));
     fireEvent.submit(screen.getByRole("button", { name: /send/i }).closest("form")!);
+    fireEvent.click(await screen.findByRole("checkbox", { name: /agree to them/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Send request" }));
     await waitFor(() => expect(events("contact_submit")).toHaveLength(1));
     expect(events("contact_submit")[0]).toEqual({
       topic: "API Access Request",

@@ -1,4 +1,5 @@
 import {
+  API_TERMS_SUMMARY,
   COMMERCIAL,
   Commercial,
   DATA_NEEDED,
@@ -16,6 +17,7 @@ export interface ValidApiAccess {
   dataNeeded: DataNeeded[];
   volume: Volume;
   projectUrl: string;
+  termsAccepted: true;
 }
 
 const oneOf = <T extends string>(
@@ -38,8 +40,15 @@ const httpUrl = (value: string): boolean => {
 /** Validate the `apiAccess` object of a contact POST, or return null. */
 export const parseApiAccess = (raw: unknown): ValidApiAccess | null => {
   if (typeof raw !== "object" || raw === null) return null;
-  const { useCategory, commercial, dataNeeded, volume, projectUrl } =
-    raw as Record<string, unknown>;
+  const {
+    useCategory,
+    commercial,
+    dataNeeded,
+    volume,
+    projectUrl,
+    termsAccepted,
+  } = raw as Record<string, unknown>;
+  if (termsAccepted !== true) return null;
 
   const useCategoryV = oneOf(USE_CATEGORIES, useCategory);
   const commercialV = oneOf(COMMERCIAL, commercial);
@@ -61,6 +70,7 @@ export const parseApiAccess = (raw: unknown): ValidApiAccess | null => {
     dataNeeded: dataNeededV,
     volume: volumeV,
     projectUrl: projectUrlV,
+    termsAccepted: true,
   };
 };
 
@@ -74,4 +84,5 @@ export const apiAccessBlock = (v: ValidApiAccess): string =>
   `Commercial use: ${v.commercial}\n` +
   `Data needed: ${v.dataNeeded.join(", ")}\n` +
   `Expected volume: ${v.volume}\n` +
-  `Project URL: ${v.projectUrl || "—"}\n`;
+  `Project URL: ${v.projectUrl || "—"}\n` +
+  `Terms accepted: ${API_TERMS_SUMMARY}\n`;

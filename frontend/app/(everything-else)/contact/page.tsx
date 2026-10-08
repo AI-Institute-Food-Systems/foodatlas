@@ -21,25 +21,18 @@ const Contact = ({ searchParams }: ContactPageProps) => {
 
   return (
     <div>
-      {/* content container */}
-      <div className="flex flex-col md:flex-row gap-10">
-        <div className="md:w-1/2">
-          <Heading type="h1" variant="display">Contact Us</Heading>
-          <p className="mt-6 text-base leading-relaxed text-light-200">
-            We love hearing from you! Whether you have a general question about
-            our research, methods or data, please use the form to get in touch
-            with us and we&apos;re happy to assist you. <br />
-            <br />
-            For those interested in integrating our data into your own projects,
-            you can request API access by detailing your use case, and
-            we&apos;ll provide the necessary credentials. If you&apos;ve noticed
-            any issues with our data or need further clarification, please
-            report them using the form, and we&apos;ll address them promptly.
-          </p>
-        </div>
-        <div className="md:w-1/2">
-          <ContactForm isApiAccessRequest={isApiAccessRequest} />
-        </div>
+      <div>
+        <Heading type="h1" variant="display">
+          Contact Us
+        </Heading>
+        <p className="mt-6 text-base leading-relaxed text-light-200">
+          Ask about our research, data or methods, report a data issue, or
+          request an API key. Pick a topic below and we&apos;ll get back to
+          you.
+        </p>
+      </div>
+      <div className="mt-12">
+        <ContactForm isApiAccessRequest={isApiAccessRequest} />
       </div>
     </div>
   );

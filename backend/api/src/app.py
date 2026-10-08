@@ -40,10 +40,11 @@ kicks in). Over-limit requests receive `429 Too Many Requests` with a
 
 ### Versioning & terms
 Endpoints under `/v1/` follow a stable contract. FoodAtlas is a publicly
-funded research project (USDA-NSF); its data and code are released under
-the Apache 2.0 license, which permits both academic and commercial use.
-A citation in any published work that uses this data is appreciated but
-not required.
+funded research project (USDA-NSF). The data served by this API is
+licensed under CC BY-NC 4.0: free for academic and non-commercial use,
+with attribution. Cite FoodAtlas in any published work that uses this
+data. For commercial use, contact aifs@ucdavis.edu. The source code is
+MIT-licensed.
 """.strip()
 
 
@@ -75,8 +76,8 @@ def create_app(settings: APISettings | None = None) -> FastAPI:
         description=PUBLIC_API_DESCRIPTION,
         contact={"name": "FoodAtlas Team", "email": "aifs@ucdavis.edu"},
         license_info={
-            "name": "Apache License 2.0",
-            "url": "https://www.apache.org/licenses/LICENSE-2.0",
+            "name": "CC BY-NC 4.0",
+            "url": "https://creativecommons.org/licenses/by-nc/4.0/",
         },
         lifespan=lifespan,
     )

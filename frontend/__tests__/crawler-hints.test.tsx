@@ -54,7 +54,7 @@ describe("structured data", () => {
   it("describes the bundles as a schema.org Dataset with one DataDownload per version", () => {
     const d = datasetJsonLd([entry]);
     expect(d["@type"]).toBe("Dataset");
-    expect(d.license).toBe("https://www.apache.org/licenses/LICENSE-2.0");
+    expect(d.license).toBe("https://creativecommons.org/licenses/by-nc/4.0/");
     expect(d.isAccessibleForFree).toBe(true);
     expect(d.version).toBe("v4.12");
     expect(d.conditionsOfAccess).toMatch(/API key required/);

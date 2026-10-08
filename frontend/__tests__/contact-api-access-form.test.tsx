@@ -64,11 +64,7 @@ describe("ContactForm API access fields", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(/api access questions/i);
   });
 
-  it("posts the answers as apiAccess", async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
-    vi.stubGlobal("fetch", fetchMock);
-    render(<ContactForm isApiAccessRequest />);
-
+  const answerAll = async () => {
     await pick(/how will you use the api/i, "Nonprofit");
     await pick(/expected volume/i, ">10k requests/day");
     fireEvent.click(screen.getByRole("radio", { name: "Not sure" }));
@@ -77,8 +73,29 @@ describe("ContactForm API access fields", () => {
     fireEvent.change(screen.getByRole("textbox", { name: /project or lab url/i }), {
       target: { value: "https://lab.example.org" },
     });
+  };
+
+  it("asks for the terms before sending, then posts the answers", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<ContactForm isApiAccessRequest />);
+    await answerAll();
     submit();
 
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveTextContent(/CC BY-NC 4\.0/);
+    expect(dialog).toHaveTextContent(/non-commercial use only/i);
+    expect(
+      screen.getByRole("button", { name: /copy citation/i }),
+    ).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    // The send button does nothing until the terms box is ticked.
+    fireEvent.click(screen.getByRole("button", { name: "Send request" }));
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("checkbox", { name: /agree to them/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Send request" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     expect(postedBody(fetchMock).apiAccess).toEqual({
       useCategory: "Nonprofit",
@@ -86,7 +103,35 @@ describe("ContactForm API access fields", () => {
       dataNeeded: ["Bioactivity", "Foods"],
       volume: ">10k requests/day",
       projectUrl: "https://lab.example.org",
+      termsAccepted: true,
     });
+  });
+
+  it("sends nothing when the terms are declined", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<ContactForm isApiAccessRequest />);
+    await answerAll();
+    submit();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("asks for the tick again each time the popup opens", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true }));
+    render(<ContactForm isApiAccessRequest />);
+    await answerAll();
+    submit();
+    fireEvent.click(await screen.findByRole("checkbox", { name: /agree to them/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+    submit();
+    expect(
+      await screen.findByRole("checkbox", { name: /agree to them/i }),
+    ).not.toBeChecked();
   });
 
   it("sends no apiAccess for other topics", async () => {
@@ -96,5 +141,6 @@ describe("ContactForm API access fields", () => {
     submit();
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     expect(postedBody(fetchMock)).not.toHaveProperty("apiAccess");
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 });
