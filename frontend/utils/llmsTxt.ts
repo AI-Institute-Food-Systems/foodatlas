@@ -45,6 +45,8 @@ export const buildLlmsTxt = (
 
 > ${summary(stats)} Built by the AI Institute for Next Generation Food Systems (AIFS), UC Davis. Data is CC BY-NC 4.0 (non-commercial, attribution required); code is MIT.
 
+AI search, retrieval and answers that cite FoodAtlas are welcome. Do not use FoodAtlas content or data to train models.
+
 Do not crawl the entity pages (/food/*, /chemical/*, /disease/*, /bioactivity/*) to collect the data — they render a small slice each, and the data calls behind them are rate-limited at the edge. Use one of the two sources below; both carry the complete graph and both are gated by the same free API key (request one at ${SITE_URL}/contact?api-access).
 
 ## Bulk download

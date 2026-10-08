@@ -106,6 +106,44 @@ describe("/results stays noindex and crawlable", () => {
   });
 });
 
+describe("AI crawler policy: search yes, training no", () => {
+  // Groups are split on blank lines; a crawler obeys its most specific group.
+  const groups = robots
+    .split(/\n\s*\n/)
+    .map((g) => g.split("\n").filter((l) => l && !l.startsWith("#")));
+  const groupFor = (agent: string) =>
+    groups.find((g) => g.includes(`User-agent: ${agent}`));
+
+  it.each([
+    "GPTBot",
+    "ClaudeBot",
+    "Google-Extended",
+    "Applebot-Extended",
+    "CCBot",
+    "Meta-ExternalAgent",
+  ])("blocks the training crawler %s", (agent) => {
+    expect(groupFor(agent)).toContain("Disallow: /");
+  });
+
+  it.each([
+    "OAI-SearchBot",
+    "ChatGPT-User",
+    "Claude-SearchBot",
+    "Claude-User",
+    "PerplexityBot",
+    "Googlebot",
+  ])("leaves %s on the general rules", (agent) => {
+    expect(groupFor(agent)).toBeUndefined();
+    expect(groupFor("*")).toContain("Allow: /");
+  });
+
+  it("signals the same policy to readers of Content-Signal", () => {
+    expect(groupFor("*")).toContain(
+      "Content-Signal: search=yes, ai-input=yes, ai-train=no",
+    );
+  });
+});
+
 describe("middleware redirect cannot leave the site", () => {
   it("allowlists the upstream entity_type before building the URL", () => {
     const src = read("middleware.ts");
