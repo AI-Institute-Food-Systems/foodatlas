@@ -9,9 +9,7 @@
 # …becomes the canonical way to run ad-hoc SQL against the live RDS.
 #
 # Usage:
-#   ./exec-api-shell.sh                       # staging by default
-#   ./exec-api-shell.sh prod                  # explicit prod target
-#   STACK=FoodAtlasApiStack ./exec-api-shell.sh
+#   ./exec-api-shell.sh
 #
 # Prereqs: aws sso login --profile <profile>; AWS Session Manager
 # plugin installed locally (https://docs.aws.amazon.com/systems-manager/
@@ -19,15 +17,7 @@
 
 set -euo pipefail
 
-ENV_ARG="${1:-staging}"
-case "$ENV_ARG" in
-    staging) STACK="${STACK:-FoodAtlasApiStack-Staging}";;
-    prod | production) STACK="${STACK:-FoodAtlasApiStack}";;
-    *)
-        echo "Usage: $0 [staging|prod]" >&2
-        exit 1
-        ;;
-esac
+STACK="${STACK:-FoodAtlasApiStack}"
 
 REGION="${AWS_REGION:-us-west-1}"
 
