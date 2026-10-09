@@ -22,10 +22,8 @@ stack.
 
 Context variables:
 - ``api_image_tag`` (default ``latest``): image tag in ECR to deploy.
-- ``api_cert_arn`` (``api_cert_arn-staging`` for the staging stack): ACM
-  certificate ARN in the ALB's region. Enables HTTPS on port 443.
-- ``api_umami_website_id`` (optional; ``api_umami_website_id-staging`` for
-  the staging stack): umami website id the API mirrors external ``/v1``
+- ``api_cert_arn``: ACM certificate ARN in the ALB's region. Enables HTTPS on port 443.
+- ``api_umami_website_id`` (optional): umami website id the API mirrors external ``/v1``
   usage into (``src/umami_sink.py``). Unset → no ``API_UMAMI_*`` env vars
   and the sink stays off.
 - ``api_umami_host_url`` (optional): umami base URL; only used when the
@@ -73,15 +71,12 @@ class ApiStack(cdk.Stack):
         db_secret: secretsmanager.ISecret,
         kgc_bucket: s3.IBucket,
         downloads_bucket: s3.IBucket,
-        name_suffix: str = "",
         **kwargs: Any,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         image_tag = self.node.try_get_context("api_image_tag") or "latest"
-        umami_website_id = self.node.try_get_context(
-            f"api_umami_website_id{name_suffix}"
-        )
+        umami_website_id = self.node.try_get_context("api_umami_website_id")
         umami_host_url = self.node.try_get_context("api_umami_host_url")
 
         self.cluster = ecs.Cluster(
@@ -123,7 +118,7 @@ class ApiStack(cdk.Stack):
         public_keys_secret = secretsmanager.Secret(
             self,
             "ApiPublicKeysSecret",
-            secret_name=f"{PUBLIC_KEYS_RESOURCE_ID}{name_suffix}",
+            secret_name=PUBLIC_KEYS_RESOURCE_ID,
             description=(
                 "Hashed public /v1/ API keys ({sha256(key): {email, created, notes}})."
             ),
@@ -157,7 +152,7 @@ class ApiStack(cdk.Stack):
             "API_PUBLIC_KEYS_SECRET_NAME": public_keys_secret.secret_name,
             "API_AWS_REGION": cdk.Stack.of(self).region,
         }
-        # Only when configured, so a synth without the context (staging, CI
+        # Only when configured, so a synth without the context (CI
         # snapshots) is byte-for-byte what it was before umami existed.
         if umami_website_id:
             container_env["API_UMAMI_WEBSITE_ID"] = str(umami_website_id)
@@ -196,7 +191,7 @@ class ApiStack(cdk.Stack):
         # them with this role, so it needs GetObject on the downloads bucket.
         downloads_bucket.grant_read(task_definition.task_role)
 
-        cert_arn = self.node.try_get_context(f"api_cert_arn{name_suffix}")
+        cert_arn = self.node.try_get_context("api_cert_arn")
         service_kwargs: dict[str, Any] = {
             "cluster": self.cluster,
             "task_definition": task_definition,
