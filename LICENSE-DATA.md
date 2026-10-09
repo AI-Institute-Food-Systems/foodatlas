@@ -11,5 +11,9 @@ appropriate credit. To give credit, cite the article in
 
 For commercial use, contact aifs@ucdavis.edu.
 
+Bundles up to and including v4.12 were released under Apache-2.0. That
+grant still covers copies of those versions. Later releases are
+CC BY-NC 4.0 only.
+
 The source code in this repository is licensed separately under the MIT
 License; see [LICENSE](LICENSE).
