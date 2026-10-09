@@ -11,9 +11,9 @@ appropriate credit. To give credit, cite the article in
 
 For commercial use, contact aifs@ucdavis.edu.
 
-Bundles up to and including v4.12 were released under Apache-2.0. That
-grant still covers copies of those versions. Later releases are
-CC BY-NC 4.0 only.
+All bundles, v4.0 onward, are distributed under CC BY-NC 4.0. Their READMEs
+named Apache-2.0 until 2026-10-09, when every published bundle was reissued
+with the CC BY-NC 4.0 README; the data files did not change.
 
 The source code in this repository is licensed separately under the MIT
 License; see [LICENSE](LICENSE).
