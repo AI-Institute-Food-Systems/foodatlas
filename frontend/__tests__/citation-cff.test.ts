@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { CANONICAL_PUBLICATION } from "@/utils/publications";
+import { CANONICAL_PUBLICATION, citationText } from "@/utils/publications";
 
 // CITATION.cff (repo root) is YAML, so it cannot import the single source of
 // truth. This keeps its preferred citation in step with it instead.
@@ -33,5 +33,22 @@ describe("CITATION.cff", () => {
 
   it("licenses code as MIT and data as CC BY-NC 4.0", () => {
     expect(cff).toMatch(/^license:\n  - MIT\n  - CC-BY-NC-4\.0$/m);
+  });
+});
+
+describe("bundle LICENSE.txt header", () => {
+  // publish-bundle.sh prepends this to the CC legal code in every bundle.
+  const header = readFileSync(
+    join(process.cwd(), "..", "licenses", "bundle-license-header.txt"),
+    "utf8",
+  );
+
+  it("cites the canonical publication word for word", () => {
+    expect(header).toContain(citationText(CANONICAL_PUBLICATION));
+  });
+
+  it("names CC BY-NC 4.0 and AIFS", () => {
+    expect(header).toContain("CC BY-NC 4.0");
+    expect(header).toContain("AI Institute for Next Generation Food Systems (AIFS)");
   });
 });
