@@ -4,7 +4,7 @@
 #
 # Source: s3://<kgc-bucket>/outputs/<run>/kg/   (parquets + CHANGELOG.md)
 # Target: s3://<downloads-bucket>/bundles/foodatlas-<version>/
-#         ├── foodatlas-<version>.zip   (parquets + CHANGELOG + SUMMARY + README)
+#         ├── foodatlas-<version>.zip   (parquets + CHANGELOG + SUMMARY + README + LICENSE)
 #         └── SUMMARY.md                (standalone, fetched by the UI)
 #
 # Also updates s3://<downloads-bucket>/bundles/index.json — the manifest
@@ -114,6 +114,7 @@ BUNDLE_NAME="foodatlas-${VERSION}"
 TMP_DIR=$(mktemp -d)
 trap 'rm -rf "$TMP_DIR"' EXIT
 STAGE_DIR="$TMP_DIR/$BUNDLE_NAME"
+LICENSES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../licenses" && pwd)"
 mkdir -p "$STAGE_DIR"
 
 if [[ -n "$DRY_RUN" ]]; then
@@ -139,13 +140,16 @@ else
 fi
 
 cp "$SUMMARY_FILE" "$STAGE_DIR/SUMMARY.md"
+cat "$LICENSES_DIR/bundle-license-header.txt" "$LICENSES_DIR/CC-BY-NC-4.0.txt" \
+    > "$STAGE_DIR/LICENSE.txt"
 
 cat > "$STAGE_DIR/README.md" <<EOF
 # FoodAtlas Data Bundle — ${VERSION}
 
 Version-controlled snapshot of the FoodAtlas knowledge graph as parquet
 files. Released under the CC BY-NC 4.0 license
-(https://creativecommons.org/licenses/by-nc/4.0/).
+(https://creativecommons.org/licenses/by-nc/4.0/); see \`LICENSE.txt\` for
+the full text and how to cite FoodAtlas.
 
 See \`SUMMARY.md\` for a short release blurb and \`CHANGELOG.md\` for
 the full KG-level diff against the previous release.
