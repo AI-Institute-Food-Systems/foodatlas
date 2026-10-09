@@ -168,5 +168,7 @@ _bmad_output/
 docs/staging.env
 .env*.local
 
-# Local planning notes from the Nimbalyst editor; never committed.
+# Nimbalyst editor: local planning notes and session data (screenshots,
+# transcript images); never committed.
 nimbalyst-local/
+.nimbalyst/
