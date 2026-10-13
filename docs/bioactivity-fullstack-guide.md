@@ -1,6 +1,6 @@
 # FoodAtlas Bioactivity — Full-Stack Developer Guide
 
-**Status:** ✅ Staging preview is **live** and serving real data.
+**Status:** ⚠️ Historical. The staging environment was retired on 2026-10-09; production serves bioactivity. Sections about staging no longer apply.
 **Audience:** the full-stack developer building the bioactivity feature (frontend **and** backend).
 **Last updated:** 2026-06-22
 

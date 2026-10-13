@@ -1,22 +1,19 @@
 #!/bin/bash
-# Run a one-shot db migration command against the staging RDS via the
-# Jobs Fargate task definition. Same shape as run-data-load.sh — just a
-# different db CLI subcommand and a default to the *staging* stack.
+# Run a one-shot db migration command via the Jobs Fargate task
+# definition. Same shape as run-data-load.sh — just a different db CLI
+# subcommand and no default stack.
 #
 # Usage:
-#   ./run-migration.sh migrate-bioact-perf            # default: staging
-#   STACK=FoodAtlasJobsStack ./run-migration.sh ...   # explicit prod
-#   ./run-migration.sh --dry-run migrate-bioact-perf  # print task plan only
+#   STACK=FoodAtlasJobsStack ./run-migration.sh migrate-bioact-perf
+#   STACK=FoodAtlasJobsStack ./run-migration.sh --dry-run migrate-bioact-perf
 #
-# Default target is staging because migrations on prod should be a
-# deliberate STACK= override, not the default.
+# STACK is required so a migration on prod is always a deliberate choice.
 
 set -euo pipefail
 
 cd "$(dirname "$0")"
 
-# Default to staging — prod migrations require an explicit STACK env var.
-STACK="${STACK:-FoodAtlasJobsStack-Staging}"
+STACK="${STACK:?set STACK explicitly, e.g. STACK=FoodAtlasJobsStack}"
 export STACK
 
 # shellcheck source=_lib.sh
