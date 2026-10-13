@@ -3,7 +3,9 @@
 The FoodAtlas knowledge graph — the data served by the API, the downloadable
 bundles, and the content of www.foodatlas.ai — is licensed under the
 [Creative Commons Attribution-NonCommercial 4.0 International License
-(CC BY-NC 4.0)](https://creativecommons.org/licenses/by-nc/4.0/).
+(CC BY-NC 4.0)](https://creativecommons.org/licenses/by-nc/4.0/). The full text
+is in [licenses/CC-BY-NC-4.0.txt](licenses/CC-BY-NC-4.0.txt), and every bundle
+ships it as `LICENSE.txt`.
 
 You may share and adapt the data for non-commercial purposes if you give
 appropriate credit. To give credit, cite the article in

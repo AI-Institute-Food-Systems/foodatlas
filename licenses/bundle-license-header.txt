@@ -1,0 +1,19 @@
+FoodAtlas data bundle: license
+==============================
+
+Copyright (c) AI Institute for Next Generation Food Systems (AIFS),
+University of California, Davis.
+
+The FoodAtlas data in this bundle is licensed under the Creative Commons
+Attribution-NonCommercial 4.0 International License (CC BY-NC 4.0). The
+full license text follows. The canonical version is at
+https://creativecommons.org/licenses/by-nc/4.0/legalcode
+
+Non-commercial use only. For commercial use, contact aifs@ucdavis.edu.
+
+Attribution: cite this article in any work that uses the data:
+
+Li, F., Youn, J., Xie, K., Chan, T., Gupta, P., Yoo, A., Gunning, M., Ni, K., & Tagkopoulos, I. (2026). A unified knowledge graph linking foodomics to chemical-disease networks and flavor profiles. npj Science of Food, 10(1), 33. https://doi.org/10.1038/s41538-025-00680-9
+
+=======================================================================
+
