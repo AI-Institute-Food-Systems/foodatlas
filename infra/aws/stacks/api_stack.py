@@ -47,6 +47,8 @@ from aws_cdk import aws_rds as rds
 from aws_cdk import aws_s3 as s3
 from aws_cdk import aws_secretsmanager as secretsmanager
 
+from stacks.api_waf import ApiWaf
+
 if TYPE_CHECKING:
     from constructs import Construct
 
@@ -225,6 +227,8 @@ class ApiStack(cdk.Stack):
             "ApiService",
             **service_kwargs,
         )
+
+        ApiWaf(self, "ApiWaf", load_balancer=self.service.load_balancer)
 
         self.service.target_group.configure_health_check(
             path="/health",
