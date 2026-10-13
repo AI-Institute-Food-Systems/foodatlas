@@ -292,3 +292,9 @@ def test_task_role_can_read_downloads_bucket() -> None:
         and "TestDownloadsStack" in str(stmt.get("Resource"))
     ]
     assert downloads_reads, "no GetObject grant on the downloads bucket"
+
+
+def test_api_alb_has_a_waf_web_acl() -> None:
+    template = _synth()
+    template.resource_count_is("AWS::WAFv2::WebACL", 1)
+    template.resource_count_is("AWS::WAFv2::WebACLAssociation", 1)

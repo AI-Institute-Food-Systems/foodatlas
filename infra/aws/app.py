@@ -1,6 +1,6 @@
 """CDK app entry point.
 
-Instantiates the seven stacks that make up the FoodAtlas AWS infrastructure:
+Instantiates the eight stacks that make up the FoodAtlas AWS infrastructure:
 
 - NetworkStack: VPC, subnets, security groups
 - StorageStack: private S3 bucket for KGC source data and pipeline artifacts
@@ -9,6 +9,7 @@ Instantiates the seven stacks that make up the FoodAtlas AWS infrastructure:
 - DatabaseStack: RDS PostgreSQL + Secrets Manager
 - ApiStack: ECS Fargate + ALB hosting the FastAPI backend
 - JobsStack: one-off Fargate task definition for ETL data loads
+- AuditStack: account-wide CloudTrail trail + its log bucket
 
 EcrStack is separate from the consuming stacks so the repos can be populated
 with Docker images before ECS tries to pull them on first deploy. JobsStack
@@ -25,6 +26,7 @@ import os
 import aws_cdk as cdk
 
 from stacks.api_stack import ApiStack
+from stacks.audit_stack import AuditStack
 from stacks.database_stack import DatabaseStack
 from stacks.downloads_stack import DownloadsStack
 from stacks.ecr_stack import EcrStack
@@ -96,6 +98,12 @@ JobsStack(
     db_instance=database.db_instance,
     db_secret=database.db_secret,
     kgc_bucket=storage.kgc_bucket,
+    env=env,
+)
+
+AuditStack(
+    app,
+    "FoodAtlasAuditStack",
     env=env,
 )
 
