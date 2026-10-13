@@ -27,6 +27,7 @@ Requires:
 | `FoodAtlasDatabaseStack` | `stacks/database_stack.py` | Network |
 | `FoodAtlasApiStack` | `stacks/api_stack.py` | Network, Storage, Downloads, Ecr, Database |
 | `FoodAtlasJobsStack` | `stacks/jobs_stack.py` | Network, Storage, Ecr, Database, Api |
+| `FoodAtlasAuditStack` | `stacks/audit_stack.py` | — |
 
 CDK resolves deploy order from constructor dependencies in `app.py`. You can `cdk deploy <stack>` and dependents are pulled in automatically.
 
@@ -74,7 +75,7 @@ aws/
 ├── cdk.json                # CDK CLI config (app command, feature flags)
 ├── pyproject.toml          # Dependencies + pytest config
 ├── stacks/                 # One module per stack (network, storage, downloads,
-│                           # ecr, database, api, jobs)
+│                           # ecr, database, api, jobs, audit)
 ├── tests/                  # One snapshot-test module per stack
 └── scripts/
     ├── _lib.sh             # Shared helpers

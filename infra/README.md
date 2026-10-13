@@ -75,7 +75,7 @@ bash infra/local/scripts/run_monthly.sh --ie-only           # IE only, stop befo
 
 ## Mode 2: AWS production
 
-Production runs on AWS and is defined entirely in CDK Python under `infra/aws/`. The infrastructure is split into seven stacks; each is independently deployable but they have constructor dependencies that CDK uses to enforce deploy order.
+Production runs on AWS and is defined entirely in CDK Python under `infra/aws/`. The infrastructure is split into eight stacks; each is independently deployable but they have constructor dependencies that CDK uses to enforce deploy order.
 
 ### Architecture
 
@@ -104,7 +104,7 @@ flowchart TB
     jobs -->|"download"| s3
 ```
 
-### The seven stacks
+### The eight stacks
 
 | Stack | Responsibility | Resources |
 | --- | --- | --- |
@@ -115,6 +115,7 @@ flowchart TB
 | `FoodAtlasDatabaseStack` | Postgres + credentials | RDS db.t4g.small Single-AZ, Secrets Manager secret |
 | `FoodAtlasApiStack` | Long-running API service | ECS cluster, task def, service, ALB, log group; reads the downloads bucket for `/download` |
 | `FoodAtlasJobsStack` | One-off task runner | Task def + log group + SG (no service) |
+| `FoodAtlasAuditStack` | Account-wide audit log | Multi-region CloudTrail trail (management events, log-file validation) + retained encrypted bucket (Glacier IR at 90 days, expiry at 2 years) |
 
 The Single-AZ RDS choice means an AZ-level outage requires ~15 minutes to recover from automated backup. Flip `multi_az=True` in `database_stack.py` to upgrade to true high availability.
 
@@ -129,6 +130,7 @@ flowchart TB
     db[DatabaseStack]
     api[ApiStack]
     jobs[JobsStack]
+    audit[AuditStack]
 
     network --> db
     network --> api
@@ -172,10 +174,10 @@ This creates the `CDKToolkit` stack which provisions an S3 bucket and an ECR rep
 
 ```
 cd infra/aws
-uv run cdk deploy FoodAtlasNetworkStack FoodAtlasStorageStack FoodAtlasDownloadsStack FoodAtlasEcrStack
+uv run cdk deploy FoodAtlasNetworkStack FoodAtlasStorageStack FoodAtlasDownloadsStack FoodAtlasEcrStack FoodAtlasAuditStack
 ```
 
-These four have no dependencies on each other and deploy in parallel. `FoodAtlasDownloadsStack` is the public-read bucket that serves released data bundles to the website.
+These five have no dependencies on each other and deploy in parallel. `FoodAtlasDownloadsStack` is the public-read bucket that serves released data bundles to the website.
 
 ### Build and push the container images
 

@@ -91,6 +91,7 @@ jobs:
             FoodAtlasEcrStack \
             FoodAtlasDatabaseStack \
             FoodAtlasJobsStack \
+            FoodAtlasAuditStack \
             "${args[@]}"
 
       - name: Deploy API stack (rolls out new API image)
