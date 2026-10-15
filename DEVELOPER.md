@@ -102,7 +102,7 @@ cd frontend
 npm run dev
 ```
 
-Next.js runs at `http://localhost:3001` (the dev server is pinned to 3001 in `package.json`). It reads `NEXT_PUBLIC_API_URL` from `frontend/.env.local`; default is `http://localhost:8000`.
+Next.js runs at `http://localhost:3001` (or the next free port if 3001 is taken; see `frontend/scripts/dev.mjs`). It reads `NEXT_PUBLIC_API_URL` from `frontend/.env.local`; default is `http://localhost:8000`.
 
 > **CORS note.** The API's default `API_CORS_ORIGINS` is `http://localhost:3000`. To call it from the dev frontend on `:3001`, set `API_CORS_ORIGINS=http://localhost:3001` on the API process (in a `.env` or as an env var).
 

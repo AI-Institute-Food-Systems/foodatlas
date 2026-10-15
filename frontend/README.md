@@ -9,7 +9,7 @@ npm ci
 npm run dev
 ```
 
-Open [http://localhost:3001](http://localhost:3001) to view the app. The dev server is pinned to port 3001 in `package.json` (see the `dev` script).
+Open [http://localhost:3001](http://localhost:3001) to view the app. The dev server starts on port 3001; if that port is taken, it uses the next free one (see `scripts/dev.mjs`).
 
 ## Commands
 
