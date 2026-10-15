@@ -128,7 +128,7 @@ describe("assay table (AssayInferredAssociationsTable)", () => {
   const ROWS = [assay("caffeine", 9), assay("aspirin", 3), assay("berberine", 5)];
 
   const names = () =>
-    Array.from(document.querySelectorAll("tbody tr")).map((tr) =>
+    Array.from(document.querySelectorAll("tbody tr:not([aria-hidden])")).map((tr) =>
       (tr.querySelector("td")?.textContent ?? "").trim()
     );
 

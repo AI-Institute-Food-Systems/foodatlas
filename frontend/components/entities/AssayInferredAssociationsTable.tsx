@@ -26,6 +26,7 @@ import { type ReactNode, useEffect, useState } from "react";
 import Pagination from "@/components/basic/Pagination";
 import {
   TableSkeletonCards,
+  TableFillerRow,
   TableSkeletonRows,
 } from "@/components/basic/TableSkeleton";
 import type { SkeletonColumn } from "@/components/basic/skeletonTokens";
@@ -269,6 +270,12 @@ const AssayInferredAssociationsTable = ({
                   onOpenActivities={() => setActivitiesFor(peerId(row, peer))}
                 />
               ))
+            )}
+            {!isLoading && (
+              <TableFillerRow
+                rows={visible.length}
+                colSpan={SKELETON_COLUMNS.length}
+              />
             )}
           </tbody>
         </table>

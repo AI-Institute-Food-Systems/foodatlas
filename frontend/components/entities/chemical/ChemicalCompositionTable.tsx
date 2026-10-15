@@ -39,6 +39,7 @@ import {
 } from "@/utils/chemicalComposition";
 import { encodeSpace } from "@/utils/utils";
 import TableEmptyState from "@/components/entities/shared/TableEmptyState";
+import { TableFillerRow } from "@/components/basic/TableSkeleton";
 
 // Pagination writes rowsPerPage=20 into the context on every click, so the
 // page size is not ours to choose — matching it here keeps the slice and
@@ -273,6 +274,7 @@ const ChemicalCompositionTable = ({
                 <td colSpan={COLUMN_COUNT}>{emptyStateBody}</td>
               </tr>
             )}
+            <TableFillerRow rows={pageRows.length} colSpan={COLUMN_COUNT} />
           </tbody>
         </table>
       </div>

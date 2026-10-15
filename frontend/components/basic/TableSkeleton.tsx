@@ -65,6 +65,33 @@ export const TableSkeletonRows = ({
   </>
 );
 
+// Row pitch (py-1.5 around min-h-9) and TableEmptyState's h-[10rem].
+const ROW_PITCH_REM = 3;
+const EMPTY_STATE_REM = 10;
+
+// Pads a short page to the height of a full one, so the table does not
+// shrink below the filter sidebar on small entities or the last page.
+// `rows` = data rows rendered; 0 means the empty/error state is showing.
+// `pageSize` must match the API's page size for server-paged tables.
+export const TableFillerRow = ({
+  rows,
+  colSpan,
+  pageSize = TABLE_SKELETON_ROWS,
+}: {
+  rows: number;
+  colSpan: number;
+  pageSize?: number;
+}) => {
+  const used = rows === 0 ? EMPTY_STATE_REM : rows * ROW_PITCH_REM;
+  const height = pageSize * ROW_PITCH_REM - used;
+  if (height <= 0) return null;
+  return (
+    <tr aria-hidden>
+      <td colSpan={colSpan} className="p-0" style={{ height: `${height}rem` }} />
+    </tr>
+  );
+};
+
 interface CardsProps {
   columns: SkeletonColumn[];
   rows?: number;
