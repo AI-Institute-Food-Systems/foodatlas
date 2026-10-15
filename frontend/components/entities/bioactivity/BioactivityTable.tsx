@@ -31,6 +31,7 @@ import AssayIcon from "@/components/icons/AssayIcon";
 import Link from "@/components/basic/Link";
 import {
   TableSkeletonCards,
+  TableFillerRow,
   TableSkeletonRows,
 } from "@/components/basic/TableSkeleton";
 import Pagination from "@/components/basic/Pagination";
@@ -817,6 +818,11 @@ const BioactivityTable = ({
                   )}
                 />
               ))
+            )}
+            {/* hideChrome = stacked above the food page's inferred table;
+             * padding here would push that table a page down. */}
+            {!showSkeleton && !hideChrome && (
+              <TableFillerRow rows={rows.length} colSpan={colSpan} />
             )}
           </tbody>
         </table>

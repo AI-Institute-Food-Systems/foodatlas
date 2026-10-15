@@ -223,14 +223,14 @@ describe("pagination", () => {
     await mount(manyRows(25), "disease-0");
     // Desktop table and mobile cards both render in jsdom, so count rows
     // in the <tbody> rather than by text.
-    expect(document.querySelectorAll("tbody tr")).toHaveLength(20);
+    expect(document.querySelectorAll("tbody tr:not([aria-hidden])")).toHaveLength(20);
     expect(screen.queryAllByText("disease-24")).toHaveLength(0);
 
     fireEvent.click(screen.getByLabelText(/next page/i));
     await waitFor(() =>
       expect(screen.getAllByText("disease-24").length).toBeGreaterThan(0)
     );
-    expect(document.querySelectorAll("tbody tr")).toHaveLength(5);
+    expect(document.querySelectorAll("tbody tr:not([aria-hidden])")).toHaveLength(5);
   });
 
   it("offers no paginator when everything fits on one page", async () => {
@@ -271,6 +271,6 @@ describe("activities", () => {
     // The point of the merge: a chemical Active under three activities is
     // one row, not three.
     await mount([row({ bioactivities: ["a", "b", "c"] })]);
-    expect(document.querySelectorAll("tbody tr")).toHaveLength(1);
+    expect(document.querySelectorAll("tbody tr:not([aria-hidden])")).toHaveLength(1);
   });
 });
