@@ -112,6 +112,11 @@ const SearchBar = () => {
     }
   }, [pathname, isFocused, isVisible, setIsVisible]);
 
+  // A suggestion click navigates without blurring, and the entity-page
+  // arrival above hides the bar but keeps isFocused (see its comment).
+  // Gate on visibility too, or the scroll lock outlives the bar.
+  const isActive = isFocused && isVisible;
+
   // Cooldown after an outside-tap dismiss. When the fly-up collapses
   // the input snaps back to its docked position, and the residual
   // tap can land on it and refocus. During the cooldown window,
@@ -125,7 +130,7 @@ const SearchBar = () => {
   // subsequent mouse/click cascade so the residual tap can't land
   // on the now-docked input and refocus it.
   useEffect(() => {
-    if (!isFocused) return;
+    if (!isActive) return;
     const dismiss = (e: Event) => {
       const content = document.getElementById("search-component");
       if (!content || content.contains(e.target as Node)) return;
@@ -140,7 +145,7 @@ const SearchBar = () => {
     };
     document.addEventListener("pointerdown", dismiss);
     return () => document.removeEventListener("pointerdown", dismiss);
-  }, [isFocused, inputRef, setIsFocused, setSelectedSuggestion]);
+  }, [isActive, inputRef, setIsFocused, setSelectedSuggestion]);
 
   // Lock page scroll while the search is focused. Uses the same
   // `.modal-open` class the Modal component toggles (see globals.css) —
@@ -151,14 +156,14 @@ const SearchBar = () => {
   // on-screen keyboard already collapses the viewport, and a hard
   // scroll lock there fights iOS's own gestures.
   useEffect(() => {
-    if (!isFocused) return;
+    if (!isActive) return;
     if (typeof window === "undefined") return;
     if (!window.matchMedia("(min-width: 768px)").matches) return;
     document.documentElement.classList.add("modal-open");
     return () => {
       document.documentElement.classList.remove("modal-open");
     };
-  }, [isFocused]);
+  }, [isActive]);
 
   // Detect keyboard dismissal that happens OUTSIDE our webview — e.g.
   // taps on Safari's URL bar or its side gutters, or the keyboard's
