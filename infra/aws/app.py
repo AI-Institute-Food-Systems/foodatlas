@@ -1,6 +1,6 @@
 """CDK app entry point.
 
-Instantiates the seven stacks that make up the FoodAtlas AWS infrastructure:
+Instantiates the eight stacks that make up the FoodAtlas AWS infrastructure:
 
 - NetworkStack: VPC, subnets, security groups
 - StorageStack: private S3 bucket for KGC source data and pipeline artifacts
@@ -9,6 +9,7 @@ Instantiates the seven stacks that make up the FoodAtlas AWS infrastructure:
 - DatabaseStack: RDS PostgreSQL + Secrets Manager
 - ApiStack: ECS Fargate + ALB hosting the FastAPI backend
 - JobsStack: one-off Fargate task definition for ETL data loads
+- AuditStack: account-wide CloudTrail trail + its log bucket
 
 EcrStack is separate from the consuming stacks so the repos can be populated
 with Docker images before ECS tries to pull them on first deploy. JobsStack
@@ -25,6 +26,7 @@ import os
 import aws_cdk as cdk
 
 from stacks.api_stack import ApiStack
+from stacks.audit_stack import AuditStack
 from stacks.database_stack import DatabaseStack
 from stacks.downloads_stack import DownloadsStack
 from stacks.ecr_stack import EcrStack
@@ -99,46 +101,9 @@ JobsStack(
     env=env,
 )
 
-# ---------------------------------------------------------------------------
-# Staging environment — bioactivity preview for frontend development.
-#
-# A separate, isolated copy of the database + API + ETL: its own RDS instance,
-# Fargate API (own ALB URL), DB secret, and API key. Reuses the shared VPC, S3
-# buckets, and ECR images. PRODUCTION stacks above are untouched — bioactivity
-# never reaches the live RDS until launch.  Deploy with:
-#   cdk deploy FoodAtlasDatabaseStack-Staging FoodAtlasApiStack-Staging \
-#              FoodAtlasJobsStack-Staging
-# ---------------------------------------------------------------------------
-database_staging = DatabaseStack(
+AuditStack(
     app,
-    "FoodAtlasDatabaseStack-Staging",
-    vpc=network.vpc,
-    name_suffix="-staging",
-    env=env,
-)
-
-api_staging = ApiStack(
-    app,
-    "FoodAtlasApiStack-Staging",
-    vpc=network.vpc,
-    repository=ecr_stack.api_repository,
-    db_instance=database_staging.db_instance,
-    db_secret=database_staging.db_secret,
-    kgc_bucket=storage.kgc_bucket,
-    downloads_bucket=downloads.downloads_bucket,
-    name_suffix="-staging",
-    env=env,
-)
-
-JobsStack(
-    app,
-    "FoodAtlasJobsStack-Staging",
-    vpc=network.vpc,
-    cluster=api_staging.cluster,
-    repository=ecr_stack.db_repository,
-    db_instance=database_staging.db_instance,
-    db_secret=database_staging.db_secret,
-    kgc_bucket=storage.kgc_bucket,
+    "FoodAtlasAuditStack",
     env=env,
 )
 

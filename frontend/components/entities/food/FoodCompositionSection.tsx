@@ -27,6 +27,7 @@ import Pagination from "@/components/basic/Pagination";
 import Skeleton from "@/components/basic/Skeleton";
 import {
   TableSkeletonCards,
+  TableFillerRow,
   TableSkeletonRows,
 } from "@/components/basic/TableSkeleton";
 import { useReportRows } from "@/context/reportModeContext";
@@ -63,6 +64,9 @@ import TableEmptyState from "@/components/entities/shared/TableEmptyState";
 // headers for table
 // One spec drives the <colgroup>, the <th>s and the loading skeleton, so
 // the placeholder grid can't drift from the real one.
+// The API's ROWS_PER_PAGE for this endpoint.
+const API_ROWS_PER_PAGE = 25;
+
 const TABLE_HEADERS = [
   {
     key: "chemical",
@@ -637,9 +641,6 @@ const FoodCompositionSection = ({
     (row.fdc_evidences?.length || 0) +
     (row.ptfi_evidences?.length || 0);
 
-  // number of placeholder rows to make up for the total of 20 rows
-  const placeholderRowsCount = data ? 20 - data?.length : 20;
-
 
   const toggleClassification = (cls: string) => {
     setTablePaginations("food-composition-table", 1, 20);
@@ -993,16 +994,13 @@ const FoodCompositionSection = ({
                     <td colSpan={TABLE_HEADERS.length}>{emptyStateBody}</td>
                   </tr>
                 )}
-                {/* add empty rows to make up for the total of 20 rows */}
-                {numberOfPages > 1 &&
-                  !isLoading &&
-                  Array.from({ length: placeholderRowsCount }, (_, index) => (
-                    <tr key={index}>
-                      <td className="py-1.5" colSpan={TABLE_HEADERS.length}>
-                        <div className="h-9" />
-                      </td>
-                    </tr>
-                  ))}
+                {!showSkeleton && (
+                  <TableFillerRow
+                    rows={isError ? 0 : data.length}
+                    colSpan={TABLE_HEADERS.length}
+                    pageSize={API_ROWS_PER_PAGE}
+                  />
+                )}
               </tbody>
             </table>
           </div>

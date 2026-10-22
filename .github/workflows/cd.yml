@@ -91,6 +91,7 @@ jobs:
             FoodAtlasEcrStack \
             FoodAtlasDatabaseStack \
             FoodAtlasJobsStack \
+            FoodAtlasAuditStack \
             "${args[@]}"
 
       - name: Deploy API stack (rolls out new API image)
@@ -112,7 +113,7 @@ jobs:
           uv run cdk deploy FoodAtlasApiStack "${args[@]}"
 
       - name: Smoke test production API
-        # Ported from cd-staging.yml (#279). Hits real data endpoints, not
+        # From the retired cd-staging.yml (#279). Hits real data endpoints, not
         # just /health. This job deploys new images but does NOT reload the
         # database, so a promotion that changes the DB schema leaves new
         # code querying an old materialized schema. /health stays 200

@@ -27,6 +27,7 @@ Requires:
 | `FoodAtlasDatabaseStack` | `stacks/database_stack.py` | Network |
 | `FoodAtlasApiStack` | `stacks/api_stack.py` | Network, Storage, Downloads, Ecr, Database |
 | `FoodAtlasJobsStack` | `stacks/jobs_stack.py` | Network, Storage, Ecr, Database, Api |
+| `FoodAtlasAuditStack` | `stacks/audit_stack.py` | — |
 
 CDK resolves deploy order from constructor dependencies in `app.py`. You can `cdk deploy <stack>` and dependents are pulled in automatically.
 
@@ -52,7 +53,7 @@ uv run cdk deploy FoodAtlasJobsStack -c db_image_tag=abc1234
 
 `api_image_tag` and `db_image_tag` default to `latest`. Use immutable git SHAs in production deploys for predictable rollbacks.
 
-`api_umami_website_id` (persisted in `cdk.json` for prod; `api_umami_website_id-staging` for the staging stack, unset) turns on the API's umami `api_request` sink by setting `API_UMAMI_WEBSITE_ID` on the task. `api_umami_host_url` optionally overrides the umami base URL. Neither adds anything to the task definition when the id is unset.
+`api_umami_website_id` (persisted in `cdk.json`) turns on the API's umami `api_request` sink by setting `API_UMAMI_WEBSITE_ID` on the task. `api_umami_host_url` optionally overrides the umami base URL. Neither adds anything to the task definition when the id is unset.
 
 ## Tests
 
@@ -74,7 +75,7 @@ aws/
 ├── cdk.json                # CDK CLI config (app command, feature flags)
 ├── pyproject.toml          # Dependencies + pytest config
 ├── stacks/                 # One module per stack (network, storage, downloads,
-│                           # ecr, database, api, jobs)
+│                           # ecr, database, api, jobs, audit)
 ├── tests/                  # One snapshot-test module per stack
 └── scripts/
     ├── _lib.sh             # Shared helpers

@@ -28,6 +28,7 @@ import AssayIcon from "@/components/icons/AssayIcon";
 import Link from "@/components/basic/Link";
 import {
   TableSkeletonCards,
+  TableFillerRow,
   TableSkeletonRows,
 } from "@/components/basic/TableSkeleton";
 import type { SkeletonColumn } from "@/components/basic/skeletonTokens";
@@ -539,6 +540,7 @@ const FoodInferredBioactivitiesSection = ({
                 />
               ))
             )}
+            {!isLoading && <TableFillerRow rows={rows.length} colSpan={5} />}
           </tbody>
         </table>
       </div>
