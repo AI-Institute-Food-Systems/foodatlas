@@ -242,8 +242,13 @@ wait_for_gpus() {
 
 # Generate the date-parameterized sbatch file.
 write_gemma_sbatch() {
-    local sbatch="$1" out_dir="$2" input="$3" devices
+    local sbatch="$1" out_dir="$2" input="$3" devices site
     devices="$(seq -s, 0 $((GEMMA_GPUS - 1)))"
+    # Python puts ~/.local (pip --user) ahead of the env's site-packages, so a
+    # user-site install can shadow the env: a transformers upgrade there broke
+    # vLLM's Gemma config parsing and killed the Oct 16 and Oct 23 2026 runs.
+    # Putting the env first keeps the job hermetic; ~/.local stays a fallback.
+    site="$("$GEMMA_ENV/bin/python" -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')"
     cat > "$sbatch" <<SBATCH
 #!/usr/bin/env bash
 #SBATCH --job-name=gemma4-ie-$RUN_DATE
@@ -258,6 +263,7 @@ write_gemma_sbatch() {
 set -eo pipefail
 cd "$IE_DIR"
 export PATH="$GEMMA_ENV/bin:\$PATH"
+export PYTHONPATH="$site\${PYTHONPATH:+:\$PYTHONPATH}"
 export CUDA_VISIBLE_DEVICES=$devices
 export TOKENIZERS_PARALLELISM=false VLLM_LOGGING_LEVEL=WARNING
 "$GEMMA_ENV/bin/python" -m src.pipeline.extraction.gemma.runner \\
