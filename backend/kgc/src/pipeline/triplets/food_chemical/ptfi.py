@@ -70,7 +70,8 @@ def _resolve_entities(kg: KnowledgeGraph, contains: pd.DataFrame) -> pd.DataFram
     if food_lookup.empty or chemical_lookup.empty:
         return pd.DataFrame()
 
-    df = contains.copy()
+    df = contains.reset_index(drop=True)
+    df["_edge"] = df.index  # one measurement; merges below may fan it out
     df["_sample_id"] = df["raw_attrs"].map(lambda a: a.get("sample_id", ""))
     df["_chemical_key"] = df["raw_attrs"].map(lambda a: a.get("chemical_key", ""))
 
@@ -110,10 +111,15 @@ def _prefer_named_chemical(df: pd.DataFrame, entities: pd.DataFrame) -> pd.DataF
     rest. Where no candidate matches the two entities are genuinely duplicates
     of one compound (``4-coumaric acid`` / ``trans-4-coumaric acid``), which PTFI
     cannot settle — keep every candidate so the ambiguity stays visible.
+
+    The choice is made per measurement: a sample's relative-abundance row names
+    the metabolite, its reference-panel row for the same chemical carries an
+    analyte code (``FAA_LIPID``) that matches nothing, and the second must not
+    be narrowed away by the first.
     """
     ambiguous = df["tail_candidates"].map(len) > 1
     if not ambiguous.any():
-        return df
+        return df.drop(columns=["_edge"], errors="ignore")
 
     names = entities["common_name"].astype(str).str.casefold()
     df = df.copy()
@@ -122,12 +128,12 @@ def _prefer_named_chemical(df: pd.DataFrame, entities: pd.DataFrame) -> pd.DataF
     )
     df["_name_match"] = df["_tail_id"].map(names) == df["_ptfi_name"]
 
-    group = df.groupby(["_sample_id", "_chemical_key"])["_name_match"]
+    group = df.groupby("_edge")["_name_match"]
     keep = df["_name_match"] | ~group.transform("any")
     dropped = int((~keep).sum())
     if dropped:
         logger.info("PTFI: narrowed %d ambiguous chemical rows by name match.", dropped)
-    return df[keep].drop(columns=["_ptfi_name", "_name_match"])
+    return df[keep].drop(columns=["_edge", "_ptfi_name", "_name_match"])
 
 
 def _attestation_rows(kg: KnowledgeGraph, resolved: pd.DataFrame) -> pd.DataFrame:

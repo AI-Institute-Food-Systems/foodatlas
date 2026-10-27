@@ -149,6 +149,23 @@ class TestAmbiguityNarrowing:
         )
         assert set(resolved["_tail_id"]) == {"e20", "e21"}
 
+    def test_narrowing_is_per_measurement(self) -> None:
+        """One sample, one chemical, two measurements: the LC-MS row names
+        formate and narrows to it; the reference-panel row's analyte code
+        matches nothing and must keep both candidates, not vanish."""
+        kg = _KG()
+        edges = [
+            _edge("GGB100", "pubchem:283", "formate", 1.0),
+            _edge("GGB100", "pubchem:283", "FAA_FORMATE", 2.0, "mg/100g", _PRX),
+        ]
+        resolved = _resolve_entities(kg, pd.DataFrame(edges))
+        by_name = resolved.groupby(
+            resolved["raw_attrs"].map(lambda a: a["chemical_name"])
+        )["_tail_id"].apply(set)
+        assert by_name["formate"] == {"e20"}
+        assert by_name["FAA_FORMATE"] == {"e20", "e21"}
+        assert "_edge" not in resolved.columns
+
     def test_unambiguous_cid_is_untouched(self) -> None:
         df = pd.DataFrame(
             [
