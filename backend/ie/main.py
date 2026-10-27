@@ -105,6 +105,7 @@ def pending(ctx: click.Context, rebuild: bool) -> None:
         ledger = rebuild_ledger(
             outputs / "search",
             outputs / "extraction",
+            outputs / "retrieval",
             bioc_dir,
             _scan_cached_pmcids(bioc_dir),
             settings.resolved_date,
