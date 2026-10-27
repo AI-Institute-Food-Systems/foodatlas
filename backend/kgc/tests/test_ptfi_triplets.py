@@ -1,5 +1,6 @@
 """Tests for the PTFI triplets builder — attestation shape, per-sample
-granularity, and narrowing an ambiguous PubChem CID by the name PTFI gave."""
+granularity, resolution by whichever public id keys a chemical, verbatim
+evidence, and narrowing an ambiguous PubChem CID by the name PTFI gave."""
 
 from __future__ import annotations
 
@@ -39,23 +40,39 @@ _ENTITIES = pd.DataFrame(
             "common_name": "quercitrin",
             "external_ids": {"pubchem_compound": [5192]},
         },
+        {
+            "foodatlas_id": "e40",
+            "entity_type": "chemical",
+            "common_name": "protein",
+            "external_ids": {"chebi": [36080], "fdc_nutrient": [1003]},
+        },
     ]
 ).set_index("foodatlas_id")
 
+_REL = {"source": "ptfi", "dataset": "PTFI vX", "platform": "LC-MS"}
+_PRX = {"source": "ptfi", "panel": "proximates", "unit": "g/100g"}
 
-def _edge(sample_id: str, cid: str, name: str, value: float) -> dict:
+
+def _edge(
+    sample_id: str,
+    chemical_key: str,
+    name: str,
+    value: float,
+    unit: str = "relative_abundance",
+    evidence: dict = _REL,
+) -> dict:
     return {
         "source_id": "ptfi",
         "head_native_id": "PTFI_FOOD:GGB100",
-        "tail_native_id": f"PTFI_CHEM:{cid}",
+        "tail_native_id": f"PTFI_CHEM:{chemical_key}",
         "edge_type": "contains",
         "raw_attrs": {
             "sample_id": sample_id,
+            "chemical_key": chemical_key,
             "chemical_name": name,
             "conc_value": value,
-            "conc_unit": "relative_abundance",
-            "dataset": "PTFI vX",
-            "platform": "LC-MS",
+            "conc_unit": unit,
+            "evidence": evidence,
         },
     }
 
@@ -72,7 +89,7 @@ class _Evidence:
     def create(self, rows: pd.DataFrame) -> pd.DataFrame:
         self.created = rows
         out = rows.copy()
-        out.index = pd.Index(["ev_ptfi"] * len(rows), name="evidence_id")
+        out.index = pd.Index("ev_" + rows["reference"].map(hash).astype(str))
         return out
 
 
@@ -113,14 +130,14 @@ class TestAmbiguityNarrowing:
         """CID 283 is both `formate` and a ChEBI class; PTFI said formate."""
         kg = _KG()
         resolved = _resolve_entities(
-            kg, pd.DataFrame([_edge("GGB100", "283", "formate", 1.0)])
+            kg, pd.DataFrame([_edge("GGB100", "pubchem:283", "formate", 1.0)])
         )
         assert list(resolved["_tail_id"]) == ["e20"]
 
     def test_name_match_is_case_insensitive(self) -> None:
         kg = _KG()
         resolved = _resolve_entities(
-            kg, pd.DataFrame([_edge("GGB100", "283", "FORMATE", 1.0)])
+            kg, pd.DataFrame([_edge("GGB100", "pubchem:283", "FORMATE", 1.0)])
         )
         assert list(resolved["_tail_id"]) == ["e20"]
 
@@ -128,7 +145,7 @@ class TestAmbiguityNarrowing:
         """Both entities are the same compound; PTFI cannot settle it, so keep both."""
         kg = _KG()
         resolved = _resolve_entities(
-            kg, pd.DataFrame([_edge("GGB100", "283", "methanoate", 1.0)])
+            kg, pd.DataFrame([_edge("GGB100", "pubchem:283", "methanoate", 1.0)])
         )
         assert set(resolved["_tail_id"]) == {"e20", "e21"}
 
@@ -139,7 +156,7 @@ class TestAmbiguityNarrowing:
                     "_tail_id": "e30",
                     "tail_candidates": ["e30"],
                     "_sample_id": "GGB100",
-                    "_cid": "5192",
+                    "_chemical_key": "pubchem:5192",
                     "raw_attrs": {"chemical_name": "quercitrin"},
                 }
             ]
@@ -147,13 +164,36 @@ class TestAmbiguityNarrowing:
         assert _prefer_named_chemical(df, _ENTITIES).equals(df)
 
 
+class TestChemicalKeys:
+    def test_chemical_keyed_by_chebi_resolves(self) -> None:
+        """Nutrient totals have no CID; the key names the id that resolves them."""
+        kg = _KG()
+        resolved = _resolve_entities(
+            kg,
+            pd.DataFrame([_edge("GGB100", "chebi:36080", "PRX_PROTEIN", 2000.0)]),
+        )
+        assert list(resolved["_tail_id"]) == ["e40"]
+
+    def test_chemical_keyed_by_fdc_nutrient_resolves(self) -> None:
+        kg = _KG()
+        resolved = _resolve_entities(
+            kg, pd.DataFrame([_edge("GGB100", "fdc_nutrient:1003", "protein", 1.0)])
+        )
+        assert list(resolved["_tail_id"]) == ["e40"]
+
+    def test_unknown_key_yields_nothing(self) -> None:
+        kg = _KG()
+        merge_ptfi_triplets(kg, _sources([_edge("GGB100", "chebi:1", "x", 1.0)]))
+        assert kg.attestations.rows is None
+
+
 class TestAttestations:
     def test_one_attestation_per_sample_not_per_food(self) -> None:
         """Two samples of one food must stay two measurements, not collapse."""
         kg = _KG()
         edges = [
-            _edge("GGB100", "5192", "quercitrin", 12.5),
-            _edge("GGB101", "5192", "quercitrin", 30.0),
+            _edge("GGB100", "pubchem:5192", "quercitrin", 12.5),
+            _edge("GGB101", "pubchem:5192", "quercitrin", 30.0),
         ]
         merge_ptfi_triplets(kg, _sources(edges))
         assert len(kg.attestations.rows) == 2
@@ -162,41 +202,40 @@ class TestAttestations:
 
     def test_concentration_passes_through_unconverted(self) -> None:
         kg = _KG()
-        rows = _attestation_rows(
-            kg,
-            _resolve_entities(
-                kg, pd.DataFrame([_edge("GGB100", "5192", "quercitrin", 12.5)])
-            ),
-        )
-        assert rows.iloc[0]["conc_unit"] == "relative_abundance"
-        assert rows.iloc[0]["conc_value"] == 12.5
-        assert rows.iloc[0]["conc_value_raw"] == "12.5"
-        assert rows.iloc[0]["source"] == "ptfi"
-        assert bool(rows.iloc[0]["validated"]) is True
+        edges = [
+            _edge("GGB100", "pubchem:5192", "quercitrin", 12.5),
+            _edge("GGB100", "chebi:36080", "PRX_PROTEIN", 2000.0, "mg/100g", _PRX),
+        ]
+        rows = _attestation_rows(kg, _resolve_entities(kg, pd.DataFrame(edges)))
+        rows = rows.set_index("_chemical_key")
+        assert rows.at["pubchem:5192", "conc_unit"] == "relative_abundance"
+        assert rows.at["pubchem:5192", "conc_value"] == 12.5
+        assert rows.at["pubchem:5192", "conc_value_raw"] == "12.5"
+        assert rows.at["chebi:36080", "conc_unit"] == "mg/100g"
+        assert rows.at["chebi:36080", "conc_value"] == 2000.0
+        assert set(rows["source"]) == {"ptfi"}
+        assert rows["validated"].all()
 
-    def test_evidence_records_the_dataset_and_platform(self) -> None:
+    def test_evidence_is_the_adapters_record_verbatim(self) -> None:
+        """One evidence row per PTFI panel, not one hand-built row for all."""
         kg = _KG()
-        _attestation_rows(
-            kg,
-            _resolve_entities(
-                kg, pd.DataFrame([_edge("GGB100", "5192", "quercitrin", 1.0)])
-            ),
-        )
-        reference = json.loads(kg.evidence.created.iloc[0]["reference"])
-        assert reference == {
-            "source": "ptfi",
-            "dataset": "PTFI vX",
-            "platform": "LC-MS",
-            "measure": "relative_abundance",
-        }
+        edges = [
+            _edge("GGB100", "pubchem:5192", "quercitrin", 1.0),
+            _edge("GGB100", "chebi:36080", "PRX_PROTEIN", 2000.0, "mg/100g", _PRX),
+        ]
+        rows = _attestation_rows(kg, _resolve_entities(kg, pd.DataFrame(edges)))
+        references = [json.loads(r) for r in kg.evidence.created["reference"]]
+        assert references == [_REL, _PRX]
+        assert set(kg.evidence.created["source_type"]) == {"ptfi"}
+        assert rows["evidence_id"].nunique() == 2
 
 
 class TestTriplets:
     def test_samples_of_one_food_collapse_to_one_triplet(self) -> None:
         kg = _KG()
         edges = [
-            _edge("GGB100", "5192", "quercitrin", 12.5),
-            _edge("GGB101", "5192", "quercitrin", 30.0),
+            _edge("GGB100", "pubchem:5192", "quercitrin", 12.5),
+            _edge("GGB101", "pubchem:5192", "quercitrin", 30.0),
         ]
         merge_ptfi_triplets(kg, _sources(edges))
         assert len(kg.triplets.rows.drop_duplicates(["head_id", "tail_id"])) == 1
@@ -216,5 +255,7 @@ class TestNoData:
 
     def test_unresolvable_sample_yields_nothing(self) -> None:
         kg = _KG()
-        merge_ptfi_triplets(kg, _sources([_edge("GGB_UNKNOWN", "5192", "x", 1.0)]))
+        merge_ptfi_triplets(
+            kg, _sources([_edge("GGB_UNKNOWN", "pubchem:5192", "x", 1.0)])
+        )
         assert kg.attestations.rows is None

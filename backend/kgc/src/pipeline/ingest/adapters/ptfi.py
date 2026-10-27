@@ -1,26 +1,31 @@
-"""PTFI adapter — foods, chemicals, and relative-abundance measurements.
+"""PTFI adapter — foods, chemicals, and per-sample concentration measurements.
 
-Reads the external-id-keyed source under ``data/PTFI/`` (produced once by
-``scripts/derive_ptfi_source.py``) and emits the three standard ingest
-artifacts. Keys are PTFI's own identifiers plus PubChem CIDs, never FoodAtlas
-entity ids, so entity resolution does the FoodOn-IRI dedup and id minting
-natively on every run.
+Reads the external-id-keyed source under ``data/PTFI/`` (written once per
+delivery by ``scripts/prepare_delivery.py``) and emits the three standard
+ingest artifacts. Keys are PTFI's own identifiers plus public chemical ids,
+never FoodAtlas entity ids, so entity resolution does the FoodOn-IRI dedup and
+id minting natively on every run.
 
-* ``nodes``  — one food per PTFI food group, one chemical per measured CID
+* ``nodes``  — one food per PTFI food group, one chemical per measured key
 * ``edges``  — one ``contains`` edge per (sample, chemical) measurement, carrying
-  the relative abundance the triplets stage turns into an attestation
-* ``xrefs``  — food → FoodOn IRI, chemical → PubChem CID, the keys Pass 2 links on
+  the value, its unit and the evidence record behind it; the triplets stage
+  turns each into an attestation
+* ``xrefs``  — food → FoodOn IRI; chemical → every public id it has
+  (:data:`~src.pipeline.ingest.ptfi_keys.CHEMICAL_KEYS` plus InChIKey), the
+  keys Pass 2 links on
+
+PTFI reports two kinds of value — LC-MS relative abundance from untargeted
+metabolomics and absolute ``mg/100g`` from its reference panels — each under
+its own evidence record. Both pass through unconverted.
 
 Only entities a measurement touches are emitted. PTFI identifies far more
-chemicals than it detects — 736 of its 1,022 new chemicals have no positive
-abundance in any sample — and a chemical with no measurement can carry no
+chemicals than it detects, and a chemical with no measurement can carry no
 triplet, so creating it would add an entity with no evidence behind it. Set
 :data:`INCLUDE_UNMEASURED` to keep them.
 """
 
 from __future__ import annotations
 
-import json
 import logging
 from typing import TYPE_CHECKING
 
@@ -36,6 +41,14 @@ from ..protocol import (
     serialize_raw_attrs,
     write_manifest,
 )
+from ..ptfi_keys import CHEMICAL_KEYS
+from .ptfi_source import (
+    CHEM_PREFIX,
+    read_chemicals,
+    read_evidence,
+    read_foods,
+    read_measurements,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -47,12 +60,15 @@ SOURCE_ID = "ptfi"
 # Emit entities with no measurement behind them (see module docstring).
 INCLUDE_UNMEASURED = False
 
-_FOOD_PREFIX = "PTFI_FOOD"  # native id namespace for a food group
-_CHEM_PREFIX = "PTFI_CHEM"  # native id namespace for a chemical (by CID)
+_CHEMICAL_COLUMNS = [key.column for key in CHEMICAL_KEYS]
+_CHEMICAL_XREFS = [
+    *((key.column, key.source) for key in CHEMICAL_KEYS),
+    ("inchikey", "inchikey"),
+]
 
 
 class PTFIAdapter:
-    """Parse the derived PTFI source into standardized ingest parquet."""
+    """Parse the prepared PTFI source into standardized ingest parquet."""
 
     @property
     def source_id(self) -> str:
@@ -67,10 +83,10 @@ class PTFIAdapter:
         output_dir.mkdir(parents=True, exist_ok=True)
         ptfi_dir = raw_dir / "PTFI"
 
-        foods = _read_foods(ptfi_dir / "ptfi_foods.csv")
-        chemicals = _read_chemicals(ptfi_dir / "ptfi_chemicals.csv")
-        measurements = _read_measurements(ptfi_dir / "ptfi_measurements.csv")
-        evidence = json.loads((ptfi_dir / "ptfi_evidence.json").read_text())
+        foods = read_foods(ptfi_dir / "ptfi_foods.csv")
+        chemicals = read_chemicals(ptfi_dir / "ptfi_chemicals.csv")
+        measurements = read_measurements(ptfi_dir / "ptfi_measurements.csv")
+        evidence = read_evidence(ptfi_dir / "ptfi_evidence.csv")
 
         total = len(foods) + len(chemicals) + len(measurements)
         progress(0, total)
@@ -102,31 +118,6 @@ class PTFIAdapter:
         return manifest
 
 
-# ---------------------------------------------------------------------- reading
-def _read_foods(path: Path) -> pd.DataFrame:
-    """PTFI food groups; ``sample_ids`` is the list of GGB ids in each group."""
-    foods = pd.read_csv(path).fillna("")
-    for column in ("ptfi_sample_ids", "synonyms", "food_groups"):
-        foods[column] = foods[column].map(_parse_list)
-    # The group's native id is its lowest sample id: stable, and every sample id
-    # is registered as an alias, so resolution survives the set changing.
-    foods["native_id"] = foods["ptfi_sample_ids"].map(
-        lambda ids: f"{_FOOD_PREFIX}:{min(ids)}"
-    )
-    return foods
-
-
-def _read_chemicals(path: Path) -> pd.DataFrame:
-    """Chemicals PTFI measured, keyed by PubChem CID."""
-    chemicals = pd.read_csv(path, dtype={"cid": str}).fillna("")
-    chemicals["native_id"] = _CHEM_PREFIX + ":" + chemicals["cid"]
-    return chemicals
-
-
-def _read_measurements(path: Path) -> pd.DataFrame:
-    return pd.read_csv(path, dtype={"cid": str}).fillna({"conc_unit": ""})
-
-
 def _drop_unmeasured(
     foods: pd.DataFrame, chemicals: pd.DataFrame, measurements: pd.DataFrame
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -138,7 +129,7 @@ def _drop_unmeasured(
     keep_foods = foods["ptfi_sample_ids"].map(
         lambda ids: bool(measured_samples.intersection(ids))
     )
-    keep_chemicals = chemicals["cid"].isin(set(measurements["cid"]))
+    keep_chemicals = chemicals["chemical_key"].isin(set(measurements["chemical_key"]))
 
     dropped_foods = int((~keep_foods).sum())
     dropped_chemicals = int((~keep_chemicals).sum())
@@ -182,9 +173,8 @@ def _build_nodes(foods: pd.DataFrame, chemicals: pd.DataFrame) -> pd.DataFrame:
             "node_type": "chemical",
             "raw_attrs": [
                 {
-                    "cid": row["cid"],
-                    "ptfi_id": row["ptfi_id"],
-                    "inchikey": row["inchikey"],
+                    column: row[column]
+                    for column in (*_CHEMICAL_COLUMNS, "ptfi_id", "inchikey")
                 }
                 for _, row in chemicals.iterrows()
             ],
@@ -194,45 +184,43 @@ def _build_nodes(foods: pd.DataFrame, chemicals: pd.DataFrame) -> pd.DataFrame:
 
 
 def _build_xrefs(foods: pd.DataFrame, chemicals: pd.DataFrame) -> pd.DataFrame:
-    """The external keys Pass 2 links on: FoodOn IRIs and PubChem CIDs."""
+    """The external keys Pass 2 links on: a food's FoodOn IRI, every public id
+    a chemical has."""
     with_iri = foods[foods["foodon_iri"] != ""]
-    food_xrefs = pd.DataFrame(
-        {
-            "source_id": SOURCE_ID,
-            "native_id": with_iri["native_id"],
-            "target_source": "foodon",
-            "target_id": with_iri["foodon_iri"],
-        }
-    )
-    chemical_xrefs = pd.DataFrame(
-        {
-            "source_id": SOURCE_ID,
-            "native_id": chemicals["native_id"],
-            "target_source": "pubchem",
-            "target_id": chemicals["cid"],
-        }
-    )
-    inchi = chemicals[chemicals["inchikey"] != ""]
-    inchi_xrefs = pd.DataFrame(
-        {
-            "source_id": SOURCE_ID,
-            "native_id": inchi["native_id"],
-            "target_source": "inchikey",
-            "target_id": inchi["inchikey"],
-        }
-    )
-    return pd.concat([food_xrefs, chemical_xrefs, inchi_xrefs], ignore_index=True)[
-        XREFS_COLUMNS
+    frames = [
+        pd.DataFrame(
+            {
+                "source_id": SOURCE_ID,
+                "native_id": with_iri["native_id"],
+                "target_source": "foodon",
+                "target_id": with_iri["foodon_iri"],
+            }
+        )
     ]
+    for column, target_source in _CHEMICAL_XREFS:
+        present = chemicals[chemicals[column] != ""]
+        frames.append(
+            pd.DataFrame(
+                {
+                    "source_id": SOURCE_ID,
+                    "native_id": present["native_id"],
+                    "target_source": target_source,
+                    "target_id": present[column],
+                }
+            )
+        )
+    return pd.concat(frames, ignore_index=True)[XREFS_COLUMNS]
 
 
 def _build_edges(
-    foods: pd.DataFrame, measurements: pd.DataFrame, evidence: dict
+    foods: pd.DataFrame, measurements: pd.DataFrame, evidence: dict[str, dict]
 ) -> pd.DataFrame:
     """One ``contains`` edge per measurement, head resolved to its food group.
 
-    ``sample_id`` rides along in ``raw_attrs`` so the triplets stage can keep one
-    attestation per physical sample even though the head is the collapsed group.
+    ``sample_id`` and ``chemical_key`` ride along in ``raw_attrs`` so the
+    triplets stage can keep one attestation per physical sample even though the
+    head is the collapsed group, and resolve the chemical by whichever public
+    id keys it.
     """
     sample_to_food = {
         sample_id: native_id
@@ -253,16 +241,16 @@ def _build_edges(
         {
             "source_id": SOURCE_ID,
             "head_native_id": edges["head_native_id"],
-            "tail_native_id": _CHEM_PREFIX + ":" + edges["cid"],
+            "tail_native_id": CHEM_PREFIX + ":" + edges["chemical_key"],
             "edge_type": "contains",
             "raw_attrs": [
                 {
                     "sample_id": row["sample_id"],
+                    "chemical_key": row["chemical_key"],
                     "chemical_name": row["chemical_name"],
                     "conc_value": row["conc_value"],
                     "conc_unit": row["conc_unit"],
-                    "dataset": evidence.get("dataset", ""),
-                    "platform": evidence.get("platform", ""),
+                    "evidence": evidence[row["evidence_id"]],
                 }
                 for _, row in edges.iterrows()
             ],
@@ -279,16 +267,3 @@ def _write_outputs(
         serialize_raw_attrs(df).to_parquet(path, index=False)
         files.append(str(path))
     return files
-
-
-# ---------------------------------------------------------------------- helpers
-def _parse_list(cell: object) -> list:
-    if isinstance(cell, list):
-        return cell
-    if isinstance(cell, str) and cell.strip():
-        try:
-            value = json.loads(cell)
-        except json.JSONDecodeError:
-            return []
-        return value if isinstance(value, list) else []
-    return []
