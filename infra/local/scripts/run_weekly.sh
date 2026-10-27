@@ -199,6 +199,19 @@ run_gemma() {
     [[ -f "$input" ]] || { echo "ERROR: Gemma input missing: $input" >&2; exit 1; }
     mkdir -p "$out_dir"
 
+    # A week with no new sentences is a clean stop, not a crash: write the
+    # (empty) extraction marker without touching a GPU, and don't publish an
+    # unchanged graph under a new version number.
+    if [[ "$(tail -n +2 "$input" | grep -c . || true)" -eq 0 ]]; then
+        log "  No new sentences this week — writing empty extraction marker (no GPU needed)."
+        cd "$IE_DIR"
+        uv run python -m src.pipeline.extraction.gemma.runner \
+            --input_path "$input" --output_dir "$out_dir" 2>&1 | tee -a "$LOG_DIR/ie.log"
+        convert_predictions "$out_dir"
+        log "Nothing new this week — stopping without publishing (graph unchanged)."
+        exit 0
+    fi
+
     wait_for_gpus "$GEMMA_GPUS"
     write_gemma_sbatch "$sbatch" "$out_dir" "$input"
     submit_and_wait "$sbatch"

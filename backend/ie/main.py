@@ -9,6 +9,9 @@ from pathlib import Path
 import click
 from src.models.settings import IESettings
 from src.pipeline.runner import IERunner
+from src.pipeline.search.pending_ledger import LEDGER_NAME, PendingLedger
+from src.pipeline.search.pending_rebuild import rebuild as rebuild_ledger
+from src.pipeline.search.runner import _scan_cached_pmcids
 from src.pipeline.stages import IEStage
 
 
@@ -83,6 +86,37 @@ def list_stages() -> None:
     """List available pipeline stages."""
     for s in IEStage:
         click.echo(f"  {s.value}: {s.name}")
+
+
+@cli.command("pending")
+@click.option(
+    "--rebuild",
+    is_flag=True,
+    help="Rebuild outputs/search/pending.tsv from past run dirs and the BioC cache.",
+)
+@click.pass_context
+def pending(ctx: click.Context, rebuild: bool) -> None:
+    """Show, or --rebuild, the ledger of articles still waiting for PMC full text."""
+    settings: IESettings = ctx.obj["settings"]
+    outputs = Path.cwd() / "outputs"
+    path = outputs / "search" / LEDGER_NAME
+    if rebuild:
+        bioc_dir = Path(settings.bioc_pmc_dir)
+        ledger = rebuild_ledger(
+            outputs / "search",
+            outputs / "extraction",
+            bioc_dir,
+            _scan_cached_pmcids(bioc_dir),
+            settings.resolved_date,
+        )
+        ledger.save()
+    else:
+        ledger = PendingLedger.load(path)
+    waiting = sum(1 for r in ledger.rows.values() if not r.handed_to)
+    click.echo(
+        f"{path}: {len(ledger.rows)} rows — {waiting} awaiting PMC full text, "
+        f"{len(ledger.rows) - waiting} handed to a run"
+    )
 
 
 if __name__ == "__main__":

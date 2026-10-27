@@ -16,6 +16,7 @@ from pathlib import Path
 import pandas as pd
 
 from .bioc_fetch import fetch_missing
+from .pending_ledger import LEDGER_NAME, PendingLedger, summary_line
 from .pubmed_search import (
     get_pmcid_pmid_mapping,
     load_data,
@@ -82,8 +83,10 @@ def run_search(
     max_date: str | None = None,
     fetch_workers: int = 6,
     fetch_timeout: float = 30.0,
+    extraction_base_dir: str | None = None,
 ) -> None:
-    """Entrez search → set-diff against local BioC cache → fetch missing articles."""
+    """Entrez search → set-diff against local BioC cache → fetch missing articles,
+    plus whatever the pending ledger says is due from earlier runs."""
     if min_date is None:
         min_date = _latest_run_date(output_base_dir, current_date)
         if min_date:
@@ -134,22 +137,34 @@ def run_search(
     missing_path.write_text("\n".join(missing) + ("\n" if missing else ""))
     log.info("  missing=%d  -> %s", len(missing), missing_path)
 
-    if not missing:
+    # Earlier runs' articles that PMC did not have yet (or that a run fetched
+    # but never finished extracting) ride along with this week's fetch.
+    ledger = PendingLedger.load(Path(output_base_dir) / LEDGER_NAME)
+    extraction_base = Path(
+        extraction_base_dir or Path(output_base_dir).parent / "extraction"
+    )
+    counts = ledger.begin_run(current_date, results_path, cached, extraction_base)
+    to_fetch = sorted(set(missing) | set(ledger.due(current_date)))
+    counts["retried"] = len(to_fetch) - len(missing)
+
+    if not to_fetch:
         log.info("Nothing to fetch.")
+        _finish_ledger(ledger, counts)
         return
 
     email = os.environ.get("NCBI_EMAIL", "user@example.com")
     user_agent = f"foodatlas-ie/0.1 ({email})"
     fetch_log_path = run_dir / "fetch.log"
     log.info(
-        "Fetching %d articles (workers=%d, log=%s)",
-        len(missing),
+        "Fetching %d articles (%d retried from backlog; workers=%d, log=%s)",
+        len(to_fetch),
+        counts["retried"],
         fetch_workers,
         fetch_log_path,
     )
 
     result = fetch_missing(
-        missing,
+        to_fetch,
         bioc_path,
         max_workers=fetch_workers,
         timeout=fetch_timeout,
@@ -171,3 +186,20 @@ def run_search(
         len(result.not_in_oa),
         len(result.errors),
     )
+
+    outcome = ledger.record_fetch(
+        current_date,
+        to_fetch,
+        set(result.not_in_oa),
+        {p for p, _ in result.errors},
+        results_path,
+    )
+    counts["recovered"] += outcome["recovered"]
+    counts["deferred"] = outcome["deferred"]
+    _finish_ledger(ledger, counts)
+
+
+def _finish_ledger(ledger: PendingLedger, counts: dict[str, int]) -> None:
+    counts["carried"] = len(ledger.rows)
+    ledger.save()
+    log.info(summary_line(counts))

@@ -205,6 +205,7 @@ class IERunner:
             current_date=run_date,
             min_date=min_date,
             max_date=max_date,
+            extraction_base_dir=str(self._extraction_dir),
         )
 
         staging.rename(final)
