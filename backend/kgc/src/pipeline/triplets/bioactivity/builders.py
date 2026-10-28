@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING
 import pandas as pd
 
 from ....models.relationship import RelationshipType
+from ...ingest.adapters.bioactivity import PTFI_HEAD_PREFIX
 from ..utils import explode_external_ids
 
 if TYPE_CHECKING:
@@ -88,28 +89,50 @@ def _resolve_tail(kg: KnowledgeGraph, edges: pd.DataFrame) -> pd.DataFrame:
 
 
 def _resolve_head(kg: KnowledgeGraph, df: pd.DataFrame, head_kind: str) -> pd.DataFrame:
-    """Resolve the head: food by raw foodatlas_id (with existence guard),
-    chemical by PubChem CID via external_ids."""
+    """Resolve the head: food by FoodAtlas id or PTFI sample id, chemical by
+    PubChem CID via external_ids."""
     if df.empty:
         return df
     if head_kind == "food":
-        entities = kg.entities._entities
-        valid = set(entities.index[entities["entity_type"] == "food"])
-        df = df.assign(head_id=df["head_native_id"])
-        resolved = df[df["head_id"].isin(valid)]
-        orphans = len(df) - len(resolved)
-        if orphans:
-            logger.warning(
-                "Dropped %d food edges whose head is not a known food entity.",
-                orphans,
-            )
-        return resolved
+        return _resolve_food_head(kg, df)
 
     lookup = explode_external_ids(kg.entities._entities, "pubchem_compound")
     df = df.merge(lookup, left_on="head_native_id", right_on="native_id", how="inner")
     return df.rename(columns={"foodatlas_id": "head_id"}).drop(
         columns=["native_id", "candidates"]
     )
+
+
+def _resolve_food_head(kg: KnowledgeGraph, df: pd.DataFrame) -> pd.DataFrame:
+    """Two key kinds: a FoodAtlas id, kept only when it names a known food, and
+    a PTFI sample id, resolved through the food's external ids."""
+    entities = kg.entities._entities
+    is_sample = df["head_native_id"].str.startswith(PTFI_HEAD_PREFIX)
+    foods = set(entities.index[entities["entity_type"] == "food"])
+    lookup = explode_external_ids(entities, "ptfi")
+
+    by_id = df[~is_sample].assign(head_id=lambda d: d["head_native_id"])
+    by_id = by_id[by_id["head_id"].isin(foods)]
+    by_sample = df[is_sample].assign(
+        _sample_id=lambda d: d["head_native_id"].str.removeprefix(PTFI_HEAD_PREFIX)
+    )
+    by_sample = by_sample.merge(
+        lookup, left_on="_sample_id", right_on="native_id", how="inner"
+    )
+    by_sample = by_sample.rename(columns={"foodatlas_id": "head_id"}).drop(
+        columns=["_sample_id", "native_id", "candidates"]
+    )
+
+    samples = df["head_native_id"].str.removeprefix(PTFI_HEAD_PREFIX)
+    unresolved = (~is_sample & ~df["head_native_id"].isin(foods)) | (
+        is_sample & ~samples.isin(set(lookup["native_id"]))
+    )
+    if unresolved.any():
+        logger.warning(
+            "Dropped %d food edges whose head is not a known food entity.",
+            int(unresolved.sum()),
+        )
+    return pd.concat([by_id, by_sample], ignore_index=True)
 
 
 def _explode_measurements(df: pd.DataFrame, rel_id: str) -> pd.DataFrame:

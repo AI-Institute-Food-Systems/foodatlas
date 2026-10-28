@@ -15,9 +15,10 @@ from src.pipeline.ingest.adapters.bioactivity import (
     _build_nodes,
     _build_xrefs,
     _clean_str,
+    _food_heads,
     _parse_comma_list,
-    _parse_json_list,
 )
+from src.pipeline.ingest.adapters.bioactivity_passthrough import parse_json_list
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -25,12 +26,12 @@ if TYPE_CHECKING:
 
 class TestParsers:
     def test_parse_json_list_handles_string(self) -> None:
-        assert _parse_json_list('["a","b"]') == ["a", "b"]
+        assert parse_json_list('["a","b"]') == ["a", "b"]
 
     def test_parse_json_list_empty_and_nan(self) -> None:
-        assert _parse_json_list("") == []
-        assert _parse_json_list("   ") == []
-        assert _parse_json_list(float("nan")) == []  # type: ignore[arg-type]
+        assert parse_json_list("") == []
+        assert parse_json_list("   ") == []
+        assert parse_json_list(float("nan")) == []  # type: ignore[arg-type]
 
     def test_parse_comma_list(self) -> None:
         assert _parse_comma_list("a, b , ,c") == ["a", "b", "c"]
@@ -96,9 +97,16 @@ class TestBuilders:
             [
                 {
                     "foodatlas_id": "F1",
+                    "ptfi_sample_id": "",
                     "bioactivity_id": "B1",
                     "bioactivity_metadata_ids": '["bm1","bm2"]',
-                }
+                },
+                {
+                    "foodatlas_id": "",
+                    "ptfi_sample_id": "GGB100",
+                    "bioactivity_id": "B1",
+                    "bioactivity_metadata_ids": '["bm4"]',
+                },
             ]
         )
         chem_raw = pd.DataFrame(
@@ -113,10 +121,20 @@ class TestBuilders:
         edges = _build_edges(concepts, food_raw, chem_raw)
         types = sorted(edges["edge_type"].unique())
         assert types == ["exhibits", "is_a", "measured"]
+        exhibits = edges[edges["edge_type"] == "exhibits"]
+        assert list(exhibits["head_native_id"]) == ["F1", "ptfi:GGB100"]
         # is_a edge B1 -> B0 (from parent_label_ids on concepts row 1)
         is_a = edges[edges["edge_type"] == "is_a"]
         assert is_a.iloc[0]["head_native_id"] == "B1"
         assert is_a.iloc[0]["tail_native_id"] == "B0"
+
+
+class TestFoodHeads:
+    def test_foodatlas_id_else_prefixed_sample_id(self) -> None:
+        raw = pd.DataFrame(
+            {"foodatlas_id": ["e1", "", None], "ptfi_sample_id": ["", "GGB1", "GGB2"]}
+        )
+        assert list(_food_heads(raw)) == ["e1", "ptfi:GGB1", "ptfi:GGB2"]
 
 
 class TestAdapterEndToEnd:
@@ -143,6 +161,7 @@ class TestAdapterEndToEnd:
             [
                 {
                     "foodatlas_id": "F1",
+                    "ptfi_sample_id": "",
                     "bioactivity_id": "B1",
                     "bioactivity_metadata_ids": '["bm1"]',
                 }
@@ -296,6 +315,6 @@ class TestAdapterEndToEnd:
 
 def test_parse_json_list_returns_typed_list() -> None:
     """Regression: parsed list typed for mypy no-any-return."""
-    result = _parse_json_list(json.dumps(["x"]))
+    result = parse_json_list(json.dumps(["x"]))
     assert isinstance(result, list)
     assert result == ["x"]

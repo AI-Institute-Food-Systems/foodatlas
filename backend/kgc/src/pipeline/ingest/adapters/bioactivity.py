@@ -23,7 +23,6 @@ job of the entities and triplets stages.
 
 from __future__ import annotations
 
-import json
 import logging
 from typing import TYPE_CHECKING
 
@@ -38,6 +37,14 @@ from ..protocol import (
     serialize_raw_attrs,
     write_manifest,
 )
+from .bioactivity_passthrough import (
+    build_bioassays,
+    build_disease,
+    build_disease_targets,
+    build_food_chemical_efficacy,
+    build_measurements,
+    parse_json_list,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -46,23 +53,10 @@ logger = logging.getLogger(__name__)
 
 SOURCE_ID = "bioactivity"
 
-# Verbose source columns → canonical measurement schema (see KG plan).
-_MEASUREMENT_RENAME = {
-    "evidence_value_potency_value": "potency_value",
-    "evidence_value_potency_unit": "potency_unit",
-    "evidence_value_efficacy_zeroactivity": "efficacy_zeroactivity",
-    "evidence_value_efficacy_infiniteactivity": "efficacy_infiniteactivity",
-    "evidence_value_efficacy_logac50_value": "efficacy_logac50_value",
-    "evidence_value_efficacy_hillslope": "efficacy_hillslope",
-}
-
-# Efficacy source columns → clean lowercase snake_case (mixed-case cols become
-# case-sensitive quoted identifiers in Postgres COPY; normalize them up front).
-_EFFICACY_RENAME = {
-    "CID": "cid",
-    "food_conc_M": "food_conc_m",
-    "food_conc_logM": "food_conc_logm",
-}
+# Whole-food heads come in two key kinds. A bare FoodAtlas id names a food the
+# KG already has; this prefix marks a PTFI GGB sample id, the only stable key
+# for a food the PTFI delivery introduced (see ``ingest/prepare/bioactivity``).
+PTFI_HEAD_PREFIX = "ptfi:"
 
 
 class BioactivityAdapter:
@@ -95,11 +89,11 @@ class BioactivityAdapter:
         edges = _build_edges(concepts, food_raw, chem_raw)
         progress(total, total)
 
-        measurements = _build_measurements(bio_dir / "bioactivity_metadata.csv")
-        bioassays = _build_bioassays(bio_dir / "bioassay_metadata.csv")
-        efficacy = _build_food_chemical_efficacy(bio_dir / "food_chemical_efficacy.csv")
-        disease = _build_disease(bio_dir / "disease_bioactivity_triplets.csv")
-        targets = _build_disease_targets(bio_dir / "bioactivity_disease_metadata.csv")
+        measurements = build_measurements(bio_dir / "bioactivity_metadata.csv")
+        bioassays = build_bioassays(bio_dir / "bioassay_metadata.csv")
+        efficacy = build_food_chemical_efficacy(bio_dir / "food_chemical_efficacy.csv")
+        disease = build_disease(bio_dir / "disease_bioactivity_triplets.csv")
+        targets = build_disease_targets(bio_dir / "bioactivity_disease_metadata.csv")
 
         files = _write_outputs(
             output_dir,
@@ -139,7 +133,7 @@ def _build_nodes(concepts: pd.DataFrame) -> pd.DataFrame:
         name = str(row["common_name"]).lower().strip()
         synonyms = [name] if name else []
         synonym_types = ["name"] if name else []
-        for raw_syn in _parse_json_list(row["Synonyms"]):
+        for raw_syn in parse_json_list(row["Synonyms"]):
             syn = raw_syn.lower().strip()
             if syn and syn not in synonyms:
                 synonyms.append(syn)
@@ -156,7 +150,7 @@ def _build_nodes(concepts: pd.DataFrame) -> pd.DataFrame:
                 "raw_attrs": {
                     "description": _clean_str(row.get("Description")),
                     "last_modified": _clean_str(row.get("last_modified")),
-                    "external_database_ids": _parse_json_list(
+                    "external_database_ids": parse_json_list(
                         row["External_database_IDs"]
                     ),
                     "parent_label_ids": _parse_comma_list(row["parent_label_ids"]),
@@ -171,7 +165,7 @@ def _build_xrefs(concepts: pd.DataFrame) -> pd.DataFrame:
     rows: list[dict] = []
     for _, row in concepts.iterrows():
         native_id = str(row["bioactivity_id"])
-        for ext in _parse_json_list(row["External_database_IDs"]):
+        for ext in parse_json_list(row["External_database_IDs"]):
             if ":" in ext:
                 src, target_id = ext.split(":", 1)
                 rows.append(
@@ -191,7 +185,9 @@ def _build_edges(
     chem_raw: pd.DataFrame,
 ) -> pd.DataFrame:
     """Concatenate exhibits (food), measured (chemical), and is_a (hierarchy)."""
-    food = _build_assoc_edges(food_raw, "foodatlas_id", "exhibits")
+    food = _build_assoc_edges(
+        food_raw.assign(_head=_food_heads(food_raw)), "_head", "exhibits"
+    )
     chemical = _build_assoc_edges(chem_raw, "CID", "measured")
     hierarchy = _build_hierarchy_edges(concepts)
     return pd.concat([food, chemical, hierarchy], ignore_index=True)
@@ -201,7 +197,7 @@ def _build_assoc_edges(
     raw: pd.DataFrame, head_col: str, edge_type: str
 ) -> pd.DataFrame:
     """Build association edges, keeping each edge's ``bm…`` id list intact."""
-    meta_ids = raw["bioactivity_metadata_ids"].apply(_parse_json_list)
+    meta_ids = raw["bioactivity_metadata_ids"].apply(parse_json_list)
     return pd.DataFrame(
         {
             "source_id": SOURCE_ID,
@@ -211,6 +207,14 @@ def _build_assoc_edges(
             "raw_attrs": [{"bioactivity_metadata_ids": m} for m in meta_ids],
         }
     )
+
+
+def _food_heads(raw: pd.DataFrame) -> pd.Series:
+    """One key per whole-food edge: its FoodAtlas id, or ``ptfi:<sample id>``
+    when the prepare step re-keyed it onto a PTFI sample."""
+    foodatlas = raw["foodatlas_id"].fillna("").astype(str)
+    sample = raw["ptfi_sample_id"].fillna("").astype(str)
+    return foodatlas.where(foodatlas != "", PTFI_HEAD_PREFIX + sample)
 
 
 def _build_hierarchy_edges(concepts: pd.DataFrame) -> pd.DataFrame:
@@ -229,53 +233,6 @@ def _build_hierarchy_edges(concepts: pd.DataFrame) -> pd.DataFrame:
                 }
             )
     return pd.DataFrame(rows, columns=EDGES_COLUMNS)
-
-
-def _build_measurements(path: Path) -> pd.DataFrame:
-    """Typed passthrough of the per-measurement assay table (~3.7M rows)."""
-    df = pd.read_csv(path, low_memory=False)
-    return df.rename(columns=_MEASUREMENT_RENAME)
-
-
-def _build_bioassays(path: Path) -> pd.DataFrame:
-    """Assay-level metadata passthrough (one row per source_assay_id).
-
-    The assay dimension joined onto each measurement by source_assay_id; carries
-    description + target (name/organism/UniProt/Entrez) moved out of the
-    measurement table.
-    """
-    df = pd.read_csv(path, low_memory=False)
-    df["bioactivity_ids"] = df["bioactivity_ids"].apply(_parse_json_list)
-    return df
-
-
-def _build_food_chemical_efficacy(path: Path) -> pd.DataFrame:
-    """Typed passthrough of the foodxchemicalxbioactivity efficacy table.
-
-    One row per (``foodatlas_id``, ``cid``, ``bioactivity_id``); ``bioactivity_id``
-    is kept verbatim (an ``E300…`` concept or the literal ``"UNCLASSIFIED"``).
-    Numeric NaNs are preserved (they become COPY NULLs at load time).
-    """
-    df = pd.read_csv(path).rename(columns=_EFFICACY_RENAME)
-    df["saturated"] = df["saturated"].astype(bool)
-    return df
-
-
-def _build_disease(path: Path) -> pd.DataFrame:
-    """Disease↔assay bridge passthrough (Phase-2 input)."""
-    df = pd.read_csv(path)
-    df["relationship"] = df["relationship"].apply(_parse_json_list)
-    df["bioactivity_disease_metadata_id"] = df["bioactivity_disease_metadata_id"].apply(
-        _parse_json_list
-    )
-    return df
-
-
-def _build_disease_targets(path: Path) -> pd.DataFrame:
-    """Disease-metadata → bridging target ids passthrough (Phase-2 input)."""
-    df = pd.read_csv(path)
-    df["target_ids"] = df["target_ids"].apply(_parse_json_list)
-    return df
 
 
 def _write_outputs(
@@ -306,13 +263,6 @@ def _write_outputs(
         df.to_parquet(path)
         paths.append(str(path))
     return paths
-
-
-def _parse_json_list(cell: object) -> list[str]:
-    """Parse a JSON-array CSV cell (e.g. Synonyms, bioactivity_metadata_ids)."""
-    if not isinstance(cell, str) or not cell.strip():
-        return []
-    return list(json.loads(cell))
 
 
 def _parse_comma_list(cell: object) -> list[str]:
