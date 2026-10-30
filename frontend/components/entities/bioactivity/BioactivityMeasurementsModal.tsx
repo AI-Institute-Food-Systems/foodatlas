@@ -137,6 +137,9 @@ interface Props {
   selectedId?: string | null;
   relationship?: "r5" | "r6";
   headIsRow?: boolean;
+  // The page's Assay Source filter, so the modal opens on the same subset
+  // the "N assays" button counted.
+  initialSourceKind?: string;
 }
 
 const formatNumberShort = (n: number): string =>
@@ -154,6 +157,7 @@ const BioactivityMeasurementsModal = ({
   selectedId,
   relationship,
   headIsRow,
+  initialSourceKind = "",
 }: Props) => {
   const [fullRows, setFullRows] = useState<ModalRow[] | null>(null);
   const [isFetching, setIsFetching] = useState(false);
@@ -205,10 +209,10 @@ const BioactivityMeasurementsModal = ({
   // Every filter dimension back to its open-the-modal default. Shared by
   // the "Clear filters" control and the close/reselect effect below, so
   // the two cannot drift apart as dimensions are added.
-  const resetAllFilters = useCallback(() => {
+  const resetAllFilters = useCallback((sourceKind = "") => {
     setSearchTerm("");
     setOutcomeFilter("all");
-    setSourceFilter("");
+    setSourceFilter(sourceKind);
     setEvidenceTypeFilter([]);
     setCurrentPage(1);
   }, []);
@@ -222,10 +226,10 @@ const BioactivityMeasurementsModal = ({
   // Reset filters/page/expand when the modal closes or the underlying
   // selection changes (different chemical/food clicked).
   useEffect(() => {
-    resetAllFilters();
+    resetAllFilters(initialSourceKind);
     setMobileFiltersOpen(false);
     setExpandedKey(null);
-  }, [isOpen, selectedId, resetAllFilters]);
+  }, [isOpen, selectedId, initialSourceKind, resetAllFilters]);
 
   // Faceted counts — each dimension applies every OTHER active filter
   // (excluding its own) so the numbers stay in sync with what the modal
@@ -390,7 +394,7 @@ const BioactivityMeasurementsModal = ({
   // the reset control lives here rather than at either call site — one
   // definition, and neither surface can be the one that lacks it.
   const filtersOnlyPanel = (
-    <FilterPanelBody isDirty={isFiltersDirty} onReset={resetAllFilters}>
+    <FilterPanelBody isDirty={isFiltersDirty} onReset={() => resetAllFilters()}>
       <FiltersOnlyPanel
         outcomeFilter={outcomeFilter}
         outcomeCounts={outcomeCounts}

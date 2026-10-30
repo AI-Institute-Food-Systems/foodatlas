@@ -54,6 +54,13 @@ _BIO_FOOD_SORT = {
 }
 _VALID_DIR = {"ASC", "DESC"}
 
+# Per-pair counts over ALL measurements, stored by the ETL. The Assay Source
+# filter reads these, not the 25-row ``measurements`` sample.
+_SOURCE_COUNT_COL = {
+    "experimental": "experimental_count",
+    "predicted": "predicted_count",
+}
+
 # Columns that identify one row of each paginated MV.
 _MV_ROW_KEY = {
     "mv_chemical_bioactivity": ("chemical_foodatlas_id", "bioactivity_foodatlas_id"),
@@ -124,15 +131,12 @@ def _attach_top_measurement(
                 cleaned = [
                     m for m in cleaned if (m.get("evidence_type") or "") in wanted
                 ]
-        # Same treatment for the single-select Assay Source filter:
-        # keep only measurements matching the selected kind so the
-        # displayed "N assays" (and top_measurement, and the modal
-        # preview) reflect that subset. Also rewrite the row's
-        # measurement_count so the "Assays (experimental)" column
-        # renders the filtered number instead of the total.
-        if source_kind in ("experimental", "predicted"):
+        # Assay Source filter: narrow the sample the same way, and report
+        # the stored count for that kind as the row's "N assays".
+        stored = {kind: row.pop(col, None) for kind, col in _SOURCE_COUNT_COL.items()}
+        if source_kind in _SOURCE_COUNT_COL:
             cleaned = [m for m in cleaned if _source_kind_of(m) == source_kind]
-            row["measurement_count"] = len(cleaned)
+            row["measurement_count"] = stored[source_kind]
         row["measurements"] = cleaned
         row["top_measurement"] = _top_measurement_by_value(cleaned)
     return data
@@ -221,33 +225,25 @@ def _apply_evidence_type_filter(
 def _apply_source_kind_filter(
     where_parts: list[str],
     filter_source_kind: str,
-    measurements_col: str,
+    alias: str = "",
 ) -> None:
     """Single-select provenance filter.
 
-    ``"experimental"`` keeps rows with AT LEAST ONE experimental
-    measurement (source LIKE 'exp%'); ``"predicted"`` keeps rows with
-    at least one predicted/computational measurement
-    (source LIKE 'pred%'/'comp%'). Any other value — most importantly
-    ``"both"`` and the empty string (the frontend default) — is a
-    no-op, i.e. no filter applied.
-
-    Row exclusion at the SQL level is by EXISTS over the capped
-    measurements sample; the per-row count returned to the UI is
-    narrowed to the same subset in ``_attach_top_measurement`` so the
-    "Assays (experimental)" column reads consistently.
+    ``"experimental"`` / ``"predicted"`` keep rows with at least one
+    measurement of that kind, over the pair's full measurement set. Any
+    other value — ``"both"`` and the empty string included — is a no-op.
     """
-    if filter_source_kind == "experimental":
-        where_parts.append(
-            f"EXISTS (SELECT 1 FROM jsonb_array_elements({measurements_col}) m"
-            " WHERE lower(m->>'evidence_source') LIKE 'exp%')"
-        )
-    elif filter_source_kind == "predicted":
-        where_parts.append(
-            f"EXISTS (SELECT 1 FROM jsonb_array_elements({measurements_col}) m"
-            " WHERE lower(m->>'evidence_source') LIKE 'pred%'"
-            " OR lower(m->>'evidence_source') LIKE 'comp%')"
-        )
+    col = _SOURCE_COUNT_COL.get(filter_source_kind)
+    if col:
+        where_parts.append(f"{alias}{col} > 0")
+
+
+def _source_sort_col(sort_col: str, filter_source_kind: str) -> str:
+    """Sort by the filtered count when the Assay Source filter is on."""
+    col = _SOURCE_COUNT_COL.get(filter_source_kind)
+    if col and sort_col.endswith("measurement_count"):
+        return sort_col.removesuffix("measurement_count") + col
+    return sort_col
 
 
 async def _paginated(
@@ -295,7 +291,7 @@ async def _paginated(
         where_parts, params, filter_endpoint, filter_unit, has_filter
     )
     _apply_evidence_type_filter(where_parts, params, filter_evidence_type)
-    _apply_source_kind_filter(where_parts, filter_source_kind, "measurements")
+    _apply_source_kind_filter(where_parts, filter_source_kind)
     # Caller-supplied additional WHERE clauses (e.g., the Chemical
     # Category filter injected by get_chemicals).
     if extra_where:
@@ -314,7 +310,7 @@ async def _paginated(
     # When sorting by top value, materialise it as a SELECT-list
     # expression and ORDER BY it. Falls back gracefully (returns 0 rows
     # via NULLS LAST) when the row has no matching measurement.
-    order_expr = sort_col
+    order_expr = _source_sort_col(sort_col, filter_source_kind)
     extra_select = ""
     if sort_col == TOP_VALUE_SORT:
         if not has_filter:
@@ -339,7 +335,7 @@ async def _paginated(
     offset = rows_per_page * (page - 1)
     rows_result = await session.execute(
         text(f"""
-            SELECT {select_cols}{extra_select}
+            SELECT {select_cols}, experimental_count, predicted_count{extra_select}
             FROM {mv} WHERE {where}
             ORDER BY {order_expr} {sort_dir}{nulls}{tiebreak}
             OFFSET :offset ROWS FETCH FIRST :limit ROWS ONLY
@@ -591,6 +587,8 @@ async def get_food_inferred_bioactivities(
 ) -> dict[str, object]:
     """Bioactivities of the chemicals found in this food (transitive)."""
     sort_col = _INFERRED_SORT.get(sort_by, _INFERRED_SORT["concentration"])
+    if isinstance(sort_col, str):
+        sort_col = _source_sort_col(sort_col, filter_source_kind)
     direction = sort_dir.upper() if sort_dir.upper() in _VALID_DIR else "DESC"
     # Every column carries its own direction + NULLS LAST; a bare
     # `ORDER BY a, b DESC` would silently sort `a` ascending.
@@ -610,7 +608,7 @@ async def get_food_inferred_bioactivities(
             "(cb.bioactivity_name ILIKE :q OR fcc.chemical_name ILIKE :q)"
         )
         params["q"] = search_pattern
-    _apply_source_kind_filter(where_parts, filter_source_kind, "cb.measurements")
+    _apply_source_kind_filter(where_parts, filter_source_kind, "cb.")
     _apply_evidence_type_filter(
         where_parts, params, filter_evidence_type, "cb.measurements"
     )
@@ -646,6 +644,7 @@ async def get_food_inferred_bioactivities(
               fcc.chemical_foodatlas_id AS chemical_id,
               fcc.median_concentration,
               cb.measurement_count, cb.active_count, cb.inactive_count,
+              cb.experimental_count, cb.predicted_count,
               cb.measurements,
               eff.efficacy_fraction,
               eff.conc_vs_ac50,
@@ -941,17 +940,8 @@ def _sidebar_extra_where(
                 " AND ce.chemical_classification && :cats)"
             )
             params["cats"] = cats
-    if include_source_kind and filter_source_kind == "experimental":
-        where.append(
-            f"EXISTS (SELECT 1 FROM jsonb_array_elements({mv_alias}.measurements) m"
-            " WHERE (m->>'evidence_source') ILIKE 'exp%')"
-        )
-    elif include_source_kind and filter_source_kind == "predicted":
-        where.append(
-            f"EXISTS (SELECT 1 FROM jsonb_array_elements({mv_alias}.measurements) m"
-            " WHERE (m->>'evidence_source') ILIKE 'pred%'"
-            " OR (m->>'evidence_source') ILIKE 'comp%')"
-        )
+    if include_source_kind:
+        _apply_source_kind_filter(where, filter_source_kind, f"{mv_alias}.")
     if include_evidence_type and filter_evidence_type:
         etypes = [t.strip() for t in filter_evidence_type.split("+") if t.strip()]
         if etypes:
@@ -998,19 +988,8 @@ async def get_source_kind_counts(
             text(f"""
                 SELECT
                     COUNT(*) AS both,
-                    COUNT(*) FILTER (
-                        WHERE EXISTS (
-                            SELECT 1 FROM jsonb_array_elements(cb.measurements) m
-                            WHERE (m->>'evidence_source') ILIKE 'exp%'
-                        )
-                    ) AS experimental,
-                    COUNT(*) FILTER (
-                        WHERE EXISTS (
-                            SELECT 1 FROM jsonb_array_elements(cb.measurements) m
-                            WHERE (m->>'evidence_source') ILIKE 'pred%'
-                               OR (m->>'evidence_source') ILIKE 'comp%'
-                        )
-                    ) AS predicted
+                    COUNT(*) FILTER (WHERE cb.experimental_count > 0) AS experimental,
+                    COUNT(*) FILTER (WHERE cb.predicted_count > 0) AS predicted
                 FROM mv_food_chemical_composition fcc
                 JOIN mv_chemical_bioactivity cb
                   ON cb.chemical_foodatlas_id = fcc.chemical_foodatlas_id
@@ -1049,19 +1028,8 @@ async def get_source_kind_counts(
         text(f"""
             SELECT
                 COUNT(*) AS both,
-                COUNT(*) FILTER (
-                    WHERE EXISTS (
-                        SELECT 1 FROM jsonb_array_elements(mv.measurements) m
-                        WHERE (m->>'evidence_source') ILIKE 'exp%'
-                    )
-                ) AS experimental,
-                COUNT(*) FILTER (
-                    WHERE EXISTS (
-                        SELECT 1 FROM jsonb_array_elements(mv.measurements) m
-                        WHERE (m->>'evidence_source') ILIKE 'pred%'
-                           OR (m->>'evidence_source') ILIKE 'comp%'
-                    )
-                ) AS predicted
+                COUNT(*) FILTER (WHERE mv.experimental_count > 0) AS experimental,
+                COUNT(*) FILTER (WHERE mv.predicted_count > 0) AS predicted
             FROM {mv} mv
             WHERE {" AND ".join(where)}
         """),

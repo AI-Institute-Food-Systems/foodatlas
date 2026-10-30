@@ -928,6 +928,7 @@ const BioactivityTable = ({
         selectedId={selected?.id}
         relationship={modalConfig.relationship}
         headIsRow={modalConfig.headIsRow}
+        initialSourceKind={effectiveSourceKindParam}
       />
     </FilterPanel>
   );
