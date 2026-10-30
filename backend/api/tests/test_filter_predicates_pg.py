@@ -167,11 +167,13 @@ async def _load_bioactivity(session: AsyncSession) -> list[dict]:
                 "INSERT INTO mv_chemical_bioactivity (bioactivity_name,"
                 " bioactivity_foodatlas_id, chemical_name, chemical_foodatlas_id,"
                 " measurement_count, active_count, inactive_count,"
-                " unspecified_count, inconclusive_count, n_foods, measurements)"
+                " unspecified_count, inconclusive_count, experimental_count,"
+                " predicted_count, n_foods, measurements)"
                 " VALUES (:bioactivity_name, :bioactivity_foodatlas_id,"
                 " :chemical_name, :chemical_foodatlas_id, :measurement_count,"
                 " :active_count, :inactive_count, :unspecified_count,"
-                " :inconclusive_count, :n_foods, CAST(:measurements AS JSONB))"
+                " :inconclusive_count, :experimental_count, :predicted_count,"
+                " :n_foods, CAST(:measurements AS JSONB))"
             ),
             {**r, "measurements": _json(r["measurements"])},
         )
