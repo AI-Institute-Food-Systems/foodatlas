@@ -8,13 +8,15 @@ from typing import TYPE_CHECKING
 import pandas as pd
 import pytest
 from src.config.corrections import Corrections
-from src.pipeline.entities.resolve_secondary import (
-    create_unlinked_cdno,
+from src.pipeline.entities.resolve_fdc import (
     create_unlinked_fdc_foods,
     create_unlinked_fdc_nutrients,
-    link_cdno_to_chebi,
     link_fdc_foods_to_foodon,
     link_fdc_nutrients,
+)
+from src.pipeline.entities.resolve_secondary import (
+    create_unlinked_cdno,
+    link_cdno_to_chebi,
 )
 from src.pipeline.entities.utils.lut import EntityLUT
 from src.stores.entity_registry import EntityRegistry
@@ -270,6 +272,43 @@ def test_create_unlinked_fdc_foods(tmp_path: Path, registry: EntityRegistry) -> 
     create_unlinked_fdc_foods(sources, store, lut, linked, registry)
     assert len(store._entities) == 1
     assert store._entities.iloc[0]["common_name"] == "unlinked"
+
+
+def test_create_unlinked_fdc_foods_keeps_sr_legacy_metadata(
+    tmp_path: Path, registry: EntityRegistry
+) -> None:
+    """SR Legacy nodes carry USDA's metadata in raw_attrs; it lands on the entity
+    as attributes, with the scientific name promoted to its own field."""
+    store = _make_store_with_entities(tmp_path, [])
+    attrs = {
+        "fdc_data_type": "sr_legacy_food",
+        "ndb_number": "13000",
+        "fdc_category": "Beef Products",
+        "foodon_terms": ["http://purl.obolibrary.org/obo/FOODON_03302103"],
+        "scientific_name": "Bos taurus",
+    }
+    sources: dict[str, dict[str, pd.DataFrame]] = {
+        "fdc": {
+            "nodes": pd.DataFrame(
+                [
+                    {
+                        "native_id": "food:170000",
+                        "name": "beef, ground, 80% lean",
+                        "node_type": "food",
+                        "raw_attrs": attrs,
+                    }
+                ]
+            ),
+        },
+    }
+    create_unlinked_fdc_foods(sources, store, EntityLUT(), set(), registry)
+    entity = store._entities.iloc[0]
+    assert entity["external_ids"] == {"fdc": [170000]}
+    assert entity["scientific_name"] == "Bos taurus"
+    assert entity["attributes"] == {
+        k: v for k, v in attrs.items() if k != "scientific_name"
+    }
+    assert attrs["scientific_name"] == "Bos taurus", "the node row is not mutated"
 
 
 def test_create_unlinked_fdc_nutrients(

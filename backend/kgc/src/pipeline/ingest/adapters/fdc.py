@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from pathlib import Path
 
 import pandas as pd
 
@@ -14,17 +14,23 @@ from ..protocol import (
     serialize_raw_attrs,
     write_manifest,
 )
-
-if TYPE_CHECKING:
-    from pathlib import Path
+from .fdc_source import SOURCE_ID
+from .fdc_sr_legacy import build_sr_legacy
 
 logger = logging.getLogger(__name__)
 
-SOURCE_ID = "fdc"
-
 
 class FDCAdapter:
-    """Parse FDC CSV files into standardized ingest parquet."""
+    """Parse FDC CSV files into standardized ingest parquet.
+
+    Foundation Foods are always read from the newest ``FDC/FoodData_Central_*``
+    directory. *sr_legacy_dir* (absolute, or relative to the data dir) adds the
+    SR Legacy foods from a separate download as their own food nodes; it is off
+    by default so the weekly build is unaffected.
+    """
+
+    def __init__(self, sr_legacy_dir: str = "") -> None:
+        self._sr_legacy_dir = sr_legacy_dir
 
     @property
     def source_id(self) -> str:
@@ -40,6 +46,11 @@ class FDCAdapter:
         fdc_dir = _find_fdc_subdir(raw_dir / "FDC")
 
         nodes, edges, xrefs = _build_outputs(fdc_dir, progress)
+        if self._sr_legacy_dir:
+            sr_dir = _resolve_sr_legacy_dir(raw_dir, self._sr_legacy_dir)
+            sr_nodes, sr_edges = build_sr_legacy(sr_dir, progress)
+            nodes = pd.concat([nodes, pd.DataFrame(sr_nodes)], ignore_index=True)
+            edges = pd.concat([edges, sr_edges], ignore_index=True)
 
         nodes = serialize_raw_attrs(nodes)
         edges = serialize_raw_attrs(edges)
@@ -69,6 +80,16 @@ class FDCAdapter:
             len(xrefs),
         )
         return manifest
+
+
+def _resolve_sr_legacy_dir(raw_dir: Path, configured: str) -> Path:
+    sr_dir = Path(configured)
+    if not sr_dir.is_absolute():
+        sr_dir = raw_dir / configured
+    if not (sr_dir / "sr_legacy_food.csv").is_file():
+        msg = f"SR Legacy directory has no sr_legacy_food.csv: {sr_dir}"
+        raise FileNotFoundError(msg)
+    return sr_dir
 
 
 def _find_fdc_subdir(fdc_parent: Path) -> Path:

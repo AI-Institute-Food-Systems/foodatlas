@@ -4,13 +4,16 @@
   "output_dir": "outputs",
   "cache_dir": "outputs/cache",
   "ie_raw_dir": "../ie/outputs/extraction",
+  "fdc_sr_legacy_dir": "",
   "pipeline": {
     "stages": {
       "data_cleaning": {
         "output_dir": "outputs/data_cleaning"
       },
       "ingest": {
-        "disabled_sources": ["dmd"]
+        "disabled_sources": [
+          "dmd"
+        ]
       },
       "kg_init": {
         "previous_kg_entities": ""
@@ -18,13 +21,17 @@
       "trust": {
         "signal": "llm_plausibility",
         "version": "v1",
-        "source_filter": ["lit2kg:"],
+        "source_filter": [
+          "lit2kg:"
+        ],
         "limit": null,
         "batch_size": 50000,
         "batch_mode": false
       },
       "evaluation": {
-        "source_filter": ["lit2kg:"],
+        "source_filter": [
+          "lit2kg:"
+        ],
         "sample_size": 100,
         "seed": 42,
         "limit": null,
