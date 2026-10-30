@@ -32,6 +32,16 @@ def _num(x: float | None) -> float | None:
     return float(x)
 
 
+def _source_kind(src: str | None) -> str:
+    """Bucket a measurement's ``evidence_source`` for the Assay Source filter."""
+    s = (src or "").lower()
+    if s.startswith("exp"):
+        return "experimental"
+    if s.startswith(("pred", "comp")):
+        return "predicted"
+    return ""
+
+
 def materialize_bioactivity(conn: Connection) -> None:
     """Build all three bioactivity MVs from the base tables."""
     name_map = _name_map(conn)
@@ -117,10 +127,12 @@ def _aggregate(rows: list, assay_meta: dict[str, dict]) -> dict:
     enriched with its assay's metadata (``assay_meta``), joined by assay id.
     """
     outcome_counts: dict[str, int] = defaultdict(int)
+    source_counts: dict[str, int] = defaultdict(int)
     sample: list[dict] = []
     for i, r in enumerate(rows):
         outcome = r.reported_activity_outcome
         outcome_counts[outcome] += 1
+        source_counts[_source_kind(r.evidence_source)] += 1
         if i < _MEASUREMENTS_CAP:
             sample.append(
                 {
@@ -149,6 +161,8 @@ def _aggregate(rows: list, assay_meta: dict[str, dict]) -> dict:
         "inactive_count": outcome_counts["Inactive"],
         "unspecified_count": outcome_counts["Unspecified"],
         "inconclusive_count": outcome_counts["Inconclusive"],
+        "experimental_count": source_counts["experimental"],
+        "predicted_count": source_counts["predicted"],
         "measurements": sample,
     }
 
@@ -197,6 +211,8 @@ def materialize_chemical_bioactivity(
                 "inactive_count": agg["inactive_count"],
                 "unspecified_count": agg["unspecified_count"],
                 "inconclusive_count": agg["inconclusive_count"],
+                "experimental_count": agg["experimental_count"],
+                "predicted_count": agg["predicted_count"],
                 "n_foods": int(n_foods_map.get(chem_id, 0)),
                 "measurements": json.dumps(agg["measurements"]),
             }
@@ -216,6 +232,8 @@ def materialize_chemical_bioactivity(
             "inactive_count",
             "unspecified_count",
             "inconclusive_count",
+            "experimental_count",
+            "predicted_count",
             "n_foods",
             "measurements",
         ],
@@ -240,6 +258,8 @@ def materialize_food_bioactivity(
                 "bioactivity_name": name_map.get(bio_id, ""),
                 "bioactivity_foodatlas_id": bio_id,
                 "measurement_count": agg["measurement_count"],
+                "experimental_count": agg["experimental_count"],
+                "predicted_count": agg["predicted_count"],
                 "measurements": json.dumps(agg["measurements"]),
             }
         )
@@ -254,6 +274,8 @@ def materialize_food_bioactivity(
             "bioactivity_name",
             "bioactivity_foodatlas_id",
             "measurement_count",
+            "experimental_count",
+            "predicted_count",
             "measurements",
         ],
     )

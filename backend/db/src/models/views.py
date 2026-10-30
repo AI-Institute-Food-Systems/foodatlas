@@ -215,6 +215,8 @@ class MVChemicalBioactivity(Base):
     inactive_count: Mapped[int] = mapped_column(Integer, server_default="0")
     unspecified_count: Mapped[int] = mapped_column(Integer, server_default="0")
     inconclusive_count: Mapped[int] = mapped_column(Integer, server_default="0")
+    experimental_count: Mapped[int] = mapped_column(Integer, server_default="0")
+    predicted_count: Mapped[int] = mapped_column(Integer, server_default="0")
     # Distinct foods containing this chemical, computed at MV build time
     # from mv_food_chemical_composition. Surfaced server-side so the
     # /bioactivity/chemicals table can sort by it in O(log n) instead of
@@ -271,6 +273,8 @@ class MVFoodBioactivity(Base):
     bioactivity_name: Mapped[str] = mapped_column(Text, nullable=False)
     bioactivity_foodatlas_id: Mapped[str] = mapped_column(String(20), nullable=False)
     measurement_count: Mapped[int] = mapped_column(Integer, server_default="0")
+    experimental_count: Mapped[int] = mapped_column(Integer, server_default="0")
+    predicted_count: Mapped[int] = mapped_column(Integer, server_default="0")
     measurements: Mapped[list] = mapped_column(JSONB, server_default="[]")
 
     __table_args__ = (
