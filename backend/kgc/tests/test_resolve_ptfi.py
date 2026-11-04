@@ -1,5 +1,6 @@
-"""Tests for PTFI entity resolution — FoodOn-IRI dedup, CID linking, minting,
-and the registry registration that keeps PTFI ids stable across runs."""
+"""Tests for PTFI entity resolution — FoodOn-IRI dedup, linking chemicals by
+CID then ChEBI then FDC nutrient, minting, and the registry registration that
+keeps PTFI ids stable across runs."""
 
 from __future__ import annotations
 
@@ -30,8 +31,33 @@ class _Store:
         self._curr_eid = 1
 
 
+def _chemical(key: str, name: str, **ids: str) -> dict:
+    attrs = {"cid": "", "chebi": "", "fdc_nutrient": "", "ptfi_id": "", "inchikey": ""}
+    attrs.update(ids)
+    return {
+        "source_id": "ptfi",
+        "native_id": f"PTFI_CHEM:{key}",
+        "name": name,
+        "synonyms": [name],
+        "synonym_types": [],
+        "node_type": "chemical",
+        "raw_attrs": attrs,
+    }
+
+
+def _xref(native_id: str, target_source: str, target_id: str) -> dict:
+    return {
+        "source_id": "ptfi",
+        "native_id": native_id,
+        "target_source": target_source,
+        "target_id": target_id,
+    }
+
+
 def _sources() -> dict[str, dict[str, pd.DataFrame]]:
-    """One food with an IRI, one without; one chemical with a known CID, one new."""
+    """One food with an IRI, one without; chemicals: salicylic acid (known CID,
+    plus a ChEBI id), protein (ChEBI + FDC nutrient, no CID), quercitrin (new
+    CID), and myristate (new, CID + ChEBI)."""
     nodes = pd.DataFrame(
         [
             {
@@ -62,50 +88,34 @@ def _sources() -> dict[str, dict[str, pd.DataFrame]]:
                     "foodon_iri": "",
                 },
             },
-            {
-                "source_id": "ptfi",
-                "native_id": "PTFI_CHEM:77",
-                "name": "salicylic acid",
-                "synonyms": ["salicylic acid"],
-                "synonym_types": [],
-                "node_type": "chemical",
-                "raw_attrs": {"cid": "77", "ptfi_id": "", "inchikey": ""},
-            },
-            {
-                "source_id": "ptfi",
-                "native_id": "PTFI_CHEM:5192",
-                "name": "quercitrin",
-                "synonyms": ["quercitrin"],
-                "synonym_types": [],
-                "node_type": "chemical",
-                "raw_attrs": {
-                    "cid": "5192",
-                    "ptfi_id": "MET_PTF1",
-                    "inchikey": "AAA-B-C",
-                },
-            },
+            _chemical(
+                "pubchem:77",
+                "salicylic acid",
+                cid="77",
+                chebi="16914",
+                ptfi_id="MET_PTF7",
+            ),
+            _chemical("chebi:36080", "protein", chebi="36080", fdc_nutrient="1003"),
+            _chemical(
+                "pubchem:5192",
+                "quercitrin",
+                cid="5192",
+                ptfi_id="MET_PTF1",
+                inchikey="AAA-B-C",
+            ),
+            _chemical("pubchem:11005", "myristate", cid="11005", chebi="30807"),
         ]
     )
     xrefs = pd.DataFrame(
         [
-            {
-                "source_id": "ptfi",
-                "native_id": "PTFI_FOOD:GGB100",
-                "target_source": "foodon",
-                "target_id": _IRI,
-            },
-            {
-                "source_id": "ptfi",
-                "native_id": "PTFI_CHEM:77",
-                "target_source": "pubchem",
-                "target_id": "77",
-            },
-            {
-                "source_id": "ptfi",
-                "native_id": "PTFI_CHEM:5192",
-                "target_source": "pubchem",
-                "target_id": "5192",
-            },
+            _xref("PTFI_FOOD:GGB100", "foodon", _IRI),
+            _xref("PTFI_CHEM:pubchem:77", "chebi", "16914"),
+            _xref("PTFI_CHEM:pubchem:77", "pubchem", "77"),
+            _xref("PTFI_CHEM:chebi:36080", "chebi", "36080"),
+            _xref("PTFI_CHEM:chebi:36080", "fdc_nutrient", "1003"),
+            _xref("PTFI_CHEM:pubchem:5192", "pubchem", "5192"),
+            _xref("PTFI_CHEM:pubchem:11005", "pubchem", "11005"),
+            _xref("PTFI_CHEM:pubchem:11005", "chebi", "30807"),
         ]
     )
     return {"ptfi": {"nodes": nodes, "xrefs": xrefs}}
@@ -132,6 +142,24 @@ def _existing_store() -> _Store:
                 "external_ids": {"pubchem_compound": [77]},
                 "attributes": {},
             },
+            {
+                "foodatlas_id": "e21",
+                "entity_type": "chemical",
+                "common_name": "salicylate",
+                "scientific_name": "",
+                "synonyms": [],
+                "external_ids": {"chebi": [16914]},
+                "attributes": {},
+            },
+            {
+                "foodatlas_id": "e25",
+                "entity_type": "chemical",
+                "common_name": "protein",
+                "scientific_name": "",
+                "synonyms": [],
+                "external_ids": {"chebi": [36080]},
+                "attributes": {},
+            },
         ]
     )
 
@@ -143,6 +171,8 @@ def registry(tmp_path: Path) -> EntityRegistry:
     reg = EntityRegistry(path)
     reg.register("foodon", _IRI, "e10")
     reg.register("pubchem", "77", "e20")
+    reg.register("chebi", "16914", "e21")
+    reg.register("chebi", "36080", "e25")
     return reg
 
 
@@ -167,12 +197,27 @@ class TestPass2Linking:
     ) -> None:
         store, linked = _existing_store(), set()
         link_ptfi_chemicals(_sources(), store, linked, registry)
-        assert linked == {"PTFI_CHEM:77"}
+        assert "PTFI_CHEM:pubchem:77" in linked
 
-    def test_unknown_cid_is_left_for_pass_3(self, registry: EntityRegistry) -> None:
+    def test_cid_is_tried_before_chebi(self, registry: EntityRegistry) -> None:
+        """Salicylic acid's CID and ChEBI id resolve to different entities; the
+        CID wins, so the PTFI id lands on e20 and not on the ChEBI class."""
+        store, linked = _existing_store(), set()
+        link_ptfi_chemicals(_sources(), store, linked, registry)
+        assert store._entities.at["e20", "external_ids"]["ptfi"] == ["MET_PTF7"]
+        assert "ptfi" not in store._entities.at["e21", "external_ids"]
+
+    def test_chemical_without_a_cid_links_by_chebi(
+        self, registry: EntityRegistry
+    ) -> None:
+        store, linked = _existing_store(), set()
+        link_ptfi_chemicals(_sources(), store, linked, registry)
+        assert "PTFI_CHEM:chebi:36080" in linked
+
+    def test_unknown_keys_are_left_for_pass_3(self, registry: EntityRegistry) -> None:
         linked: set[str] = set()
         link_ptfi_chemicals(_sources(), _existing_store(), linked, registry)
-        assert "PTFI_CHEM:5192" not in linked
+        assert linked == {"PTFI_CHEM:pubchem:77", "PTFI_CHEM:chebi:36080"}
 
 
 class TestPass3Minting:
@@ -207,6 +252,19 @@ class TestPass3Minting:
         assert minted["external_ids"]["inchikey"] == ["AAA-B-C"]
         assert registry.resolve("pubchem", "5192") == [minted.name]
 
+    def test_minted_chemical_registers_every_key_it_has(
+        self, registry: EntityRegistry
+    ) -> None:
+        """A later ChEBI refresh bringing myristate in under 30807 must land on
+        this entity, not a duplicate."""
+        store, linked = _existing_store(), set()
+        link_ptfi_chemicals(_sources(), store, linked, registry)
+        create_unlinked_ptfi_chemicals(_sources(), store, EntityLUT(), linked, registry)
+        minted = store._entities[store._entities.common_name == "myristate"].iloc[0]
+        assert minted["external_ids"] == {"pubchem_compound": [11005], "chebi": [30807]}
+        assert registry.resolve("pubchem", "11005") == [minted.name]
+        assert registry.resolve("chebi", "30807") == [minted.name]
+
     def test_a_second_run_mints_nothing_and_moves_no_id(
         self, registry: EntityRegistry
     ) -> None:
@@ -239,4 +297,4 @@ class TestNoSource:
         link_ptfi_chemicals({}, store, linked, registry)
         create_unlinked_ptfi_foods({}, store, lut, linked, registry)
         create_unlinked_ptfi_chemicals({}, store, lut, linked, registry)
-        assert len(store._entities) == 2
+        assert len(store._entities) == 4

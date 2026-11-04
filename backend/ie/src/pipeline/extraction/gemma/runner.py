@@ -147,6 +147,19 @@ def _aggregate(out_dir: Path) -> Path:
     return output_path
 
 
+def _write_empty_output(df: pd.DataFrame, out_dir: Path) -> Path:
+    """A week with nothing to extract still gets extraction_predicted.tsv: the
+    pending ledger treats that file as the run's completion marker, and
+    aggregate.py reads it as an (empty) reference. No model is loaded."""
+    empty = df.assign(response=pd.Series(dtype=str))
+    if "answer" in empty.columns and "prob" not in empty.columns:
+        empty = empty.rename(columns={"answer": "prob"})
+    output_path = out_dir / "extraction_predicted.tsv"
+    empty.to_csv(output_path, sep="\t", index=False)
+    log.info("No sentences to extract — wrote empty %s", output_path)
+    return output_path
+
+
 def run_gemma_extraction(
     *,
     input_path: str,
@@ -179,6 +192,9 @@ def run_gemma_extraction(
 
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
+
+    if df.empty:
+        return str(_write_empty_output(df, out_dir))
 
     engine = _init_engine(
         model_dir, max_model_len, tensor_parallel_size, gpu_memory_utilization

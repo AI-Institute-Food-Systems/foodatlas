@@ -13,6 +13,7 @@ from src.pipeline.retrieval.sentence_retrieval import (
     _build_translated_queries,
     _is_valid_passage,
     _log_coverage,
+    _process_article,
     get_all_foods,
     get_filtered_sentences,
     pmcid_to_filepath,
@@ -25,6 +26,28 @@ if TYPE_CHECKING:
 def test_pmcid_to_filepath():
     result = pmcid_to_filepath("PMC123", "/data/BioC-PMC")
     assert str(result) == "/data/BioC-PMC/PMC123.xml"
+
+
+def test_process_article_keeps_fetched_pmcid_when_bioc_says_unknown():
+    """Every article the on-demand BioC API serves carries document id
+    'unknown'. The PMCID we were called with — the file's name — is the one
+    downstream can attribute and deduplicate, so it must survive."""
+    json_data = {
+        "documents": [
+            {
+                "id": "unknown",
+                "passages": [
+                    {
+                        "infons": {"section_type": "ABSTRACT", "type": "abstract"},
+                        "text": "Cocoa beans contain flavanols and other polyphenols.",
+                    }
+                ],
+            }
+        ]
+    }
+    df = _process_article(PunktSentenceTokenizer(), {}, "PMC42", ["cocoa"], json_data)
+    assert not df.empty
+    assert set(df["pmcid"]) == {"PMC42"}
 
 
 def test_is_valid_passage_valid():

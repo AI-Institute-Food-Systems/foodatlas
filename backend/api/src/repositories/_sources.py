@@ -20,9 +20,10 @@ DMD (Dairy Molecule Database) is retired from the public API surface
 `mv_food_chemical_composition` but is not selectable / filterable /
 countable via this API, so it is deliberately absent here.
 
-PTFI ships relative_abundance rather than mg/100g, so most of its rows
-have no median_concentration. They are still real composition evidence and
-are selectable / filterable / countable like any other source.
+PTFI ships two kinds of value: LC-MS relative_abundance rows, which have no
+median_concentration, and reference-panel mg/100g rows, which join the median
+like FDC. Both are real composition evidence and are selectable / filterable /
+countable like any other source.
 """
 
 from __future__ import annotations

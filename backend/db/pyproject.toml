@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "sqlalchemy>=2.0",
+    "greenlet>=3.3.2",
     "psycopg[binary]>=3.1",
     "pandas>=2.2",
     "pyarrow>=15.0",

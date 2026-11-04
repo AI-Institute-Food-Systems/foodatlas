@@ -199,6 +199,19 @@ run_gemma() {
     [[ -f "$input" ]] || { echo "ERROR: Gemma input missing: $input" >&2; exit 1; }
     mkdir -p "$out_dir"
 
+    # A week with no new sentences is a clean stop, not a crash: write the
+    # (empty) extraction marker without touching a GPU, and don't publish an
+    # unchanged graph under a new version number.
+    if [[ "$(tail -n +2 "$input" | grep -c . || true)" -eq 0 ]]; then
+        log "  No new sentences this week — writing empty extraction marker (no GPU needed)."
+        cd "$IE_DIR"
+        uv run python -m src.pipeline.extraction.gemma.runner \
+            --input_path "$input" --output_dir "$out_dir" 2>&1 | tee -a "$LOG_DIR/ie.log"
+        convert_predictions "$out_dir"
+        log "Nothing new this week — stopping without publishing (graph unchanged)."
+        exit 0
+    fi
+
     wait_for_gpus "$GEMMA_GPUS"
     write_gemma_sbatch "$sbatch" "$out_dir" "$input"
     submit_and_wait "$sbatch"
@@ -229,8 +242,13 @@ wait_for_gpus() {
 
 # Generate the date-parameterized sbatch file.
 write_gemma_sbatch() {
-    local sbatch="$1" out_dir="$2" input="$3" devices
+    local sbatch="$1" out_dir="$2" input="$3" devices site
     devices="$(seq -s, 0 $((GEMMA_GPUS - 1)))"
+    # Python puts ~/.local (pip --user) ahead of the env's site-packages, so a
+    # user-site install can shadow the env: a transformers upgrade there broke
+    # vLLM's Gemma config parsing and killed the Oct 16 and Oct 23 2026 runs.
+    # Putting the env first keeps the job hermetic; ~/.local stays a fallback.
+    site="$("$GEMMA_ENV/bin/python" -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')"
     cat > "$sbatch" <<SBATCH
 #!/usr/bin/env bash
 #SBATCH --job-name=gemma4-ie-$RUN_DATE
@@ -245,6 +263,7 @@ write_gemma_sbatch() {
 set -eo pipefail
 cd "$IE_DIR"
 export PATH="$GEMMA_ENV/bin:\$PATH"
+export PYTHONPATH="$site\${PYTHONPATH:+:\$PYTHONPATH}"
 export CUDA_VISIBLE_DEVICES=$devices
 export TOKENIZERS_PARALLELISM=false VLLM_LOGGING_LEVEL=WARNING
 "$GEMMA_ENV/bin/python" -m src.pipeline.extraction.gemma.runner \\

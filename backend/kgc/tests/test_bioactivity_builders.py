@@ -46,11 +46,15 @@ _ENTITIES = pd.DataFrame(
             "external_ids": {},
         },
         {
+            "entity_type": "food",
+            "external_ids": {"ptfi": ["GGB100", "GGB101"]},
+        },
+        {
             "entity_type": "chemical",
             "external_ids": {"pubchem_compound": ["123"]},
         },
     ],
-    index=["BIO1", "BIO2", "FOOD1", "CHEM1"],
+    index=["BIO1", "BIO2", "FOOD1", "FOOD2", "CHEM1"],
 )
 
 
@@ -74,6 +78,43 @@ def test_merge_food_bioactivity_passes_metadata_to_create() -> None:
     assert all(metadata["head_id"] == "FOOD1")
     assert all(metadata["tail_id"] == "BIO1")
     assert all(metadata["relationship_id"] == "r5")
+
+
+def test_merge_food_bioactivity_resolves_ptfi_sample_ids() -> None:
+    """A head the prepare step re-keyed onto a PTFI sample resolves through the
+    food's external ids; a bare id still needs to be a known food."""
+    edges = pd.DataFrame(
+        [
+            {
+                "source_id": "bioactivity",
+                "head_native_id": "ptfi:GGB101",
+                "tail_native_id": "B1",
+                "edge_type": "exhibits",
+                "raw_attrs": {"bioactivity_metadata_ids": ["bm1"]},
+            },
+            {
+                "source_id": "bioactivity",
+                "head_native_id": "FOOD1",
+                "tail_native_id": "B1",
+                "edge_type": "exhibits",
+                "raw_attrs": {"bioactivity_metadata_ids": ["bm2"]},
+            },
+            {
+                "source_id": "bioactivity",
+                "head_native_id": "ptfi:GGB999",
+                "tail_native_id": "B1",
+                "edge_type": "exhibits",
+                "raw_attrs": {"bioactivity_metadata_ids": ["bm3"]},
+            },
+        ]
+    )
+    kg = _make_kg(_ENTITIES)
+    merge_food_bioactivity(kg, {"bioactivity": {"edges": edges}})
+    metadata = kg.triplets.create.call_args.args[0]
+    assert dict(zip(metadata.index, metadata["head_id"], strict=False)) == {
+        "bm1": "FOOD2",
+        "bm2": "FOOD1",
+    }
 
 
 def test_merge_chemical_bioactivity_resolves_via_pubchem_cid() -> None:

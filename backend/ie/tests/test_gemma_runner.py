@@ -21,6 +21,7 @@ from src.pipeline.extraction.gemma.runner import (
     _ensure_path,
     _load_system_instructions,
     _parse_args,
+    run_gemma_extraction,
 )
 
 if TYPE_CHECKING:
@@ -37,6 +38,40 @@ class TestLoadSystemInstructions:
         path = tmp_path / "prompt.txt"
         path.write_text("  no marker here  ")
         assert _load_system_instructions(str(path)) == "no marker here"
+
+
+class TestEmptyInput:
+    def test_writes_empty_marker_without_loading_a_model(self, tmp_path: Path) -> None:
+        """A week with nothing to extract must end cleanly, not crash — and must
+        still leave extraction_predicted.tsv, which the pending ledger reads as
+        the run's completion marker."""
+        prompt = tmp_path / "prompt.txt"
+        prompt.write_text("Be precise.")
+        empty_input = tmp_path / "information_extraction_input.tsv"
+        columns = ["pmcid", "section", "matched_query", "sentence", "answer"]
+        pd.DataFrame(columns=columns).to_csv(empty_input, sep="\t", index=False)
+        out_dir = tmp_path / "extraction"
+
+        with patch(
+            "src.pipeline.extraction.gemma.runner._init_engine",
+            side_effect=AssertionError("a model was loaded for an empty input"),
+        ):
+            out = run_gemma_extraction(
+                input_path=str(empty_input),
+                output_dir=str(out_dir),
+                system_prompt_path=str(prompt),
+            )
+
+        written = pd.read_csv(out, sep="\t")
+        assert written.empty
+        assert list(written.columns) == [
+            "pmcid",
+            "section",
+            "matched_query",
+            "sentence",
+            "prob",
+            "response",
+        ]
 
 
 class TestBuildMessages:

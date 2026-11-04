@@ -295,7 +295,7 @@ Two categories: **artifact publishing** (lives next to the artifact being publis
 | `backend/kgc/scripts/sync-outputs-to-s3.sh` | Upload `backend/kgc/outputs/` to `s3://<bucket>/outputs/<ts>/`, write `manifest.json`, bump `outputs/LATEST` |
 | `backend/kgc/scripts/pull-data-from-s3.sh [version]` | Download `data/<latest>/` (or explicit `[version]`) into `backend/kgc/data/` |
 | `backend/kgc/scripts/pull-from-s3.sh [version]` | Download `outputs/<latest>/kg/` into `backend/kgc/data/PreviousFAKG/<ts>/` (the baseline for the next KGC run) |
-| `backend/kgc/scripts/derive_ptfi_source.py --delta-dir <dir> --kg-snapshot <dir>` | One-off: rewrite the PTFI delta's hardcoded entity ids into external ids (FoodOn IRIs, PubChem CIDs) under `data/PTFI/`, which `PTFIAdapter` reads. Re-run only when PTFI delivers a new delta |
+| `backend/kgc/scripts/prepare_delivery.py --delivery <dir> [--kg-snapshot <dir>]` | Once per bioactivity + PTFI delivery: rewrite it into the source files the adapters read — `data/PTFI/` (chemicals keyed CID → ChEBI → FDC nutrient, per-row evidence) and `data/Bioactivity/` (whole-food heads re-keyed onto PTFI sample ids). Cited entity ids resolve against the newest `data/PreviousFAKG/` snapshot; fails without writing if any id cannot be keyed. Follow with `sync-data-to-s3.sh` |
 | `backend/kgc/scripts/publish-bundle.sh <version> <summary-file> [--kgc-run <id>] [--release-date <YYYY-MM-DD>]` | Package a private KGC run as a public release bundle, upload to `s3://<downloads>/bundles/foodatlas-<version>/`, refresh `bundles/index.json` |
 | `backend/kgc/scripts/_lib.sh` | Shared bash helpers (CFN-output lookup, version pointer handling) used by the four sync/pull/publish scripts |
 

@@ -147,8 +147,9 @@ hashes, counts, and timestamps.
 class SourceAdapter(Protocol):
     @property
     def source_id(self) -> str: ...
-    def ingest(self, raw_dir: Path, output_dir: Path,
-               progress: ProgressCallback = ...) -> SourceManifest: ...
+    def ingest(
+        self, raw_dir: Path, output_dir: Path, progress: ProgressCallback = ...
+    ) -> SourceManifest: ...
 ```
 
 ### `IngestRunner` ([src/pipeline/ingest/runner.py](src/pipeline/ingest/runner.py))
@@ -286,15 +287,15 @@ checkpoint.
 ### Builder orchestration ([builder.py](src/pipeline/triplets/builder.py))
 
 ```python
-merge_food_ontology(kg, sources)               # food_food/foodon.py     (r2 IS_A)
-merge_chemical_ontology(kg, sources)           # chemical_chemical/chebi.py
-merge_chemical_ontology_cdno(kg, sources)      # chemical_chemical/cdno.py
-merge_chemical_ontology_dmd(kg, sources)       # chemical_chemical/dmd.py
-merge_chemical_ontology_foodatlas(kg, sources) # chemical_chemical/foodatlas.py
-merge_disease_ontology(kg, sources)            # disease_disease/ctd.py
-merge_fdc_triplets(kg, sources)                # food_chemical/fdc.py    (r1 CONTAINS)
-merge_ctd_triplets(kg, sources)                # chemical_disease/ctd.py (r3 / r4)
-merge_dmd_triplets(kg, sources)                # food_chemical/dmd.py
+merge_food_ontology(kg, sources)  # food_food/foodon.py     (r2 IS_A)
+merge_chemical_ontology(kg, sources)  # chemical_chemical/chebi.py
+merge_chemical_ontology_cdno(kg, sources)  # chemical_chemical/cdno.py
+merge_chemical_ontology_dmd(kg, sources)  # chemical_chemical/dmd.py
+merge_chemical_ontology_foodatlas(kg, sources)  # chemical_chemical/foodatlas.py
+merge_disease_ontology(kg, sources)  # disease_disease/ctd.py
+merge_fdc_triplets(kg, sources)  # food_chemical/fdc.py    (r1 CONTAINS)
+merge_ctd_triplets(kg, sources)  # chemical_disease/ctd.py (r3 / r4)
+merge_dmd_triplets(kg, sources)  # food_chemical/dmd.py
 ```
 
 Relationship IDs (see [src/models/relationship.py](src/models/relationship.py)):

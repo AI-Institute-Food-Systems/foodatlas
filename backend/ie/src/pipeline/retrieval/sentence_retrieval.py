@@ -127,7 +127,10 @@ def _process_article(
         raise ValueError(msg)
 
     document = documents[0]
-    pmcid = document["id"]
+    # Keep the PMCID we were called with: it is the file's name, taken from
+    # NCBI's own PMC-ids mapping. document["id"] is "unknown" in every article
+    # the on-demand BioC API serves; trusting it tagged whole weeks of new
+    # papers as unattributable and they were discarded downstream.
     translated = _build_translated_queries(queries, foods_trans_dict)
     result: dict[str, list[Any]] = {
         "pmcid": [],
