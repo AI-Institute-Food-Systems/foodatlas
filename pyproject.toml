@@ -26,6 +26,7 @@ select = [
 ]
 ignore = [
     "PLR0913",  # Too many arguments
+    "PLR0917",  # Too many positional arguments
     "PLR2004",  # Magic value comparison
 ]
 

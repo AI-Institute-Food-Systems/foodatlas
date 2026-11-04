@@ -31,7 +31,7 @@ const FormListbox = <T extends string>({
 }: FormListboxProps<T>) => (
   <Field>
     <Label className={LABEL_CLASS}>{label}</Label>
-    <Listbox value={value} onChange={onChange}>
+    <Listbox value={value as T} onChange={onChange}>
       <div className="relative mt-2">
         <ListboxButton
           className={twMerge(
