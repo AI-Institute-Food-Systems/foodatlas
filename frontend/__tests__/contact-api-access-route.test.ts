@@ -139,3 +139,82 @@ describe("POST /contact/send — API access", () => {
     expect(sentBody()).not.toContain("--- API access ---");
   });
 });
+
+describe("API ledger intake", () => {
+  const ledger = vi.fn();
+  const ledgerBody = () =>
+    JSON.parse(ledger.mock.calls[0][1].body as string) as Record<
+      string,
+      unknown
+    >;
+
+  beforeEach(() => {
+    ledger.mockReset().mockResolvedValue({ json: async () => ({ ok: true }) });
+    vi.stubGlobal("fetch", ledger);
+    vi.stubEnv("API_LEDGER_URL", "https://ledger.example/exec");
+    vi.stubEnv("API_LEDGER_INTAKE_TOKEN", "intake-token");
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("adds a valid API request after the email goes out", async () => {
+    const res = await post(BASE);
+    expect(res.status).toBe(200);
+    expect(send).toHaveBeenCalledOnce();
+    expect(ledger.mock.calls[0][0]).toBe("https://ledger.example/exec");
+    expect(ledgerBody()).toMatchObject({
+      action: "intake",
+      tab: "FoodAtlas",
+      token: "intake-token",
+      name: "Ada",
+      email: "ada@example.edu",
+      affiliation: "UC Davis",
+      message: "Building a nutrient explorer.",
+      useCategory: "Academic research",
+      commercial: "No",
+      dataNeeded: ["Foods", "Chemicals"],
+      volume: "<1k requests/day",
+      projectUrl: "https://lab.example.edu",
+    });
+  });
+
+  it("skips other topics and refused API requests", async () => {
+    await post({ ...BASE, topic: "General Inquiry" });
+    await post({ ...BASE, apiAccess: { ...VALID, termsAccepted: false } });
+    expect(ledger).not.toHaveBeenCalled();
+  });
+
+  it("does not add a row when the email fails", async () => {
+    send.mockRejectedValue(new Error("SES down"));
+    const res = await post(BASE);
+    expect(res.status).toBe(500);
+    expect(ledger).not.toHaveBeenCalled();
+  });
+
+  it("skips the ledger when the env is unset, as on previews", async () => {
+    vi.stubEnv("API_LEDGER_URL", "");
+    const res = await post(BASE);
+    expect(res.status).toBe(200);
+    expect(ledger).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["network failure", () => ledger.mockRejectedValue(new Error("down"))],
+    [
+      "refused write",
+      () =>
+        ledger.mockResolvedValue({
+          json: async () => ({ ok: false, error: "unauthorized" }),
+        }),
+    ],
+  ])("still succeeds for the requester on %s", async (_name, arrange) => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    arrange();
+    const res = await post(BASE);
+    expect(res.status).toBe(200);
+    expect(logged).toHaveBeenCalled();
+    logged.mockRestore();
+  });
+});
