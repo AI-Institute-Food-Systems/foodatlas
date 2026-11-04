@@ -1,6 +1,7 @@
 """Materialize search autocomplete and statistics tables."""
 
 import logging
+from typing import cast
 
 import pandas as pd
 from sqlalchemy import text
@@ -182,7 +183,8 @@ def _load_assoc_counts(conn: Connection) -> dict[str, int]:
     )
     counts: dict[str, int] = {}
     for sql in queries:
-        for fid, n in conn.execute(text(sql)).all():
+        rows = cast("list[tuple[str, int]]", conn.execute(text(sql)).all())
+        for fid, n in rows:
             counts[fid] = counts.get(fid, 0) + n
     return counts
 
