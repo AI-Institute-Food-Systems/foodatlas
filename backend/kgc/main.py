@@ -19,6 +19,9 @@ from src.stores.schema import DIR_DIAGNOSTICS
 from src.utils.orphans import write_orphans_jsonl
 from src.utils.unclassified import write_unclassified_jsonl
 
+# `report --fail-if-unchanged`: distinct from click's usage (2) and crash (1) codes.
+UNCHANGED_EXIT_CODE = 3
+
 _STAGE_NAMES = [s.name.lower() for s in PipelineStage]
 _VALID_STAGES = _STAGE_NAMES + [str(s.value) for s in PipelineStage]
 _VALID_SOURCES = [cls().source_id for cls in ALL_ADAPTERS]
@@ -155,8 +158,17 @@ def diagnostics_cmd(ctx: click.Context) -> None:
     help="Output format: 'markdown' (default) for release-notes bundled "
     "into the release zip, 'text' for the plaintext operator report.",
 )
+@click.option(
+    "--fail-if-unchanged",
+    is_flag=True,
+    help=f"Exit with code {UNCHANGED_EXIT_CODE} after writing the report when "
+    "the KG has no new or removed entities, triplets or attestations relative "
+    "to the previous snapshot (the weekly pipeline then skips publishing).",
+)
 @click.pass_context
-def report_cmd(ctx: click.Context, output: str | None, fmt: str) -> None:
+def report_cmd(
+    ctx: click.Context, output: str | None, fmt: str, fail_if_unchanged: bool
+) -> None:
     """Compare old v3.3 KG with current KG and emit a release report."""
     settings: KGCSettings = ctx.obj["settings"]
     old_kg = load_old_kg(settings.data_dir)
@@ -172,6 +184,10 @@ def report_cmd(ctx: click.Context, output: str | None, fmt: str) -> None:
         click.echo(f"Report written to {output}")
     else:
         click.echo(rendered)
+
+    if fail_if_unchanged and result.is_unchanged:
+        click.echo("KG unchanged since the previous snapshot.")
+        ctx.exit(UNCHANGED_EXIT_CODE)
 
 
 if __name__ == "__main__":
