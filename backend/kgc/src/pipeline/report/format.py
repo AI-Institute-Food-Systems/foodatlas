@@ -47,6 +47,8 @@ def format_changelog(result: KGDiffResult) -> str:
     (name/type changes) that belong in the plaintext report.
     """
     buf = StringIO()
+    if result.is_unchanged:
+        buf.write("_No changes since the previous release._\n\n")
     _md_entity_summary(buf, result.entity_summary)
     _md_triplet_summary(buf, result.triplet_summary)
     _md_source_coverage(buf, result.source_coverage)
