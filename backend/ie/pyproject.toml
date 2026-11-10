@@ -3,7 +3,7 @@ name = "foodatlas-ie"
 version = "0.1.0"
 description = "FoodAtlas information extraction"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.14"
 dependencies = [
     "datasets>=2.18",
     "nltk>=3.8",
@@ -54,9 +54,9 @@ packages = ["src"]
 dev = [
     "pytest>=8.0.0",
     "pytest-cov>=5.0.0",
-    "ruff==0.15.8",
+    "ruff==0.17.3",
     "mypy==1.15.0",
-    "bandit==1.8.3",
+    "bandit==1.9.4",
     "types-requests>=2.31.0",
     "types-tqdm>=4.66.0",
 ]

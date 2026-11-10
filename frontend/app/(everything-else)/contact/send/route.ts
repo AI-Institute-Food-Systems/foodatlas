@@ -12,7 +12,12 @@ import {
 } from "@/utils/formGuard";
 import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
 import { API_ACCESS_TOPIC } from "@/utils/apiAccessFields";
-import { apiAccessBlock, parseApiAccess } from "@/utils/apiAccessGuard";
+import {
+  ValidApiAccess,
+  apiAccessBlock,
+  parseApiAccess,
+} from "@/utils/apiAccessGuard";
+import { addToApiLedger } from "@/utils/apiLedgerIntake";
 
 const ses = new SESv2Client({
   region: process.env.AWS_REGION || "us-west-2",
@@ -59,6 +64,7 @@ export async function POST(request: NextRequest) {
     // (or an affiliation) the request can't be triaged, so refuse it here
     // rather than forwarding a half-filled row.
     let apiAccessSection = "";
+    let validApiAccess: ValidApiAccess | null = null;
     if (topicLabel === API_ACCESS_TOPIC) {
       const apiAccessV = parseApiAccess(apiAccess);
       if (!apiAccessV || !affiliationV) {
@@ -67,6 +73,7 @@ export async function POST(request: NextRequest) {
         );
       }
       apiAccessSection = apiAccessBlock(apiAccessV);
+      validApiAccess = apiAccessV;
     }
 
     // CONTACT_EMAIL is a JSON array so ops can fan-out to multiple
@@ -101,6 +108,16 @@ export async function POST(request: NextRequest) {
         },
       }),
     );
+
+    if (validApiAccess) {
+      await addToApiLedger({
+        name: nameV,
+        email: emailV,
+        affiliation: affiliationV,
+        message: messageV,
+        apiAccess: validApiAccess,
+      });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {
