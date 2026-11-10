@@ -49,6 +49,8 @@ CREATE TABLE mv_chemical_bioactivity (
     inactive_count        INTEGER DEFAULT 0,
     unspecified_count     INTEGER DEFAULT 0,
     inconclusive_count    INTEGER DEFAULT 0,
+    experimental_count    INTEGER DEFAULT 0,
+    predicted_count       INTEGER DEFAULT 0,
     n_foods               INTEGER DEFAULT 0,
     measurements          JSONB
 )
@@ -212,13 +214,31 @@ def chem_bioactivity_row(
     chemical: str,
     chem_id: str,
     measurements: Sequence[dict],
+    measurement_count: int | None = None,
+    experimental_count: int | None = None,
+    predicted_count: int | None = None,
 ) -> dict:
+    """An MV row as the ETL would store it.
+
+    The stored counts cover the pair's FULL measurement set, which can be
+    larger than the capped ``measurements`` sample; pass them explicitly
+    to model that.
+    """
+    sources = [(m.get("evidence_source") or "").lower() for m in measurements]
+    if experimental_count is None:
+        experimental_count = sum(s.startswith("exp") for s in sources)
+    if predicted_count is None:
+        predicted_count = sum(s.startswith(("pred", "comp")) for s in sources)
     return {
         "bioactivity_name": bioactivity,
         "bioactivity_foodatlas_id": "b1",
         "chemical_name": chemical,
         "chemical_foodatlas_id": chem_id,
-        "measurement_count": len(measurements),
+        "measurement_count": (
+            len(measurements) if measurement_count is None else measurement_count
+        ),
+        "experimental_count": experimental_count,
+        "predicted_count": predicted_count,
         "active_count": 0,
         "inactive_count": 0,
         "unspecified_count": 0,

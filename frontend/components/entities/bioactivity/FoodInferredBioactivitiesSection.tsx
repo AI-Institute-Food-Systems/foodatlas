@@ -677,6 +677,7 @@ const FoodInferredBioactivitiesSection = ({
         selectedId={selected?.row.bioactivity_id ?? null}
         relationship="r6"
         headIsRow={false}
+        initialSourceKind={effectiveSourceKind}
       />
       </div>
     </FilterPanel>
