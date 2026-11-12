@@ -13,7 +13,7 @@ import {
 
 // Downloads are gated like the API: free, but behind a key. Schema.org has
 // a field for exactly that distinction, so crawlers don't try the link raw.
-const ACCESS_CONDITIONS = `Free API key required; request one at ${SITE_URL}/contact?api-access`;
+const ACCESS_CONDITIONS = `Free API key required, for academic research only; request one at ${SITE_URL}/contact?api-access`;
 
 // The institute that builds and funds FoodAtlas. Its profiles are the ones
 // in the site footer.
