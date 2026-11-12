@@ -38,6 +38,7 @@ from src.repositories.bioactivity import (
     _source_kind_of,
     get_category_options,
     get_chemicals,
+    get_endpoint_options,
     get_evidence_type_counts,
     get_source_kind_counts,
 )
@@ -133,6 +134,23 @@ def _bioactivity_fixture() -> list[dict]:
             ],
         )
     )
+    # Its sample shows only "in vitro"/"uM", but assays past the 25-row cap
+    # add "in vivo" and "mg/kg". The filters must see the full set.
+    rows.append(
+        chem_bioactivity_row(
+            bioactivity=BIOACT,
+            chemical="past-cap",
+            chem_id="ccap",
+            measurements=[
+                measurement(
+                    evidence_type="in vitro", evidence_source="experimental", unit="uM"
+                )
+            ],
+            measurement_count=30,
+            evidence_types=["in vitro", "in vivo"],
+            units=["mg/kg", "uM"],
+        )
+    )
     # Decoy under a different bioactivity. A predicate that loses its
     # parentheses ORs across `bioactivity_name = :name` and drags this in.
     rows.append(
@@ -168,12 +186,12 @@ async def _load_bioactivity(session: AsyncSession) -> list[dict]:
                 " bioactivity_foodatlas_id, chemical_name, chemical_foodatlas_id,"
                 " measurement_count, active_count, inactive_count,"
                 " unspecified_count, inconclusive_count, experimental_count,"
-                " predicted_count, n_foods, measurements)"
+                " predicted_count, n_foods, evidence_types, units, measurements)"
                 " VALUES (:bioactivity_name, :bioactivity_foodatlas_id,"
                 " :chemical_name, :chemical_foodatlas_id, :measurement_count,"
                 " :active_count, :inactive_count, :unspecified_count,"
                 " :inconclusive_count, :experimental_count, :predicted_count,"
-                " :n_foods, CAST(:measurements AS JSONB))"
+                " :n_foods, :evidence_types, :units, CAST(:measurements AS JSONB))"
             ),
             {**r, "measurements": _json(r["measurements"])},
         )
@@ -209,8 +227,7 @@ def _oracle_evidence_type(rows: Sequence[dict], selected: Sequence[str]) -> set[
     return {
         r["chemical_name"]
         for r in rows
-        if r["bioactivity_name"] == BIOACT
-        and any(m["evidence_type"] in want for m in r["measurements"])
+        if r["bioactivity_name"] == BIOACT and want & set(r["evidence_types"])
     }
 
 
@@ -236,8 +253,7 @@ def _oracle_unit(rows: Sequence[dict], units: Sequence[str]) -> set[str]:
     return {
         r["chemical_name"]
         for r in rows
-        if r["bioactivity_name"] == BIOACT
-        and any(m["unit"] in want for m in r["measurements"])
+        if r["bioactivity_name"] == BIOACT and want & set(r["units"])
     }
 
 
@@ -333,6 +349,15 @@ class TestBioactivityFilterPredicates:
             )
             assert "mixed" in _names(got), et
 
+    async def test_filters_see_assays_past_the_sample_cap(
+        self, pg_session: AsyncSession
+    ) -> None:
+        """Values that only occur past the 25-row sample still match."""
+        await _load_bioactivity(pg_session)
+        for kwargs in ({"filter_evidence_type": "in vivo"}, {"filter_unit": "mg/kg"}):
+            got = await get_chemicals(pg_session, BIOACT, rows_per_page=100, **kwargs)
+            assert _names(got) == {"past-cap"}, kwargs
+
     async def test_no_predicate_leaks_across_bioactivities(
         self, pg_session: AsyncSession
     ) -> None:
@@ -383,6 +408,17 @@ class TestBioactivityCountsAgreeWithRows:
                 pg_session, BIOACT, rows_per_page=100, filter_evidence_type=et
             )
             assert by_type.get(et, 0) == got["metadata"]["total_rows"], et
+
+    async def test_counts_see_assays_past_the_sample_cap(
+        self, pg_session: AsyncSession
+    ) -> None:
+        await _load_bioactivity(pg_session)
+        ets = await get_evidence_type_counts(
+            pg_session, BIOACT, "bioactivity-chemicals"
+        )
+        assert {"evidence_type": "in vivo", "count": 1} in ets["data"]
+        units = await get_endpoint_options(pg_session, BIOACT, "bioactivity-chemicals")
+        assert {"endpoint": "", "unit": "mg/kg", "count": 1} in units["data"]
 
     async def test_source_kind_counts_match_rows(
         self, pg_session: AsyncSession

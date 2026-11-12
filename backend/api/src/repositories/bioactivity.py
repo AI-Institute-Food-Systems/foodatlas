@@ -122,9 +122,9 @@ def _attach_top_measurement(
         cleaned = _bioact_hotfix.clean_measurements(row.get("measurements"))
         # When the user has an evidence-type filter active, narrow the
         # sample so the per-row top_measurement (and modal preview)
-        # reflect the filtered set rather than the union. Row presence
-        # itself is already filtered in the SQL via EXISTS, so this is
-        # purely display.
+        # reflect the filtered set rather than the union. The SQL already
+        # filtered row presence; the ETL keeps at least one assay per
+        # evidence type in the sample, so this never empties it.
         if evidence_type:
             wanted = {t.strip() for t in evidence_type.split("+") if t.strip()}
             if wanted:
@@ -175,12 +175,17 @@ def _apply_endpoint_unit_filter(
     filter_endpoint: str,
     filter_unit: str,
     has_pair: bool,
-    measurements_col: str = "measurements",
+    alias: str = "",
 ) -> None:
-    """Endpoint+unit strict pair OR unit-only multi-select."""
+    """Endpoint+unit strict pair OR unit-only multi-select.
+
+    The unit-only filter reads ``units``, which covers every assay of the
+    pair. The pair filter reads the 25-row ``measurements`` sample, because
+    the top-value sort it serves reads that sample too.
+    """
     if has_pair:
         where_parts.append(
-            f"EXISTS (SELECT 1 FROM jsonb_array_elements({measurements_col}) m"
+            f"EXISTS (SELECT 1 FROM jsonb_array_elements({alias}measurements) m"
             " WHERE m->>'endpoint' = :ep AND m->>'unit' = :unit)"
         )
         params["ep"] = filter_endpoint
@@ -191,10 +196,7 @@ def _apply_endpoint_unit_filter(
     units = [u for u in filter_unit.split("+") if u]
     if not units:
         return
-    where_parts.append(
-        f"EXISTS (SELECT 1 FROM jsonb_array_elements({measurements_col}) m"
-        " WHERE m->>'unit' = ANY(:units))"
-    )
+    where_parts.append(f"{alias}units && :units")
     params["units"] = units
 
 
@@ -202,23 +204,19 @@ def _apply_evidence_type_filter(
     where_parts: list[str],
     params: dict,
     filter_evidence_type: str,
-    measurements_col: str = "measurements",
+    alias: str = "",
 ) -> None:
     """Multi-select evidence-type filter ('+'-separated).
 
-    Row qualifies when its measurements sample carries at least one
-    entry whose ``evidence_type`` is in the selected set (e.g.
-    ``in vitro+in vivo``). A single value still works (one-element set).
+    Row qualifies when any of its assays has an ``evidence_type`` in the
+    selected set (e.g. ``in vitro+in vivo``). A single value still works.
     """
     if not filter_evidence_type:
         return
     types = [t.strip() for t in filter_evidence_type.split("+") if t.strip()]
     if not types:
         return
-    where_parts.append(
-        f"EXISTS (SELECT 1 FROM jsonb_array_elements({measurements_col}) m"
-        " WHERE m->>'evidence_type' = ANY(:ets))"
-    )
+    where_parts.append(f"{alias}evidence_types && :ets")
     params["ets"] = types
 
 
@@ -609,16 +607,14 @@ async def get_food_inferred_bioactivities(
         )
         params["q"] = search_pattern
     _apply_source_kind_filter(where_parts, filter_source_kind, "cb.")
-    _apply_evidence_type_filter(
-        where_parts, params, filter_evidence_type, "cb.measurements"
-    )
+    _apply_evidence_type_filter(where_parts, params, filter_evidence_type, "cb.")
     _apply_endpoint_unit_filter(
         where_parts,
         params,
         filter_endpoint="",
         filter_unit=filter_unit,
         has_pair=False,
-        measurements_col="cb.measurements",
+        alias="cb.",
     )
     where = " AND ".join(where_parts)
 
@@ -708,12 +704,10 @@ async def get_endpoint_options(
     advertised "uM 20,222" while the whole table held 1,591 rows and
     filtering returned 1,465.
 
-    Counting over the MV's (capped) ``measurements`` sample is what makes
-    them agree: the filter uses the very same predicate, so the count is
-    exact by construction. The cap does hide units that appear only past
-    the 25th measurement of a pair — one of apple's 15 — but those cannot
-    be filtered on either, so listing them only offers a chip that returns
-    nothing.
+    Counting over the MV's ``units`` array is what makes them agree: the
+    filter uses the very same column, so the count is exact by
+    construction. ``units`` covers every assay of the pair, not only the
+    25-row ``measurements`` sample.
 
     Every OTHER sidebar dimension is applied, matching
     /food/composition/counts. ``endpoint`` is no longer returned: both
@@ -740,12 +734,12 @@ async def get_endpoint_options(
                         fcc.food_foodatlas_id,
                         cb.chemical_foodatlas_id,
                         cb.bioactivity_foodatlas_id,
-                        m->>'unit' AS unit
+                        u.unit
                     FROM mv_food_chemical_composition fcc
                     JOIN mv_chemical_bioactivity cb
                       ON cb.chemical_foodatlas_id
                        = fcc.chemical_foodatlas_id,
-                    LATERAL jsonb_array_elements(cb.measurements) AS m
+                    LATERAL unnest(cb.units) AS u(unit)
                     WHERE {where}
                 ) AS x
                 WHERE unit IS NOT NULL AND unit <> ''
@@ -777,9 +771,9 @@ async def get_endpoint_options(
         text(f"""
             SELECT unit, COUNT(*) AS count
             FROM (
-                SELECT DISTINCT mv.ctid, m->>'unit' AS unit
+                SELECT DISTINCT mv.ctid, u.unit
                 FROM {mv} AS mv,
-                LATERAL jsonb_array_elements(mv.measurements) AS m
+                LATERAL unnest(mv.units) AS u(unit)
                 WHERE {where}
             ) AS x
             WHERE unit IS NOT NULL AND unit <> ''
@@ -859,47 +853,6 @@ def _search_col_for(direction: str) -> str:
     return _SEARCH_COL_BY_DIRECTION.get(direction, "")
 
 
-def _attestation_facet_where(
-    *,
-    filter_evidence_type: str = "",
-    filter_source_kind: str = "",
-    search: str = "",
-    pair_exists_sql: str = "",
-) -> tuple[list[str], dict]:
-    """Facet predicates for the attestation-level unit/endpoint aggregate.
-
-    get_endpoint_options counts rows of base_attestations_bioactivity, not
-    MV rows, because the MV's ``measurements`` sample is capped at 25 per
-    pair and an MV-based rewrite would silently drop units that only occur
-    past the cap. So evidence type and source kind filter the attestation
-    columns directly.
-
-    ``search`` is different — it selects *pairs*, not measurements — so the
-    caller passes an EXISTS fragment against the relevant MV. That join can
-    only ever exclude whole pairs, never individual measurements, so the
-    unit list stays complete for the pairs that survive.
-    """
-    where: list[str] = []
-    params: dict = {}
-    if filter_evidence_type:
-        etypes = [t.strip() for t in filter_evidence_type.split("+") if t.strip()]
-        if etypes:
-            where.append("ba.evidence_type = ANY(:ets)")
-            params["ets"] = etypes
-    if filter_source_kind == "experimental":
-        where.append("ba.evidence_source ILIKE 'exp%'")
-    elif filter_source_kind == "predicted":
-        where.append(
-            "(ba.evidence_source ILIKE 'pred%' OR ba.evidence_source ILIKE 'comp%')"
-        )
-    if pair_exists_sql:
-        search_pattern = build_ilike_pattern(search)
-        if search_pattern:
-            where.append(pair_exists_sql)
-            params["sq"] = search_pattern
-    return where, params
-
-
 def _sidebar_extra_where(
     *,
     mv_alias: str,
@@ -926,10 +879,7 @@ def _sidebar_extra_where(
     if include_unit and filter_unit:
         units = [u for u in filter_unit.split("+") if u]
         if units:
-            where.append(
-                f"EXISTS (SELECT 1 FROM jsonb_array_elements({mv_alias}.measurements) m"
-                " WHERE m->>'unit' = ANY(:units))"
-            )
+            where.append(f"{mv_alias}.units && :units")
             params["units"] = units
     if include_category and filter_category:
         cats = [c for c in filter_category.split("+") if c]
@@ -945,10 +895,7 @@ def _sidebar_extra_where(
     if include_evidence_type and filter_evidence_type:
         etypes = [t.strip() for t in filter_evidence_type.split("+") if t.strip()]
         if etypes:
-            where.append(
-                f"EXISTS (SELECT 1 FROM jsonb_array_elements({mv_alias}.measurements) m"
-                " WHERE m->>'evidence_type' = ANY(:ets))"
-            )
+            where.append(f"{mv_alias}.evidence_types && :ets")
             params["ets"] = etypes
     if search_col:
         search_pattern = build_ilike_pattern(search)
@@ -1086,12 +1033,12 @@ async def get_evidence_type_counts(
                         fcc.food_foodatlas_id,
                         cb.chemical_foodatlas_id,
                         cb.bioactivity_foodatlas_id,
-                        m->>'evidence_type' AS evidence_type
+                        e.evidence_type
                     FROM mv_food_chemical_composition fcc
                     JOIN mv_chemical_bioactivity cb
                       ON cb.chemical_foodatlas_id
                        = fcc.chemical_foodatlas_id,
-                    LATERAL jsonb_array_elements(cb.measurements) AS m
+                    LATERAL unnest(cb.evidence_types) AS e(evidence_type)
                     WHERE {where}
                 ) AS x
                 WHERE evidence_type IS NOT NULL AND evidence_type <> ''
@@ -1121,9 +1068,9 @@ async def get_evidence_type_counts(
                 FROM (
                     SELECT DISTINCT
                         mv.ctid,
-                        m->>'evidence_type' AS evidence_type
+                        e.evidence_type
                     FROM {mv} AS mv,
-                    LATERAL jsonb_array_elements(mv.measurements) AS m
+                    LATERAL unnest(mv.evidence_types) AS e(evidence_type)
                     WHERE {where}
                 ) AS x
                 WHERE evidence_type IS NOT NULL AND evidence_type <> ''
