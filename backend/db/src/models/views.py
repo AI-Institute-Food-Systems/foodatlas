@@ -217,6 +217,8 @@ class MVChemicalBioactivity(Base):
     inconclusive_count: Mapped[int] = mapped_column(Integer, server_default="0")
     experimental_count: Mapped[int] = mapped_column(Integer, server_default="0")
     predicted_count: Mapped[int] = mapped_column(Integer, server_default="0")
+    evidence_types: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default="{}")
+    units: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default="{}")
     # Distinct foods containing this chemical, computed at MV build time
     # from mv_food_chemical_composition. Surfaced server-side so the
     # /bioactivity/chemicals table can sort by it in O(log n) instead of
@@ -253,47 +255,6 @@ class MVChemicalBioactivity(Base):
             "bioactivity_name",
             "n_foods",
             "chemical_foodatlas_id",
-            "bioactivity_foodatlas_id",
-            postgresql_using="btree",
-        ),
-    )
-
-
-class MVFoodBioactivity(Base):
-    """Denormalized food→bioactivity pairs with measurements.
-
-    One row per (food, bioactivity) from r5 (EXHIBITS) triplets.
-    """
-
-    __tablename__ = "mv_food_bioactivity"
-
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    food_name: Mapped[str] = mapped_column(Text, nullable=False)
-    food_foodatlas_id: Mapped[str] = mapped_column(String(20), nullable=False)
-    bioactivity_name: Mapped[str] = mapped_column(Text, nullable=False)
-    bioactivity_foodatlas_id: Mapped[str] = mapped_column(String(20), nullable=False)
-    measurement_count: Mapped[int] = mapped_column(Integer, server_default="0")
-    experimental_count: Mapped[int] = mapped_column(Integer, server_default="0")
-    predicted_count: Mapped[int] = mapped_column(Integer, server_default="0")
-    measurements: Mapped[list] = mapped_column(JSONB, server_default="[]")
-
-    __table_args__ = (
-        Index("ix_mv_fb_food", "food_name"),
-        Index("ix_mv_fb_bioactivity", "bioactivity_name"),
-        # Composite indexes for the paged sorts, row key included.
-        Index(
-            "ix_mv_fb_food_mcount_key",
-            "food_name",
-            "measurement_count",
-            "food_foodatlas_id",
-            "bioactivity_foodatlas_id",
-            postgresql_using="btree",
-        ),
-        Index(
-            "ix_mv_fb_bio_mcount_key",
-            "bioactivity_name",
-            "measurement_count",
-            "food_foodatlas_id",
             "bioactivity_foodatlas_id",
             postgresql_using="btree",
         ),

@@ -1,15 +1,15 @@
-"""Per-source counts in src.etl.materializer_bioactivity._aggregate."""
+"""Per-pair counts and filter arrays in src.etl.bioactivity_aggregate."""
 
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
-from src.etl.materializer_bioactivity import (
-    _MEASUREMENTS_CAP,
-    _aggregate,
-    _source_kind,
-    materialize_food_bioactivity,
+from src.etl.bioactivity_aggregate import (
+    MEASUREMENTS_CAP,
+    aggregate_pair,
+    source_kind,
 )
+from src.etl.materializer_bioactivity import materialize_food_bioactivity
 
 _MODULE = "src.etl.materializer_bioactivity"
 
@@ -31,9 +31,13 @@ _FIELDS = [
 ]
 
 
-def _row(source: str | None, outcome: str = "Active") -> SimpleNamespace:
+def _row(
+    source: str | None,
+    outcome: str = "Active",
+    **fields: object,
+) -> SimpleNamespace:
     return SimpleNamespace(
-        **dict.fromkeys(_FIELDS),
+        **{**dict.fromkeys(_FIELDS), **fields},
         evidence_source=source,
         reported_activity_outcome=outcome,
     )
@@ -41,29 +45,47 @@ def _row(source: str | None, outcome: str = "Active") -> SimpleNamespace:
 
 class TestSourceKind:
     def test_buckets(self):
-        assert _source_kind("Experimental") == "experimental"
-        assert _source_kind("predicted") == "predicted"
-        assert _source_kind("Computational") == "predicted"
-        assert _source_kind("curated") == ""
-        assert _source_kind(None) == ""
+        assert source_kind("Experimental") == "experimental"
+        assert source_kind("predicted") == "predicted"
+        assert source_kind("Computational") == "predicted"
+        assert source_kind("curated") == ""
+        assert source_kind(None) == ""
 
 
 class TestAggregateSourceCounts:
     def test_counts_cover_rows_past_the_sample_cap(self):
-        rows = [_row("Experimental")] * (_MEASUREMENTS_CAP + 5) + [
-            _row("predicted")
-        ] * 3
-        agg = _aggregate(rows, {})
-        assert len(agg["measurements"]) == _MEASUREMENTS_CAP
-        assert agg["measurement_count"] == _MEASUREMENTS_CAP + 8
-        assert agg["experimental_count"] == _MEASUREMENTS_CAP + 5
+        rows = [_row("Experimental")] * (MEASUREMENTS_CAP + 5) + [_row("predicted")] * 3
+        agg = aggregate_pair(rows, {})
+        assert len(agg["measurements"]) == MEASUREMENTS_CAP
+        assert agg["measurement_count"] == MEASUREMENTS_CAP + 8
+        assert agg["experimental_count"] == MEASUREMENTS_CAP + 5
         assert agg["predicted_count"] == 3
 
     def test_unknown_source_counts_toward_neither(self):
-        agg = _aggregate([_row("curated"), _row(None)], {})
+        agg = aggregate_pair([_row("curated"), _row(None)], {})
         assert agg["measurement_count"] == 2
         assert agg["experimental_count"] == 0
         assert agg["predicted_count"] == 0
+
+
+class TestAggregateFilterArrays:
+    def test_arrays_cover_rows_past_the_sample_cap(self):
+        rows = [_row("Experimental", evidence_type="in vitro", potency_unit="uM")]
+        rows *= MEASUREMENTS_CAP
+        rows.append(_row("Experimental", evidence_type="in vivo", potency_unit="mg/kg"))
+        agg = aggregate_pair(rows, {})
+        assert all(m["evidence_type"] == "in vitro" for m in agg["measurements"])
+        assert agg["evidence_types"] == ["in vitro", "in vivo"]
+        assert agg["units"] == ["mg/kg", "uM"]
+
+    def test_missing_values_are_left_out(self):
+        rows = [
+            _row("Experimental", evidence_type=None, potency_unit=float("nan")),
+            _row("Experimental", evidence_type="", potency_unit="uM"),
+        ]
+        agg = aggregate_pair(rows, {})
+        assert agg["evidence_types"] == []
+        assert agg["units"] == ["uM"]
 
 
 class TestFoodBioactivityColumns:
@@ -80,6 +102,11 @@ class TestFoodBioactivityColumns:
         ):
             materialize_food_bioactivity(MagicMock(), {"f1": "apple"}, {})
         df, cols = copy.call_args.args[2], copy.call_args.args[3]
-        assert {"experimental_count", "predicted_count"} <= set(cols)
+        assert {
+            "experimental_count",
+            "predicted_count",
+            "evidence_types",
+            "units",
+        } <= set(cols)
         assert df.loc[0, "experimental_count"] == 1
         assert df.loc[0, "predicted_count"] == 1
