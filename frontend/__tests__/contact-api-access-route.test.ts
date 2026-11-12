@@ -108,7 +108,7 @@ describe("POST /contact/send — API access", () => {
         "Data needed: Foods, Chemicals\n" +
         "Expected volume: <1k requests/day\n" +
         "Project URL: https://lab.example.edu\n" +
-        "Terms accepted: CC BY-NC 4.0 data license, non-commercial use only, cite FoodAtlas\n",
+        "Terms accepted: academic research only, CC BY-NC 4.0 data license, non-commercial use only, cite FoodAtlas\n",
     );
   });
 

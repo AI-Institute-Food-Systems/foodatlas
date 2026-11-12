@@ -57,7 +57,7 @@ Do not crawl the entity pages (/food/*, /chemical/*, /disease/*, /bioactivity/*)
 
 - [Public REST API, base ${API_URL}/v1](${API_URL}/docs): foods, chemicals, diseases, bioactivities, triplets, attestations, search, stats. JSON, paginated, \`Authorization: Bearer <key>\`.
 - [OpenAPI 3 spec](${API_URL}/openapi.json)
-- [Get a free API key](${SITE_URL}/contact?api-access): 60 req/min per key.
+- [Get a free API key](${SITE_URL}/contact?api-access): academic research only; 60 req/min per key.
 - [Developer guide](${SITE_URL}/developers)
 
 ## About
