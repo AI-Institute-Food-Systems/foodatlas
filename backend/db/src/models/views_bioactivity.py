@@ -5,7 +5,7 @@ on each ETL run; the API queries only these tables, not the base tables.
 """
 
 from sqlalchemy import BigInteger, Boolean, Float, Index, Integer, String, Text
-from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base
@@ -166,3 +166,46 @@ class MVAssayTargetLabel(Base):
     # or "UniProt: Q16236" — so the join needs no string surgery.
     gene_id: Mapped[str] = mapped_column(String(64), primary_key=True)
     label: Mapped[str] = mapped_column(Text, server_default="")
+
+
+class MVFoodBioactivity(Base):
+    """Denormalized food→bioactivity pairs with measurements.
+
+    One row per (food, bioactivity) from r5 (EXHIBITS) triplets.
+    """
+
+    __tablename__ = "mv_food_bioactivity"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    food_name: Mapped[str] = mapped_column(Text, nullable=False)
+    food_foodatlas_id: Mapped[str] = mapped_column(String(20), nullable=False)
+    bioactivity_name: Mapped[str] = mapped_column(Text, nullable=False)
+    bioactivity_foodatlas_id: Mapped[str] = mapped_column(String(20), nullable=False)
+    measurement_count: Mapped[int] = mapped_column(Integer, server_default="0")
+    experimental_count: Mapped[int] = mapped_column(Integer, server_default="0")
+    predicted_count: Mapped[int] = mapped_column(Integer, server_default="0")
+    evidence_types: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default="{}")
+    units: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default="{}")
+    measurements: Mapped[list] = mapped_column(JSONB, server_default="[]")
+
+    __table_args__ = (
+        Index("ix_mv_fb_food", "food_name"),
+        Index("ix_mv_fb_bioactivity", "bioactivity_name"),
+        # Composite indexes for the paged sorts, row key included.
+        Index(
+            "ix_mv_fb_food_mcount_key",
+            "food_name",
+            "measurement_count",
+            "food_foodatlas_id",
+            "bioactivity_foodatlas_id",
+            postgresql_using="btree",
+        ),
+        Index(
+            "ix_mv_fb_bio_mcount_key",
+            "bioactivity_name",
+            "measurement_count",
+            "food_foodatlas_id",
+            "bioactivity_foodatlas_id",
+            postgresql_using="btree",
+        ),
+    )
