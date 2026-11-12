@@ -74,7 +74,6 @@ class TestAggregateFilterArrays:
         rows *= MEASUREMENTS_CAP
         rows.append(_row("Experimental", evidence_type="in vivo", potency_unit="mg/kg"))
         agg = aggregate_pair(rows, {})
-        assert all(m["evidence_type"] == "in vitro" for m in agg["measurements"])
         assert agg["evidence_types"] == ["in vitro", "in vivo"]
         assert agg["units"] == ["mg/kg", "uM"]
 
@@ -86,6 +85,45 @@ class TestAggregateFilterArrays:
         agg = aggregate_pair(rows, {})
         assert agg["evidence_types"] == []
         assert agg["units"] == ["uM"]
+
+
+class TestSampleCoverage:
+    def test_sample_keeps_one_assay_per_value_past_the_cap(self):
+        rows = [_row("Experimental", evidence_type="in vitro", potency_unit="uM")]
+        rows *= MEASUREMENTS_CAP + 10
+        rows.append(_row("predicted", evidence_type="in vivo", potency_unit="mg/kg"))
+        sample = aggregate_pair(rows, {})["measurements"]
+        assert len(sample) == MEASUREMENTS_CAP
+        assert {m["evidence_type"] for m in sample} == {"in vitro", "in vivo"}
+        assert {m["unit"] for m in sample} == {"mg/kg", "uM"}
+        assert {m["evidence_source"] for m in sample} == {"Experimental", "predicted"}
+
+    def test_sample_keeps_the_highest_value_per_value(self):
+        rows = [
+            _row("Experimental", evidence_type="in vitro", potency_value=float(i))
+            for i in range(MEASUREMENTS_CAP)
+        ]
+        rows += [
+            _row("Experimental", evidence_type="in vivo", potency_value=v)
+            for v in (None, 2.0, 9.0, 5.0)
+        ]
+        sample = aggregate_pair(rows, {})["measurements"]
+        in_vivo = [m["value"] for m in sample if m["evidence_type"] == "in vivo"]
+        assert in_vivo == [9.0]
+
+    def test_sample_keeps_original_order(self):
+        rows = [
+            _row("Experimental", evidence_type=et)
+            for et in ["in vitro"] * MEASUREMENTS_CAP + ["in vivo"]
+        ]
+        rows.insert(0, rows.pop())
+        sample = aggregate_pair(rows, {})["measurements"]
+        assert sample[0]["evidence_type"] == "in vivo"
+        assert len(sample) == MEASUREMENTS_CAP
+
+    def test_small_pairs_keep_every_row(self):
+        rows = [_row("Experimental"), _row("predicted")]
+        assert len(aggregate_pair(rows, {})["measurements"]) == 2
 
 
 class TestFoodBioactivityColumns:

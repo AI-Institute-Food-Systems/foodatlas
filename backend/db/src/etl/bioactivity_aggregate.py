@@ -58,6 +58,45 @@ def assay_meta_map(conn: Connection) -> dict[str, dict]:
     }
 
 
+def _sample_indices(rows: list) -> list[int]:
+    """Row indices for the capped display sample, in their original order.
+
+    The API narrows the sample by evidence type and assay source, and the
+    pair filter reads its units. So for each evidence type, source kind and
+    unit, the sample keeps the assay with the highest potency value. The
+    first rows fill the rest, up to the cap.
+    """
+    best: dict[tuple[str, str], int] = {}
+    for i, r in enumerate(rows):
+        value = _num(r.potency_value)
+        for key in (
+            ("evidence_type", _label(r.evidence_type)),
+            ("source_kind", source_kind(r.evidence_source)),
+            ("unit", _label(r.potency_unit)),
+        ):
+            if not key[1]:
+                continue
+            j = best.get(key)
+            if j is None:
+                best[key] = i
+                continue
+            other = _num(rows[j].potency_value)
+            if value is not None and (other is None or value > other):
+                best[key] = i
+    picked: list[int] = []
+    for kind in ("evidence_type", "source_kind", "unit"):
+        for (k, _), i in best.items():
+            if k == kind and i not in picked:
+                picked.append(i)
+    picked = picked[:MEASUREMENTS_CAP]
+    chosen = set(picked)
+    for i in range(len(rows)):
+        if len(chosen) >= MEASUREMENTS_CAP:
+            break
+        chosen.add(i)
+    return sorted(chosen)
+
+
 def aggregate_pair(rows: list, assay_meta: dict[str, dict]) -> dict:
     """One pass over a pair's measurement rows: counts and a display sample.
 
@@ -70,6 +109,7 @@ def aggregate_pair(rows: list, assay_meta: dict[str, dict]) -> dict:
     ``evidence_types`` and ``units`` cover every row, not only the sample, so
     the API's Evidence and Unit filters see every assay of the pair.
     """
+    in_sample = set(_sample_indices(rows))
     outcome_counts: dict[str, int] = defaultdict(int)
     source_counts: dict[str, int] = defaultdict(int)
     evidence_types: set[str] = set()
@@ -81,7 +121,7 @@ def aggregate_pair(rows: list, assay_meta: dict[str, dict]) -> dict:
         source_counts[source_kind(r.evidence_source)] += 1
         evidence_types.add(_label(r.evidence_type))
         units.add(_label(r.potency_unit))
-        if i < MEASUREMENTS_CAP:
+        if i in in_sample:
             sample.append(
                 {
                     "bioactivity_metadata_id": r.bioactivity_metadata_id,
