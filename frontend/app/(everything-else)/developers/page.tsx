@@ -14,7 +14,7 @@ import { buildMetadata } from "@/utils/site";
 export const metadata: Metadata = buildMetadata({
   title: "Public API for Developers",
   description:
-    "Programmatic access to the FoodAtlas knowledge graph. Authenticate with an API key, then call any /v1/ endpoint. Request a key via the contact form.",
+    "Programmatic access to the FoodAtlas knowledge graph for academic research. Authenticate with an API key, then call any /v1/ endpoint. Request a key via the contact form.",
   path: "/developers",
 });
 
@@ -136,8 +136,9 @@ const Developers = () => {
       <div className="mt-8">
         <Card>
           <p className="text-base font-light text-light-300">
-            Keys are issued by hand to keep the door open without inviting
-            abuse.{" "}
+            API keys are for academic research only: researchers and students
+            at universities and research institutes. Keys are issued by hand
+            to keep the door open without inviting abuse.{" "}
             <Link href="/contact?api-access" isExternal={false}>
               Request access via the contact form
             </Link>{" "}
