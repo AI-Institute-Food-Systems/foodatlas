@@ -14,6 +14,12 @@ from ...stores.schema import (
 )
 from ...utils.timing import log_duration
 from .resolve_dmd import create_chemicals_from_dmd, create_unlinked_dmd, link_dmd
+from .resolve_fdc import (
+    create_unlinked_fdc_foods,
+    create_unlinked_fdc_nutrients,
+    link_fdc_foods_to_foodon,
+    link_fdc_nutrients,
+)
 from .resolve_primary import (
     create_bioactivity_entities,
     create_chemicals_from_chebi,
@@ -26,14 +32,7 @@ from .resolve_ptfi import (
     link_ptfi_chemicals,
     link_ptfi_foods,
 )
-from .resolve_secondary import (
-    create_unlinked_cdno,
-    create_unlinked_fdc_foods,
-    create_unlinked_fdc_nutrients,
-    link_cdno_to_chebi,
-    link_fdc_foods_to_foodon,
-    link_fdc_nutrients,
-)
+from .resolve_secondary import create_unlinked_cdno, link_cdno_to_chebi
 from .utils.link_xrefs import link_mesh_to_chebi, link_pubchem_to_chebi
 from .utils.lut import EntityLUT
 

@@ -68,9 +68,10 @@ def _run_single_adapter(
     raw_dir: str,
     output_dir: str,
     queue: Any,
+    options: dict[str, str] | None = None,
 ) -> SourceManifest | str:
     """Run one adapter in a child process. Returns manifest or error string."""
-    adapter: SourceAdapter = adapter_cls()
+    adapter: SourceAdapter = adapter_cls(**(options or {}))
     try:
         out = Path(output_dir) / adapter.source_id
         cb = _make_queue_callback(queue, adapter.source_id)
@@ -110,7 +111,9 @@ class IngestRunner:
 
         logger.info("Launching %d ingest adapters.", len(adapters_to_run))
 
-        results = _run_with_progress(adapters_to_run, raw_dir, output_dir)
+        results = _run_with_progress(
+            adapters_to_run, raw_dir, output_dir, self._settings.adapter_options
+        )
 
         logger.info("All ingest adapters complete.")
         return results
@@ -177,8 +180,13 @@ def _run_with_progress(
     adapters: list[type],
     raw_dir: str,
     output_dir: str,
+    adapter_options: dict[str, dict[str, str]] | None = None,
 ) -> dict[str, SourceManifest]:
-    """Spawn adapter processes and drive tqdm bars from the queue."""
+    """Spawn adapter processes and drive tqdm bars from the queue.
+
+    *adapter_options* maps a source id to constructor kwargs for its adapter.
+    """
+    adapter_options = adapter_options or {}
     manager = multiprocessing.Manager()
     queue = manager.Queue()
 
@@ -191,10 +199,11 @@ def _run_with_progress(
     pool = multiprocessing.Pool(processes=len(adapters))
 
     async_results = {
-        cls().source_id: pool.apply_async(
-            _run_single_adapter, (cls, raw_dir, output_dir, queue)
+        sid: pool.apply_async(
+            _run_single_adapter,
+            (cls, raw_dir, output_dir, queue, adapter_options.get(sid, {})),
         )
-        for cls in adapters
+        for sid, cls in zip(source_ids, adapters, strict=True)
     }
 
     _drain_queue(queue, bars, len(adapters))

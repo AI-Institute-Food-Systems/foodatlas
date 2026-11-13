@@ -132,6 +132,9 @@ class KGCSettings(BaseSettings):
     output_dir: str = ""
     cache_dir: str = ""
     ie_raw_dir: str = ""
+    # Optional USDA SR Legacy download (absolute, or relative to data_dir) that the
+    # FDC adapter adds as separate food entities. Empty = Foundation Foods only.
+    fdc_sr_legacy_dir: str = ""
     pipeline: PipelineConfig = PipelineConfig()
 
     @property
@@ -147,6 +150,13 @@ class KGCSettings(BaseSettings):
     def previous_kg_entities(self) -> str:
         """Path to previous KG entities TSV for registry seeding."""
         return self.pipeline.stages.kg_init.previous_kg_entities
+
+    @property
+    def adapter_options(self) -> dict[str, dict[str, str]]:
+        """Constructor kwargs per source id for adapters that take options."""
+        if not self.fdc_sr_legacy_dir:
+            return {}
+        return {"fdc": {"sr_legacy_dir": self.fdc_sr_legacy_dir}}
 
     @property
     def ingest_dir(self) -> str:
