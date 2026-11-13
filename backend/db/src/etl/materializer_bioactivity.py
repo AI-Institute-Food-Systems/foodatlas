@@ -13,39 +13,20 @@ import json
 import logging
 from collections import defaultdict
 
-import numpy as np
 import pandas as pd
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
 
+from .bioactivity_aggregate import aggregate_pair, assay_meta_map
 from .bulk_insert import bulk_copy
 
 logger = logging.getLogger(__name__)
-
-_MEASUREMENTS_CAP = 25  # per pair, for display
-
-
-def _num(x: float | None) -> float | None:
-    """JSON-safe float: NaN/None → None (the efficacy/fit columns are nullable)."""
-    if x is None or (isinstance(x, float) and np.isnan(x)):
-        return None
-    return float(x)
-
-
-def _source_kind(src: str | None) -> str:
-    """Bucket a measurement's ``evidence_source`` for the Assay Source filter."""
-    s = (src or "").lower()
-    if s.startswith("exp"):
-        return "experimental"
-    if s.startswith(("pred", "comp")):
-        return "predicted"
-    return ""
 
 
 def materialize_bioactivity(conn: Connection) -> None:
     """Build all three bioactivity MVs from the base tables."""
     name_map = _name_map(conn)
-    assay_meta = _assay_meta_map(conn)
+    assay_meta = assay_meta_map(conn)
     materialize_chemical_bioactivity(conn, name_map, assay_meta)
     materialize_food_bioactivity(conn, name_map, assay_meta)
     materialize_bioactivity_entities(conn, name_map)
@@ -55,32 +36,6 @@ def _name_map(conn: Connection) -> dict[str, str]:
     df = pd.read_sql(text("SELECT foodatlas_id, common_name FROM base_entities"), conn)
     result: dict[str, str] = df.set_index("foodatlas_id")["common_name"].to_dict()
     return result
-
-
-def _assay_meta_map(conn: Connection) -> dict[str, dict]:
-    """source_assay_id → nested assay metadata (empty when base_bioassays is empty)."""
-    df = pd.read_sql(
-        text(
-            "SELECT source_assay_id, source, assay_description, target_name,"
-            " target_organism, target_uniprot, target_entrez_gene, n_measurements"
-            " FROM base_bioassays"
-        ),
-        conn,
-    )
-    return {
-        r.source_assay_id: {
-            "source": r.source,
-            "description": r.assay_description,
-            "target_name": r.target_name,
-            "target_organism": r.target_organism,
-            "target_uniprot": r.target_uniprot,
-            "target_entrez_gene": r.target_entrez_gene,
-            "n_measurements": (
-                None if pd.isna(r.n_measurements) else int(r.n_measurements)
-            ),
-        }
-        for r in df.itertuples(index=False)
-    }
 
 
 def _exploded_measurements(conn: Connection, rel_id: str) -> pd.DataFrame:
@@ -117,56 +72,6 @@ def _group_by_pair(merged: pd.DataFrame) -> dict[tuple[str, str], list]:
     return groups
 
 
-def _aggregate(rows: list, assay_meta: dict[str, dict]) -> dict:
-    """One pass over a pair's measurement rows: counts and a display sample.
-
-    No cross-assay potency rollup: each measurement is a distinct assay
-    (target/cell line/protocol), so a median over them is not a meaningful
-    potency. The per-assay values live in ``measurements`` (capped) and in
-    ``base_attestations_bioactivity`` (complete). Each sampled measurement is
-    enriched with its assay's metadata (``assay_meta``), joined by assay id.
-    """
-    outcome_counts: dict[str, int] = defaultdict(int)
-    source_counts: dict[str, int] = defaultdict(int)
-    sample: list[dict] = []
-    for i, r in enumerate(rows):
-        outcome = r.reported_activity_outcome
-        outcome_counts[outcome] += 1
-        source_counts[_source_kind(r.evidence_source)] += 1
-        if i < _MEASUREMENTS_CAP:
-            sample.append(
-                {
-                    "bioactivity_metadata_id": r.bioactivity_metadata_id,
-                    "exhibit_type": r.exhibit_type,
-                    "assay": r.source_assay_id,
-                    "outcome": outcome,
-                    "endpoint": r.evidence_endpoint_type,
-                    "relation": r.evidence_relation,
-                    "value": _num(r.potency_value),
-                    "unit": r.potency_unit,
-                    "efficacy_zeroactivity": _num(r.efficacy_zeroactivity),
-                    "efficacy_infiniteactivity": _num(r.efficacy_infiniteactivity),
-                    "efficacy_logac50_value": _num(r.efficacy_logac50_value),
-                    "efficacy_hillslope": _num(r.efficacy_hillslope),
-                    "evidence_source": r.evidence_source,
-                    "evidence_type": r.evidence_type,
-                    "evidence_fit_r2": _num(r.evidence_fit_r2),
-                    "evidence_fit_curveclass": r.evidence_fit_curveclass,
-                    "assay_meta": assay_meta.get(r.source_assay_id),
-                }
-            )
-    return {
-        "measurement_count": len(rows),
-        "active_count": outcome_counts["Active"],
-        "inactive_count": outcome_counts["Inactive"],
-        "unspecified_count": outcome_counts["Unspecified"],
-        "inconclusive_count": outcome_counts["Inconclusive"],
-        "experimental_count": source_counts["experimental"],
-        "predicted_count": source_counts["predicted"],
-        "measurements": sample,
-    }
-
-
 def materialize_chemical_bioactivity(
     conn: Connection, name_map: dict[str, str], assay_meta: dict[str, dict]
 ) -> None:
@@ -199,7 +104,7 @@ def materialize_chemical_bioactivity(
 
     result_rows = []
     for (chem_id, bio_id), rows in _group_by_pair(merged).items():
-        agg = _aggregate(rows, assay_meta)
+        agg = aggregate_pair(rows, assay_meta)
         result_rows.append(
             {
                 "chemical_name": name_map.get(chem_id, ""),
@@ -213,6 +118,8 @@ def materialize_chemical_bioactivity(
                 "inconclusive_count": agg["inconclusive_count"],
                 "experimental_count": agg["experimental_count"],
                 "predicted_count": agg["predicted_count"],
+                "evidence_types": agg["evidence_types"],
+                "units": agg["units"],
                 "n_foods": int(n_foods_map.get(chem_id, 0)),
                 "measurements": json.dumps(agg["measurements"]),
             }
@@ -234,6 +141,8 @@ def materialize_chemical_bioactivity(
             "inconclusive_count",
             "experimental_count",
             "predicted_count",
+            "evidence_types",
+            "units",
             "n_foods",
             "measurements",
         ],
@@ -250,7 +159,7 @@ def materialize_food_bioactivity(
         return
     result_rows = []
     for (food_id, bio_id), rows in _group_by_pair(merged).items():
-        agg = _aggregate(rows, assay_meta)
+        agg = aggregate_pair(rows, assay_meta)
         result_rows.append(
             {
                 "food_name": name_map.get(food_id, ""),
@@ -260,6 +169,8 @@ def materialize_food_bioactivity(
                 "measurement_count": agg["measurement_count"],
                 "experimental_count": agg["experimental_count"],
                 "predicted_count": agg["predicted_count"],
+                "evidence_types": agg["evidence_types"],
+                "units": agg["units"],
                 "measurements": json.dumps(agg["measurements"]),
             }
         )
@@ -276,6 +187,8 @@ def materialize_food_bioactivity(
             "measurement_count",
             "experimental_count",
             "predicted_count",
+            "evidence_types",
+            "units",
             "measurements",
         ],
     )
