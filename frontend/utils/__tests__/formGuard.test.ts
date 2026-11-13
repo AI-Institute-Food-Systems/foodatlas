@@ -65,6 +65,11 @@ describe("recipients", () => {
     expect(recipients()).toEqual(["a@b.co", "c@d.co"]);
   });
 
+  it("reads a named list", () => {
+    vi.stubEnv("API_ACCESS_EMAIL", '["e@f.co"]');
+    expect(recipients("API_ACCESS_EMAIL")).toEqual(["e@f.co"]);
+  });
+
   it("fails closed instead of throwing", () => {
     // Previously `JSON.parse(process.env.CONTACT_EMAIL!)` — an unset or
     // malformed value threw and surfaced as a 500.

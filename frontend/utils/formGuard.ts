@@ -64,14 +64,14 @@ export const isCrossSite = (req: Request): boolean =>
   req.headers.get("sec-fetch-site") === "cross-site";
 
 /**
- * Parse the CONTACT_EMAIL fan-out list.
+ * Parse a JSON-array fan-out list (CONTACT_EMAIL by default).
  *
  * Was `JSON.parse(process.env.CONTACT_EMAIL!)` — a non-null assertion on an
  * env var, so an unset or malformed value threw and surfaced as a 500 with a
  * stack, rather than a clear server-side error.
  */
-export const recipients = (): string[] | null => {
-  const raw = process.env.CONTACT_EMAIL;
+export const recipients = (envVar = "CONTACT_EMAIL"): string[] | null => {
+  const raw = process.env[envVar];
   if (!raw) return null;
   try {
     const parsed: unknown = JSON.parse(raw);
