@@ -24,7 +24,7 @@ jobs:
       frontend: ${{ steps.diff.outputs.frontend }}
       python_projects: ${{ steps.diff.outputs.python_projects }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Detect changed paths
@@ -64,7 +64,7 @@ jobs:
         project: ${{ fromJSON(needs.changes.outputs.python_projects) }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: astral-sh/setup-uv@v5
 
@@ -87,7 +87,7 @@ jobs:
         project: ${{ fromJSON(needs.changes.outputs.python_projects) }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: astral-sh/setup-uv@v5
 
@@ -107,7 +107,7 @@ jobs:
         project: ${{ fromJSON(needs.changes.outputs.python_projects) }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: astral-sh/setup-uv@v5
 
@@ -127,7 +127,7 @@ jobs:
         project: ${{ fromJSON(needs.changes.outputs.python_projects) }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: astral-sh/setup-uv@v5
 
@@ -173,7 +173,7 @@ jobs:
     if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -193,7 +193,7 @@ jobs:
     if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -213,7 +213,7 @@ jobs:
     if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
