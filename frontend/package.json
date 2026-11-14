@@ -11,7 +11,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@aws-sdk/client-sesv2": "^3.1161.0",
+    "@aws-sdk/client-sesv2": "^3.1166.0",
     "@headlessui/react": "^2.2.10",
     "@llm-ui/code": "^0.13.3",
     "@llm-ui/markdown": "^0.13.3",
