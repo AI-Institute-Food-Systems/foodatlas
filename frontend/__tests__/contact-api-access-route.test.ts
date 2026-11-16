@@ -91,7 +91,10 @@ describe("parseApiAccess", () => {
     ["non-array data", { ...VALID, dataNeeded: "Foods" }],
     ["javascript: URL", { ...VALID, projectUrl: "javascript:alert(1)" }],
     ["unparseable URL", { ...VALID, projectUrl: "lab dot edu" }],
-    ["over-long URL", { ...VALID, projectUrl: `https://x.org/${"a".repeat(200)}` }],
+    [
+      "over-long URL",
+      { ...VALID, projectUrl: `https://x.org/${"a".repeat(200)}` },
+    ],
   ])("rejects %s", (_label, raw) => {
     expect(parseApiAccess(raw)).toBeNull();
   });
@@ -114,7 +117,10 @@ describe("POST /contact/send — API access", () => {
 
   it.each([
     ["no answers", { ...BASE, apiAccess: undefined }],
-    ["an invalid answer", { ...BASE, apiAccess: { ...VALID, commercial: "Maybe" } }],
+    [
+      "an invalid answer",
+      { ...BASE, apiAccess: { ...VALID, commercial: "Maybe" } },
+    ],
     ["no affiliation", { ...BASE, affiliation: "" }],
   ])("400s with %s and sends nothing", async (_label, body) => {
     const res = await post(body);
@@ -137,6 +143,32 @@ describe("POST /contact/send — API access", () => {
     const res = await post({ ...BASE, topic: "Data Issue" });
     expect(res.status).toBe(200);
     expect(sentBody()).not.toContain("--- API access ---");
+  });
+});
+
+describe("POST /contact/send — recipients", () => {
+  const sentTo = (): string[] =>
+    (
+      send.mock.calls[0][0] as {
+        input: { Destination: { ToAddresses: string[] } };
+      }
+    ).input.Destination.ToAddresses;
+
+  it("sends API requests to API_ACCESS_EMAIL only", async () => {
+    vi.stubEnv("API_ACCESS_EMAIL", '["pi@example.org"]');
+    await post(BASE);
+    expect(sentTo()).toEqual(["pi@example.org"]);
+  });
+
+  it("keeps other topics on CONTACT_EMAIL", async () => {
+    vi.stubEnv("API_ACCESS_EMAIL", '["pi@example.org"]');
+    await post({ ...BASE, topic: "Data Issue", apiAccess: undefined });
+    expect(sentTo()).toEqual(["team@example.org"]);
+  });
+
+  it("falls back to CONTACT_EMAIL when API_ACCESS_EMAIL is unset", async () => {
+    await post(BASE);
+    expect(sentTo()).toEqual(["team@example.org"]);
   });
 });
 
