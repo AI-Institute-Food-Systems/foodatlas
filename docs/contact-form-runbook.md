@@ -74,10 +74,10 @@ uv run python -m scripts.keys issue --profile foodatlas-prod-admin --api-url htt
 It prompts for the requester's email and notes, writes the record compare-and-swap, reads it
 back to confirm it landed, then polls `/v1/stats` until twelve consecutive 200s — and only
 then prints the plaintext key. **Wait for it.** Prod runs two Fargate tasks, each with its own
-in-process key cache on an independent 300s timer, and the ALB round-robins between them; for
+in-process key cache on an independent 60s timer, and the ALB round-robins between them; for
 up to one refresh interval after the merge a new key fails *intermittently*, not cleanly.
 Emailing it during that window makes the recipient's first calls 401 at random, which reads as
-a broken key. Worst case the command waits ~5 minutes. If it gives up, it still prints the key
+a broken key. Worst case the command waits ~2 minutes. If it gives up, it still prints the key
 with a warning — re-check later with `scripts.keys probe <key> --api-url https://api.foodatlas.ai`.
 
 Revoke one (by key prefix, email, or full hash — take the value from `list`):
