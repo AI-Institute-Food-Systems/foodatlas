@@ -33,7 +33,7 @@ class APISettings(BaseSettings):
     # object {sha256_hex(key): {email, created, notes}}. Empty disables the
     # public key path (only the internal `key` is accepted on /v1/*).
     public_keys_secret_name: str = ""
-    public_keys_refresh_seconds: int = 300
+    public_keys_refresh_seconds: int = 60
     aws_region: str = "us-west-1"
     # /v1/ per-API-key rate limit. The internal key (frontend SSR path)
     # always bypasses. Disabled in debug mode and when
