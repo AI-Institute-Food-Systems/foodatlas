@@ -1,5 +1,6 @@
 "use client";
 
+import { usePublishTabCount } from "@/context/tabCountsContext";
 import { useEffect, useMemo, useState } from "react";
 import { MdInfo } from "react-icons/md";
 
@@ -30,7 +31,7 @@ import {
   SourceKey,
   SOURCES,
   computeMaxValue,
-  evidenceCountOf,
+  dataPointsFor,
   filterRows,
   mergeBuckets,
   paginate,
@@ -122,6 +123,8 @@ const ChemicalCompositionTable = ({
     [allRows, search, sources, sort]
   );
 
+  usePublishTabCount("composition", visibleRows.length);
+
   const numberOfPages = Math.max(
     1,
     Math.ceil(visibleRows.length / ROWS_PER_PAGE)
@@ -162,7 +165,7 @@ const ChemicalCompositionTable = ({
     chemicalName: chemicalId,
     foodId: row.id,
     foodName: row.name,
-    dataPointCount: evidenceCountOf(row),
+    dataPointCount: dataPointsFor(row, sources),
   });
 
   const handleSortClick = (column: SortColumn) => {
@@ -267,6 +270,7 @@ const ChemicalCompositionTable = ({
                   href={hrefFor(row)}
                   onEvidenceClick={setEvidenceFood}
                   rowProps={reporter.getRowProps(rowContextFor(row))}
+                  sources={sources}
                 />
               ))
             ) : (
@@ -288,6 +292,7 @@ const ChemicalCompositionTable = ({
             hrefFor={hrefFor}
             onEvidenceClick={setEvidenceFood}
             rowPropsFor={(row) => reporter.getRowProps(rowContextFor(row))}
+            sources={sources}
           />
         ) : (
           emptyStateBody
@@ -317,6 +322,7 @@ const ChemicalCompositionTable = ({
         evidences={evidences}
         isOpen={evidenceFood !== ""}
         onClose={() => setEvidenceFood("")}
+        selectedSources={sources}
       />
     </div>
     </FilterPanel>

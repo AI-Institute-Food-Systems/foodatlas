@@ -81,3 +81,20 @@ def row_has_source(row: Mapping[str, object], sources: Collection[str]) -> bool:
     and not all of them select every evidence column.
     """
     return any(row.get(evidence_column(s)) is not None for s in sources)
+
+
+def data_points_sql(column: str) -> str:
+    """SQL count of data points in an evidence column: one per extraction.
+
+    An evidence record can carry several extractions (PTFI often does), and
+    the evidence modal lists extractions, so a data point is an extraction.
+    """
+    return (
+        "(SELECT COALESCE(SUM(jsonb_array_length(e->'extraction')), 0)"
+        f" FROM jsonb_array_elements(COALESCE({column}, '[]'::jsonb)) AS e)"
+    )
+
+
+def data_points(evidences: Sequence[Mapping] | None) -> int:
+    """Python twin of :func:`data_points_sql` for already-fetched rows."""
+    return sum(len(ev.get("extraction") or []) for ev in evidences or [])

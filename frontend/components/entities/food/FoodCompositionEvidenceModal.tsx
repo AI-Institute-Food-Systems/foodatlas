@@ -17,64 +17,19 @@ import {
   FilterPanelBody,
 } from "@/components/entities/shared/filters/FilterPanel";
 import { sortFacetOptions } from "@/components/entities/shared/filters/facetOptions";
-import { SOURCE_DISPLAY_NAMES } from "@/components/entities/food/compositionSources";
-import { FoodEvidence, FoodEvidenceExtraction } from "@/types/Evidence";
-
-const isLowTrust = (ex: FoodEvidenceExtraction): boolean => Boolean(ex.trust_low);
+import {
+  countDataPoints,
+  extractionMatches,
+  sourceNamesFor,
+} from "@/components/entities/food/compositionDataPoints";
+import { FoodEvidence } from "@/types/Evidence";
 
 export type EvidenceFilter = "all" | "low-trust";
 
-// Mirrors the BioactivityMeasurementsModal's Assay Source picker so users
-// see the same radio-row shape on both modals. "All" leads as the no-filter
-// option; the rest are derived from the evidence actually present, because
-// this list used to be hardcoded to FoodAtlas + FDC and so could never offer
-// PTFI. Alphabetical after "All", like every facet.
-//
-// The option list comes from the UNFILTERED evidence set on purpose. Its
-// counts are faceted (see countExtractions), and deriving the list from those
-// counts would make a source vanish the moment another filter zeroed it —
+// The source option list comes from the UNFILTERED evidence set on purpose.
+// Its counts are faceted (other filters applied), and deriving the list from
+// those counts would make a source vanish the moment another filter zeroed it,
 // leaving no way to click back to it. The row disables at zero instead.
-const buildSourceKinds = (
-  keys: string[],
-): { key: string; label: string }[] =>
-  sortFacetOptions(
-    [{ key: "", label: "All" }, ...keys.map((k) => ({ key: k, label: k }))],
-    (o) => o.label,
-    { pinFirst: ["All"] }
-  );
-
-const matchesSource = (
-  ev: FoodEvidence,
-  sourceKey: string,
-): boolean => !sourceKey || ev.reference.source_name === sourceKey;
-
-const matchesSearch = (
-  ev: FoodEvidence,
-  ex: FoodEvidenceExtraction,
-  q: string,
-): boolean => {
-  if (!q) return true;
-  // Deliberately excludes ev.premise — the source text often mentions
-  // dozens of unrelated chemicals/foods, so searching it would surface
-  // extractions that don't actually mention the search term as the
-  // extracted entity. Users search to filter on WHAT was extracted,
-  // not what appeared somewhere in the paragraph.
-  const haystack = [
-    ex.extracted_chemical_name,
-    ex.extracted_food_name,
-    ex.extracted_concentration,
-    ex.method,
-    ev.reference.display_name,
-    ev.reference.id,
-    ...(ex.chemical_candidates ?? []),
-    ...(ex.food_candidates ?? []),
-  ]
-    .filter((s): s is string => Boolean(s))
-    .join(" ")
-    .toLowerCase();
-  return haystack.includes(q);
-};
-
 interface FoodCompositionEvidenceModalProps {
   foodName: string;
   chemicalName: string;
@@ -83,11 +38,8 @@ interface FoodCompositionEvidenceModalProps {
   onClose: () => void;
   initialFilter?: EvidenceFilter;
   // Source filter keys ("fdc", "ptfi", ...) selected on the table behind
-  // this modal. Evidence from a source the reader has deselected is
-  // greyed out rather than removed: the row is in the table because some
-  // *other* source vouches for it, and hiding the rest would misrepresent
-  // how much evidence exists. Omit (the chemical page does) to grey
-  // nothing.
+  // this modal. The modal opens on those sources only, so its count equals
+  // the row's "N data points"; the reader can add the others back here.
   selectedSources?: string[];
 }
 
@@ -102,94 +54,45 @@ const FoodCompositionEvidenceModal = ({
 }: FoodCompositionEvidenceModalProps) => {
   const [filter, setFilter] = useState<EvidenceFilter>(initialFilter);
   const [searchTerm, setSearchTerm] = useState("");
-  const [sourceKind, setSourceKind] = useState("");
+  // Selected source names; empty = every source.
+  const [sources, setSources] = useState<string[]>([]);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
-  // Every dimension back to the state the modal opened in. Shared by the
-  // "Clear filters" control and the open effect below so the two cannot
-  // drift as dimensions are added — same arrangement as
-  // BioactivityMeasurementsModal.
-  //
-  // Restores `initialFilter`, not "all": arriving via a TrustBadge opens the
-  // modal already filtered to low-trust, and that IS this modal's fresh
-  // state, so clearing should return to it rather than override the intent
-  // the user clicked with.
-  const resetAllFilters = useCallback(() => {
+  // The page's sources, keyed as a string: callers pass a fresh array on
+  // every render.
+  const openingSourcesKey = sourceNamesFor(selectedSources).join("+");
+
+  // "Clear filters" shows every source, but keeps `initialFilter`: arriving
+  // via a TrustBadge opens the modal on low-trust, and that intent stays.
+  const clearFilters = useCallback(() => {
     setFilter(initialFilter);
     setSearchTerm("");
-    setSourceKind("");
+    setSources([]);
   }, [initialFilter]);
 
   const isFiltersDirty =
-    filter !== initialFilter || searchTerm !== "" || sourceKind !== "";
+    filter !== initialFilter || searchTerm !== "" || sources.length > 0;
 
   useEffect(() => {
     if (isOpen) {
-      resetAllFilters();
+      clearFilters();
+      setSources(openingSourcesKey ? openingSourcesKey.split("+") : []);
       setMobileFiltersOpen(false);
     }
-  }, [isOpen, resetAllFilters]);
+  }, [isOpen, clearFilters, openingSourcesKey]);
 
-  const query = searchTerm.trim().toLowerCase();
-
-  // Display-cased names of the sources the reader has deselected on the
-  // table. `matchesSource` compares against `reference.source_name`,
-  // which is "FoodAtlas"/"FDC"/"PTFI", while the filter deals in
-  // lowercase keys — hence the map rather than a direct comparison.
-  //
-  // Undefined selectedSources (the chemical page mounts this modal too)
-  // means "nothing is deselected", not "everything is".
-  const dimmedSourceNames = useMemo(() => {
-    if (!selectedSources) return new Set<string>();
-    const selected = new Set(
-      selectedSources.map((s) => SOURCE_DISPLAY_NAMES[s] ?? s),
-    );
-    return new Set(
-      Object.values(SOURCE_DISPLAY_NAMES).filter((n) => !selected.has(n)),
-    );
-  }, [selectedSources]);
-
-  // Counts every extraction passing the given filter combination. Callers
-  // omit the dimension whose own chip they're labelling, which is what makes
-  // the counts faceted: a number answers "what would I get if I clicked
-  // this?", never "what am I looking at right now".
-  //
-  // Previously both count sets were computed off the full evidence list, so
-  // narrowing by search or quality left every source number unchanged — the
-  // one place in the app that ignored the joint-filtering rule the sidebars
-  // follow.
-  const countExtractions = useMemo(
-    () =>
-      ({
-        source,
-        lowTrustOnly = false,
-      }: {
-        source: string;
-        lowTrustOnly?: boolean;
-      }): number => {
-        let n = 0;
-        evidences?.forEach((ev) => {
-          if (!matchesSource(ev, source)) return;
-          ev.extraction.forEach((ex) => {
-            if (lowTrustOnly && !isLowTrust(ex)) return;
-            if (!matchesSearch(ev, ex, query)) return;
-            n += 1;
-          });
-        });
-        return n;
-      },
-    [evidences, query],
-  );
-
-  // Quality counts hold source + search fixed, varying only quality.
   const lowTrustOnly = filter === "low-trust";
-  const totalCount = useMemo(
-    () => countExtractions({ source: sourceKind }),
-    [countExtractions, sourceKind],
+  const count = useCallback(
+    (f: { sources: string[]; lowTrustOnly?: boolean }) =>
+      countDataPoints(evidences, { ...f, search: searchTerm }),
+    [evidences, searchTerm]
   );
+
+  // Faceted: each group holds the other filters fixed and varies its own.
+  const totalCount = useMemo(() => count({ sources }), [count, sources]);
   const lowTrustCount = useMemo(
-    () => countExtractions({ source: sourceKind, lowTrustOnly: true }),
-    [countExtractions, sourceKind],
+    () => count({ sources, lowTrustOnly: true }),
+    [count, sources]
   );
 
   // Has trust been evaluated for this evidence at all? The API omits
@@ -213,45 +116,37 @@ const FoodCompositionEvidenceModal = ({
     [evidences],
   );
 
-  // Source counts hold quality + search fixed, varying only source. The key
-  // list stays derived from the full set so options never disappear.
+  // The key list stays derived from the full set so options never disappear.
   const sourceKeys = useMemo(() => {
     const keys: string[] = [];
     evidences?.forEach((ev) => {
       const name = ev.reference.source_name;
       if (name && !keys.includes(name)) keys.push(name);
     });
-    return keys;
+    return sortFacetOptions(keys, (k) => k);
   }, [evidences]);
 
   const sourceCounts = useMemo(() => {
-    const counts: Record<string, number> = {
-      "": countExtractions({ source: "", lowTrustOnly }),
-    };
+    const counts: Record<string, number> = {};
     sourceKeys.forEach((key) => {
-      counts[key] = countExtractions({ source: key, lowTrustOnly });
+      counts[key] = count({ sources: [key], lowTrustOnly });
     });
     return counts;
-  }, [countExtractions, sourceKeys, lowTrustOnly]);
+  }, [count, sourceKeys, lowTrustOnly]);
 
-  // Filter is applied at the extraction level so the table's row set
-  // exactly matches the active chip's count. Evidences with no rows
-  // remaining after the extraction filter are dropped so their paper
-  // header doesn't dangle empty in the expanded row.
+  // Filtered at the extraction level, so the table's rows match the count.
+  // Evidences with no rows left are dropped so their paper header doesn't
+  // dangle empty.
   const displayedEvidences = useMemo(() => {
     if (!evidences) return evidences;
-    const chipPredicate = (ex: FoodEvidenceExtraction) =>
-      lowTrustOnly ? isLowTrust(ex) : true;
+    const f = { sources, lowTrustOnly, search: searchTerm };
     return evidences
-      .filter((ev) => matchesSource(ev, sourceKind))
       .map((ev) => ({
         ...ev,
-        extraction: ev.extraction.filter(
-          (ex) => chipPredicate(ex) && matchesSearch(ev, ex, query),
-        ),
+        extraction: ev.extraction.filter((ex) => extractionMatches(ev, ex, f)),
       }))
       .filter((ev) => ev.extraction.length > 0);
-  }, [evidences, lowTrustOnly, query, sourceKind]);
+  }, [evidences, lowTrustOnly, searchTerm, sources]);
 
   const filteredCount = useMemo(
     () =>
@@ -261,6 +156,11 @@ const FoodCompositionEvidenceModal = ({
       ) ?? 0,
     [displayedEvidences],
   );
+
+  const toggleSource = (name: string) =>
+    setSources((prev) =>
+      prev.includes(name) ? prev.filter((s) => s !== name) : [...prev, name]
+    );
 
   const searchInput = (
     <SearchInput
@@ -273,13 +173,13 @@ const FoodCompositionEvidenceModal = ({
   // One node, rendered into both the sidebar and the drawer, so the reset
   // belongs here rather than at either call site.
   const filtersPanel = (
-    <FilterPanelBody isDirty={isFiltersDirty} onReset={resetAllFilters}>
+    <FilterPanelBody isDirty={isFiltersDirty} onReset={clearFilters}>
       <FiltersPanel
-        sourceKind={sourceKind}
+        sources={sources}
         sourceKeys={sourceKeys}
         sourceCounts={sourceCounts}
-        dimmedSourceNames={dimmedSourceNames}
-        onSourceKindChange={setSourceKind}
+        onToggleSource={toggleSource}
+        onClearSources={() => setSources([])}
         filter={filter}
         lowTrustCount={lowTrustCount}
         totalCount={totalCount}
@@ -301,7 +201,10 @@ const FoodCompositionEvidenceModal = ({
             contains{" "}
             <span className="capitalize font-semibold">{chemicalName}</span>
           </p>
-          <span className="font-mono italic text-xs text-light-400">
+          <span
+            className="font-mono italic text-xs text-light-400"
+            data-filtered-count={filteredCount}
+          >
             {totalCount.toLocaleString()} data point
             {totalCount === 1 ? "" : "s"}
             {filteredCount !== totalCount && (
@@ -336,10 +239,7 @@ const FoodCompositionEvidenceModal = ({
         </button>
       </div>
 
-      <EvidenceTable
-        evidences={displayedEvidences}
-        dimmedSourceNames={dimmedSourceNames}
-      />
+      <EvidenceTable evidences={displayedEvidences} />
 
       {/* Sub-1440px filter drawer. Mirrors the bioactivity modal's
        * drawer so the same filter chrome is reachable on narrow
@@ -379,25 +279,22 @@ const SearchInput = ({
 );
 
 const FiltersPanel = ({
-  sourceKind,
+  sources,
   sourceKeys,
   sourceCounts,
-  dimmedSourceNames,
-  onSourceKindChange,
+  onToggleSource,
+  onClearSources,
   filter,
   lowTrustCount,
   totalCount,
   onSetFilter,
   trustEvaluated,
 }: {
-  sourceKind: string;
+  sources: string[];
   sourceKeys: string[];
   sourceCounts: Record<string, number>;
-  // Sources deselected on the table behind the modal. Their rows stay in
-  // SOURCE_ORDER position, greyed, so the reader can see the evidence
-  // exists without the filter pretending it doesn't.
-  dimmedSourceNames: Set<string>;
-  onSourceKindChange: (k: string) => void;
+  onToggleSource: (name: string) => void;
+  onClearSources: () => void;
   filter: EvidenceFilter;
   lowTrustCount: number;
   totalCount: number;
@@ -406,20 +303,18 @@ const FiltersPanel = ({
   trustEvaluated: boolean;
 }) => (
   <div className="flex flex-col gap-5">
-    <FilterGroup label="Source">
-      <FilterOptionList mode="radio" ariaLabel="Evidence source">
-        {buildSourceKinds(sourceKeys).map(({ key, label }) => (
+    <FilterGroup
+      label="Source"
+      onClear={sources.length > 0 ? onClearSources : undefined}
+    >
+      <FilterOptionList>
+        {sourceKeys.map((key) => (
           <FilterOption
-            key={label}
-            mode="radio"
-            label={label}
+            key={key}
+            label={key}
             count={sourceCounts[key] ?? 0}
-            selected={sourceKind === key}
-            resetOption={key === ""}
-            // A source the table's own Source filter has deselected is
-            // dimmed here too; the zero-count case is FilterOption's.
-            disabled={dimmedSourceNames.has(key)}
-            onClick={() => onSourceKindChange(key)}
+            selected={sources.includes(key)}
+            onClick={() => onToggleSource(key)}
           />
         ))}
       </FilterOptionList>
