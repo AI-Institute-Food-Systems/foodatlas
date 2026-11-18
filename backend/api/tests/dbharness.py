@@ -29,10 +29,6 @@ from __future__ import annotations
 
 import os
 import subprocess
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from collections.abc import Sequence
 
 # Columns the bioactivity filter code actually reads. Deliberately not the
 # full production MV — a fixture you cannot hold in your head stops being
@@ -54,6 +50,7 @@ CREATE TABLE mv_chemical_bioactivity (
     n_foods               INTEGER DEFAULT 0,
     evidence_types        TEXT[] DEFAULT '{}',
     units                 TEXT[] DEFAULT '{}',
+    assay_keys            TEXT[] DEFAULT '{}',
     measurements          JSONB
 )
 """
@@ -129,8 +126,75 @@ CREATE TABLE base_trust_signals (
 )
 """
 
+_FOOD_BIOACT_DDL = """
+CREATE TABLE mv_food_bioactivity (
+    id                       INTEGER,
+    food_name                TEXT,
+    food_foodatlas_id        TEXT,
+    bioactivity_name         TEXT,
+    bioactivity_foodatlas_id TEXT,
+    measurement_count        INTEGER,
+    experimental_count       INTEGER DEFAULT 0,
+    predicted_count          INTEGER DEFAULT 0,
+    evidence_types           TEXT[] DEFAULT '{}',
+    units                    TEXT[] DEFAULT '{}',
+    assay_keys               TEXT[] DEFAULT '{}',
+    measurements             JSONB
+)
+"""
+
+# The per-row "N assays" count reads every measurement of a pair from
+# these two, not the MV's 25-row sample.
+_TRIPLETS_DDL = """
+CREATE TABLE base_triplets (
+    head_id         TEXT,
+    relationship_id TEXT,
+    tail_id         TEXT,
+    attestation_ids TEXT[] DEFAULT '{}'
+)
+"""
+
+_ATTESTATIONS_BIOACT_DDL = """
+CREATE TABLE base_attestations_bioactivity (
+    bioactivity_metadata_id   TEXT,
+    source_assay_id           TEXT DEFAULT '',
+    reported_activity_outcome TEXT DEFAULT '',
+    evidence_endpoint_type    TEXT DEFAULT '',
+    evidence_relation         TEXT DEFAULT '',
+    potency_value             DOUBLE PRECISION,
+    potency_unit              TEXT DEFAULT '',
+    evidence_source           TEXT DEFAULT '',
+    evidence_type             TEXT DEFAULT '',
+    exhibit_type              TEXT DEFAULT '',
+    efficacy_zeroactivity     DOUBLE PRECISION,
+    efficacy_infiniteactivity DOUBLE PRECISION,
+    efficacy_logac50_value    DOUBLE PRECISION,
+    efficacy_hillslope        DOUBLE PRECISION,
+    evidence_fit_r2           DOUBLE PRECISION,
+    evidence_fit_curveclass   TEXT DEFAULT ''
+)
+"""
+
+# The food page's inferred-bioactivity rows LEFT JOIN this; empty is fine.
+_FOOD_CHEM_EFFICACY_DDL = """
+CREATE TABLE mv_food_chemical_efficacy (
+    food_name                TEXT,
+    chemical_foodatlas_id    TEXT,
+    bioactivity_foodatlas_id TEXT,
+    efficacy_fraction        DOUBLE PRECISION,
+    conc_vs_ac50             TEXT DEFAULT '',
+    dose_over_ac50_log       DOUBLE PRECISION,
+    n_curves                 INTEGER,
+    conc_quality_flag        TEXT DEFAULT ''
+)
+"""
+
 DDL: tuple[str, ...] = (
     _CHEM_BIOACT_DDL,
+    _FOOD_BIOACT_DDL,
+    _TRIPLETS_DDL,
+    _ATTESTATIONS_BIOACT_DDL,
+    _FOOD_CHEM_EFFICACY_DDL,
     _CHEM_ENTITIES_DDL,
     _FOOD_ENTITIES_DDL,
     _FOOD_COMPOSITION_DDL,
@@ -142,6 +206,10 @@ DDL: tuple[str, ...] = (
 # lives on a separate TrustBase and is excluded — see test_schema_drift.
 MIRRORED_TABLES: tuple[str, ...] = (
     "mv_chemical_bioactivity",
+    "mv_food_bioactivity",
+    "base_triplets",
+    "base_attestations_bioactivity",
+    "mv_food_chemical_efficacy",
     "mv_chemical_entities",
     "mv_food_entities",
     "mv_food_chemical_composition",
@@ -184,75 +252,3 @@ def require_db_tests() -> bool:
     silently reduce this suite to zero tests and still report green.
     """
     return os.environ.get("REQUIRE_DB_TESTS", "").lower() in {"1", "true", "yes"}
-
-
-def measurement(
-    *,
-    evidence_type: str = "in vitro",
-    evidence_source: str = "experimental",
-    endpoint: str = "IC50",
-    unit: str = "uM",
-    value: float = 1.0,
-) -> dict:
-    """One entry of the `measurements` JSONB array.
-
-    Only the keys the filters read. `evidence_source` is matched by the
-    SQL with ``LIKE 'exp%'`` / ``'pred%'`` / ``'comp%'`` and by Python
-    with ``str.startswith``, so values here are chosen to exercise both
-    the matching and the non-matching side of that.
-    """
-    return {
-        "evidence_type": evidence_type,
-        "evidence_source": evidence_source,
-        "endpoint": endpoint,
-        "unit": unit,
-        "value": value,
-    }
-
-
-def chem_bioactivity_row(
-    *,
-    bioactivity: str,
-    chemical: str,
-    chem_id: str,
-    measurements: Sequence[dict],
-    measurement_count: int | None = None,
-    experimental_count: int | None = None,
-    predicted_count: int | None = None,
-    evidence_types: Sequence[str] | None = None,
-    units: Sequence[str] | None = None,
-) -> dict:
-    """An MV row as the ETL would store it.
-
-    The stored counts and arrays cover the pair's FULL measurement set,
-    which can be larger than the capped ``measurements`` sample; pass them
-    explicitly to model that.
-    """
-    sources = [(m.get("evidence_source") or "").lower() for m in measurements]
-    if experimental_count is None:
-        experimental_count = sum(s.startswith("exp") for s in sources)
-    if predicted_count is None:
-        predicted_count = sum(s.startswith(("pred", "comp")) for s in sources)
-    if evidence_types is None:
-        evidence_types = sorted({m["evidence_type"] for m in measurements} - {""})
-    if units is None:
-        units = sorted({m["unit"] for m in measurements} - {""})
-    return {
-        "bioactivity_name": bioactivity,
-        "bioactivity_foodatlas_id": "b1",
-        "chemical_name": chemical,
-        "chemical_foodatlas_id": chem_id,
-        "measurement_count": (
-            len(measurements) if measurement_count is None else measurement_count
-        ),
-        "experimental_count": experimental_count,
-        "predicted_count": predicted_count,
-        "active_count": 0,
-        "inactive_count": 0,
-        "unspecified_count": 0,
-        "inconclusive_count": 0,
-        "n_foods": 0,
-        "evidence_types": list(evidence_types),
-        "units": list(units),
-        "measurements": list(measurements),
-    }

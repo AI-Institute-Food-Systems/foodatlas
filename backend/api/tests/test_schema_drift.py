@@ -35,7 +35,8 @@ from tests.dbharness import DDL, MIRRORED_TABLES
 
 # backend/api/tests -> backend/api -> backend -> <repo root>
 _REPO_ROOT = Path(__file__).resolve().parents[3]
-_VIEWS = _REPO_ROOT / "backend" / "db" / "src" / "models" / "views.py"
+_MODELS_DIR = _REPO_ROOT / "backend" / "db" / "src" / "models"
+_VIEWS = _MODELS_DIR / "views.py"
 
 # SQLAlchemy column type -> the Postgres types that satisfy it. Loose on
 # width (TEXT for String(20) is fine in a fixture) and strict on family:
@@ -46,6 +47,7 @@ _COMPATIBLE: dict[str, frozenset[str]] = {
     "Integer": frozenset({"INTEGER", "BIGINT", "SMALLINT"}),
     "Numeric": frozenset({"NUMERIC", "DECIMAL"}),
     "Float": frozenset({"REAL", "DOUBLE", "NUMERIC"}),
+    "Double": frozenset({"DOUBLE", "REAL", "NUMERIC"}),
     "Boolean": frozenset({"BOOLEAN"}),
     "JSONB": frozenset({"JSONB"}),
     "ARRAY": frozenset({"TEXT[]"}),
@@ -75,8 +77,10 @@ def _parse_ddl() -> dict[str, dict[str, str]]:
 
 
 def _parse_models() -> dict[str, dict[str, str]]:
-    """{table: {column: SQLAlchemy type}} from views.py."""
-    src = _VIEWS.read_text(encoding="utf-8")
+    """{table: {column: SQLAlchemy type}} from every backend/db model file."""
+    src = "\n".join(
+        f.read_text(encoding="utf-8") for f in sorted(_MODELS_DIR.glob("*.py"))
+    )
     out: dict[str, dict[str, str]] = {}
     # Split on class boundaries so a column can't be attributed to the
     # wrong table when several models sit in one file.
