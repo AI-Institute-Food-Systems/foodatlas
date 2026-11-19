@@ -51,6 +51,18 @@ export const rowEvidences = (row: ChemicalCorrelation) =>
     ...(row.worsens_evidences ?? []),
   ];
 
+// The publications behind the row under the page's Direction filter — the
+// number on its button and the set its modal opens on.
+export const publicationsFor = (
+  row: ChemicalCorrelation,
+  direction: CorrelationDirection
+) =>
+  direction === "positive"
+    ? (row.improves_evidences ?? [])
+    : direction === "negative"
+      ? (row.worsens_evidences ?? [])
+      : rowEvidences(row);
+
 const entityHref = (kind: "chemical" | "disease", name: string) =>
   `/${kind}/${encodeURIComponent(encodeSpace(name))}`;
 
@@ -117,12 +129,14 @@ export const DirectionCell = ({
 // one; this just makes it the only way in.
 export const EvidenceButton = ({
   row,
+  direction,
   onOpen,
 }: {
   row: ChemicalCorrelation;
+  direction: CorrelationDirection;
   onOpen: () => void;
 }) => {
-  const n = rowEvidences(row).length;
+  const n = publicationsFor(row, direction).length;
   return (
     <Chip
       icon={<MdDescription className="size-3" />}
@@ -145,6 +159,8 @@ interface RowProps {
   showSource: boolean;
   commonName: string;
   rowProps: Record<string, unknown> & { className?: string };
+  // The page's Direction filter; the button counts under it.
+  direction: CorrelationDirection;
   onShowMore: () => void;
 }
 
@@ -154,6 +170,7 @@ export const CorrelationDesktopRow = ({
   showSource,
   commonName,
   rowProps,
+  direction,
   onShowMore,
 }: RowProps) => (
   <tr {...rowProps}>
@@ -195,7 +212,7 @@ export const CorrelationDesktopRow = ({
     )}
     <td className="py-1.5 pl-4">
       <div className="flex min-h-9 items-center justify-end">
-        <EvidenceButton row={row} onOpen={onShowMore} />
+        <EvidenceButton row={row} direction={direction} onOpen={onShowMore} />
       </div>
     </td>
   </tr>
@@ -210,6 +227,7 @@ export const CorrelationCard = ({
   showSource,
   commonName,
   rowProps,
+  direction,
   onShowMore,
 }: RowProps) => (
   <div
@@ -250,7 +268,7 @@ export const CorrelationCard = ({
       <span className="font-mono italic text-[10px] uppercase tracking-wider text-light-500">
         Publications
       </span>
-      <EvidenceButton row={row} onOpen={onShowMore} />
+      <EvidenceButton row={row} direction={direction} onOpen={onShowMore} />
     </div>
   </div>
 );

@@ -446,8 +446,8 @@ interface Exclusion {
 const EXCLUDED: Record<string, Partial<Record<Property, Exclusion>>> = {
   "components/entities/shared/filters/ActivityFilterGroup.tsx": {
     counts: {
-      why: "counts are countActivities(), a pure function; the group only renders them",
-      coveredBy: "__tests__/activity-facet.test.tsx",
+      why: "counts are activityFacet() in assayGroups.ts; the group only renders them",
+      coveredBy: "__tests__/health-filter-contract.test.tsx",
     },
     list: {
       why: "rendered inside CorrelationEvidenceTab",
@@ -456,8 +456,8 @@ const EXCLUDED: Record<string, Partial<Record<Property, Exclusion>>> = {
   },
   "components/entities/shared/filters/SignalFilterGroup.tsx": {
     counts: {
-      why: "counts are countSignals(), a pure function; the group only renders them",
-      coveredBy: "__tests__/signal-filter.test.tsx",
+      why: "counts are signalFacet() in assayGroups.ts; the group only renders them",
+      coveredBy: "__tests__/health-filter-contract.test.tsx",
     },
     list: {
       why: "rendered inside CorrelationEvidenceTab",
@@ -470,8 +470,20 @@ const EXCLUDED: Record<string, Partial<Record<Property, Exclusion>>> = {
         "two tables under one panel — Direction filters the literature " +
         "table, Signal/Activity the assay table — so no count is 'rows on " +
         "screen'. Direction is pinned per table there; Signal and Activity " +
-        "by signal-filter.test.tsx / activity-facet.test.tsx.",
+        "by health-filter-contract.test.tsx against an oracle.",
       coveredBy: "__tests__/correlation-merge.test.tsx",
+    },
+  },
+  "components/entities/CorrelationEvidenceModal.tsx": {
+    counts: {
+      why:
+        "Direction counts are the lengths of the row's two evidence lists " +
+        "(All = distinct papers); pinned per direction against the table's button",
+      coveredBy: "__tests__/health-filter-contract.test.tsx",
+    },
+    list: {
+      why: "three fixed options (All, Improves, Worsens) in a fixed order",
+      coveredBy: "__tests__/health-filter-contract.test.tsx",
     },
   },
   "components/entities/bioactivity/BioactivityTable.tsx": {

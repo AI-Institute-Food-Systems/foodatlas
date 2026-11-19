@@ -7,9 +7,20 @@
 // unable to tell which papers said which. The single-direction case —
 // the other 96% — renders exactly one section and reads as before.
 
+import { useEffect, useState } from "react";
+
+import Card from "@/components/basic/Card";
 import Link from "@/components/basic/Link";
 import Modal from "@/components/basic/Modal";
-import { SignBadge } from "@/components/entities/shared/CorrelationRow";
+import {
+  SignBadge,
+  type CorrelationDirection,
+} from "@/components/entities/shared/CorrelationRow";
+import {
+  FilterGroup,
+  FilterOption,
+  FilterOptionList,
+} from "@/components/entities/shared/filters/FilterControls";
 import { useReportRows } from "@/context/reportModeContext";
 import { Evidence } from "@/types/Evidence";
 import InfoBanner from "../basic/InfoBanner";
@@ -33,9 +44,23 @@ type CorrelationEvidenceModalProps = {
   entityType: "chemical" | "disease";
   chemicalName: string;
   diseaseName: string;
+  // The page's Direction filter; the modal opens on it.
+  initialDirection?: CorrelationDirection;
   isOpen: boolean;
   onClose: () => void;
 };
+
+const DIRECTION_OPTIONS: { key: CorrelationDirection; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "positive", label: "Improves" },
+  { key: "negative", label: "Worsens" },
+];
+
+const paperKey = (e: Evidence) => String(e.pmid?.id ?? e.pmcid?.id ?? "");
+
+// Distinct papers: one cited for both directions counts once.
+const distinctCount = (lists: Evidence[][]) =>
+  new Set(lists.flat().map(paperKey)).size;
 
 const CorrelationEvidenceModal = ({
   isOpen,
@@ -45,13 +70,29 @@ const CorrelationEvidenceModal = ({
   worsensEvidences,
   chemicalName,
   diseaseName,
+  initialDirection = "all",
 }: CorrelationEvidenceModalProps) => {
   const reporter = useReportRows();
+  const [direction, setDirection] = useState<CorrelationDirection>(initialDirection);
+  useEffect(() => {
+    if (isOpen) setDirection(initialDirection);
+  }, [isOpen, initialDirection]);
+
+  const improves = improvesEvidences ?? [];
+  const worsens = worsensEvidences ?? [];
+  const counts: Record<CorrelationDirection, number> = {
+    all: distinctCount([improves, worsens]),
+    positive: improves.length,
+    negative: worsens.length,
+  };
 
   const sections: { direction: Direction; evidences: Evidence[] }[] = [
-    { direction: "positive" as const, evidences: improvesEvidences ?? [] },
-    { direction: "negative" as const, evidences: worsensEvidences ?? [] },
-  ].filter((s) => s.evidences.length > 0);
+    { direction: "positive" as const, evidences: improves },
+    { direction: "negative" as const, evidences: worsens },
+  ].filter(
+    (s) =>
+      s.evidences.length > 0 && (direction === "all" || direction === s.direction)
+  );
   const isMixed = sections.length > 1;
 
   const pill = (evidence: Evidence, direction: Direction) => {
@@ -85,6 +126,25 @@ const CorrelationEvidenceModal = ({
     <Modal
       fullHeight
       title="Publications (PMIDs)"
+      sidebar={
+        <Card className="px-4 py-4 gap-5">
+          <FilterGroup label="Direction">
+            <FilterOptionList mode="radio" ariaLabel="Direction">
+              {DIRECTION_OPTIONS.map(({ key, label }) => (
+                <FilterOption
+                  key={key}
+                  mode="radio"
+                  label={label}
+                  count={counts[key]}
+                  selected={direction === key}
+                  resetOption={key === "all"}
+                  onClick={() => setDirection(key)}
+                />
+              ))}
+            </FilterOptionList>
+          </FilterGroup>
+        </Card>
+      }
       description={
         <div className="flex flex-col gap-4">
           {isMixed ? (
@@ -119,7 +179,10 @@ const CorrelationEvidenceModal = ({
       isOpen={isOpen}
       onClose={onClose}
     >
-      <div className="flex flex-col gap-6">
+      <div
+        className="flex flex-col gap-6"
+        data-filtered-count={counts[direction]}
+      >
         {sections.map(({ direction, evidences }) => (
           <section key={direction} className="flex flex-col gap-2">
             {/* The heading is dropped entirely in the single-direction

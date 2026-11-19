@@ -68,6 +68,8 @@ export const DetailCountButton = ({
   );
 
 interface TargetsModalProps {
+  // Filter controls, when the opener has page filters to carry over.
+  sidebar?: React.ReactNode;
   targets: AssayTarget[];
   peerName: string;
   isOpen: boolean;
@@ -79,9 +81,11 @@ export const AssayTargetsModal = ({
   peerName,
   isOpen,
   onClose,
+  sidebar,
 }: TargetsModalProps) => (
   <Modal
     fullHeight
+    sidebar={sidebar}
     title="Protein targets"
     description={
       <p className="text-light-300">
@@ -94,7 +98,10 @@ export const AssayTargetsModal = ({
     isOpen={isOpen}
     onClose={onClose}
   >
-    <ul className="flex flex-col divide-y divide-light-800">
+    <ul
+      className="flex flex-col divide-y divide-light-800"
+      data-filtered-count={targets.length}
+    >
       {targets.map((target) => {
         const url = targetUrl(target.id);
         return (
@@ -129,6 +136,8 @@ export const AssayTargetsModal = ({
 AssayTargetsModal.displayName = "AssayTargetsModal";
 
 interface AssaysModalProps {
+  // Filter controls, when the opener has page filters to carry over.
+  sidebar?: React.ReactNode;
   assays: string[];
   // Total behind the row. Larger than assays.length when the materializer
   // capped the list (ASSAY_CAP = 25) — say so rather than implying the
@@ -145,12 +154,14 @@ export const AssaysModal = ({
   peerName,
   isOpen,
   onClose,
+  sidebar,
 }: AssaysModalProps) => {
   const total = totalCount ?? assays.length;
   const capped = total > assays.length;
   return (
     <Modal
       fullHeight
+      sidebar={sidebar}
       title="Source assays"
       description={
         <p className="text-light-300">
@@ -169,7 +180,7 @@ export const AssaysModal = ({
       isOpen={isOpen}
       onClose={onClose}
     >
-      <div className="flex gap-2 flex-wrap">
+      <div className="flex gap-2 flex-wrap" data-filtered-count={total}>
         {assays.map((assay) => {
           const ext = assayExternalUrl(assay);
           return ext ? (
@@ -190,6 +201,8 @@ export const AssaysModal = ({
 AssaysModal.displayName = "AssaysModal";
 
 interface ActivitiesModalProps {
+  // Filter controls, when the opener has page filters to carry over.
+  sidebar?: React.ReactNode;
   activities: string[];
   peerName: string;
   isOpen: boolean;
@@ -208,9 +221,11 @@ export const AssayActivitiesModal = ({
   peerName,
   isOpen,
   onClose,
+  sidebar,
 }: ActivitiesModalProps) => (
   <Modal
     fullHeight
+    sidebar={sidebar}
     title="Measured activities"
     description={
       <p className="text-light-300">
@@ -223,7 +238,10 @@ export const AssayActivitiesModal = ({
     isOpen={isOpen}
     onClose={onClose}
   >
-    <ul className="flex flex-col divide-y divide-light-800">
+    <ul
+      className="flex flex-col divide-y divide-light-800"
+      data-filtered-count={activities.length}
+    >
       {activities.map((activity) => (
         <li key={activity} className="py-2">
           <Link

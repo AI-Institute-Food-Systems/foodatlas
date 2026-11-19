@@ -30,11 +30,9 @@ import {
   TableSkeletonRows,
 } from "@/components/basic/TableSkeleton";
 import type { SkeletonColumn } from "@/components/basic/skeletonTokens";
-import {
-  AssayActivitiesModal,
-  AssaysModal,
-  AssayTargetsModal,
-} from "@/components/entities/shared/AssayDetailModals";
+import AssayFilteredModal, {
+  type AssayModalKind,
+} from "@/components/entities/shared/AssayFilteredModal";
 import {
   PeerCard,
   PeerRow,
@@ -181,9 +179,16 @@ const AssayInferredAssociationsTable = ({
   const peerLabel = peer === "disease" ? "Disease" : "Chemical";
   const byId = (id: string | null) =>
     id === null ? undefined : rows.find((r) => peerId(r, peer) === id);
-  const targetsRow = byId(targetsFor);
-  const assaysRow = byId(assaysFor);
-  const activitiesRow = byId(activitiesFor);
+  const openRows = {
+    targets: byId(targetsFor),
+    assays: byId(assaysFor),
+    activities: byId(activitiesFor),
+  };
+  const closeModal = (kind: AssayModalKind) =>
+    ({ targets: setTargetsFor, assays: setAssaysFor, activities: setActivitiesFor })[
+      kind
+    ](null);
+  const pageFilters = { signals: externalSignals, activities: externalActivities };
 
   if (!isLoading && filtered.length === 0) {
     return rows.length === 0 ? (
@@ -264,6 +269,7 @@ const AssayInferredAssociationsTable = ({
                   key={peerId(row, peer)}
                   row={row}
                   peer={peer}
+                  filters={pageFilters}
                   reportProps={rowReportProps(row)}
                   onOpenTargets={() => setTargetsFor(peerId(row, peer))}
                   onOpenAssays={() => setAssaysFor(peerId(row, peer))}
@@ -291,6 +297,7 @@ const AssayInferredAssociationsTable = ({
               key={peerId(row, peer)}
               row={row}
               peer={peer}
+              filters={pageFilters}
               reportProps={rowReportProps(row)}
               onOpenTargets={() => setTargetsFor(peerId(row, peer))}
               onOpenAssays={() => setAssaysFor(peerId(row, peer))}
@@ -300,31 +307,19 @@ const AssayInferredAssociationsTable = ({
         </div>
       )}
 
-      {activitiesRow && (
-        <AssayActivitiesModal
-          activities={activitiesRow.bioactivities ?? []}
-          peerName={peerName(activitiesRow, peer)}
-          isOpen
-          onClose={() => setActivitiesFor(null)}
-        />
-      )}
-      {targetsRow && (
-        <AssayTargetsModal
-          targets={targetsRow.targets ?? []}
-          peerName={peerName(targetsRow, peer)}
-          isOpen
-          onClose={() => setTargetsFor(null)}
-        />
-      )}
-      {assaysRow && (
-        <AssaysModal
-          assays={assaysRow.assays ?? []}
-          totalCount={assaysRow.n_assays}
-          peerName={peerName(assaysRow, peer)}
-          isOpen
-          onClose={() => setAssaysFor(null)}
-        />
-      )}
+      {(["activities", "targets", "assays"] as const).map((kind) => {
+        const row = openRows[kind];
+        return row ? (
+          <AssayFilteredModal
+            key={kind}
+            kind={kind}
+            row={row}
+            peerName={peerName(row, peer)}
+            initialFilters={pageFilters}
+            onClose={() => closeModal(kind)}
+          />
+        ) : null;
+      })}
 
       {(totalPages > 1 || isLoading) && (
         <div className="mt-2 max-w-xl w-full mx-auto">

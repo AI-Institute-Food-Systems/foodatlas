@@ -14,8 +14,8 @@
 // on the tab already use.
 //
 // Multi-select for the same reason as Signal: 27% of pairs carry more
-// than one activity, so the options overlap and a row matches if it
-// carries ANY selected value.
+// than one activity, so the options overlap. Matching runs per assay, via
+// assayGroups.ts: one assay must carry a selected activity and signal.
 
 import {
   FACET_MAX_HEIGHT,
@@ -24,35 +24,6 @@ import {
   FilterOptionList,
 } from "@/components/entities/shared/filters/FilterControls";
 import { sortFacetOptions } from "@/components/entities/shared/filters/facetOptions";
-
-export const matchesActivities = (
-  activities: string[] | undefined,
-  selected: string[]
-): boolean =>
-  selected.length === 0 ||
-  (activities ?? []).some((activity) => selected.includes(activity));
-
-// Rows per activity, deduped within a row.
-//
-// `universe` is every activity the UNFILTERED rows carry; `rows` is the
-// set filtered by everything EXCEPT the activity selection. Every key in
-// the universe comes back, zero when no filtered row carries it, so an
-// activity the search excluded greys out rather than disappearing — the
-// list was once keyed on the filtered rows, and typing made options
-// vanish.
-export const countActivities = (
-  rows: { bioactivities?: string[] }[],
-  universe: readonly string[] = activitiesOf(rows)
-): Record<string, number> => {
-  const counts: Record<string, number> = {};
-  for (const activity of universe) counts[activity] = 0;
-  for (const row of rows) {
-    for (const activity of Array.from(new Set(row.bioactivities ?? []))) {
-      if (activity in counts) counts[activity] += 1;
-    }
-  }
-  return counts;
-};
 
 /** The distinct activities across a row set. */
 export const activitiesOf = (
