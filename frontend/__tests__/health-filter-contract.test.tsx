@@ -27,12 +27,12 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 vi.mock("@/utils/fetching", () => ({
-  getChemicalCorrelation: vi.fn(),
   getDiseaseData: vi.fn(),
 }));
 
 import AssayInferredAssociationsTable from "@/components/entities/AssayInferredAssociationsTable";
 import CorrelationEvidenceModal from "@/components/entities/CorrelationEvidenceModal";
+import CorrelationTable from "@/components/entities/CorrelationTable";
 import { assayItemCount } from "@/components/entities/shared/AssayFilteredModal";
 import {
   activityFacet,
@@ -43,6 +43,7 @@ import {
 import { publicationsFor } from "@/components/entities/shared/CorrelationRow";
 import { PaginationsProvider } from "@/context/paginationsContext";
 import type { AssayGroup, AssayInferredAssociation } from "@/types/AssayInferred";
+import { getDiseaseData } from "@/utils/fetching";
 
 const T = "therapeutic";
 const M = "marker/mechanism";
@@ -242,6 +243,45 @@ describe("literature table → publications modal opens on the page Direction", 
         onClose={() => {}}
       />
     );
+    expect(await shownCount()).toBe(want);
+  });
+});
+
+describe("literature table → publications modal, per page Direction", () => {
+  const paper = (id: string) => ({ pmid: { id, url: `https://pubmed.test/${id}` } });
+  const mixed = {
+    id: "d1",
+    name: "asthma",
+    relationship_ids: ["r3", "r4"],
+    source_chemical_name: "quercetin",
+    source_chemical_foodatlas_id: "c1",
+    sources: [],
+    improves_evidences: [paper("1"), paper("2"), paper("3")],
+    worsens_evidences: [paper("3"), paper("4")],
+    evidences: [paper("1"), paper("2"), paper("3"), paper("4")],
+    ambiguity_siblings: [],
+  };
+
+  it.each([
+    ["all", 4],
+    ["positive", 3],
+    ["negative", 2],
+  ] as const)("direction %s: button = modal total = %i", async (direction, want) => {
+    vi.mocked(getDiseaseData).mockResolvedValue({
+      data: { associations: [mixed] },
+      metadata: { total_rows: 1, total_pages: 1 },
+    } as never);
+    render(
+      <PaginationsProvider>
+        <CorrelationTable
+          commonName="quercetin"
+          tableLocation="chemical"
+          direction={direction}
+        />
+      </PaginationsProvider>
+    );
+    const label = `See ${want} publication${want === 1 ? "" : "s"}`;
+    fireEvent.click((await screen.findAllByText(label))[0]);
     expect(await shownCount()).toBe(want);
   });
 });
