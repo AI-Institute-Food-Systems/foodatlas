@@ -280,7 +280,7 @@ describe("literature table → publications modal, per page Direction", () => {
         />
       </PaginationsProvider>
     );
-    const label = `See ${want} publication${want === 1 ? "" : "s"}`;
+    const label = `See ${want} publications`;
     fireEvent.click((await screen.findAllByText(label))[0]);
     expect(await shownCount()).toBe(want);
   });
