@@ -189,12 +189,51 @@ CREATE TABLE mv_food_chemical_efficacy (
 )
 """
 
+# The Health tab's assay-inferred table: pairs, their per-activity grain, and
+# the target-label lookup.
+_CHEM_DISEASE_BIOACT_DDL = """
+CREATE TABLE mv_chemical_disease_bioactivity (
+    chemical_name         TEXT,
+    chemical_foodatlas_id TEXT,
+    disease_name          TEXT,
+    disease_foodatlas_id  TEXT,
+    n_assays              INTEGER DEFAULT 0,
+    n_active_measurements INTEGER DEFAULT 0,
+    relationships         TEXT[] DEFAULT '{}',
+    target_genes          TEXT[] DEFAULT '{}',
+    assays                TEXT[] DEFAULT '{}',
+    literature_directions TEXT[] DEFAULT '{}',
+    assay_groups          JSONB DEFAULT '[]'
+)
+"""
+
+_DISEASE_BIOACT_DDL = """
+CREATE TABLE mv_disease_bioactivity (
+    disease_name             TEXT,
+    disease_foodatlas_id     TEXT,
+    bioactivity_name         TEXT,
+    bioactivity_foodatlas_id TEXT,
+    chemical_name            TEXT,
+    chemical_foodatlas_id    TEXT
+)
+"""
+
+_TARGET_LABELS_DDL = """
+CREATE TABLE mv_assay_target_labels (
+    gene_id TEXT,
+    label   TEXT DEFAULT ''
+)
+"""
+
 DDL: tuple[str, ...] = (
     _CHEM_BIOACT_DDL,
     _FOOD_BIOACT_DDL,
     _TRIPLETS_DDL,
     _ATTESTATIONS_BIOACT_DDL,
     _FOOD_CHEM_EFFICACY_DDL,
+    _CHEM_DISEASE_BIOACT_DDL,
+    _DISEASE_BIOACT_DDL,
+    _TARGET_LABELS_DDL,
     _CHEM_ENTITIES_DDL,
     _FOOD_ENTITIES_DDL,
     _FOOD_COMPOSITION_DDL,
@@ -210,6 +249,9 @@ MIRRORED_TABLES: tuple[str, ...] = (
     "base_triplets",
     "base_attestations_bioactivity",
     "mv_food_chemical_efficacy",
+    "mv_chemical_disease_bioactivity",
+    "mv_disease_bioactivity",
+    "mv_assay_target_labels",
     "mv_chemical_entities",
     "mv_food_entities",
     "mv_food_chemical_composition",
