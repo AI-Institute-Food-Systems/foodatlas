@@ -706,6 +706,7 @@ const FiltersOnlyPanel = ({
               count={count}
               selected={selectedUnits.includes(value)}
               disabled={showSkeleton}
+              capitalize={false}
               onClick={() => onToggleUnit(value)}
             />
           ))}
