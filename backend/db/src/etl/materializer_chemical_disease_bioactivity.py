@@ -17,15 +17,18 @@ with ``mv_disease_bioactivity``, which keeps the bridging assay's bioactivity
 instead of collapsing it away.
 """
 
+import json
 import logging
 
 import pandas as pd
 from sqlalchemy.engine import Connection
 
+from .assay_groups import assay_groups
 from .bulk_insert import bulk_copy
 from .materializer_bioactivity_bridge import (
     ASSAY_CAP,
     as_list,
+    assay_bioactivity_map,
     attach_literature,
     build_bridge_evidence,
     literature_directions,
@@ -46,6 +49,7 @@ _MV_COLUMNS = [
     "target_genes",
     "assays",
     "literature_directions",
+    "assay_groups",
 ]
 
 
@@ -56,8 +60,15 @@ def materialize_chemical_disease_bioactivity(conn: Connection) -> None:
         logger.info("No chemical-disease associations inferred (skipping).")
         return
 
-    result = _aggregate(
-        evidence, name_map, target_gene_map(conn), literature_directions(conn)
+    target_map = target_gene_map(conn)
+    result = _aggregate(evidence, name_map, target_map, literature_directions(conn))
+    groups = assay_groups(evidence, target_map, assay_bioactivity_map(conn), name_map)
+    result = result.join(
+        groups.rename_axis(["chemical_foodatlas_id", "disease_foodatlas_id"]),
+        on=["chemical_foodatlas_id", "disease_foodatlas_id"],
+    )
+    result["assay_groups"] = result["assay_groups"].apply(
+        lambda g: json.dumps(g if isinstance(g, list) else [])
     )
     bulk_copy(conn, "mv_chemical_disease_bioactivity", result, _MV_COLUMNS)
     logger.info("Chemical-disease (bioactivity): %d associations.", len(result))

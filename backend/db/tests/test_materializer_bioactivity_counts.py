@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pandas as pd
 from src.etl.bioactivity_aggregate import (
+    ASSAY_KEY_SEP,
     MEASUREMENTS_CAP,
     aggregate_pair,
     source_kind,
@@ -77,6 +78,35 @@ class TestAggregateFilterArrays:
         assert agg["evidence_types"] == ["in vitro", "in vivo"]
         assert agg["units"] == ["mg/kg", "uM"]
 
+    def test_assay_keys_combine_each_assays_dimensions(self):
+        rows = [
+            _row(
+                "Experimental",
+                evidence_type="in vitro",
+                potency_unit="uM",
+                evidence_endpoint_type="IC50",
+            ),
+            _row(
+                "predicted",
+                evidence_type="in vivo",
+                potency_unit="mg/kg",
+                evidence_endpoint_type="LD50",
+            ),
+            _row(
+                "Experimental",
+                evidence_type="in vitro",
+                potency_unit="uM",
+                evidence_endpoint_type="IC50",
+            ),
+        ]
+        rows *= MEASUREMENTS_CAP
+        keys = aggregate_pair(rows, {})["assay_keys"]
+        sep = ASSAY_KEY_SEP
+        assert keys == [
+            f"in vitro{sep}uM{sep}experimental{sep}IC50",
+            f"in vivo{sep}mg/kg{sep}predicted{sep}LD50",
+        ]
+
     def test_missing_values_are_left_out(self):
         rows = [
             _row("Experimental", evidence_type=None, potency_unit=float("nan")),
@@ -145,6 +175,7 @@ class TestFoodBioactivityColumns:
             "predicted_count",
             "evidence_types",
             "units",
+            "assay_keys",
         } <= set(cols)
         assert df.loc[0, "experimental_count"] == 1
         assert df.loc[0, "predicted_count"] == 1
