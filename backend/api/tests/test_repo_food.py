@@ -192,11 +192,25 @@ class TestFoodGetComposition:
         assert "dmd_evidences IS NOT NULL" not in sql
 
 
+def _evs(n: int, extractions: int = 1) -> list[dict]:
+    """``n`` evidence records with ``extractions`` data points each."""
+    return [{"extraction": [{}] * extractions} for _ in range(n)]
+
+
 class TestResortAfterFilter:
+    def test_counts_extractions_not_records(self) -> None:
+        """One record with three extractions outranks two single ones."""
+        rows = [
+            {"name": "two-records", "ptfi_evidences": _evs(2)},
+            {"name": "one-record", "ptfi_evidences": _evs(1, extractions=3)},
+        ]
+        out = _resort_after_filter(rows, "evidence_count", "DESC")
+        assert [r["name"] for r in out] == ["one-record", "two-records"]
+
     def test_evidence_count_desc(self) -> None:
         rows = [
-            {"name": "a", "fdc_evidences": [1, 2], "foodatlas_evidences": [3]},
-            {"name": "b", "fdc_evidences": [1], "foodatlas_evidences": [2]},
+            {"name": "a", "fdc_evidences": _evs(2), "foodatlas_evidences": _evs(1)},
+            {"name": "b", "fdc_evidences": _evs(1), "foodatlas_evidences": _evs(1)},
             {"name": "c", "fdc_evidences": []},
         ]
         out = _resort_after_filter(rows, "evidence_count", "DESC")
@@ -211,12 +225,12 @@ class TestResortAfterFilter:
         tie stands and stable-sort order is preserved.
         """
         rows = [
-            {"name": "a", "fdc_evidences": [1, 2], "foodatlas_evidences": [3]},
+            {"name": "a", "fdc_evidences": _evs(2), "foodatlas_evidences": _evs(1)},
             {
                 "name": "b",
-                "fdc_evidences": [1],
-                "foodatlas_evidences": [2, 3],
-                "dmd_evidences": [4],
+                "fdc_evidences": _evs(1),
+                "foodatlas_evidences": _evs(2),
+                "dmd_evidences": _evs(1),
             },
         ]
         out = _resort_after_filter(rows, "evidence_count", "DESC")
@@ -224,8 +238,8 @@ class TestResortAfterFilter:
 
     def test_evidence_count_asc(self) -> None:
         rows = [
-            {"name": "a", "fdc_evidences": [1, 2]},
-            {"name": "b", "fdc_evidences": [1]},
+            {"name": "a", "fdc_evidences": _evs(2)},
+            {"name": "b", "fdc_evidences": _evs(1)},
         ]
         out = _resort_after_filter(rows, "evidence_count", "ASC")
         assert [r["name"] for r in out] == ["b", "a"]
@@ -233,7 +247,7 @@ class TestResortAfterFilter:
     def test_null_evidences_treated_as_empty(self) -> None:
         rows = [
             {"name": "a", "fdc_evidences": None, "foodatlas_evidences": None},
-            {"name": "b", "fdc_evidences": [1]},
+            {"name": "b", "fdc_evidences": _evs(1)},
         ]
         out = _resort_after_filter(rows, "evidence_count", "DESC")
         assert [r["name"] for r in out] == ["b", "a"]

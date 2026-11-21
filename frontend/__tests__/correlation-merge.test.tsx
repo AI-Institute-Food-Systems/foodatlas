@@ -254,8 +254,9 @@ describe("mixed rows", () => {
     // Both group headings appear inside the dialog, and every id is
     // reachable under the right one.
     const dialog = within(screen.getByRole("dialog"));
-    expect(dialog.getByText("Improves")).toBeInTheDocument();
-    expect(dialog.getByText("Worsens")).toBeInTheDocument();
+    // Headings, not the modal's Direction filter options of the same name.
+    expect(dialog.getByRole("heading", { name: "Improves" })).toBeInTheDocument();
+    expect(dialog.getByRole("heading", { name: "Worsens" })).toBeInTheDocument();
     expect(dialog.getByText("imp-1")).toBeInTheDocument();
     expect(dialog.getByText("wor-1")).toBeInTheDocument();
     expect(dialog.getByText("wor-2")).toBeInTheDocument();
@@ -273,7 +274,7 @@ describe("mixed rows", () => {
     // Scoped to the dialog: the row behind it still shows its own
     // "Improves" direction cell.
     const dialog = within(screen.getByRole("dialog"));
-    expect(dialog.queryByText("Improves")).not.toBeInTheDocument();
+    expect(dialog.queryByRole("heading", { name: "Improves" })).not.toBeInTheDocument();
     expect(dialog.getByText("123")).toBeInTheDocument();
   });
 });

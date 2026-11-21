@@ -9,6 +9,8 @@ from ._search_util import build_ilike_pattern
 from ._sources import (
     COMPOSITION_SOURCES,
     any_source_sql,
+    data_points,
+    data_points_sql,
     parse_sources,
     row_has_source,
     source_sql,
@@ -43,8 +45,7 @@ VALID_SORT_COLS = {
     "common_name": "chemical_name",
     "median_concentration": "(median_concentration->>'value')::NUMERIC",
     "evidence_count": " + ".join(
-        f"COALESCE(jsonb_array_length({s}_evidences), 0)"
-        for s in EVIDENCE_COUNT_SORT_SOURCES
+        data_points_sql(f"{s}_evidences") for s in EVIDENCE_COUNT_SORT_SOURCES
     ),
 }
 VALID_DIRECTIONS = {"ASC", "DESC"}
@@ -527,7 +528,8 @@ def _resort_after_filter(data: list[dict], sort_by: str, direction: str) -> list
         return sorted(
             data,
             key=lambda r: sum(
-                len(r.get(f"{s}_evidences") or []) for s in EVIDENCE_COUNT_SORT_SOURCES
+                data_points(r.get(f"{s}_evidences"))
+                for s in EVIDENCE_COUNT_SORT_SOURCES
             ),
             reverse=descending,
         )

@@ -80,6 +80,17 @@ export const concentrationValue = (
 export const evidenceCountOf = (row: ChemicalCompositionRow): number =>
   row.evidence_count ?? 0;
 
+// Data points (extractions) the row's button and modal count, limited to
+// the sources selected on the page; no selection means every source.
+export const dataPointsFor = (
+  row: ChemicalCompositionRow,
+  sources: SourceKey[]
+): number =>
+  (sources.length ? sources : SOURCES.map((s) => s.key)).reduce(
+    (n, key) => n + sourceCountOf(row, key),
+    0
+  );
+
 export const sourceCountOf = (
   row: ChemicalCompositionRow,
   key: SourceKey

@@ -37,6 +37,11 @@ import FoodCompositionEvidenceModal, {
   EvidenceFilter,
 } from "@/components/entities/food/FoodCompositionEvidenceModal";
 import {
+  countDataPoints,
+  matchesSources,
+  sourceNamesFor,
+} from "@/components/entities/food/compositionDataPoints";
+import {
   FilterGroup,
   FilterOption,
   FilterOptionList,
@@ -569,32 +574,31 @@ const FoodCompositionSection = ({
     setSelectedEvidenceName(name);
   };
 
-  // count evidences (= "data points") that contain ≥1 chemical-ambiguous
-  // extraction. Food-side ambiguity is surfaced by the page banner instead,
-  // so we intentionally exclude it from the row-level count.
-  const getRowAmbiguousCount = (row: FoodCompositionData) => {
-    const all = [
-      ...(row.foodatlas_evidences ?? []),
-      ...(row.fdc_evidences ?? []),
-      ...(row.ptfi_evidences ?? []),
-    ];
-    return all.filter((ev) =>
-      ev.extraction.some((ex) => (ex.chemical_candidates?.length ?? 0) > 1)
-    ).length;
-  };
+  // Data points (extractions) the row's button, badges and modal count,
+  // limited to the sources selected on the page.
+  const pageSources = sourceNamesFor(sourceFilters);
+  const rowEvidences = (row: FoodCompositionData) => [
+    ...(row.foodatlas_evidences ?? []),
+    ...(row.fdc_evidences ?? []),
+    ...(row.ptfi_evidences ?? []),
+  ];
 
-  // count evidences (= "data points") that contain ≥1 low-trust extraction.
-  // Only meaningful when showLowTrust is on (otherwise the API filtered them
-  // server-side and the annotation isn't on the response).
-  const getRowLowTrustCount = (row: FoodCompositionData) => {
-    const all = [
-      ...(row.foodatlas_evidences ?? []),
-      ...(row.fdc_evidences ?? []),
-      ...(row.ptfi_evidences ?? []),
-    ];
-    return all.filter((ev) => ev.extraction.some((ex) => ex.trust_low === true))
-      .length;
-  };
+  // Chemical-side ambiguity only; food-side ambiguity is the page banner's.
+  const getRowAmbiguousCount = (row: FoodCompositionData) =>
+    rowEvidences(row).reduce(
+      (n, ev) =>
+        matchesSources(ev, pageSources)
+          ? n +
+            ev.extraction.filter((ex) => (ex.chemical_candidates?.length ?? 0) > 1)
+              .length
+          : n,
+      0
+    );
+
+  // Only meaningful when showLowTrust is on; otherwise the API removed
+  // low-trust extractions server-side.
+  const getRowLowTrustCount = (row: FoodCompositionData) =>
+    countDataPoints(rowEvidences(row), { sources: pageSources, lowTrustOnly: true });
 
   // handle search
   const handleSearch = (value: string) => {
@@ -637,9 +641,7 @@ const FoodCompositionSection = ({
   };
 
   const getRowEvidenceCount = (row: FoodCompositionData) =>
-    (row.foodatlas_evidences?.length || 0) +
-    (row.fdc_evidences?.length || 0) +
-    (row.ptfi_evidences?.length || 0);
+    countDataPoints(rowEvidences(row), { sources: pageSources });
 
 
   const toggleClassification = (cls: string) => {

@@ -4,6 +4,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import _correlation
+from ._sources import COMPOSITION_SOURCES, data_points_sql
 from .formatting import format_external_ids
 
 # 25 to match food.py. The merged Diseases tab stacks two tables, so a
@@ -17,15 +18,12 @@ ROWS_PER_PAGE = 25
 # DMD is excluded on purpose: `dmd_evidences` stays populated in the view but
 # left the public API in the 2026-07-06 removal, so counting it here would
 # report data points the UI can never show.
-_SOURCE_COUNTS = (
-    "COALESCE(jsonb_array_length(c.fdc_evidences), 0) AS fdc_count, "
-    "COALESCE(jsonb_array_length(c.foodatlas_evidences), 0) AS foodatlas_count, "
-    "COALESCE(jsonb_array_length(c.ptfi_evidences), 0) AS ptfi_count"
+_SOURCE_COUNTS = ", ".join(
+    f"{data_points_sql(f'c.{src}_evidences')} AS {src}_count"
+    for src in COMPOSITION_SOURCES
 )
-_EVIDENCE_COUNT = (
-    "COALESCE(jsonb_array_length(c.fdc_evidences), 0) "
-    "+ COALESCE(jsonb_array_length(c.foodatlas_evidences), 0) "
-    "+ COALESCE(jsonb_array_length(c.ptfi_evidences), 0)"
+_EVIDENCE_COUNT = " + ".join(
+    data_points_sql(f"c.{src}_evidences") for src in COMPOSITION_SOURCES
 )
 
 

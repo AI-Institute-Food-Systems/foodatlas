@@ -13,7 +13,8 @@ import {
   ChemicalCompositionRow as Row,
   barPercent,
   concentrationValue,
-  evidenceCountOf,
+  dataPointsFor,
+  type SourceKey,
   formatPercentByMass,
   rowSourceLabels,
 } from "@/utils/chemicalComposition";
@@ -22,6 +23,8 @@ import { formatConcentrationValueAlt } from "@/utils/utils";
 export const COLUMN_COUNT = 3;
 
 interface ChemicalCompositionRowProps {
+  // Page Source filter; the button counts only these sources.
+  sources: SourceKey[];
   row: Row;
   // Denominator for the bar. Comes from the full result set, not this
   // page — see computeMaxValue.
@@ -50,11 +53,12 @@ const ChemicalCompositionTableRow = ({
   href,
   onEvidenceClick,
   rowProps,
+  sources,
 }: ChemicalCompositionRowProps) => {
   const value = concentrationValue(row);
   const percent = barPercent(value, maxValue);
   const pctByMass = formatPercentByMass(row);
-  const evidence = evidenceCountOf(row);
+  const evidence = dataPointsFor(row, sources);
 
   return (
     <tr {...rowProps}>

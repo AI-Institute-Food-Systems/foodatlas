@@ -11,13 +11,16 @@ import {
   ChemicalCompositionRow as Row,
   barPercent,
   concentrationValue,
-  evidenceCountOf,
+  dataPointsFor,
+  type SourceKey,
   formatPercentByMass,
   rowSourceLabels,
 } from "@/utils/chemicalComposition";
 import { formatConcentrationValueAlt } from "@/utils/utils";
 
 interface ChemicalCompositionCardsProps {
+  // Page Source filter; the button counts only these sources.
+  sources: SourceKey[];
   rows: Row[];
   maxValue: number;
   hrefFor: (row: Row) => string;
@@ -34,13 +37,14 @@ const ChemicalCompositionCards = ({
   hrefFor,
   onEvidenceClick,
   rowPropsFor,
+  sources,
 }: ChemicalCompositionCardsProps) => (
   <div className="w-full flex flex-col divide-y divide-light-800">
     {rows.map((row) => {
       const value = concentrationValue(row);
       const percent = barPercent(value, maxValue);
       const pctByMass = formatPercentByMass(row);
-      const evidence = evidenceCountOf(row);
+      const evidence = dataPointsFor(row, sources);
 
       return (
         <div
