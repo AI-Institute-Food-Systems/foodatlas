@@ -254,12 +254,12 @@ describe("activities", () => {
 
     fireEvent.click(button);
     const dialog = await screen.findByRole("dialog");
-    expect(within(dialog).getByText("anticancer")).toBeInTheDocument();
-    expect(within(dialog).getByText("antiviral")).toBeInTheDocument();
+    // The modal's Activity filter repeats the names, so match the links.
+    const link = (name: string) =>
+      within(dialog).getByRole("link", { name: new RegExp(`^${name}$`, "i") });
+    expect(link("antiviral")).toBeInTheDocument();
     // Each links to its own bioactivity page.
-    expect(
-      within(dialog).getByText("anticancer").closest("a")
-    ).toHaveAttribute("href", "/bioactivity/anticancer");
+    expect(link("anticancer")).toHaveAttribute("href", "/bioactivity/anticancer");
   });
 
   it("renders no button for a row with no activities", async () => {

@@ -19,14 +19,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { peerName, type PeerDirection } from "@/components/entities/shared/AssayInferredRow";
 import {
-  activitiesOf,
-  countActivities,
-  matchesActivities,
-} from "@/components/entities/shared/filters/ActivityFilterGroup";
-import {
-  countSignals,
-  matchesSignals,
-} from "@/components/entities/shared/filters/SignalFilterGroup";
+  activityFacet,
+  rowMatches,
+  signalFacet,
+} from "@/components/entities/shared/assayGroups";
+import { activitiesOf } from "@/components/entities/shared/filters/ActivityFilterGroup";
+import { SIGNALS } from "@/components/entities/shared/filters/SignalFilterGroup";
 import {
   nextSort,
   type SortDir,
@@ -126,12 +124,15 @@ export const useAssayInferredRows = ({
   // facet — and exclude its own, so a number is "rows you get if you pick
   // this" under the current view. They used to apply the search only, so
   // picking an activity left the Signal numbers frozen.
+  // Counted through the assay groups: one assay must match both filters.
   const signalCounts = useMemo(
     () =>
-      countSignals(
-        searched.filter((row) => matchesActivities(row.bioactivities, activities))
+      signalFacet(
+        searched,
+        { signals, activities },
+        SIGNALS.map((s) => s.key)
       ),
-    [searched, activities]
+    [searched, signals, activities]
   );
   useEffect(() => {
     if (onSignalCountsChange && !isLoading) onSignalCountsChange(signalCounts);
@@ -142,12 +143,8 @@ export const useAssayInferredRows = ({
   // it, and a zero renders disabled rather than dropping out of the list.
   const activityUniverse = useMemo(() => activitiesOf(rows), [rows]);
   const activityCounts = useMemo(
-    () =>
-      countActivities(
-        searched.filter((row) => matchesSignals(row.relationships, signals)),
-        activityUniverse
-      ),
-    [searched, signals, activityUniverse]
+    () => activityFacet(searched, { signals, activities }, activityUniverse),
+    [searched, signals, activities, activityUniverse]
   );
   useEffect(() => {
     if (onActivityCountsChange && !isLoading) {
@@ -158,11 +155,7 @@ export const useAssayInferredRows = ({
   const filtered = useMemo(
     () =>
       sortAssayInferredRows(
-        searched.filter(
-          (row) =>
-            matchesSignals(row.relationships, signals) &&
-            matchesActivities(row.bioactivities, activities)
-        ),
+        searched.filter((row) => rowMatches(row, { signals, activities })),
         peer,
         sort
       ),

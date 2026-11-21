@@ -45,7 +45,10 @@ import {
 } from "@/components/entities/shared/filters/FilterControls";
 import FilterPanel from "@/components/entities/shared/filters/FilterPanel";
 import { MobileSort, Th } from "@/components/entities/shared/EvidenceTable";
-import { sumFacetCounts } from "@/components/entities/shared/filters/facetOptions";
+import {
+  splitMulti,
+  sumFacetCounts,
+} from "@/components/entities/shared/filters/facetOptions";
 import { useReportRows } from "@/context/reportModeContext";
 import BioactivityMeasurementsModal from "@/components/entities/bioactivity/BioactivityMeasurementsModal";
 import { formatTopMeasurement, topMeasurementOf } from "@/components/entities/bioactivity/format";
@@ -279,9 +282,15 @@ const BioactivityTable = ({
     () => ({
       filterEvidenceType: effectiveEvidenceTypeParam,
       filterSourceKind: effectiveSourceKindParam,
+      filterCategory: categoryFilterParam,
       search: effectiveSearchTerm,
     }),
-    [effectiveEvidenceTypeParam, effectiveSourceKindParam, effectiveSearchTerm]
+    [
+      effectiveEvidenceTypeParam,
+      effectiveSourceKindParam,
+      categoryFilterParam,
+      effectiveSearchTerm,
+    ]
   );
   const { options: unitOptions, loaded: unitsLoaded } = useServerFacetOptions(
     fetchUnitCounts,
@@ -409,9 +418,15 @@ const BioactivityTable = ({
     () => ({
       filterUnit: effectiveUnitParam,
       filterSourceKind: effectiveSourceKindParam,
+      filterCategory: categoryFilterParam,
       search: effectiveSearchTerm,
     }),
-    [effectiveUnitParam, effectiveSourceKindParam, effectiveSearchTerm]
+    [
+      effectiveUnitParam,
+      effectiveSourceKindParam,
+      categoryFilterParam,
+      effectiveSearchTerm,
+    ]
   );
   const { options: evidenceTypeOptions, loaded: evidenceTypesLoaded } =
     useServerFacetOptions(
@@ -929,6 +944,8 @@ const BioactivityTable = ({
         relationship={modalConfig.relationship}
         headIsRow={modalConfig.headIsRow}
         initialSourceKind={effectiveSourceKindParam}
+        initialEvidenceTypes={splitMulti(effectiveEvidenceTypeParam)}
+        initialUnits={splitMulti(effectiveUnitParam)}
       />
     </FilterPanel>
   );

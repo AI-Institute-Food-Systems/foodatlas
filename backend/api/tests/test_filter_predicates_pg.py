@@ -36,15 +36,18 @@ from sqlalchemy import text
 from src.repositories._search_util import build_ilike_pattern
 from src.repositories.bioactivity import (
     _source_kind_of,
-    get_category_options,
     get_chemicals,
-    get_endpoint_options,
+)
+from src.repositories.bioactivity_facets import (
+    PageFilters,
+    get_category_counts,
     get_evidence_type_counts,
     get_source_kind_counts,
+    get_unit_counts,
 )
 from src.repositories.food import get_composition, get_composition_counts
 from src.repositories.v1.entities import list_entities
-from tests.dbharness import chem_bioactivity_row, measurement
+from tests.bioactfix import chem_bioactivity_row, load_bioactivity, measurement
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -146,9 +149,19 @@ def _bioactivity_fixture() -> list[dict]:
                     evidence_type="in vitro", evidence_source="experimental", unit="uM"
                 )
             ],
-            measurement_count=30,
-            evidence_types=["in vitro", "in vivo"],
-            units=["mg/kg", "uM"],
+            hidden=[
+                measurement(
+                    evidence_type="in vitro", evidence_source="experimental", unit="uM"
+                )
+            ]
+            * 28
+            + [
+                measurement(
+                    evidence_type="in vivo",
+                    evidence_source="experimental",
+                    unit="mg/kg",
+                )
+            ],
         )
     )
     # Decoy under a different bioactivity. A predicate that loses its
@@ -179,22 +192,7 @@ _CATEGORIES = {
 
 async def _load_bioactivity(session: AsyncSession) -> list[dict]:
     rows = _bioactivity_fixture()
-    for r in rows:
-        await session.execute(
-            text(
-                "INSERT INTO mv_chemical_bioactivity (bioactivity_name,"
-                " bioactivity_foodatlas_id, chemical_name, chemical_foodatlas_id,"
-                " measurement_count, active_count, inactive_count,"
-                " unspecified_count, inconclusive_count, experimental_count,"
-                " predicted_count, n_foods, evidence_types, units, measurements)"
-                " VALUES (:bioactivity_name, :bioactivity_foodatlas_id,"
-                " :chemical_name, :chemical_foodatlas_id, :measurement_count,"
-                " :active_count, :inactive_count, :unspecified_count,"
-                " :inconclusive_count, :experimental_count, :predicted_count,"
-                " :n_foods, :evidence_types, :units, CAST(:measurements AS JSONB))"
-            ),
-            {**r, "measurements": _json(r["measurements"])},
-        )
+    await load_bioactivity(session, rows)
     for chem_id, classes in _CATEGORIES.items():
         await session.execute(
             text(
@@ -400,7 +398,7 @@ class TestBioactivityCountsAgreeWithRows:
     ) -> None:
         await _load_bioactivity(pg_session)
         facets = await get_evidence_type_counts(
-            pg_session, BIOACT, "bioactivity-chemicals"
+            pg_session, BIOACT, "bioactivity-chemicals", PageFilters()
         )
         by_type = {f["evidence_type"]: f["count"] for f in facets["data"]}
         for et in EVIDENCE_TYPES:
@@ -414,10 +412,12 @@ class TestBioactivityCountsAgreeWithRows:
     ) -> None:
         await _load_bioactivity(pg_session)
         ets = await get_evidence_type_counts(
-            pg_session, BIOACT, "bioactivity-chemicals"
+            pg_session, BIOACT, "bioactivity-chemicals", PageFilters()
         )
         assert {"evidence_type": "in vivo", "count": 1} in ets["data"]
-        units = await get_endpoint_options(pg_session, BIOACT, "bioactivity-chemicals")
+        units = await get_unit_counts(
+            pg_session, BIOACT, "bioactivity-chemicals", PageFilters()
+        )
         assert {"endpoint": "", "unit": "mg/kg", "count": 1} in units["data"]
 
     async def test_source_kind_counts_match_rows(
@@ -425,7 +425,7 @@ class TestBioactivityCountsAgreeWithRows:
     ) -> None:
         await _load_bioactivity(pg_session)
         facets = await get_source_kind_counts(
-            pg_session, BIOACT, "bioactivity-chemicals"
+            pg_session, BIOACT, "bioactivity-chemicals", PageFilters()
         )
         for kind in SOURCE_KINDS:
             got = await get_chemicals(
@@ -435,7 +435,7 @@ class TestBioactivityCountsAgreeWithRows:
 
     async def test_category_counts_match_rows(self, pg_session: AsyncSession) -> None:
         await _load_bioactivity(pg_session)
-        facets = await get_category_options(pg_session, BIOACT)
+        facets = await get_category_counts(pg_session, BIOACT, PageFilters())
         for entry in facets["data"]:
             cat = entry["category"]
             got = await get_chemicals(
@@ -689,19 +689,18 @@ class TestEndpointUnitPair:
         self, pg_session: AsyncSession
     ) -> None:
         await _load_bioactivity(pg_session)
-        await pg_session.execute(
-            text(
-                "INSERT INTO mv_chemical_bioactivity (bioactivity_name,"
-                " chemical_name, chemical_foodatlas_id, measurement_count,"
-                " measurements) VALUES (:b, 'pairfixture', 'cpair', 1,"
-                " CAST(:m AS JSONB))"
-            ),
-            {
-                "b": BIOACT,
-                "m": json.dumps([measurement(endpoint="EC50", unit="mg/L", value=9.0)]),
-            },
+        pair = measurement(endpoint="EC50", unit="mg/L", value=9.0)
+        await load_bioactivity(
+            pg_session,
+            [
+                chem_bioactivity_row(
+                    bioactivity=BIOACT,
+                    chemical="pairfixture",
+                    chem_id="cpair",
+                    measurements=[pair],
+                )
+            ],
         )
-        await pg_session.commit()
 
         got = await get_chemicals(
             pg_session,

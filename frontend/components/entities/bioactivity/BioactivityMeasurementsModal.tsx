@@ -61,6 +61,11 @@ import { logAC50InUnit } from "@/components/entities/bioactivity/format";
 import HillCurveSparkline, {
   formatConcentration,
 } from "@/components/entities/bioactivity/HillCurveSparkline";
+import {
+  matchesSourceKind,
+  measurementMatches,
+  type ModalDimension,
+} from "@/components/entities/bioactivity/measurementFilters";
 import { getBioactivityMeasurements } from "@/utils/fetching";
 import { assayExternalUrl } from "@/utils/utils";
 import type {
@@ -109,17 +114,6 @@ const SOURCE_KINDS: { key: string; label: string }[] = [
   { key: "predicted", label: "Predicted" },
 ];
 
-const matchesSourceKind = (
-  source: string | null | undefined,
-  kind: string,
-): boolean => {
-  if (!kind) return true;
-  const s = (source ?? "").toLowerCase();
-  if (kind === "experimental") return s.startsWith("exp");
-  if (kind === "predicted") return s.startsWith("pred") || s.startsWith("comp");
-  return true;
-};
-
 interface Props {
   isOpen: boolean;
   onClose: () => void;
@@ -137,9 +131,11 @@ interface Props {
   selectedId?: string | null;
   relationship?: "r5" | "r6";
   headIsRow?: boolean;
-  // The page's Assay Source filter, so the modal opens on the same subset
-  // the "N assays" button counted.
+  // The page's Assay Source, Evidence and Unit filters, so the modal opens
+  // on the same subset the "N assays" button counted.
   initialSourceKind?: string;
+  initialEvidenceTypes?: string[];
+  initialUnits?: string[];
 }
 
 const formatNumberShort = (n: number): string =>
@@ -158,6 +154,8 @@ const BioactivityMeasurementsModal = ({
   relationship,
   headIsRow,
   initialSourceKind = "",
+  initialEvidenceTypes,
+  initialUnits,
 }: Props) => {
   const [fullRows, setFullRows] = useState<ModalRow[] | null>(null);
   const [isFetching, setIsFetching] = useState(false);
@@ -200,6 +198,8 @@ const BioactivityMeasurementsModal = ({
   // labels rows with (NPASS-style: molecular-level / in vitro / in vivo
   // / adme-tox). Empty array = no filter (show all).
   const [evidenceTypeFilter, setEvidenceTypeFilter] = useState<string[]>([]);
+  // Units arrive folded to their canonical form (API unit hotfix).
+  const [unitFilter, setUnitFilter] = useState<string[]>([]);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   // Accordion expansion — at most one row open at a time. Stored by
@@ -209,27 +209,39 @@ const BioactivityMeasurementsModal = ({
   // Every filter dimension back to its open-the-modal default. Shared by
   // the "Clear filters" control and the close/reselect effect below, so
   // the two cannot drift apart as dimensions are added.
-  const resetAllFilters = useCallback((sourceKind = "") => {
-    setSearchTerm("");
-    setOutcomeFilter("all");
-    setSourceFilter(sourceKind);
-    setEvidenceTypeFilter([]);
-    setCurrentPage(1);
-  }, []);
+  const resetAllFilters = useCallback(
+    (start: { source?: string; evidence?: string[]; units?: string[] } = {}) => {
+      setSearchTerm("");
+      setOutcomeFilter("all");
+      setSourceFilter(start.source ?? "");
+      setEvidenceTypeFilter(start.evidence ?? []);
+      setUnitFilter(start.units ?? []);
+      setCurrentPage(1);
+    },
+    []
+  );
 
   const isFiltersDirty =
     searchTerm !== "" ||
     outcomeFilter !== "all" ||
     sourceFilter !== "" ||
-    evidenceTypeFilter.length > 0;
+    evidenceTypeFilter.length > 0 ||
+    unitFilter.length > 0;
 
-  // Reset filters/page/expand when the modal closes or the underlying
-  // selection changes (different chemical/food clicked).
+  // Open on the page's filters; reset when the modal closes or the
+  // selection changes. Keyed on joined strings, since callers pass fresh
+  // arrays on every render.
+  const evidenceKey = (initialEvidenceTypes ?? []).join("+");
+  const unitKey = (initialUnits ?? []).join("+");
   useEffect(() => {
-    resetAllFilters(initialSourceKind);
+    resetAllFilters({
+      source: initialSourceKind,
+      evidence: evidenceKey ? evidenceKey.split("+") : [],
+      units: unitKey ? unitKey.split("+") : [],
+    });
     setMobileFiltersOpen(false);
     setExpandedKey(null);
-  }, [isOpen, selectedId, initialSourceKind, resetAllFilters]);
+  }, [isOpen, selectedId, initialSourceKind, evidenceKey, unitKey, resetAllFilters]);
 
   // Faceted counts — each dimension applies every OTHER active filter
   // (excluding its own) so the numbers stay in sync with what the modal
@@ -244,30 +256,19 @@ const BioactivityMeasurementsModal = ({
   // Evidence number sat frozen. Adding a fifth dimension now means one
   // new branch here instead of four edits nobody remembers to make.
   const rowMatches = useCallback(
-    (r: ModalRow, skip: "outcome" | "source" | "evidence" | null): boolean => {
-      if (skip !== "outcome" && outcomeFilter !== "all") {
-        const o = r.outcome?.toLowerCase().trim() ?? "";
-        if (o !== outcomeFilter) return false;
-      }
-      if (
-        skip !== "source" &&
-        sourceFilter &&
-        !matchesSourceKind(r.evidence_source, sourceFilter)
-      ) {
-        return false;
-      }
-      if (skip !== "evidence" && evidenceTypeFilter.length > 0) {
-        const et = (r.evidence_type ?? "").trim();
-        if (!evidenceTypeFilter.includes(et)) return false;
-      }
-      const q = searchTerm.trim().toLowerCase();
-      if (q) {
-        const haystack = `${r.assay ?? ""} ${r.endpoint ?? ""}`.toLowerCase();
-        if (!haystack.includes(q)) return false;
-      }
-      return true;
-    },
-    [outcomeFilter, sourceFilter, evidenceTypeFilter, searchTerm]
+    (r: ModalRow, skip: ModalDimension | null): boolean =>
+      measurementMatches(
+        r,
+        {
+          outcome: outcomeFilter,
+          source: sourceFilter,
+          evidence: evidenceTypeFilter,
+          units: unitFilter,
+          search: searchTerm,
+        },
+        skip
+      ),
+    [outcomeFilter, sourceFilter, evidenceTypeFilter, unitFilter, searchTerm]
   );
 
   const outcomeCounts = useMemo<Record<OutcomeFilter, number>>(() => {
@@ -319,6 +320,19 @@ const BioactivityMeasurementsModal = ({
     });
     return facetOptions(
       facetUniverse(rows, (r) => r.evidence_type),
+      counts
+    );
+  }, [rows, rowMatches]);
+
+  const unitOptions = useMemo<FacetOption[]>(() => {
+    const counts = new Map<string, number>();
+    rows.forEach((r) => {
+      if (!rowMatches(r, "unit")) return;
+      const u = r.unit ?? "";
+      if (u) counts.set(u, (counts.get(u) ?? 0) + 1);
+    });
+    return facetOptions(
+      facetUniverse(rows, (r) => r.unit),
       counts
     );
   }, [rows, rowMatches]);
@@ -390,6 +404,16 @@ const BioactivityMeasurementsModal = ({
     setEvidenceTypeFilter([]);
     setCurrentPage(1);
   };
+  const toggleUnit = (unit: string) => {
+    setUnitFilter((prev) =>
+      prev.includes(unit) ? prev.filter((u) => u !== unit) : [...prev, unit]
+    );
+    setCurrentPage(1);
+  };
+  const clearUnits = () => {
+    setUnitFilter([]);
+    setCurrentPage(1);
+  };
   // Rendered in both the outside sidebar and the sub-1440px drawer, so
   // the reset control lives here rather than at either call site — one
   // definition, and neither surface can be the one that lacks it.
@@ -412,6 +436,10 @@ const BioactivityMeasurementsModal = ({
         selectedEvidenceTypes={evidenceTypeFilter}
         onToggleEvidenceType={toggleEvidenceType}
         onClearEvidenceTypes={clearEvidenceTypes}
+        unitOptions={unitOptions}
+        selectedUnits={unitFilter}
+        onToggleUnit={toggleUnit}
+        onClearUnits={clearUnits}
         showSkeleton={showSkeleton}
       />
     </FilterPanelBody>
@@ -430,7 +458,10 @@ const BioactivityMeasurementsModal = ({
         </Card>
       }
       description={
-        <span className="font-mono italic text-xs text-light-400 capitalize">
+        <span
+          className="font-mono italic text-xs text-light-400 capitalize"
+          data-filtered-count={showSkeleton ? undefined : filtered.length}
+        >
           {totalKnown.toLocaleString()} measurement
           {totalKnown === 1 ? "" : "s"}
           {contributedCount != null && contributedCount < totalKnown && (
@@ -587,7 +618,7 @@ const SearchInput = ({
     />
 );
 
-// Non-search filters — Outcome + Evidence + Assay Source. Renders
+// Non-search filters — Outcome + Evidence + Unit + Assay Source. Renders
 // every option (including zero-count ones) so the filter chrome stays
 // stable; each row's count reflects the FULL row set. Rendered inside
 // the sidebar (min-[1440px]) and inside the drawer (sub-1440px).
@@ -602,6 +633,10 @@ const FiltersOnlyPanel = ({
   selectedEvidenceTypes,
   onToggleEvidenceType,
   onClearEvidenceTypes,
+  unitOptions,
+  selectedUnits,
+  onToggleUnit,
+  onClearUnits,
   showSkeleton,
 }: {
   outcomeFilter: OutcomeFilter;
@@ -614,6 +649,10 @@ const FiltersOnlyPanel = ({
   selectedEvidenceTypes: string[];
   onToggleEvidenceType: (etype: string) => void;
   onClearEvidenceTypes: () => void;
+  unitOptions: FacetOption[];
+  selectedUnits: string[];
+  onToggleUnit: (unit: string) => void;
+  onClearUnits: () => void;
   showSkeleton: boolean;
 }) => (
   <div className="flex flex-col gap-5">
@@ -649,6 +688,26 @@ const FiltersOnlyPanel = ({
               selected={selectedEvidenceTypes.includes(value)}
               disabled={showSkeleton}
               onClick={() => onToggleEvidenceType(value)}
+            />
+          ))}
+        </FilterOptionList>
+      </FilterGroup>
+    )}
+    {unitOptions.length > 0 && (
+      <FilterGroup
+        label="Unit"
+        onClear={selectedUnits.length > 0 ? onClearUnits : undefined}
+      >
+        <FilterOptionList>
+          {unitOptions.map(({ value, count }) => (
+            <FilterOption
+              key={value}
+              label={value}
+              count={count}
+              selected={selectedUnits.includes(value)}
+              disabled={showSkeleton}
+              capitalize={false}
+              onClick={() => onToggleUnit(value)}
             />
           ))}
         </FilterOptionList>

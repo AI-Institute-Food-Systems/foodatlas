@@ -10,13 +10,12 @@ them.
 
 from __future__ import annotations
 
-import json
 from typing import TYPE_CHECKING
 
 import pytest
-from sqlalchemy import text
-from src.repositories.bioactivity import get_chemicals, get_source_kind_counts
-from tests.dbharness import chem_bioactivity_row, measurement
+from src.repositories.bioactivity import get_chemicals
+from src.repositories.bioactivity_facets import PageFilters, get_source_kind_counts
+from tests.bioactfix import chem_bioactivity_row, load_bioactivity, measurement
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -35,9 +34,7 @@ _ROWS = [
         chemical="many-exp",
         chem_id="c1",
         measurements=_EXP_SAMPLE,
-        measurement_count=40,
-        experimental_count=40,
-        predicted_count=0,
+        hidden=[measurement(evidence_source="experimental")] * 15,
     ),
     # 3 predicted assays, all past the cap: the sample is all experimental.
     chem_bioactivity_row(
@@ -45,9 +42,8 @@ _ROWS = [
         chemical="pred-past-cap",
         chem_id="c2",
         measurements=_EXP_SAMPLE,
-        measurement_count=30,
-        experimental_count=27,
-        predicted_count=3,
+        hidden=[measurement(evidence_source="experimental")] * 2
+        + [measurement(evidence_source="predicted")] * 3,
     ),
     # Ranks first by total (50) but third by experimental count (10).
     chem_bioactivity_row(
@@ -56,9 +52,7 @@ _ROWS = [
         chem_id="c4",
         measurements=[measurement(evidence_source="experimental")] * 10
         + [measurement(evidence_source="predicted")] * 15,
-        measurement_count=50,
-        experimental_count=10,
-        predicted_count=40,
+        hidden=[measurement(evidence_source="predicted")] * 25,
     ),
     chem_bioactivity_row(
         bioactivity=BIOACT,
@@ -70,21 +64,7 @@ _ROWS = [
 
 
 async def _load(session: AsyncSession) -> None:
-    for r in _ROWS:
-        await session.execute(
-            text(
-                "INSERT INTO mv_chemical_bioactivity (bioactivity_name,"
-                " bioactivity_foodatlas_id, chemical_name, chemical_foodatlas_id,"
-                " measurement_count, experimental_count, predicted_count,"
-                " measurements) VALUES (:bioactivity_name,"
-                " :bioactivity_foodatlas_id, :chemical_name,"
-                " :chemical_foodatlas_id, :measurement_count,"
-                " :experimental_count, :predicted_count,"
-                " CAST(:measurements AS JSONB))"
-            ),
-            {**r, "measurements": json.dumps(r["measurements"])},
-        )
-    await session.commit()
+    await load_bioactivity(session, _ROWS)
 
 
 def _counts(payload: dict) -> dict[str, int]:
@@ -151,7 +131,9 @@ async def test_sort_uses_filtered_count(pg_session: AsyncSession) -> None:
 
 async def test_facet_counts_see_past_cap(pg_session: AsyncSession) -> None:
     await _load(pg_session)
-    facets = await get_source_kind_counts(pg_session, BIOACT, "bioactivity-chemicals")
+    facets = await get_source_kind_counts(
+        pg_session, BIOACT, "bioactivity-chemicals", PageFilters()
+    )
     assert facets["data"] == {"both": 4, "experimental": 4, "predicted": 2}
 
 

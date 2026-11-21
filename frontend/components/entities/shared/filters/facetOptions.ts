@@ -114,3 +114,10 @@ export function facetUniverse<T>(
   }
   return Array.from(seen);
 }
+
+/** A '+'-joined multi-select query value as its selected options. */
+export const splitMulti = (value: string): string[] =>
+  value
+    .split("+")
+    .map((v) => v.trim())
+    .filter(Boolean);

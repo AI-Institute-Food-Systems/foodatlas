@@ -4,7 +4,8 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.dependencies import get_db, verify_api_key
-from src.repositories import bioactivity, disease_bioactivity
+from src.repositories import bioactivity, bioactivity_facets, disease_bioactivity
+from src.repositories.bioactivity_facets import PageFilters
 
 router = APIRouter(
     prefix="/bioactivity",
@@ -85,117 +86,73 @@ async def bioactivity_foods(
     )
 
 
+_DIRECTION_DOC = (
+    "Pivot+relationship combo. One of: bioactivity-chemicals, bioactivity-foods, "
+    "chemical-bioactivities, food-bioactivities, food-inferred-bioactivities."
+)
+
+
+def _page_filters(
+    search: str = Query(""),
+    filter_evidence_type: str = Query(""),
+    filter_unit: str = Query(""),
+    filter_source_kind: str = Query(""),
+    filter_category: str = Query(""),
+) -> PageFilters:
+    """The page's active filters. Each facet skips its own dimension."""
+    return PageFilters(
+        search=search,
+        evidence_type=filter_evidence_type,
+        unit=filter_unit,
+        source_kind=filter_source_kind,
+        category=filter_category,
+    )
+
+
 @router.get("/endpoints")
 async def bioactivity_endpoint_options(
     common_name: str = Query(...),
-    direction: str = Query(
-        ...,
-        description=(
-            "Pivot+relationship combo. One of: bioactivity-chemicals, "
-            "bioactivity-foods, chemical-bioactivities, food-bioactivities."
-        ),
-    ),
-    filter_evidence_type: str = Query(""),
-    filter_source_kind: str = Query(""),
-    search: str = Query(""),
+    direction: str = Query(..., description=_DIRECTION_DOC),
+    filters: PageFilters = Depends(_page_filters),
     db: AsyncSession = Depends(get_db),
 ):
-    """Distinct (endpoint, unit, count) tuples for the table's filter UI.
-
-    Faceted on every OTHER sidebar dimension, matching
-    /food/composition/counts.
-    """
-    return await bioactivity.get_endpoint_options(
-        db,
-        common_name,
-        direction,
-        filter_evidence_type=filter_evidence_type,
-        filter_source_kind=filter_source_kind,
-        search=search,
-    )
+    """Per-unit row counts for the sidebar Unit filter, other filters applied."""
+    return await bioactivity_facets.get_unit_counts(db, common_name, direction, filters)
 
 
 @router.get("/categories")
 async def bioactivity_category_options(
     common_name: str = Query(..., description="Bioactivity common_name"),
-    filter_unit: str = Query(""),
-    filter_source_kind: str = Query(""),
-    search: str = Query(""),
+    filters: PageFilters = Depends(_page_filters),
     db: AsyncSession = Depends(get_db),
 ):
-    """Faceted (category, count) counts for the bioactivity's chemicals.
-
-    Every other active filter (unit, source kind, search) is applied so
-    the counts reflect what the table would render under each category
-    selection.
-    """
-    return await bioactivity.get_category_options(
-        db,
-        common_name,
-        filter_unit=filter_unit,
-        filter_source_kind=filter_source_kind,
-        search=search,
-    )
+    """Per-category row counts on the Chemicals tab, other filters applied."""
+    return await bioactivity_facets.get_category_counts(db, common_name, filters)
 
 
 @router.get("/source_kinds")
 async def bioactivity_source_kind_counts(
     common_name: str = Query(...),
-    direction: str = Query(
-        ...,
-        description=(
-            "Pivot+relationship combo. Same set as /bioactivity/endpoints: "
-            "bioactivity-chemicals, bioactivity-foods, chemical-bioactivities, "
-            "food-bioactivities."
-        ),
-    ),
-    filter_unit: str = Query(""),
-    filter_category: str = Query(""),
-    filter_evidence_type: str = Query(""),
-    search: str = Query(""),
+    direction: str = Query(..., description=_DIRECTION_DOC),
+    filters: PageFilters = Depends(_page_filters),
     db: AsyncSession = Depends(get_db),
 ):
-    """Faceted per-source-kind row counts for the sidebar Assay Source filter."""
-    return await bioactivity.get_source_kind_counts(
-        db,
-        common_name,
-        direction,
-        filter_unit=filter_unit,
-        filter_category=filter_category,
-        filter_evidence_type=filter_evidence_type,
-        search=search,
+    """Per-source-kind row counts for the sidebar Assay Source filter."""
+    return await bioactivity_facets.get_source_kind_counts(
+        db, common_name, direction, filters
     )
 
 
 @router.get("/evidence_types")
 async def bioactivity_evidence_type_counts(
     common_name: str = Query(...),
-    direction: str = Query(
-        ...,
-        description=(
-            "Pivot+relationship combo. Same set as /bioactivity/source_kinds: "
-            "bioactivity-chemicals, bioactivity-foods, chemical-bioactivities, "
-            "food-bioactivities, food-inferred-bioactivities."
-        ),
-    ),
-    filter_unit: str = Query(""),
-    filter_source_kind: str = Query(""),
-    search: str = Query(""),
+    direction: str = Query(..., description=_DIRECTION_DOC),
+    filters: PageFilters = Depends(_page_filters),
     db: AsyncSession = Depends(get_db),
 ):
-    """Per-evidence_type row counts for the sidebar Evidence filter.
-
-    Faceted: every OTHER active filter is applied, so each count answers
-    "how many rows would this bucket have if I picked it right now?" —
-    matching /food/composition/counts.
-    """
-    return await bioactivity.get_evidence_type_counts(
-        db,
-        common_name,
-        direction,
-        filter_unit=filter_unit,
-        filter_source_kind=filter_source_kind,
-        search=search,
+    """Per-evidence-type row counts for the sidebar Evidence filter."""
+    return await bioactivity_facets.get_evidence_type_counts(
+        db, common_name, direction, filters
     )
 
 

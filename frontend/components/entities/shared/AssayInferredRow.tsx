@@ -9,6 +9,11 @@ import { MdArrowForward } from "react-icons/md";
 
 import Link from "@/components/basic/Link";
 import { DetailCountButton } from "@/components/entities/shared/AssayDetailModals";
+import {
+  assayItemCount,
+  type AssayModalKind,
+} from "@/components/entities/shared/AssayFilteredModal";
+import type { AssayFilters } from "@/components/entities/shared/assayGroups";
 import { CardRow } from "@/components/entities/shared/EvidenceTable";
 import LiteratureBadge from "@/components/entities/shared/LiteratureBadge";
 import SignalChips from "@/components/entities/shared/SignalChips";
@@ -52,6 +57,8 @@ const SignalCell = ({ row }: { row: AssayInferredAssociation }) => (
 type RowProps = {
   row: AssayInferredAssociation;
   peer: PeerDirection;
+  // The page's Signal and Activity filters; the buttons count under them.
+  filters: AssayFilters;
   reportProps: Record<string, unknown>;
   onOpenTargets: () => void;
   onOpenAssays: () => void;
@@ -61,11 +68,14 @@ type RowProps = {
 export const PeerRow = ({
   row,
   peer,
+  filters,
   reportProps,
   onOpenTargets,
   onOpenAssays,
   onOpenActivities,
-}: RowProps) => (
+}: RowProps) => {
+  const n = (kind: AssayModalKind) => assayItemCount(kind, row, filters);
+  return (
   <tr {...reportProps}>
     <td className="py-1.5 pr-4">
       <div className="flex min-h-9 items-center capitalize">
@@ -79,32 +89,36 @@ export const PeerRow = ({
     </td>
     <td className="py-1.5 px-4">
       <DetailCountButton
-        n={row.bioactivities?.length ?? 0}
+        n={n("activities")}
         noun="activity"
         onOpen={onOpenActivities}
       />
     </td>
     <td className="py-1.5 px-4">
       <DetailCountButton
-        n={row.targets?.length ?? 0}
+        n={n("targets")}
         noun="target"
         onOpen={onOpenTargets}
       />
     </td>
     <td className="py-1.5 px-4">
-      <DetailCountButton n={row.n_assays} noun="assay" onOpen={onOpenAssays} />
+      <DetailCountButton n={n("assays")} noun="assay" onOpen={onOpenAssays} />
     </td>
   </tr>
-);
+  );
+};
 
 export const PeerCard = ({
   row,
   peer,
+  filters,
   reportProps,
   onOpenTargets,
   onOpenAssays,
   onOpenActivities,
-}: RowProps) => (
+}: RowProps) => {
+  const n = (kind: AssayModalKind) => assayItemCount(kind, row, filters);
+  return (
   <div className="py-3 flex flex-col gap-2" {...reportProps}>
     <div className="flex items-baseline justify-between gap-2 capitalize">
       <Link href={peerHref(row, peer)} isExternal={false}>
@@ -115,32 +129,33 @@ export const PeerCard = ({
     <div>
       <SignalCell row={row} />
     </div>
-    {!!row.bioactivities?.length && (
+    {n("activities") > 0 && (
       <CardRow label="Activities">
         <DetailCountButton
-          n={row.bioactivities.length}
+          n={n("activities")}
           noun="activity"
           onOpen={onOpenActivities}
         />
       </CardRow>
     )}
-    {!!row.targets?.length && (
+    {n("targets") > 0 && (
       <CardRow label="Target">
         <DetailCountButton
-          n={row.targets.length}
+          n={n("targets")}
           noun="target"
           onOpen={onOpenTargets}
         />
       </CardRow>
     )}
-    {!!row.assays?.length && (
+    {n("assays") > 0 && (
       <CardRow label="Assays">
         <DetailCountButton
-          n={row.n_assays}
+          n={n("assays")}
           noun="assay"
           onOpen={onOpenAssays}
         />
       </CardRow>
     )}
   </div>
-);
+  );
+};
