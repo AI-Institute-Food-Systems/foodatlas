@@ -98,6 +98,9 @@ class MVChemicalDiseaseBioactivity(Base):
     literature_directions: Mapped[list[str]] = mapped_column(
         ARRAY(Text), server_default="{}"
     )
+    # Assays grouped by their (activities, relationships), for exact counts
+    # under the Health tab's Activity and Signal filters. See etl/assay_groups.
+    assay_groups: Mapped[list] = mapped_column(JSONB, server_default="[]")
 
     __table_args__ = (
         Index("ix_mv_cdb_chemical", "chemical_name"),
@@ -186,6 +189,9 @@ class MVFoodBioactivity(Base):
     predicted_count: Mapped[int] = mapped_column(Integer, server_default="0")
     evidence_types: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default="{}")
     units: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default="{}")
+    # Distinct "evidence_type\x1funit\x1fsource_kind\x1fendpoint" per pair, so
+    # the API can require ONE assay to match every active filter at once.
+    assay_keys: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default="{}")
     measurements: Mapped[list] = mapped_column(JSONB, server_default="[]")
 
     __table_args__ = (

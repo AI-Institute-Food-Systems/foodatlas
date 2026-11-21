@@ -8,6 +8,7 @@ from sqlalchemy import text
 from sqlalchemy.engine import Connection
 
 MEASUREMENTS_CAP = 25  # per pair, for display
+ASSAY_KEY_SEP = "\x1f"
 
 
 def _num(x: float | None) -> float | None:
@@ -114,6 +115,7 @@ def aggregate_pair(rows: list, assay_meta: dict[str, dict]) -> dict:
     source_counts: dict[str, int] = defaultdict(int)
     evidence_types: set[str] = set()
     units: set[str] = set()
+    assay_keys: set[str] = set()
     sample: list[dict] = []
     for i, r in enumerate(rows):
         outcome = r.reported_activity_outcome
@@ -121,6 +123,16 @@ def aggregate_pair(rows: list, assay_meta: dict[str, dict]) -> dict:
         source_counts[source_kind(r.evidence_source)] += 1
         evidence_types.add(_label(r.evidence_type))
         units.add(_label(r.potency_unit))
+        assay_keys.add(
+            ASSAY_KEY_SEP.join(
+                (
+                    _label(r.evidence_type),
+                    _label(r.potency_unit),
+                    source_kind(r.evidence_source),
+                    _label(r.evidence_endpoint_type),
+                )
+            )
+        )
         if i in in_sample:
             sample.append(
                 {
@@ -153,5 +165,6 @@ def aggregate_pair(rows: list, assay_meta: dict[str, dict]) -> dict:
         "predicted_count": source_counts["predicted"],
         "evidence_types": sorted(evidence_types - {""}),
         "units": sorted(units - {""}),
+        "assay_keys": sorted(assay_keys),
         "measurements": sample,
     }
