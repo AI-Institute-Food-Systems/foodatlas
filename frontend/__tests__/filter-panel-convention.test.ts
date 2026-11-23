@@ -162,8 +162,17 @@ describe("filter panel conventions", () => {
     // via sortFacetOptions; this catches the sort being reintroduced by
     // hand. Scoped to the entity components, where every facet lives —
     // sorting a TABLE by count is a different thing and stays allowed.
+    // The one exception, requested by Lukas 2026-11-23: the measurements
+    // modal's Unit list, busiest first. Its order moves only when another
+    // filter changes, never on a click in the Unit group itself.
+    const COUNT_ORDERED = new Set([
+      join("components", "entities", "bioactivity", "BioactivityMeasurementsModal.tsx"),
+    ]);
     const offenders = SOURCES.filter((f) => {
       if (isShared(f) || !f.includes(join("components", "entities"))) {
+        return false;
+      }
+      if (Array.from(COUNT_ORDERED).some((allowed) => f.endsWith(allowed))) {
         return false;
       }
       const src = code(f);
