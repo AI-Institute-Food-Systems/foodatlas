@@ -192,10 +192,8 @@ def build_filters(
     """WHERE tail shared by the page, count and facet queries.
 
     Returns the SQL fragment (each clause pre-prefixed with " AND ") and
-    its bind parameters. An unrecognised ``relation`` — including "all" —
-    drops the direction predicate, so both r3 and r4 rows come back in
-    one page and the frontend renders the direction per row instead of
-    running a table per direction.
+    its bind parameters. The direction is not a row predicate: it applies
+    to the grouped pair, through :func:`direction_having`.
 
     ``peer_column`` must be qualified to match the query it is spliced
     into: the disease-side page query aliases the view as ``c``, its
@@ -204,11 +202,7 @@ def build_filters(
     clauses = ""
     params: dict[str, object] = {}
 
-    relationship_id = RELATION_IDS.get(relation)
-    if relationship_id is not None:
-        clauses += " AND relationship_id = :rel"
-        params["rel"] = relationship_id
-
+    del relation
     # None for blank/whitespace-only input, so the clause and its bind
     # parameter are both skipped rather than becoming ILIKE '% %'.
     pattern = build_ilike_pattern(search)
@@ -219,6 +213,23 @@ def build_filters(
     return clauses, params
 
 
+# Exclusive buckets on the grouped pair, so Improves + Worsens + Mixed = All.
+_DIRECTION_HAVING = {
+    "positive": f"bool_and(relationship_id = '{IMPROVES}')",
+    "negative": f"bool_and(relationship_id = '{WORSENS}')",
+    "mixed": (
+        f"bool_or(relationship_id = '{IMPROVES}')"
+        f" AND bool_or(relationship_id = '{WORSENS}')"
+    ),
+}
+
+
+def direction_having(relation: str) -> str:
+    """HAVING clause for the Direction filter; "" for "all" or unknown values."""
+    cond = _DIRECTION_HAVING.get(relation)
+    return f" HAVING {cond}" if cond else ""
+
+
 async def get_direction_counts(
     session: AsyncSession,
     anchor_column: str,
@@ -227,23 +238,19 @@ async def get_direction_counts(
     search: str = "",
     group_by: str = GROUP_BY_PAIR,
 ) -> dict[str, int]:
-    """Improves/worsens row counts for the merged tab's Direction facet.
+    """Row counts per Direction bucket, under the active search.
 
-    Counted under the active search but NOT under the active direction —
-    a facet that only counted the direction already selected would read
-    zero for the option the user is trying to switch to.
-
-    These count ROWS AS RENDERED — ``group_by`` must be the same key the
-    page query groups by — so "All" is not improves + worsens: the ~4% of
-    pairs reported both ways are one row there and are counted once here.
-    Summing the two would overshoot the row count the user is about to see.
+    Counts ROWS AS RENDERED — ``group_by`` must be the page query's key.
+    The buckets are exclusive: a pair reported both ways is Mixed, never
+    Improves or Worsens, so improves + worsens + mixed == both (All).
     """
     where, params = build_filters("all", search, peer_column)
     result = await session.execute(
         text(f"""
             SELECT
-              COUNT(*) FILTER (WHERE has_improves) AS improves,
-              COUNT(*) FILTER (WHERE has_worsens) AS worsens,
+              COUNT(*) FILTER (WHERE has_improves AND NOT has_worsens) AS improves,
+              COUNT(*) FILTER (WHERE has_worsens AND NOT has_improves) AS worsens,
+              COUNT(*) FILTER (WHERE has_improves AND has_worsens) AS mixed,
               COUNT(*) AS both
             FROM (
               SELECT
@@ -260,5 +267,6 @@ async def get_direction_counts(
     return {
         "improves": int(row.improves),
         "worsens": int(row.worsens),
+        "mixed": int(row.mixed),
         "both": int(row.both),
     }

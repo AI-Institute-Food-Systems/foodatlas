@@ -126,20 +126,25 @@ class TestDiseaseSideOneRowPerChemical:
         counts = await disease.get_correlation_direction_counts(
             pg_session, "inflammation"
         )
-        # Two rows render; both improve, one also worsens.
-        assert counts == {"improves": 2, "worsens": 1, "both": 2}
+        # Two rows render: curcumin only improves, aromatic compound is
+        # reported both ways. Exclusive buckets sum to All.
+        assert counts == {"improves": 1, "worsens": 0, "mixed": 1, "both": 2}
 
     async def test_direction_filter_still_narrows(
         self, pg_session: AsyncSession
     ) -> None:
         await _load(pg_session)
-        page = await disease.get_correlation(
-            pg_session, "inflammation", relation="negative"
-        )
-        assert [r["name"] for r in page["data"]["associations"]] == [
-            "aromatic compound"
-        ]
-        assert page["metadata"]["total_rows"] == 1
+        for relation, want in (
+            ("positive", ["curcumin"]),
+            ("negative", []),
+            ("mixed", ["aromatic compound"]),
+        ):
+            page = await disease.get_correlation(
+                pg_session, "inflammation", relation=relation
+            )
+            names = [r["name"] for r in page["data"]["associations"]]
+            assert names == want, relation
+            assert page["metadata"]["total_rows"] == len(want)
 
 
 class TestChemicalSideKeepsAttribution:
@@ -162,4 +167,4 @@ class TestChemicalSideKeepsAttribution:
         counts = await chemical.get_correlation_direction_counts(
             pg_session, "aromatic compound"
         )
-        assert counts == {"improves": 3, "worsens": 1, "both": 3}
+        assert counts == {"improves": 2, "worsens": 0, "mixed": 1, "both": 3}

@@ -59,16 +59,19 @@ class TestBuildFilters:
         assert "relationship_id" not in where
         assert params == {}
 
-    @pytest.mark.parametrize(
-        ("relation", "expected"),
-        [("positive", "r4"), ("negative", "r3")],
-    )
-    def test_named_directions_bind_their_relationship_id(
-        self, relation: str, expected: str
-    ) -> None:
-        where, params = _correlation.build_filters(relation, "", "disease_name")
-        assert "relationship_id = :rel" in where
-        assert params["rel"] == expected
+    @pytest.mark.parametrize("relation", ["positive", "negative", "mixed"])
+    def test_direction_filters_the_grouped_pair_not_rows(self, relation: str) -> None:
+        # A row predicate would keep a mixed pair under Improves (with its
+        # worsens half dropped); the bucket must apply to the whole pair.
+        where, _ = _correlation.build_filters(relation, "", "disease_name")
+        assert "relationship_id" not in where
+        having = _correlation.direction_having(relation)
+        assert having.startswith(" HAVING ")
+        assert ("bool_and" in having) == (relation != "mixed")
+
+    def test_all_has_no_having(self) -> None:
+        assert _correlation.direction_having("all") == ""
+        assert _correlation.direction_having("improves") == ""
 
     def test_blank_search_adds_no_clause(self) -> None:
         # Whitespace-only input is truthy in Python; an unguarded pattern
@@ -403,22 +406,24 @@ class TestDirectionCountsAfterGrouping:
         # improves=0, or the facet renders a blank instead of a zero.
         session = AsyncMock()
         result = MagicMock()
-        result.one.return_value = MagicMock(improves=0, worsens=152, both=152)
+        result.one.return_value = MagicMock(improves=0, worsens=152, mixed=0, both=152)
         session.execute.return_value = result
 
         counts = await chem_direction_counts(session, "caffeine")
-        assert counts == {"improves": 0, "worsens": 152, "both": 152}
+        assert counts == {"improves": 0, "worsens": 152, "mixed": 0, "both": 152}
 
     @pytest.mark.asyncio
-    async def test_counts_pairs_so_all_is_not_the_sum(self) -> None:
-        # improves + worsens double-counts mixed pairs; "both" is the
-        # number of rows the table will actually render.
+    async def test_buckets_are_exclusive(self) -> None:
+        # Mixed pairs count once, under Mixed, so the buckets sum to All.
         session = AsyncMock()
         result = MagicMock()
-        result.one.return_value = MagicMock(improves=52, worsens=152, both=187)
+        result.one.return_value = MagicMock(
+            improves=35, worsens=135, mixed=17, both=187
+        )
         session.execute.return_value = result
 
         counts = await chem_direction_counts(session, "caffeine")
-        assert counts == {"improves": 52, "worsens": 152, "both": 187}
-        assert counts["both"] < counts["improves"] + counts["worsens"]
-        assert "bool_or" in _sql(session)
+        assert (
+            counts["improves"] + counts["worsens"] + counts["mixed"] == counts["both"]
+        )
+        assert "AND NOT has_worsens" in _sql(session)

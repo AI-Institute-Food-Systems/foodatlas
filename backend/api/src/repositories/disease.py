@@ -39,9 +39,8 @@ async def get_correlation(
 ) -> dict[str, object]:
     """Get chemical correlations for a disease.
 
-    relation="positive" -> r4 (helps reduce disease)
-    relation="negative" -> r3 (worsens disease)
-    relation="all"      -> both, with the direction carried per row
+    relation="positive" / "negative" / "mixed" -> exclusive Direction buckets
+    relation="all"      -> every chemical, with the direction carried per row
 
     Mirror of :func:`chemical.get_correlation`; see it for why "all" is
     the default. Unlike that side, rows are grouped by chemical alone:
@@ -54,6 +53,7 @@ async def get_correlation(
         relation, search, "c.chemical_name"
     )
     where, _ = _correlation.build_filters(relation, search, "chemical_name")
+    having = _correlation.direction_having(relation)
     order = _correlation.build_order(
         sort_by, sort_dir, "c.chemical_name", _correlation.ROW_KEY_CHEMICAL
     )
@@ -81,7 +81,7 @@ async def get_correlation(
                    ), '[]'::jsonb) AS ambiguity_siblings
             FROM {_correlation.VIEW} c
             WHERE c.disease_name = :name{where_c}
-            GROUP BY {_correlation.GROUP_BY_CHEMICAL}
+            GROUP BY {_correlation.GROUP_BY_CHEMICAL}{having}
             {order}
             OFFSET :offset ROWS FETCH FIRST :limit ROWS ONLY
         """),
@@ -99,7 +99,7 @@ async def get_correlation(
             SELECT COUNT(*) FROM (
                 SELECT 1 FROM {_correlation.VIEW}
                 WHERE disease_name = :name{where}
-                GROUP BY {_correlation.GROUP_BY_CHEMICAL}
+                GROUP BY {_correlation.GROUP_BY_CHEMICAL}{having}
             ) pairs
         """),
         {"name": common_name, **filter_params},

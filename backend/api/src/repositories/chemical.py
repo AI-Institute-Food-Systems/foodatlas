@@ -145,9 +145,10 @@ async def get_correlation(
 ) -> dict[str, object]:
     """Get disease correlations for a chemical.
 
-    relation="positive" -> r4 (helps reduce disease)
-    relation="negative" -> r3 (worsens disease)
-    relation="all"      -> both, with the direction carried per row
+    relation="positive" -> pairs reported only as r4 (helps reduce disease)
+    relation="negative" -> pairs reported only as r3 (worsens disease)
+    relation="mixed"    -> pairs reported both ways
+    relation="all"      -> every pair, with the direction carried per row
 
     "all" is the default because the merged Diseases tab renders one
     table with a direction column rather than a table per direction. The
@@ -158,6 +159,7 @@ async def get_correlation(
     query produced it.
     """
     where, filter_params = _correlation.build_filters(relation, search, "disease_name")
+    having = _correlation.direction_having(relation)
     order = _correlation.build_order(
         sort_by, sort_dir, "disease_name", _correlation.ROW_KEY_PAIR
     )
@@ -170,7 +172,7 @@ async def get_correlation(
                    {_correlation.PAIR_AGGREGATES}
             FROM {_correlation.VIEW}
             WHERE chemical_name = :name{where}
-            GROUP BY {_correlation.GROUP_BY_PAIR}
+            GROUP BY {_correlation.GROUP_BY_PAIR}{having}
             {order}
             OFFSET :offset ROWS FETCH FIRST :limit ROWS ONLY
         """),
@@ -188,7 +190,7 @@ async def get_correlation(
             SELECT COUNT(*) FROM (
                 SELECT 1 FROM {_correlation.VIEW}
                 WHERE chemical_name = :name{where}
-                GROUP BY {_correlation.GROUP_BY_PAIR}
+                GROUP BY {_correlation.GROUP_BY_PAIR}{having}
             ) pairs
         """),
         {"name": common_name, **filter_params},
