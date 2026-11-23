@@ -51,6 +51,7 @@ CREATE TABLE mv_chemical_bioactivity (
     evidence_types        TEXT[] DEFAULT '{}',
     units                 TEXT[] DEFAULT '{}',
     assay_keys            TEXT[] DEFAULT '{}',
+    assay_key_counts      JSONB DEFAULT '{}',
     measurements          JSONB
 )
 """
@@ -139,6 +140,7 @@ CREATE TABLE mv_food_bioactivity (
     evidence_types           TEXT[] DEFAULT '{}',
     units                    TEXT[] DEFAULT '{}',
     assay_keys               TEXT[] DEFAULT '{}',
+    assay_key_counts         JSONB DEFAULT '{}',
     measurements             JSONB
 )
 """

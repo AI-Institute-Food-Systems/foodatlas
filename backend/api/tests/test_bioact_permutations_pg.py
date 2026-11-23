@@ -214,7 +214,7 @@ async def _api(session: AsyncSession, direction: str, page: str, f: dict) -> dic
     }
     if direction == "food-inferred-bioactivities":
         payload = await bioactivity.get_food_inferred_bioactivities(
-            session, page, rows_per_page=1000, **kw
+            session, page, rows_per_page=1000, sort_by="measurement_count", **kw
         )
         rows = {
             (r["chemical"], r["bioactivity"]): r["measurement_count"]
@@ -232,9 +232,19 @@ async def _api(session: AsyncSession, direction: str, page: str, f: dict) -> dic
             if direction == "bioactivity-chemicals"
             else {}
         )
-        payload = await fetch(session, page, rows_per_page=1000, **kw, **extra)
+        payload = await fetch(
+            session,
+            page,
+            rows_per_page=1000,
+            sort_by="measurement_count",
+            **kw,
+            **extra,
+        )
         rows = {r["name"]: r["measurement_count"] for r in payload["data"]}
     assert payload["metadata"]["total_rows"] == len(rows)
+    # The "N assays" sort follows the numbers on the buttons.
+    shown = [r["measurement_count"] for r in payload["data"]]
+    assert shown == sorted(shown, reverse=True), shown
     pf = PageFilters(
         search=f["search"],
         evidence_type=kw["filter_evidence_type"],

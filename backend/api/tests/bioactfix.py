@@ -89,7 +89,10 @@ def chem_bioactivity_row(
         evidence_types = sorted({m["evidence_type"] for m in full} - {"", None})
     if units is None:
         units = sorted({m["unit"] for m in full} - {"", None})
-    assay_keys = sorted({assay_key(m) for m in full})
+    key_counts: dict[str, int] = {}
+    for m in full:
+        key_counts[assay_key(m)] = key_counts.get(assay_key(m), 0) + 1
+    assay_keys = sorted(key_counts)
     return {
         "bioactivity_name": bioactivity,
         "bioactivity_foodatlas_id": f"b-{bioactivity}",
@@ -108,6 +111,7 @@ def chem_bioactivity_row(
         "evidence_types": list(evidence_types),
         "units": list(units),
         "assay_keys": assay_keys,
+        "assay_key_counts": key_counts,
         "measurements": list(measurements),
         "all_measurements": full,
     }
@@ -142,6 +146,7 @@ _MV_COLS = {
         "evidence_types",
         "units",
         "assay_keys",
+        "assay_key_counts",
     ),
     "mv_food_bioactivity": (
         "food_name",
@@ -154,6 +159,7 @@ _MV_COLS = {
         "evidence_types",
         "units",
         "assay_keys",
+        "assay_key_counts",
     ),
 }
 _HEAD_COL = {
@@ -168,15 +174,19 @@ async def load_bioactivity(
     """Insert MV rows plus their triplets and every measurement."""
     cols = _MV_COLS[mv]
     head_col, rel = _HEAD_COL[mv]
+    values = ", ".join(
+        f"CAST(:{c} AS JSONB)" if c == "assay_key_counts" else f":{c}" for c in cols
+    )
     insert_mv = text(
         f"INSERT INTO {mv} ({', '.join(cols)}, measurements)"
-        f" VALUES ({', '.join(':' + c for c in cols)}, CAST(:measurements AS JSONB))"
+        f" VALUES ({values}, CAST(:measurements AS JSONB))"
     )
     for r in rows:
         await session.execute(
             insert_mv,
             {
                 **{c: r[c] for c in cols},
+                "assay_key_counts": json.dumps(r["assay_key_counts"]),
                 "measurements": json.dumps(r["measurements"]),
             },
         )

@@ -24,7 +24,7 @@ from src.repositories import _bioact_hotfix
 from src.repositories._search_util import build_ilike_pattern
 from src.repositories.bioactivity_counts import (
     assay_exists_sql,
-    filtered_counts,
+    filtered_count_sql,
     key_conditions,
     split_multi,
 )
@@ -71,12 +71,6 @@ _SOURCE_COUNT_COL = {
 _MV_ROW_KEY = {
     "mv_chemical_bioactivity": ("chemical_foodatlas_id", "bioactivity_foodatlas_id"),
     "mv_food_bioactivity": ("food_foodatlas_id", "bioactivity_foodatlas_id"),
-}
-
-# Triplet relationship behind each MV: r6 chemical→bioactivity, r5 food→bioactivity.
-_MV_RELATIONSHIP = {
-    "mv_chemical_bioactivity": "r6",
-    "mv_food_bioactivity": "r5",
 }
 
 # Pseudo-column used when sorting by the row's top measurement value.
@@ -158,34 +152,24 @@ def _attach_top_measurement(
     return data
 
 
-async def _attach_filtered_counts(
-    session: AsyncSession,
-    data: list[dict],
-    relationship: str,
-    key_cols: tuple[str, str],
+def _assay_count(
+    alias: str = "",
     *,
     evidence_type: str = "",
     unit: str = "",
     source_kind: str = "",
-) -> None:
-    """Set each row's ``measurement_count`` to what its modal shows.
-
-    The modal opens on the page's Evidence, Unit and Source filters and hides
-    the hotfix-dropped endpoints, so the button counts the same set. Pops the
-    key columns, which only exist to identify the pair.
-    """
-    head_col, tail_col = key_cols
-    pairs = [(row.pop(head_col), row.pop(tail_col)) for row in data]
-    counts = await filtered_counts(
-        session,
-        relationship,
-        pairs,
-        evidence_type=evidence_type,
-        unit=unit,
-        source_kind=source_kind,
+) -> tuple[str, dict]:
+    """SQL for a row's "N assays" under the page filters, and its params."""
+    conds, params = key_conditions(
+        "k.key", evidence_type=evidence_type, unit=unit, source_kind=source_kind
     )
-    for row, pair in zip(data, pairs, strict=True):
-        row["measurement_count"] = counts.get(pair, 0)
+    return filtered_count_sql(f"{alias}assay_key_counts", conds), params
+
+
+def _with_filtered_counts(data: list[dict]) -> list[dict]:
+    for row in data:
+        row["measurement_count"] = int(row.pop("_filtered_count") or 0)
+    return data
 
 
 def _build_meta(total: int, page: int, rows_per_page: int, row_count: int) -> dict:
@@ -247,14 +231,6 @@ def _apply_endpoint_pair_filter(
     )
     params["ep"] = filter_endpoint
     params["unit"] = filter_unit
-
-
-def _source_sort_col(sort_col: str, filter_source_kind: str) -> str:
-    """Sort by the filtered count when the Assay Source filter is on."""
-    col = _SOURCE_COUNT_COL.get(filter_source_kind)
-    if col and sort_col.endswith("measurement_count"):
-        return sort_col.removesuffix("measurement_count") + col
-    return sort_col
 
 
 async def _paginated(
@@ -322,18 +298,28 @@ async def _paginated(
     )
     total = int(total_result.scalar() or 0)
 
+    # The "N assays" column sorts by the count the button shows: shown
+    # assays under the page filters, never the stored total.
+    count_expr, count_params = _assay_count(
+        evidence_type=filter_evidence_type,
+        unit=filter_unit,
+        source_kind=filter_source_kind,
+    )
+    params.update(count_params)
+    order_expr = sort_col
+    if sort_col == "measurement_count":
+        order_expr = "_filtered_count"
+    extra_select = f", {count_expr} AS _filtered_count"
     # When sorting by top value, materialise it as a SELECT-list
     # expression and ORDER BY it. Falls back gracefully (returns 0 rows
     # via NULLS LAST) when the row has no matching measurement.
-    order_expr = _source_sort_col(sort_col, filter_source_kind)
-    extra_select = ""
     if sort_col == TOP_VALUE_SORT:
         if not has_filter:
             # Without an endpoint+unit, top-value sort is undefined; fall
             # back to measurement_count so the page still renders.
             order_expr = "measurement_count"
         else:
-            extra_select = (
+            extra_select += (
                 ", (SELECT MAX((m->>'value')::NUMERIC)"
                 " FROM jsonb_array_elements(measurements) m"
                 " WHERE m->>'endpoint' = :ep AND m->>'unit' = :unit"
@@ -348,32 +334,22 @@ async def _paginated(
     nulls = " NULLS LAST" if order_expr == TOP_VALUE_SORT else ""
     tiebreak = "".join(f", {col} {sort_dir}" for col in _MV_ROW_KEY[mv])
     offset = rows_per_page * (page - 1)
-    key_cols = _MV_ROW_KEY[mv]
-    key_select = ", ".join(f"{c} AS _key_{c}" for c in key_cols)
     rows_result = await session.execute(
         text(f"""
-            SELECT {select_cols}, experimental_count, predicted_count,
-                   {key_select}{extra_select}
+            SELECT {select_cols}, experimental_count, predicted_count{extra_select}
             FROM {mv} WHERE {where}
             ORDER BY {order_expr} {sort_dir}{nulls}{tiebreak}
             OFFSET :offset ROWS FETCH FIRST :limit ROWS ONLY
         """),
         {**params, "offset": offset, "limit": rows_per_page},
     )
-    data = _attach_top_measurement(
-        [dict(r._mapping) for r in rows_result],
-        evidence_type=filter_evidence_type,
-        source_kind=filter_source_kind,
-        unit=filter_unit,
-    )
-    await _attach_filtered_counts(
-        session,
-        data,
-        _MV_RELATIONSHIP[mv],
-        (f"_key_{key_cols[0]}", f"_key_{key_cols[1]}"),
-        evidence_type=filter_evidence_type,
-        unit=filter_unit,
-        source_kind=filter_source_kind,
+    data = _with_filtered_counts(
+        _attach_top_measurement(
+            [dict(r._mapping) for r in rows_result],
+            evidence_type=filter_evidence_type,
+            source_kind=filter_source_kind,
+            unit=filter_unit,
+        )
     )
     return {
         "data": data,
@@ -615,8 +591,14 @@ async def get_food_inferred_bioactivities(
 ) -> dict[str, object]:
     """Bioactivities of the chemicals found in this food (transitive)."""
     sort_col = _INFERRED_SORT.get(sort_by, _INFERRED_SORT["concentration"])
-    if isinstance(sort_col, str):
-        sort_col = _source_sort_col(sort_col, filter_source_kind)
+    count_expr, count_params = _assay_count(
+        "cb.",
+        evidence_type=filter_evidence_type,
+        unit=filter_unit,
+        source_kind=filter_source_kind,
+    )
+    if sort_col == _INFERRED_SORT["measurement_count"]:
+        sort_col = count_expr
     direction = sort_dir.upper() if sort_dir.upper() in _VALID_DIR else "DESC"
     # Every column carries its own direction + NULLS LAST; a bare
     # `ORDER BY a, b DESC` would silently sort `a` ascending.
@@ -644,6 +626,7 @@ async def get_food_inferred_bioactivities(
         unit=filter_unit,
         source_kind=filter_source_kind,
     )
+    params.update(count_params)
     where = " AND ".join(where_parts)
 
     total_result = await session.execute(
@@ -670,8 +653,7 @@ async def get_food_inferred_bioactivities(
               cb.measurement_count, cb.active_count, cb.inactive_count,
               cb.experimental_count, cb.predicted_count,
               cb.measurements,
-              cb.chemical_foodatlas_id AS _key_head,
-              cb.bioactivity_foodatlas_id AS _key_tail,
+              {count_expr} AS _filtered_count,
               eff.efficacy_fraction,
               eff.conc_vs_ac50,
               eff.dose_over_ac50_log,
@@ -687,20 +669,13 @@ async def get_food_inferred_bioactivities(
         """),
         {**params, "offset": offset, "limit": rows_per_page},
     )
-    data = _attach_top_measurement(
-        [dict(r._mapping) for r in rows_result],
-        evidence_type=filter_evidence_type,
-        source_kind=filter_source_kind,
-        unit=filter_unit,
-    )
-    await _attach_filtered_counts(
-        session,
-        data,
-        "r6",
-        ("_key_head", "_key_tail"),
-        evidence_type=filter_evidence_type,
-        unit=filter_unit,
-        source_kind=filter_source_kind,
+    data = _with_filtered_counts(
+        _attach_top_measurement(
+            [dict(r._mapping) for r in rows_result],
+            evidence_type=filter_evidence_type,
+            source_kind=filter_source_kind,
+            unit=filter_unit,
+        )
     )
     return {
         "data": data,
