@@ -50,11 +50,14 @@ import {
 import {
   facetOptions,
   facetUniverse,
+  overlayFacetCounts,
   type FacetOption,
 } from "@/components/entities/shared/filters/facetOptions";
 import {
   RowExpandChip,
   RowExpandPanel,
+  Th,
+  type SortDir,
 } from "@/components/entities/shared/EvidenceTable";
 import { useReportRows } from "@/context/reportModeContext";
 import { logAC50InUnit } from "@/components/entities/bioactivity/format";
@@ -159,6 +162,11 @@ const BioactivityMeasurementsModal = ({
 }: Props) => {
   const [fullRows, setFullRows] = useState<ModalRow[] | null>(null);
   const [isFetching, setIsFetching] = useState(false);
+  // True once this open's full fetch has settled (data or failure). Until
+  // then the modal shows the skeleton, not the capped sample: filtering the
+  // 25-row sample flashed a wrong count before the full set arrived.
+  const [fetchSettled, setFetchSettled] = useState(false);
+  const canFetch = Boolean(anchorId && selectedId && relationship);
   const reporter = useReportRows();
 
   // Lazy-fetch full measurements on open. Resets on close so a subsequent
@@ -167,6 +175,7 @@ const BioactivityMeasurementsModal = ({
     if (!isOpen) {
       setFullRows(null);
       setIsFetching(false);
+      setFetchSettled(false);
       return;
     }
     if (!anchorId || !selectedId || !relationship) return;
@@ -180,6 +189,7 @@ const BioactivityMeasurementsModal = ({
       const data = (payload?.data as BioactivityMeasurementFull[] | undefined) ?? null;
       setFullRows(data && data.length ? data : null);
       setIsFetching(false);
+      setFetchSettled(true);
     })();
     return () => {
       cancelled = true;
@@ -234,6 +244,7 @@ const BioactivityMeasurementsModal = ({
   const evidenceKey = (initialEvidenceTypes ?? []).join("+");
   const unitKey = (initialUnits ?? []).join("+");
   useEffect(() => {
+    setValueSort(null);
     resetAllFilters({
       source: initialSourceKind,
       evidence: evidenceKey ? evidenceKey.split("+") : [],
@@ -331,8 +342,17 @@ const BioactivityMeasurementsModal = ({
       const u = r.unit ?? "";
       if (u) counts.set(u, (counts.get(u) ?? 0) + 1);
     });
-    return facetOptions(
-      facetUniverse(rows, (r) => r.unit),
+    // Busiest unit first, ranked on the UNFILTERED rows so the order stays
+    // put while the counts move with the other filters.
+    const totals = new Map<string, number>();
+    rows.forEach((r) => {
+      const u = r.unit ?? "";
+      if (u) totals.set(u, (totals.get(u) ?? 0) + 1);
+    });
+    return overlayFacetCounts(
+      Array.from(totals.keys()).sort(
+        (a, b) => (totals.get(b) ?? 0) - (totals.get(a) ?? 0) || a.localeCompare(b)
+      ),
       counts
     );
   }, [rows, rowMatches]);
@@ -342,6 +362,37 @@ const BioactivityMeasurementsModal = ({
     [rows, rowMatches]
   );
 
+  // Values compare only within one unit, so the Value sort is offered
+  // when every filtered row with a value shares the same unit.
+  const [valueSort, setValueSort] = useState<SortDir | null>(null);
+  const singleUnit = useMemo(() => {
+    const units = new Set(
+      filtered.filter((r) => typeof r.value === "number").map((r) => r.unit ?? "")
+    );
+    return units.size === 1;
+  }, [filtered]);
+  const sorted = useMemo(() => {
+    if (!valueSort || !singleUnit) return filtered;
+    const sign = valueSort === "asc" ? 1 : -1;
+    return [...filtered].sort((a, b) => {
+      const av = typeof a.value === "number" ? a.value : null;
+      const bv = typeof b.value === "number" ? b.value : null;
+      if (av === null) return bv === null ? 0 : 1;
+      if (bv === null) return -1;
+      return sign * (av - bv);
+    });
+  }, [filtered, valueSort, singleUnit]);
+  const valueSortControl = singleUnit
+    ? {
+        active: valueSort !== null,
+        dir: valueSort ?? "desc",
+        onClick: () => {
+          setValueSort((d) => (d === "desc" ? "asc" : "desc"));
+          setCurrentPage(1);
+        },
+      }
+    : undefined;
+
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   // Snap to page 1 when filters shrink the result set below the current page.
   useEffect(() => {
@@ -350,8 +401,8 @@ const BioactivityMeasurementsModal = ({
 
   const visible = useMemo(() => {
     const start = (currentPage - 1) * PAGE_SIZE;
-    return filtered.slice(start, start + PAGE_SIZE);
-  }, [filtered, currentPage]);
+    return sorted.slice(start, start + PAGE_SIZE);
+  }, [sorted, currentPage]);
 
   // Defer the table commit by one paint so the modal animation opens
   // snappily even when the row count is large.
@@ -365,7 +416,10 @@ const BioactivityMeasurementsModal = ({
     return () => cancelAnimationFrame(raf);
   }, [isOpen]);
 
-  const showSkeleton = !isContentReady || (isFetching && rows.length === 0);
+  const showSkeleton =
+    !isContentReady ||
+    (canFetch && !fetchSettled) ||
+    (isFetching && rows.length === 0);
 
   // Total uses the full row count if available, falls back to the
   // upstream-supplied expectedCount (which itself is the per-pair
@@ -459,9 +513,14 @@ const BioactivityMeasurementsModal = ({
       }
       description={
         <span
-          className="font-mono italic text-xs text-light-400 capitalize"
+          className="font-mono italic text-xs text-light-400"
           data-filtered-count={showSkeleton ? undefined : filtered.length}
         >
+          {filtered.length !== rows.length && !showSkeleton && (
+            <span className="not-italic font-sans text-base font-medium text-light-100 mr-1">
+              {filtered.length.toLocaleString()} of
+            </span>
+          )}
           {totalKnown.toLocaleString()} measurement
           {totalKnown === 1 ? "" : "s"}
           {contributedCount != null && contributedCount < totalKnown && (
@@ -469,10 +528,8 @@ const BioactivityMeasurementsModal = ({
               · {contributedCount.toLocaleString()} contributed to efficacy
             </span>
           )}
-          {filtered.length !== rows.length && (
-            <span className="ml-2 not-italic normal-case text-light-600">
-              · {filtered.length.toLocaleString()} after filters
-            </span>
+          {filtered.length !== rows.length && !showSkeleton && (
+            <span className="ml-2 not-italic text-accent-400">match the filters</span>
           )}
           {showingFewerThanTotal && (
             <span className="ml-2 not-italic normal-case text-light-600">
@@ -551,6 +608,7 @@ const BioactivityMeasurementsModal = ({
       <div className="flex-1 min-h-0 overflow-y-auto relative">
         <MeasurementsTable
           rows={visible}
+          valueSort={valueSortControl}
           placeholderCount={placeholderCount}
           skeleton={showSkeleton}
           expandedKey={expandedKey}
@@ -741,8 +799,11 @@ const MeasurementsTable = ({
   expandedKey,
   onToggleExpand,
   getRowReportProps,
+  valueSort,
 }: {
   rows: ModalRow[];
+  // Present when the rows share one unit, so values are comparable.
+  valueSort?: { active: boolean; dir: SortDir; onClick: () => void };
   placeholderCount: number;
   skeleton: boolean;
   expandedKey: string | null;
@@ -780,21 +841,24 @@ const MeasurementsTable = ({
       </colgroup>
       <thead className="text-light-400 text-left sticky top-0 z-10 bg-light-950">
         <tr>
-          {["Assay", "Endpoint", "Outcome", "Source", "Evidence", "Value"].map(
-            (h, idx, arr) => (
-              <th
-                key={h}
-                className={twMerge(
-                  "h-9 border-b border-light-700 leading-none py-1.5 px-2 first:pl-0 last:pr-0 bg-light-950",
-                  idx === arr.length - 1 && "text-right",
-                )}
-              >
-                <span className="select-none uppercase text-xs font-medium">
-                  {h}
-                </span>
-              </th>
-            )
-          )}
+          {["Assay", "Endpoint", "Outcome", "Source", "Evidence"].map((h, i) => (
+            <Th
+              key={h}
+              className={twMerge(
+                "h-9 border-b border-light-700 leading-none py-1.5 px-2 bg-light-950",
+                i === 0 && "pl-0"
+              )}
+            >
+              {h}
+            </Th>
+          ))}
+          <Th
+            align="right"
+            sort={valueSort}
+            className="h-9 border-b border-light-700 leading-none py-1.5 pl-2 pr-0 bg-light-950"
+          >
+            Value
+          </Th>
         </tr>
       </thead>
       <tbody className="text-sm font-light">
