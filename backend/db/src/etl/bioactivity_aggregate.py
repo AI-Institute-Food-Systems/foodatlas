@@ -115,7 +115,7 @@ def aggregate_pair(rows: list, assay_meta: dict[str, dict]) -> dict:
     source_counts: dict[str, int] = defaultdict(int)
     evidence_types: set[str] = set()
     units: set[str] = set()
-    assay_keys: set[str] = set()
+    key_counts: dict[str, int] = defaultdict(int)
     sample: list[dict] = []
     for i, r in enumerate(rows):
         outcome = r.reported_activity_outcome
@@ -123,7 +123,7 @@ def aggregate_pair(rows: list, assay_meta: dict[str, dict]) -> dict:
         source_counts[source_kind(r.evidence_source)] += 1
         evidence_types.add(_label(r.evidence_type))
         units.add(_label(r.potency_unit))
-        assay_keys.add(
+        key_counts[
             ASSAY_KEY_SEP.join(
                 (
                     _label(r.evidence_type),
@@ -132,7 +132,7 @@ def aggregate_pair(rows: list, assay_meta: dict[str, dict]) -> dict:
                     _label(r.evidence_endpoint_type),
                 )
             )
-        )
+        ] += 1
         if i in in_sample:
             sample.append(
                 {
@@ -165,6 +165,9 @@ def aggregate_pair(rows: list, assay_meta: dict[str, dict]) -> dict:
         "predicted_count": source_counts["predicted"],
         "evidence_types": sorted(evidence_types - {""}),
         "units": sorted(units - {""}),
-        "assay_keys": sorted(assay_keys),
+        "assay_keys": sorted(key_counts),
+        # Measurements per key, so the API can count (and sort by) the
+        # measurements that match the page filters without the base tables.
+        "assay_key_counts": dict(sorted(key_counts.items())),
         "measurements": sample,
     }
