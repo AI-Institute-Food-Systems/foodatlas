@@ -192,6 +192,8 @@ class MVFoodBioactivity(Base):
     # Distinct "evidence_type\x1funit\x1fsource_kind\x1fendpoint" per pair, so
     # the API can require ONE assay to match every active filter at once.
     assay_keys: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default="{}")
+    # {assay key: measurements}; sums give filtered counts for sorting.
+    assay_key_counts: Mapped[dict] = mapped_column(JSONB, server_default="{}")
     measurements: Mapped[list] = mapped_column(JSONB, server_default="[]")
 
     __table_args__ = (

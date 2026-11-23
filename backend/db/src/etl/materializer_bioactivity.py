@@ -121,6 +121,7 @@ def materialize_chemical_bioactivity(
                 "evidence_types": agg["evidence_types"],
                 "units": agg["units"],
                 "assay_keys": agg["assay_keys"],
+                "assay_key_counts": json.dumps(agg["assay_key_counts"]),
                 "n_foods": int(n_foods_map.get(chem_id, 0)),
                 "measurements": json.dumps(agg["measurements"]),
             }
@@ -145,6 +146,7 @@ def materialize_chemical_bioactivity(
             "evidence_types",
             "units",
             "assay_keys",
+            "assay_key_counts",
             "n_foods",
             "measurements",
         ],
@@ -174,6 +176,7 @@ def materialize_food_bioactivity(
                 "evidence_types": agg["evidence_types"],
                 "units": agg["units"],
                 "assay_keys": agg["assay_keys"],
+                "assay_key_counts": json.dumps(agg["assay_key_counts"]),
                 "measurements": json.dumps(agg["measurements"]),
             }
         )
@@ -193,6 +196,7 @@ def materialize_food_bioactivity(
             "evidence_types",
             "units",
             "assay_keys",
+            "assay_key_counts",
             "measurements",
         ],
     )

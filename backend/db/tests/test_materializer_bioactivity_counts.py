@@ -100,7 +100,13 @@ class TestAggregateFilterArrays:
             ),
         ]
         rows *= MEASUREMENTS_CAP
-        keys = aggregate_pair(rows, {})["assay_keys"]
+        agg = aggregate_pair(rows, {})
+        keys = agg["assay_keys"]
+        sep = ASSAY_KEY_SEP
+        assert agg["assay_key_counts"] == {
+            f"in vitro{sep}uM{sep}experimental{sep}IC50": 2 * MEASUREMENTS_CAP,
+            f"in vivo{sep}mg/kg{sep}predicted{sep}LD50": MEASUREMENTS_CAP,
+        }
         sep = ASSAY_KEY_SEP
         assert keys == [
             f"in vitro{sep}uM{sep}experimental{sep}IC50",
@@ -176,6 +182,7 @@ class TestFoodBioactivityColumns:
             "evidence_types",
             "units",
             "assay_keys",
+            "assay_key_counts",
         } <= set(cols)
         assert df.loc[0, "experimental_count"] == 1
         assert df.loc[0, "predicted_count"] == 1
