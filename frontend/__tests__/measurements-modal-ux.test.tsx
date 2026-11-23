@@ -81,6 +81,25 @@ describe("measurements modal", () => {
     await waitFor(() => expect(countAttr()).toBe("4"));
   });
 
+  it("orders units by the count shown, under the other filters", async () => {
+    // Outcome "inactive" holds only the uM and mg/kg rows: those lead.
+    const rows = FULL.map((r) =>
+      r.unit === "nM" ? r : { ...r, outcome: "Inactive" }
+    );
+    mount({ initialMeasurements: rows });
+    await waitFor(() => expect(countAttr()).toBe("6"));
+    const radio = screen
+      .getAllByRole("radio")
+      .find((b) => /^inactive\s*\d+$/i.test((b.textContent ?? "").trim()));
+    fireEvent.click(radio!);
+    await waitFor(() => expect(countAttr()).toBe("2"));
+    const order = Array.from(document.body.querySelectorAll("button"))
+      .map((b) => (b.textContent ?? "").trim())
+      .filter((t) => /^(nM|uM|mg\/kg)\s*\d+$/.test(t))
+      .map((t) => t.replace(/\d+$/, ""));
+    expect(order.slice(-1)).toEqual(["nM"]);
+  });
+
   it("lists units busiest first", async () => {
     mount({ initialMeasurements: FULL });
     await waitFor(() => expect(countAttr()).toBe("6"));

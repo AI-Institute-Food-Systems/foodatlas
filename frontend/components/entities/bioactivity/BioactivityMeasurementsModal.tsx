@@ -342,18 +342,19 @@ const BioactivityMeasurementsModal = ({
       const u = r.unit ?? "";
       if (u) counts.set(u, (counts.get(u) ?? 0) + 1);
     });
-    // Busiest unit first, ranked on the UNFILTERED rows so the order stays
-    // put while the counts move with the other filters.
+    // Busiest unit first, by the count shown. The Unit facet skips its own
+    // selection, so picking a unit never reorders this list; only the other
+    // filters do. Ties fall back to the unfiltered total, then the name.
     const totals = new Map<string, number>();
     rows.forEach((r) => {
       const u = r.unit ?? "";
       if (u) totals.set(u, (totals.get(u) ?? 0) + 1);
     });
-    return overlayFacetCounts(
-      Array.from(totals.keys()).sort(
-        (a, b) => (totals.get(b) ?? 0) - (totals.get(a) ?? 0) || a.localeCompare(b)
-      ),
-      counts
+    return overlayFacetCounts(Array.from(totals.keys()), counts).sort(
+      (a, b) =>
+        b.count - a.count ||
+        (totals.get(b.value) ?? 0) - (totals.get(a.value) ?? 0) ||
+        a.value.localeCompare(b.value)
     );
   }, [rows, rowMatches]);
 
