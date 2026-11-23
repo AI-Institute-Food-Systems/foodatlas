@@ -56,6 +56,14 @@ const ApiTermsModal = ({ isOpen, onClose, onAccept }: ApiTermsModalProps) => {
         </li>
         <li>
           <strong className="font-medium text-light-100">
+            Academic research only.
+          </strong>{" "}
+          API keys are for researchers and students at universities and
+          research institutes. We do not issue keys for personal, nonprofit
+          or commercial projects.
+        </li>
+        <li>
+          <strong className="font-medium text-light-100">
             Non-commercial use only.
           </strong>{" "}
           You must not use the data or the API for commercial purposes. For

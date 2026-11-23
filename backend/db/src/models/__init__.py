@@ -18,7 +18,6 @@ from .views import (
     MVChemicalDiseaseCorrelation,
     MVChemicalEntity,
     MVDiseaseEntity,
-    MVFoodBioactivity,
     MVFoodChemicalComposition,
     MVFoodEntity,
     MVMetadataStatistics,
@@ -28,6 +27,7 @@ from .views_bioactivity import (
     MVAssayTargetLabel,
     MVChemicalDiseaseBioactivity,
     MVDiseaseBioactivity,
+    MVFoodBioactivity,
     MVFoodChemicalEfficacy,
 )
 

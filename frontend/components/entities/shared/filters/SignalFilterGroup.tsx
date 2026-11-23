@@ -26,32 +26,6 @@ export const SIGNALS: { key: string; label: string }[] = [
   { key: THERAPEUTIC, label: "Therapeutic" },
 ];
 
-// Keep a row when it carries any selected signal. Empty selection keeps
-// everything, which is what "no filter" has to mean for a facet whose
-// options overlap.
-export const matchesSignals = (
-  relationships: string[] | undefined,
-  selected: string[]
-): boolean =>
-  selected.length === 0 ||
-  (relationships ?? []).some((relationship) => selected.includes(relationship));
-
-// Rows per signal, deduped within a row. Callers pass the set filtered by
-// everything EXCEPT the signal selection, so an option never reads zero
-// merely because the other one is picked.
-export const countSignals = (
-  rows: { relationships?: string[] }[]
-): Record<string, number> => {
-  const counts: Record<string, number> = {};
-  for (const row of rows) {
-    // Array.from because the tsconfig target predates iterating a Set.
-    for (const relationship of Array.from(new Set(row.relationships ?? []))) {
-      counts[relationship] = (counts[relationship] ?? 0) + 1;
-    }
-  }
-  return counts;
-};
-
 interface Props {
   selected: string[];
   counts: Record<string, number>;

@@ -53,6 +53,7 @@ import { encodeSpace, formatConcentrationValueAlt } from "@/utils/utils";
 import type { BioactivityMeasurement } from "@/types";
 import TableEmptyState from "@/components/entities/shared/TableEmptyState";
 import Heading from "@/components/basic/Heading";
+import { splitMulti } from "@/components/entities/shared/filters/facetOptions";
 
 // The card list has no headers to click, so the sort is a listbox there.
 const MOBILE_SORT_COLUMNS: SortableColumn[] = [
@@ -677,6 +678,9 @@ const FoodInferredBioactivitiesSection = ({
         selectedId={selected?.row.bioactivity_id ?? null}
         relationship="r6"
         headIsRow={false}
+        initialSourceKind={effectiveSourceKind}
+        initialEvidenceTypes={splitMulti(effectiveEvidenceType)}
+        initialUnits={splitMulti(effectiveUnit)}
       />
       </div>
     </FilterPanel>

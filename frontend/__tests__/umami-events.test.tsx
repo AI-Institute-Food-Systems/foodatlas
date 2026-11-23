@@ -99,7 +99,7 @@ describe("contact_submit", () => {
     render(<ContactForm isApiAccessRequest />);
     // API requests only post once the structured questions are answered.
     for (const [label, option] of [
-      [/how will you use the api/i, "Commercial"],
+      [/how will you use the api/i, "Student project"],
       [/expected volume/i, "<1k requests/day"],
     ] as const) {
       fireEvent.click(screen.getByRole("button", { name: label }));

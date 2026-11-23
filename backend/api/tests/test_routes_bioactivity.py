@@ -18,7 +18,7 @@ CATEGORY_SAMPLE = {
 class TestBioactivityCategoryOptions:
     def test_returns_categories(self, client: TestClient, mock_db: AsyncMock) -> None:
         with patch(
-            "src.repositories.bioactivity.get_category_options",
+            "src.repositories.bioactivity_facets.get_category_counts",
             return_value=CATEGORY_SAMPLE,
         ):
             resp = client.get(
@@ -34,7 +34,7 @@ class TestBioactivityCategoryOptions:
         self, client: TestClient, mock_db: AsyncMock
     ) -> None:
         with patch(
-            "src.repositories.bioactivity.get_category_options",
+            "src.repositories.bioactivity_facets.get_category_counts",
             return_value=CATEGORY_SAMPLE,
         ) as mocked:
             client.get(
@@ -46,10 +46,8 @@ class TestBioactivityCategoryOptions:
                     "search": "querc",
                 },
             )
-            kwargs = mocked.call_args.kwargs
-            assert kwargs["filter_unit"] == "uM"
-            assert kwargs["filter_source_kind"] == "experimental"
-            assert kwargs["search"] == "querc"
+            f = mocked.call_args.args[-1]
+            assert (f.unit, f.source_kind, f.search) == ("uM", "experimental", "querc")
 
     def test_missing_common_name_returns_422(self, client: TestClient) -> None:
         resp = client.get("/bioactivity/categories")
@@ -66,7 +64,7 @@ SOURCE_KIND_SAMPLE = {
 class TestBioactivitySourceKindCounts:
     def test_returns_counts(self, client: TestClient, mock_db: AsyncMock) -> None:
         with patch(
-            "src.repositories.bioactivity.get_source_kind_counts",
+            "src.repositories.bioactivity_facets.get_source_kind_counts",
             return_value=SOURCE_KIND_SAMPLE,
         ):
             resp = client.get(
@@ -85,7 +83,7 @@ class TestBioactivitySourceKindCounts:
         self, client: TestClient, mock_db: AsyncMock
     ) -> None:
         with patch(
-            "src.repositories.bioactivity.get_source_kind_counts",
+            "src.repositories.bioactivity_facets.get_source_kind_counts",
             return_value=SOURCE_KIND_SAMPLE,
         ) as mocked:
             client.get(
@@ -98,10 +96,8 @@ class TestBioactivitySourceKindCounts:
                     "search": "querc",
                 },
             )
-            kwargs = mocked.call_args.kwargs
-            assert kwargs["filter_unit"] == "uM"
-            assert kwargs["filter_category"] == "flavonoid"
-            assert kwargs["search"] == "querc"
+            f = mocked.call_args.args[-1]
+            assert (f.unit, f.category, f.search) == ("uM", "flavonoid", "querc")
 
     def test_missing_required_params_returns_422(self, client: TestClient) -> None:
         resp = client.get("/bioactivity/source_kinds")

@@ -10,14 +10,12 @@ export const API_ACCESS_TOPIC = "API Access Request";
 
 // Recorded in the request email as what the requester agreed to.
 export const API_TERMS_SUMMARY =
-  "CC BY-NC 4.0 data license, non-commercial use only, cite FoodAtlas";
+  "academic research only, CC BY-NC 4.0 data license, non-commercial use only, cite FoodAtlas";
 
+// API keys are for academic research only, so these are the only uses offered.
 export const USE_CATEGORIES = [
   "Academic research",
   "Student project",
-  "Commercial",
-  "Nonprofit",
-  "Personal",
 ] as const;
 
 export const COMMERCIAL = ["Yes", "No", "Not sure"] as const;

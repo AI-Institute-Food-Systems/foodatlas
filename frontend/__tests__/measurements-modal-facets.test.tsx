@@ -70,7 +70,7 @@ const MEASUREMENTS = [
 
 // The modal renders through a HeadlessUI portal, so `render().container`
 // is empty — every query has to go through document.body.
-const mount = async () => {
+const mount = async (initialSourceKind?: string) => {
   render(
     <BioactivityMeasurementsModal
       isOpen
@@ -78,6 +78,7 @@ const mount = async () => {
       headLabel="antioxidant"
       tailLabel="quercetin"
       initialMeasurements={MEASUREMENTS as never}
+      initialSourceKind={initialSourceKind}
     />
   );
   // The table body is committed one paint after open.
@@ -195,5 +196,16 @@ describe("assays modal faceted counts", () => {
       await waitFor(() => expect(renderedRows()).toBeGreaterThan(0));
       clickFacet(et);
     }
+  });
+
+  it("opens on the page's Assay Source filter, and Clear drops it", async () => {
+    // The "N assays" button counts only the page's selected source kind,
+    // so the modal must open on that same subset.
+    await mount("predicted");
+    await waitFor(() => expect(renderedRows()).toBe(2));
+    expect(findOption("Predicted")).toHaveAttribute("aria-checked", "true");
+
+    fireEvent.click(screen.getByRole("button", { name: /clear|reset/i }));
+    await waitFor(() => expect(renderedRows()).toBe(MEASUREMENTS.length));
   });
 });

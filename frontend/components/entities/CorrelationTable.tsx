@@ -305,6 +305,7 @@ const CorrelationTable = ({
                     showSource={showSource}
                     commonName={commonName}
                     rowProps={rowPropsFor(row)}
+                    direction={direction}
                     onShowMore={() => setSelectedRowIdx(rowIdx)}
                   />
                 ))
@@ -329,6 +330,7 @@ const CorrelationTable = ({
                   showSource={showSource}
                   commonName={commonName}
                   rowProps={rowPropsFor(row)}
+                  direction={direction}
                   onShowMore={() => setSelectedRowIdx(rowIdx)}
                 />
               ))
@@ -360,6 +362,7 @@ const CorrelationTable = ({
         }
         improvesEvidences={selected?.improves_evidences}
         worsensEvidences={selected?.worsens_evidences}
+        initialDirection={direction}
         isOpen={selectedRowIdx >= 0}
         onClose={() => setSelectedRowIdx(-1)}
       />

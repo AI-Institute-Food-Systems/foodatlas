@@ -27,7 +27,7 @@ const Contact = ({ searchParams }: ContactPageProps) => {
         </Heading>
         <p className="mt-6 text-base leading-relaxed text-light-200">
           Ask about our research, data or methods, report a data issue, or
-          request an API key. Pick a topic below and we&apos;ll get back to
+          request an API key for academic research. Pick a topic below and we&apos;ll get back to
           you.
         </p>
       </div>

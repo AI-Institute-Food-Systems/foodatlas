@@ -573,7 +573,6 @@ export async function getBioactivityEndpointOptions(
     // selection must not narrow the options it offers.
     buildBioactivitySidebarParams(params, filters, {
       skipUnit: true,
-      skipCategory: true,
     });
     const res = await apiFetch(
       `${apiBase()}/bioactivity/endpoints?${params.toString()}`,
@@ -711,7 +710,6 @@ export async function getBioactivityEvidenceTypeCounts(
     // I picked this?", so its own selection must not narrow the query.
     buildBioactivitySidebarParams(params, filters, {
       skipEvidenceType: true,
-      skipCategory: true,
     });
     const res = await apiFetch(
       `${apiBase()}/bioactivity/evidence_types?${params.toString()}`,

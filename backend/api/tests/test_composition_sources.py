@@ -346,7 +346,10 @@ class TestEverySourceIsEnumeratedEverywhere:
         # outrank an empty row for every source in the SQL key.
         for s in EVIDENCE_COUNT_SORT_SOURCES:
             out = _resort_after_filter(
-                [{"name": "empty"}, {"name": "has", f"{s}_evidences": [1, 2]}],
+                [
+                    {"name": "empty"},
+                    {"name": "has", f"{s}_evidences": [{"extraction": [{}]}]},
+                ],
                 "evidence_count",
                 "DESC",
             )

@@ -65,7 +65,7 @@ describe("ContactForm API access fields", () => {
   });
 
   const answerAll = async () => {
-    await pick(/how will you use the api/i, "Nonprofit");
+    await pick(/how will you use the api/i, "Student project");
     await pick(/expected volume/i, ">10k requests/day");
     fireEvent.click(screen.getByRole("radio", { name: "Not sure" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Bioactivity" }));
@@ -85,6 +85,7 @@ describe("ContactForm API access fields", () => {
     const dialog = await screen.findByRole("dialog");
     expect(dialog).toHaveTextContent(/CC BY-NC 4\.0/);
     expect(dialog).toHaveTextContent(/non-commercial use only/i);
+    expect(dialog).toHaveTextContent(/academic research only/i);
     expect(
       screen.getByRole("button", { name: /copy citation/i }),
     ).toBeInTheDocument();
@@ -98,7 +99,7 @@ describe("ContactForm API access fields", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send request" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     expect(postedBody(fetchMock).apiAccess).toEqual({
-      useCategory: "Nonprofit",
+      useCategory: "Student project",
       commercial: "Not sure",
       dataNeeded: ["Bioactivity", "Foods"],
       volume: ">10k requests/day",

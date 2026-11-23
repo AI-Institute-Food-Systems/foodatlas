@@ -18,6 +18,9 @@ Beyond the raw counts, each row carries three things worth rendering:
 * ``bioactivities`` — what those assays were measuring, attached from
   ``mv_disease_bioactivity``. See ``_ACTIVITIES`` for why that is a widening
   of this view rather than a different question.
+* ``assay_groups`` — the pair's assays split by their exact (activities,
+  relationships), each with a count, an assay sample and its ``targets``.
+  The page's Activity and Signal filters count and list through these.
 """
 
 from sqlalchemy import text
@@ -29,6 +32,7 @@ _COLUMNS = """
     m.chemical_name, m.chemical_foodatlas_id, m.disease_name,
     m.disease_foodatlas_id, m.n_assays, m.n_active_measurements,
     m.relationships, m.target_genes, m.assays, m.literature_directions,
+    m.assay_groups,
     COALESCE(b.bioactivities, ARRAY[]::text[]) AS bioactivities
 """
 
@@ -89,5 +93,6 @@ async def _associations(
         {"name": common_name},
     )
     data = [dict(row._mapping) for row in result]
-    await attach_targets(session, data)
+    groups = [g for row in data for g in row.get("assay_groups") or []]
+    await attach_targets(session, [*data, *groups])
     return {"data": data, "metadata": {"row_count": len(data)}}

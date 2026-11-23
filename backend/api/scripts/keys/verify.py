@@ -1,7 +1,7 @@
 """Confirm a freshly merged key is live on *every* task before handing it out.
 
 Each Fargate task holds its own :class:`~src.public_keys.PublicKeyStore` with
-an independent refresh timer (``public_keys_refresh_seconds``, default 300s)
+an independent refresh timer (``public_keys_refresh_seconds``, default 60s)
 and the ALB round-robins between them. So for up to one full refresh interval
 after a merge, a new key does not fail cleanly — it fails *intermittently*, as
 one task has picked it up and another has not. Emailing the key during that
@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 
 PROBE_PATH = "/v1/stats"
 # Long enough to cover a full refresh interval plus deploy jitter.
-DEFAULT_DEADLINE_S = 360.0
+DEFAULT_DEADLINE_S = 120.0
 # With 2 tasks and round-robin routing, 12 consecutive hits make it very
 # unlikely that a stale task simply was not sampled. Raise this if the
 # service ever autoscales well beyond a handful of tasks.

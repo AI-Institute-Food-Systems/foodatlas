@@ -77,8 +77,10 @@ export async function POST(request: NextRequest) {
     }
 
     // CONTACT_EMAIL is a JSON array so ops can fan-out to multiple
-    // recipients without touching code.
-    const to = recipients();
+    // recipients without touching code. API access requests have their own
+    // list; CONTACT_EMAIL is the fallback while API_ACCESS_EMAIL is unset.
+    const to =
+      (validApiAccess && recipients("API_ACCESS_EMAIL")) || recipients();
     if (!to) return misconfigured();
 
     const affiliationLine = affiliationV

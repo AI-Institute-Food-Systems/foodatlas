@@ -7,7 +7,8 @@ from unittest.mock import MagicMock, patch
 import main
 from click.testing import CliRunner
 from src.models.base import Base
-from src.models.views import MVChemicalBioactivity, MVFoodBioactivity
+from src.models.views import MVChemicalBioactivity
+from src.models.views_bioactivity import MVFoodBioactivity
 
 
 def _engine(valid: dict[str, bool] | None = None) -> tuple[MagicMock, list[str]]:

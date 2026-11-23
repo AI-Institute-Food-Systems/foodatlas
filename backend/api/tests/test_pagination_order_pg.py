@@ -27,8 +27,8 @@ _PER_PAGE = 7
 _CHEM_BIOACT_INSERT = text(
     "INSERT INTO mv_chemical_bioactivity (bioactivity_name,"
     " bioactivity_foodatlas_id, chemical_name, chemical_foodatlas_id,"
-    " measurement_count, measurements)"
-    " VALUES (:bn, :bid, :cn, :cid, 2, '[]'::jsonb)"
+    " measurement_count, assay_keys, measurements)"
+    " VALUES (:bn, :bid, :cn, :cid, 2, ARRAY[''], '[]'::jsonb)"
 )
 
 _CORRELATION_INSERT = text(

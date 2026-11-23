@@ -29,10 +29,6 @@ from __future__ import annotations
 
 import os
 import subprocess
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from collections.abc import Sequence
 
 # Columns the bioactivity filter code actually reads. Deliberately not the
 # full production MV — a fixture you cannot hold in your head stops being
@@ -49,7 +45,12 @@ CREATE TABLE mv_chemical_bioactivity (
     inactive_count        INTEGER DEFAULT 0,
     unspecified_count     INTEGER DEFAULT 0,
     inconclusive_count    INTEGER DEFAULT 0,
+    experimental_count    INTEGER DEFAULT 0,
+    predicted_count       INTEGER DEFAULT 0,
     n_foods               INTEGER DEFAULT 0,
+    evidence_types        TEXT[] DEFAULT '{}',
+    units                 TEXT[] DEFAULT '{}',
+    assay_keys            TEXT[] DEFAULT '{}',
     measurements          JSONB
 )
 """
@@ -125,8 +126,114 @@ CREATE TABLE base_trust_signals (
 )
 """
 
+_FOOD_BIOACT_DDL = """
+CREATE TABLE mv_food_bioactivity (
+    id                       INTEGER,
+    food_name                TEXT,
+    food_foodatlas_id        TEXT,
+    bioactivity_name         TEXT,
+    bioactivity_foodatlas_id TEXT,
+    measurement_count        INTEGER,
+    experimental_count       INTEGER DEFAULT 0,
+    predicted_count          INTEGER DEFAULT 0,
+    evidence_types           TEXT[] DEFAULT '{}',
+    units                    TEXT[] DEFAULT '{}',
+    assay_keys               TEXT[] DEFAULT '{}',
+    measurements             JSONB
+)
+"""
+
+# The per-row "N assays" count reads every measurement of a pair from
+# these two, not the MV's 25-row sample.
+_TRIPLETS_DDL = """
+CREATE TABLE base_triplets (
+    head_id         TEXT,
+    relationship_id TEXT,
+    tail_id         TEXT,
+    attestation_ids TEXT[] DEFAULT '{}'
+)
+"""
+
+_ATTESTATIONS_BIOACT_DDL = """
+CREATE TABLE base_attestations_bioactivity (
+    bioactivity_metadata_id   TEXT,
+    source_assay_id           TEXT DEFAULT '',
+    reported_activity_outcome TEXT DEFAULT '',
+    evidence_endpoint_type    TEXT DEFAULT '',
+    evidence_relation         TEXT DEFAULT '',
+    potency_value             DOUBLE PRECISION,
+    potency_unit              TEXT DEFAULT '',
+    evidence_source           TEXT DEFAULT '',
+    evidence_type             TEXT DEFAULT '',
+    exhibit_type              TEXT DEFAULT '',
+    efficacy_zeroactivity     DOUBLE PRECISION,
+    efficacy_infiniteactivity DOUBLE PRECISION,
+    efficacy_logac50_value    DOUBLE PRECISION,
+    efficacy_hillslope        DOUBLE PRECISION,
+    evidence_fit_r2           DOUBLE PRECISION,
+    evidence_fit_curveclass   TEXT DEFAULT ''
+)
+"""
+
+# The food page's inferred-bioactivity rows LEFT JOIN this; empty is fine.
+_FOOD_CHEM_EFFICACY_DDL = """
+CREATE TABLE mv_food_chemical_efficacy (
+    food_name                TEXT,
+    chemical_foodatlas_id    TEXT,
+    bioactivity_foodatlas_id TEXT,
+    efficacy_fraction        DOUBLE PRECISION,
+    conc_vs_ac50             TEXT DEFAULT '',
+    dose_over_ac50_log       DOUBLE PRECISION,
+    n_curves                 INTEGER,
+    conc_quality_flag        TEXT DEFAULT ''
+)
+"""
+
+# The Health tab's assay-inferred table: pairs, their per-activity grain, and
+# the target-label lookup.
+_CHEM_DISEASE_BIOACT_DDL = """
+CREATE TABLE mv_chemical_disease_bioactivity (
+    chemical_name         TEXT,
+    chemical_foodatlas_id TEXT,
+    disease_name          TEXT,
+    disease_foodatlas_id  TEXT,
+    n_assays              INTEGER DEFAULT 0,
+    n_active_measurements INTEGER DEFAULT 0,
+    relationships         TEXT[] DEFAULT '{}',
+    target_genes          TEXT[] DEFAULT '{}',
+    assays                TEXT[] DEFAULT '{}',
+    literature_directions TEXT[] DEFAULT '{}',
+    assay_groups          JSONB DEFAULT '[]'
+)
+"""
+
+_DISEASE_BIOACT_DDL = """
+CREATE TABLE mv_disease_bioactivity (
+    disease_name             TEXT,
+    disease_foodatlas_id     TEXT,
+    bioactivity_name         TEXT,
+    bioactivity_foodatlas_id TEXT,
+    chemical_name            TEXT,
+    chemical_foodatlas_id    TEXT
+)
+"""
+
+_TARGET_LABELS_DDL = """
+CREATE TABLE mv_assay_target_labels (
+    gene_id TEXT,
+    label   TEXT DEFAULT ''
+)
+"""
+
 DDL: tuple[str, ...] = (
     _CHEM_BIOACT_DDL,
+    _FOOD_BIOACT_DDL,
+    _TRIPLETS_DDL,
+    _ATTESTATIONS_BIOACT_DDL,
+    _FOOD_CHEM_EFFICACY_DDL,
+    _CHEM_DISEASE_BIOACT_DDL,
+    _DISEASE_BIOACT_DDL,
+    _TARGET_LABELS_DDL,
     _CHEM_ENTITIES_DDL,
     _FOOD_ENTITIES_DDL,
     _FOOD_COMPOSITION_DDL,
@@ -138,6 +245,13 @@ DDL: tuple[str, ...] = (
 # lives on a separate TrustBase and is excluded — see test_schema_drift.
 MIRRORED_TABLES: tuple[str, ...] = (
     "mv_chemical_bioactivity",
+    "mv_food_bioactivity",
+    "base_triplets",
+    "base_attestations_bioactivity",
+    "mv_food_chemical_efficacy",
+    "mv_chemical_disease_bioactivity",
+    "mv_disease_bioactivity",
+    "mv_assay_target_labels",
     "mv_chemical_entities",
     "mv_food_entities",
     "mv_food_chemical_composition",
@@ -180,49 +294,3 @@ def require_db_tests() -> bool:
     silently reduce this suite to zero tests and still report green.
     """
     return os.environ.get("REQUIRE_DB_TESTS", "").lower() in {"1", "true", "yes"}
-
-
-def measurement(
-    *,
-    evidence_type: str = "in vitro",
-    evidence_source: str = "experimental",
-    endpoint: str = "IC50",
-    unit: str = "uM",
-    value: float = 1.0,
-) -> dict:
-    """One entry of the `measurements` JSONB array.
-
-    Only the keys the filters read. `evidence_source` is matched by the
-    SQL with ``LIKE 'exp%'`` / ``'pred%'`` / ``'comp%'`` and by Python
-    with ``str.startswith``, so values here are chosen to exercise both
-    the matching and the non-matching side of that.
-    """
-    return {
-        "evidence_type": evidence_type,
-        "evidence_source": evidence_source,
-        "endpoint": endpoint,
-        "unit": unit,
-        "value": value,
-    }
-
-
-def chem_bioactivity_row(
-    *,
-    bioactivity: str,
-    chemical: str,
-    chem_id: str,
-    measurements: Sequence[dict],
-) -> dict:
-    return {
-        "bioactivity_name": bioactivity,
-        "bioactivity_foodatlas_id": "b1",
-        "chemical_name": chemical,
-        "chemical_foodatlas_id": chem_id,
-        "measurement_count": len(measurements),
-        "active_count": 0,
-        "inactive_count": 0,
-        "unspecified_count": 0,
-        "inconclusive_count": 0,
-        "n_foods": 0,
-        "measurements": list(measurements),
-    }

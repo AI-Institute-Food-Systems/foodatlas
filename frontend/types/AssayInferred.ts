@@ -18,6 +18,21 @@ export type AssayTarget = {
   label: string | null;
 };
 
+// The materializer's ASSAY_CAP: stored assay lists hold at most this many.
+export const ASSAY_LIST_CAP = 25;
+
+// A pair's assays that share the exact same activities and relationships.
+// Every assay of the pair is in exactly one group, so summing `n_assays`
+// over the groups that match a filter is an exact filtered count.
+export type AssayGroup = {
+  activities: string[];
+  relationships: string[];
+  n_assays: number;
+  assays: string[];
+  target_genes: string[];
+  targets?: AssayTarget[];
+};
+
 export type AssayInferredAssociation = {
   chemical_name: string;
   chemical_foodatlas_id: string;
@@ -46,4 +61,5 @@ export type AssayInferredAssociation = {
   // than the assay bridge — so the two can be compared. Empty for ~97.5% of
   // rows, which is what makes a match worth surfacing.
   literature_directions: string[];
+  assay_groups?: AssayGroup[];
 };

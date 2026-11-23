@@ -23,7 +23,7 @@ then parse unchanged, defaulting ``status`` to ``"active"``.
 Plaintext keys never live on disk or in this process — only their hashes do.
 Keys are issued, listed and revoked with ``python -m scripts.keys``, which
 writes the secret compare-and-swap and verifies the result; the running API
-picks changes up on the next refresh tick (default 300s) or restart.
+picks changes up on the next refresh tick (default 60s) or restart.
 
 Failure model: the initial load on startup is fail-closed (the app refuses
 to come up) unless ``debug=True`` or ``public_keys_secret_name`` is empty.
