@@ -467,10 +467,10 @@ const EXCLUDED: Record<string, Partial<Record<Property, Exclusion>>> = {
   "components/entities/shared/CorrelationEvidenceTab.tsx": {
     counts: {
       why:
-        "two tables under one panel — Direction filters the literature " +
-        "table, Signal/Activity the assay table — so no count is 'rows on " +
-        "screen'. Direction is pinned per table there; Signal and Activity " +
-        "by health-filter-contract.test.tsx against an oracle.",
+        "two tables, each with its own panel, so no count is 'rows on " +
+        "screen' for the whole tab. Direction buckets are pinned by " +
+        "health-tab-panels.test.tsx; Signal and Activity by " +
+        "health-filter-contract.test.tsx against an oracle.",
       coveredBy: "__tests__/correlation-merge.test.tsx",
     },
   },

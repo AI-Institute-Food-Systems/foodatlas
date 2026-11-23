@@ -262,7 +262,7 @@ export async function getDiseaseData(
   commonName: string,
   currentPage: number,
   tableLocation: string,
-  relation: "all" | "positive" | "negative" = "all",
+  relation: "all" | "positive" | "negative" | "mixed" = "all",
   search = "",
   // Server-side sort; omitted = the API default (most evidence first).
   sort?: { by: "name" | "evidence_count"; dir: "asc" | "desc" }
@@ -288,7 +288,7 @@ export async function getCorrelationDirectionCounts(
   commonName: string,
   tableLocation: string,
   search = ""
-): Promise<{ improves: number; worsens: number; both: number } | null> {
+): Promise<{ improves: number; worsens: number; mixed?: number; both: number } | null> {
   const url =
     `${apiBase()}/${tableLocation}/correlation/direction-counts` +
     `?common_name=${encodeURIComponent(commonName)}` +

@@ -46,9 +46,12 @@ interface Props {
   labAssaySnapshot?: ReactNode;
 }
 
+// Exclusive buckets: a pair reported both ways is Mixed only, so the three
+// named options sum to All.
 const DIRECTIONS: { key: CorrelationDirection; label: string }[] = [
   { key: "all", label: "All" },
   { key: "positive", label: "Improves" },
+  { key: "mixed", label: "Mixed" },
   { key: "negative", label: "Worsens" },
 ];
 
@@ -63,15 +66,19 @@ const CorrelationEvidenceTab = ({
   initialLiterature,
   labAssaySnapshot,
 }: Props) => {
-  const [searchTerm, setSearchTerm] = useState("");
+  // Each table has its own filter panel and search: Direction only applies
+  // to the literature table, Signal and Activity only to the assay table.
+  const [literatureSearch, setLiteratureSearch] = useState("");
   const [direction, setDirection] = useState<CorrelationDirection>("all");
+  const [assaySearch, setAssaySearch] = useState("");
   const [signals, setSignals] = useState<string[]>([]);
   const [activities, setActivities] = useState<string[]>([]);
-  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [literatureFiltersOpen, setLiteratureFiltersOpen] = useState(false);
+  const [assayFiltersOpen, setAssayFiltersOpen] = useState(false);
 
-  // The CTD half filters server-side, so every keystroke would be a
-  // round-trip. The assay half filters in memory and doesn't care.
-  const debouncedSearch = useDebouncedValue(searchTerm, 300);
+  // The CTD table filters server-side, so every keystroke would be a
+  // round-trip. The assay table filters in memory and doesn't care.
+  const debouncedSearch = useDebouncedValue(literatureSearch, 300);
 
   // Aggregated totals → the one tab badge. Each table reports null while
   // its fetch is in flight and the two resolve independently, so the sum
@@ -92,6 +99,7 @@ const CorrelationEvidenceTab = ({
   const [directionCounts, setDirectionCounts] = useState<{
     improves: number;
     worsens: number;
+    mixed?: number;
     both: number;
   } | null>(null);
   useEffect(() => {
@@ -141,11 +149,11 @@ const CorrelationEvidenceTab = ({
 
   const peerLabel = anchor === "chemical" ? "disease" : "chemical";
 
-  const searchInput = (
+  const searchInput = (value: string, set: (v: string) => void) => (
     <FilterSearchInput
-      value={searchTerm}
-      onChange={setSearchTerm}
-      onClear={() => setSearchTerm("")}
+      value={value}
+      onChange={set}
+      onClear={() => set("")}
       placeholder="Search…"
       ariaLabel={`Search ${peerLabel}`}
     />
@@ -155,6 +163,7 @@ const CorrelationEvidenceTab = ({
     if (directionCounts === null) return undefined;
     if (key === "positive") return directionCounts.improves;
     if (key === "negative") return directionCounts.worsens;
+    if (key === "mixed") return directionCounts.mixed ?? 0;
     return directionCounts.both;
   };
 
@@ -182,18 +191,6 @@ const CorrelationEvidenceTab = ({
     </FilterGroup>
   );
 
-  const isDirty =
-    searchTerm !== "" ||
-    direction !== "all" ||
-    signals.length > 0 ||
-    activities.length > 0;
-  const resetAllFilters = () => {
-    setSearchTerm("");
-    setDirection("all");
-    setSignals([]);
-    setActivities([]);
-  };
-
   const literature =
     anchor === "chemical" ? (
       <ChemicalCorrelationSection
@@ -216,7 +213,7 @@ const CorrelationEvidenceTab = ({
     anchor === "chemical" ? (
       <ChemicalAssayInferredSection
         commonName={commonName}
-        search={debouncedSearch}
+        search={assaySearch}
         signals={signals}
         activities={activities}
         onTotalRowsChange={setInferredTotal}
@@ -226,7 +223,7 @@ const CorrelationEvidenceTab = ({
     ) : (
       <DiseaseAssayInferredSection
         commonName={commonName}
-        search={debouncedSearch}
+        search={assaySearch}
         signals={signals}
         activities={activities}
         onTotalRowsChange={setInferredTotal}
@@ -237,40 +234,53 @@ const CorrelationEvidenceTab = ({
     );
 
   return (
-    <FilterPanel
-      search={searchInput}
-      filters={
-        <>
-          {directionFilter}
-          {/* Applies to the lab-assay table only — a literature row has a
-           * direction, not a signal. */}
-          <SignalFilterGroup
-            selected={signals}
-            counts={signalCounts ?? {}}
-            onToggle={(key) => toggle(setSignals, key)}
-            onClear={() => setSignals([])}
-            countsLoaded={signalCounts !== null}
-          />
-          <ActivityFilterGroup
-            selected={activities}
-            counts={activityCounts ?? {}}
-            onToggle={(key) => toggle(setActivities, key)}
-            onClear={() => setActivities([])}
-            countsLoaded={activityCounts !== null}
-          />
-        </>
-      }
-      isDirty={isDirty}
-      onReset={resetAllFilters}
-      open={mobileFiltersOpen}
-      onOpenChange={setMobileFiltersOpen}
-    >
-      <div className="flex flex-col gap-12">
+    <div className="flex flex-col gap-12">
+      <FilterPanel
+        search={searchInput(literatureSearch, setLiteratureSearch)}
+        filters={directionFilter}
+        isDirty={literatureSearch !== "" || direction !== "all"}
+        onReset={() => {
+          setLiteratureSearch("");
+          setDirection("all");
+        }}
+        open={literatureFiltersOpen}
+        onOpenChange={setLiteratureFiltersOpen}
+      >
         {literature}
-        <div className="border-t-2 border-double border-light-700/60" />
+      </FilterPanel>
+      <div className="border-t-2 border-double border-light-700/60" />
+      <FilterPanel
+        search={searchInput(assaySearch, setAssaySearch)}
+        filters={
+          <>
+            <SignalFilterGroup
+              selected={signals}
+              counts={signalCounts ?? {}}
+              onToggle={(key) => toggle(setSignals, key)}
+              onClear={() => setSignals([])}
+              countsLoaded={signalCounts !== null}
+            />
+            <ActivityFilterGroup
+              selected={activities}
+              counts={activityCounts ?? {}}
+              onToggle={(key) => toggle(setActivities, key)}
+              onClear={() => setActivities([])}
+              countsLoaded={activityCounts !== null}
+            />
+          </>
+        }
+        isDirty={assaySearch !== "" || signals.length > 0 || activities.length > 0}
+        onReset={() => {
+          setAssaySearch("");
+          setSignals([]);
+          setActivities([]);
+        }}
+        open={assayFiltersOpen}
+        onOpenChange={setAssayFiltersOpen}
+      >
         {inferred}
-      </div>
-    </FilterPanel>
+      </FilterPanel>
+    </div>
   );
 };
 

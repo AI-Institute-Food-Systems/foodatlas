@@ -20,7 +20,7 @@ import { ChemicalCorrelation } from "@/types";
 
 // "all" is a filter value, not a row value — a row is always one or the
 // other. `rowDirection` narrows it.
-export type CorrelationDirection = "all" | "positive" | "negative";
+export type CorrelationDirection = "all" | "positive" | "negative" | "mixed";
 
 // r4 helps reduce the disease, r3 worsens it. Mirrors RELATION_IDS in
 // backend/api/src/repositories/_correlation.py.

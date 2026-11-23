@@ -50,7 +50,13 @@ type CorrelationEvidenceModalProps = {
   onClose: () => void;
 };
 
-const DIRECTION_OPTIONS: { key: CorrelationDirection; label: string }[] = [
+// Papers, not pairs: a paper reports one direction, so the modal offers the
+// two directions plus All. A Mixed row opens on All.
+type PaperDirection = "all" | "positive" | "negative";
+const paperDirection = (d: CorrelationDirection): PaperDirection =>
+  d === "mixed" ? "all" : d;
+
+const DIRECTION_OPTIONS: { key: PaperDirection; label: string }[] = [
   { key: "all", label: "All" },
   { key: "positive", label: "Improves" },
   { key: "negative", label: "Worsens" },
@@ -73,14 +79,16 @@ const CorrelationEvidenceModal = ({
   initialDirection = "all",
 }: CorrelationEvidenceModalProps) => {
   const reporter = useReportRows();
-  const [direction, setDirection] = useState<CorrelationDirection>(initialDirection);
+  const [direction, setDirection] = useState<PaperDirection>(
+    paperDirection(initialDirection)
+  );
   useEffect(() => {
-    if (isOpen) setDirection(initialDirection);
+    if (isOpen) setDirection(paperDirection(initialDirection));
   }, [isOpen, initialDirection]);
 
   const improves = improvesEvidences ?? [];
   const worsens = worsensEvidences ?? [];
-  const counts: Record<CorrelationDirection, number> = {
+  const counts: Record<PaperDirection, number> = {
     all: distinctCount([improves, worsens]),
     positive: improves.length,
     negative: worsens.length,
