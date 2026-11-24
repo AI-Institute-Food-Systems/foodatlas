@@ -69,6 +69,26 @@ class KGDiffResult:
     entity_details: EntityDetailChanges
     source_coverage: SourceCoverage
 
+    @property
+    def is_unchanged(self) -> bool:
+        """True when the new KG has the old one's entities, triplets and attestations.
+
+        A week like this is not a release: the weekly pipeline uses it to stop
+        before publishing an identical graph under a new version number.
+        """
+        ents, trips = self.entity_summary, self.triplet_summary
+        src = self.source_coverage
+        old_attestations = sum(src.old_contains_by_source.values()) + sum(
+            src.old_diseases_by_source.values()
+        )
+        return (
+            not ents.new_ids
+            and not ents.removed_ids
+            and trips.new_count == 0
+            and trips.removed_count == 0
+            and old_attestations == sum(src.new_attestations_by_source.values())
+        )
+
 
 def _make_triplet_keys(df: pd.DataFrame) -> pd.Series:
     return df["head_id"] + "_" + df["relationship_id"] + "_" + df["tail_id"]

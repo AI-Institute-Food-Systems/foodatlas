@@ -340,6 +340,12 @@ run_publish() {
     [[ "$INTERACTIVE" == true && -z "$DRY_RUN" ]] && confirm_publish
     write_changelog
 
+    if [[ "$GRAPH_UNCHANGED" == true && "$PUBLISH_ONLY" == false ]]; then
+        log "Graph identical to the last release — stopping without publishing (no new version)."
+        drop_unused_release_version
+        exit 0
+    fi
+
     log "=== $tag: publish KGC outputs to S3 ==="
     cd "$KGC_DIR"
     ./scripts/sync-outputs-to-s3.sh ${DRY_RUN:+--dry-run} 2>&1 | tee "$LOG_DIR/s3.log"
@@ -380,15 +386,31 @@ confirm_publish() {
 
 # CHANGELOG.md is required by the S3 publish step; the report command produces
 # it by diffing against data/PreviousFAKG. Write a placeholder if there's no
-# baseline (loudly warned, not silently faked).
+# baseline (loudly warned, not silently faked). The report also tells us when
+# the graph is identical to that baseline (exit 3): such a week is not a
+# release, and run_publish stops before minting a version for the same data.
+# Manual --publish runs ignore it — republishing existing outputs is deliberate.
+GRAPH_UNCHANGED=false
 write_changelog() {
     log "=== KGC release report (CHANGELOG.md) ==="
     cd "$KGC_DIR"
-    if ! uv run python main.py report 2>&1 | tee "$LOG_DIR/report.log"; then
-        log "  WARN: report failed (no data/PreviousFAKG baseline?) — writing placeholder."
-        printf '# FoodAtlas KG — %s\n\nDiff report unavailable on this host.\n' "$RUN_DATE" \
-            > "$KGC_DIR/outputs/kg/CHANGELOG.md"
-    fi
+    local status=0
+    uv run python main.py report --fail-if-unchanged 2>&1 | tee "$LOG_DIR/report.log" || status=$?
+    case "$status" in
+        0) ;;
+        3) GRAPH_UNCHANGED=true ;;
+        *) log "  WARN: report failed (no data/PreviousFAKG baseline?) — writing placeholder."
+           printf '# FoodAtlas KG — %s\n\nDiff report unavailable on this host.\n' "$RUN_DATE" \
+               > "$KGC_DIR/outputs/kg/CHANGELOG.md" ;;
+    esac
+}
+
+# The version number was reserved before the build (SUMMARY-vX.Y.md written by
+# run_newsletter); free it so the next week with new data takes it.
+drop_unused_release_version() {
+    [[ -n "$RELEASE_VERSION" ]] || return 0
+    rm -f "$KGC_DIR/release_notes/SUMMARY-$RELEASE_VERSION.md"
+    log "  Removed release_notes/SUMMARY-$RELEASE_VERSION.md — $RELEASE_VERSION stays free for the next release."
 }
 
 # Derive the next release version by bumping the highest SUMMARY-vX.Y.md in
