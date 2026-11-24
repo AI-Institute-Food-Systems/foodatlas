@@ -11,7 +11,11 @@ if TYPE_CHECKING:
     from pathlib import Path
 from src.pipeline.report.load_old import OldKG
 from src.pipeline.report.runner import (
+    EntityDetailChanges,
+    EntitySummary,
     KGDiffResult,
+    SourceCoverage,
+    TripletSummary,
     compare_entities,
     compare_entity_details,
     compare_sources,
@@ -194,3 +198,34 @@ class TestRunDiff:
         assert result.triplet_summary.new_count == 1
         assert result.triplet_summary.stable_count == 1
         assert len(result.entity_details.name_changes) == 1
+
+
+class TestIsUnchanged:
+    @staticmethod
+    def _result(
+        new_ids: list[str] | None = None,
+        removed_count: int = 0,
+        new_attestations: dict[str, int] | None = None,
+    ) -> KGDiffResult:
+        return KGDiffResult(
+            entity_summary=EntitySummary(new_ids=new_ids or []),
+            triplet_summary=TripletSummary(removed_count=removed_count),
+            entity_details=EntityDetailChanges(),
+            source_coverage=SourceCoverage(
+                old_contains_by_source={"fdc": 5},
+                old_diseases_by_source={"ctd": 3},
+                new_attestations_by_source=new_attestations or {"fdc": 5, "ctd": 3},
+            ),
+        )
+
+    def test_identical_graph_is_unchanged(self) -> None:
+        assert self._result().is_unchanged
+
+    def test_new_entity_is_a_change(self) -> None:
+        assert not self._result(new_ids=["e9"]).is_unchanged
+
+    def test_removed_triplet_is_a_change(self) -> None:
+        assert not self._result(removed_count=1).is_unchanged
+
+    def test_extra_attestation_on_existing_triplet_is_a_change(self) -> None:
+        assert not self._result(new_attestations={"fdc": 6, "ctd": 3}).is_unchanged
