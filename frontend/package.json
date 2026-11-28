@@ -11,7 +11,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@aws-sdk/client-sesv2": "^3.1161.0",
+    "@aws-sdk/client-sesv2": "^3.1177.0",
     "@headlessui/react": "^2.2.10",
     "@llm-ui/code": "^0.13.3",
     "@llm-ui/markdown": "^0.13.3",
@@ -44,7 +44,7 @@
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "@vitejs/plugin-react": "^4.3.0",
-    "autoprefixer": "^10.6.2",
+    "autoprefixer": "^10.7.0",
     "eslint": "^8.0.0",
     "eslint-config-next": "14.2.35",
     "jsdom": "^25.0.0",
